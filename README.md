@@ -25,7 +25,8 @@ Vercel and Railway are temporary delivery targets, not application dependencies.
 - [Plan, decisions, and AI contribution log](plan.md)
 - [Proposed project structure and financial model](project-structure.md)
 - [Approved MVP data model version 1.3 and validation gates](data-model.md)
+- [Draft product and interface design](product-design.md)
 
-The current design stage will produce `product-design.md` with the approved page count, route map, per-page interaction elements, UI states, and screen-to-data contracts.
+Product-design Draft 0.1 proposes seven page families, route ownership, per-page interaction elements, UI states, responsive/accessibility behavior, and screen-to-data contracts. It remains subject to human approval before implementation.
 
 Participation: Start Fresh. All repository text is written in English; team communication may use Chinese. Preserve meaningful Git history and update the AI contribution record as work progresses. Runnable setup and verified demo evidence will be added with implementation.
