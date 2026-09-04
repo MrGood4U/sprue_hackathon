@@ -2,7 +2,7 @@
 
 ## Status
 
-This document records the completed project-structure conception and the selected technical/deployment boundaries. The version 1.0 data-model decisions are complete, and MVP implementation is the current stage. [Data-model Draft 1.1](data-model.md) contains evidence-driven Privy wallet and payment refinements that require human review before affected migrations are generated.
+This document records the completed project-structure conception and the selected technical/deployment boundaries. [Data-model version 1.1](data-model.md), including the evidence-driven Privy wallet and payment refinements, is approved as the implementation baseline. MVP implementation is the current stage.
 
 ## Product Model
 

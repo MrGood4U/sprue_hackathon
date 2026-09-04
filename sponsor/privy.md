@@ -34,6 +34,8 @@ Neither award is labeled Continuity-only on this page. Event-wide rules still ap
 
 The user confirmed the creator-account wallet model on 2026-09-05. The product role below supersedes the earlier buyer-first proposal; award selection and provider interoperability remain unverified.
 
+The human team approved the concrete Sprue control model on 2026-09-05: a user-owned wallet, a policy-bound Sprue additional signer, immutable local snapshots of the accepted provider policy, and strict Sprue database budget reservations. Provider-specific configuration and live enforcement remain validation gates.
+
 The creator has a Privy-backed account wallet, tops it up, and grants Sprue limited authority to pay Graph data costs. Sprue handles purchases during builds and refreshes, without the creator manually paying each query. Following the user's Hedera selection, the creator account remains the intended ownership identity for optional API-sale receipts, but a usable Privy-backed Hedera recipient must be validated. Shared ownership does not establish shared network balances or signer compatibility. External API buyers are not required to use Privy.
 
 Do not treat login, wallet creation, a displayed balance, or passive receipt of revenue alone as our completed integration evidence. Show the wallet action and its outcome as part of the user's task.
@@ -149,7 +151,6 @@ A signed authorization alone is not our proof of a completed paid data request. 
 
 ## Pending Technical Decisions
 
-- Which exact account-wallet ownership, delegated signing, budget, and revocation configuration will implement the confirmed creator role?
 - Can the provider policy be owned or jointly controlled so that Sprue cannot unilaterally weaken the user's approved signer scope?
 - Which exact networks, assets, x402 versions, and signing methods work for the upstream Graph endpoint and downstream Hedera/Blocky402 path, respectively?
 - Can the intended Privy-backed creator control a usable Hedera recipient, receive the selected asset, and subsequently access proceeds? Do not equate this with an external buyer's ability to sign a payment.

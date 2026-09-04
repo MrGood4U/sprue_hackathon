@@ -2,11 +2,11 @@
 
 ## Status
 
-Version: Draft 1.1
+Version: 1.1
 
 Date: 2026-09-05
 
-Stage: Version 1.0 is the approved MVP baseline. Draft 1.1 refines Privy resource boundaries from official documentation and requires human review before wallet or payment migrations. External integration and implementation validation remain open.
+Stage: Approved as the MVP implementation baseline. External integration and implementation validation remain open.
 
 This document is the source of truth for Sprue's MVP domain model, PostgreSQL persistence model, lifecycle rules, financial separation, and runtime records. It translates the product and architecture decisions in [agents.md](agents.md), [plan.md](plan.md), and [project-structure.md](project-structure.md) into an implementation-ready model.
 
@@ -1377,6 +1377,7 @@ User + Workspace
 ## Implementation Readiness and Validation Checklist
 
 - [x] Human confirmed the four MVP defaults on 2026-09-05.
+- [x] Human approved the user-owned wallet, policy-bound Sprue additional signer, immutable provider-policy snapshot, and Sprue database budget model on 2026-09-05.
 - [x] Documentation review confirms that every P0 user action maps to explicit inserts, updates, or reads.
 - [ ] The initial Graph source and actual x402 payment responses fit the provider-reference fields.
 - [x] Official Privy documentation confirms that wallet, owner, additional-signer/key-quorum, policy, provider reference, request-expiry, and idempotency identifiers can be stored without wallet or authorization private-key material.
@@ -1413,4 +1414,4 @@ After human approval, changes to this model require:
 3. Tests for affected transitions, constraints, and derived views.
 4. An AI contribution and project change-log entry in [plan.md](plan.md) when AI materially influenced the change.
 
-The human team approved version 1.0 as the MVP implementation baseline on 2026-09-05. Draft 1.1 records evidence-driven Privy refinements for human review before affected migrations are generated. Other open checklist items remain implementation and external-integration validation gates.
+The human team approved version 1.1 as the MVP implementation baseline on 2026-09-05. Open checklist items remain implementation and external-integration validation gates; new evidence still follows the change-control process above.
