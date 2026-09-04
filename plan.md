@@ -44,6 +44,8 @@ Choose the implementation stack and validate the external dependencies that dire
 
 The Graph's requirements and proposed development gates are recorded in [sponsor/graph.md](sponsor/graph.md). Review them during dependency validation and final submission preparation. Research is complete, but integration checks and final eligibility confirmation remain pending.
 
+Bazantic's award conditions, proposed publication boundary, Recipe evidence gates, and unresolved technical questions are recorded in [sponsor/bazantic.md](sponsor/bazantic.md). Evaluate the sponsor-API workflow as a candidate fit; do not assume eligibility, automated provisioning, or wallet compatibility from the prize description alone.
+
 ### 4. MVP Implementation
 
 Build the smallest reliable end-to-end product: natural-language planning, Graph-backed data transformation, validated DAG execution, persistent API, conversational editing, x402 publication, and one real paid consumer request.
@@ -246,6 +248,7 @@ For each substantial AI-assisted contribution, record the following information 
 | 2026-09-05 | Deployment architecture | Reviewed the hosted structure against Fly.io-style public deployment constraints | Human identified the need for an evaluator-accessible hosted demo | Checked official Fly.io guidance for process groups, persistence, secrets, deployment, and health checks |
 | 2026-09-05 | Sponsor selection | Updated the integration plan to The Graph, Bazantic, and Privy | Human selected the sponsor combination | Roles were mapped to data, agent-service, and embedded-wallet layers; official qualification details remain a technical-selection task |
 | 2026-09-05 | The Graph sponsor research | Summarized official award requirements, reviewed linked technical references, and proposed source-validation and evidence gates in `sponsor/graph.md` | Human supplied the official prize URL and requested a reusable development reference; track selection and final review remain pending | Cross-checked the official ETHGlobal page, Graph documentation, and sponsor-linked skill repository READMEs; no live integration or eligibility certification performed |
+| 2026-09-05 | Bazantic sponsor research | Drafted `sponsor/bazantic.md` with award-specific conditions, proposed Recipe checks, and publication integration unknowns | Human supplied the Bazantic prize URL for the sponsor-reference workflow; award selection and review remain pending | Read the complete Bazantic section of the official event prize listing after the individual page could not be retrieved; no account, gateway, Recipe, or payment integration was created |
 
 This table must be updated when AI materially influences architecture, implementation, testing, or submission content.
 
@@ -281,3 +284,4 @@ The central explanation for judges is:
 | 2026-09-05 | Added Fly.io-compatible deployment guidance to the project structure | Make the public hosted demo reliable without turning every data product into a separate deployment |
 | 2026-09-05 | Selected The Graph, Bazantic, and Privy as the planned sponsor integrations | Align the technical-selection phase with the team's sponsor strategy |
 | 2026-09-05 | Added The Graph sponsor reference and linked development gates | Separate official requirements from implementation proposals and preserve a source-backed compliance checklist |
+| 2026-09-05 | Added the Bazantic sponsor reference and research record | Make award-specific evidence and publication unknowns explicit before implementation |

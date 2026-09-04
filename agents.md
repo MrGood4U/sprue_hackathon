@@ -69,7 +69,7 @@ The selected sponsor integrations are The Graph, Bazantic, and Privy. The Graph 
 
 ## Sponsor References
 
-Before implementing or changing a sponsor integration, consult the corresponding reference in `sponsor/`. [The Graph requirements](sponsor/graph.md) distinguish official qualification rules from proposed Sprue acceptance checks. Keep evidence-based completion status and recheck official sources before submission.
+Before implementing or changing a sponsor integration, consult the corresponding reference in `sponsor/`. [The Graph requirements](sponsor/graph.md) and [Bazantic requirements](sponsor/bazantic.md) distinguish official qualification rules from proposed Sprue acceptance checks. Keep evidence-based completion status and recheck official sources before submission.
 
 ## Repository Language Rule
 
