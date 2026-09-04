@@ -231,72 +231,82 @@ The deployment controller turns an approved product definition into a hosted run
 
 The product definition changes; the platform infrastructure does not need to be reprovisioned for every product.
 
-The controller should depend on a runtime adapter rather than on Fly.io-specific behavior. The first adapter may target one shared Fly App; a future adapter could support a dedicated customer deployment without changing the Creator Console or product model.
+The controller should depend on a runtime adapter rather than on provider-specific behavior. The first runtime target is one shared Sprue backend; a future adapter could support a dedicated customer deployment without changing the Creator Console or product model.
 
-## Fly.io-Compatible Hosting Model
+## Confirmed Deployment and Portability Model
 
-Fly.io is a suitable deployment target for a public demo because the application can be packaged as a Docker image and deployed from a repository-local `fly.toml`. The deployment model affects the runtime structure in several important ways.
+On 2026-09-05, the user selected Vercel plus Railway for temporary evaluator access and required Docker self-hosting from the same source without application-code changes. Provider configuration may differ, but product behavior and service contracts must remain identical.
 
-### Recommended Fly App Layout
-
-Use one Fly App with logically separate process groups built from the same image:
+### Evaluator Cloud Profile
 
 ```text
-Fly App: sprue
-├── web
-│   ├── Creator Console
+Vercel
+└── Creator Console
+        |
+        v
+Railway project
+├── API (public HTTP)
 │   ├── Control API
 │   ├── Hosted Product API
 │   └── x402 payment gate and Blocky402 adapter
-└── worker
-    ├── product builds
-    ├── validation runs
-    ├── backfills
-    └── scheduled refreshes
+├── Worker (private)
+│   ├── product builds and validation
+│   ├── backfills
+│   └── scheduled refreshes
+└── PostgreSQL (private source of truth)
 ```
 
-Only the `web` process should receive public HTTP traffic. The `worker` process should not be exposed as a public service. Keeping long-running builds and refresh jobs out of the request process protects the public API from timeouts and makes the boundary compatible with Fly process groups.
+Use platform-provided domains for the hackathon. Only the Creator Console and API receive public traffic. The worker and database stay private. Keeping long-running builds and refreshes outside the API request lifecycle prevents evaluator requests from depending on long HTTP timeouts.
 
-The Hedera decision changes the payment adapter, not the shared hosting model. The proposed API remains an HTTP service on the web runtime; Blocky402 handles settlement on the network. No separate application server is provisioned for each product, and no Bazantic-hosted proxy is assumed.
+The control API and Hosted Product API may run in the same Railway API service for the MVP. All products share that service and stable routes such as `/products/{id}`; creating a product does not provision a new service. Hedera changes the payment adapter, not the deployment topology, and Blocky402 is not treated as an application host.
 
-For the smallest MVP, the control API and Hosted Product API may run in the same `web` process. The logical boundary should still remain visible in the code so that the worker can be separated without redesigning the product model.
+### Docker Self-Hosted Profile
+
+```text
+Docker Compose
+├── frontend
+├── api
+├── worker
+└── postgres
+```
+
+The Docker profile must run the same frontend, API, worker, migrations, and data model as the evaluator profile. It may use separate frontend and backend images, and the API and worker may use different start commands from the same backend image. Switching profiles may change environment values, image/build commands, networking, and secret injection, but must not require a source patch or provider-specific branch.
+
+Keep provider manifests thin and isolated under `infrastructure/`. Domain, DAG, Agent, Graph, wallet, and payment modules must not import Vercel or Railway deployment APIs. If future product provisioning needs provider APIs, place them behind deployment adapters.
 
 ### Persistence Requirement
 
 The product registry, versions, policies, account-wallet references, budget reservations, build metadata, usage events, and payment/ledger events are source-of-truth data and must not depend on an ephemeral filesystem.
 
-The preferred hosted shape is:
-
-```text
-Web and worker processes
-          |
-          +--> managed relational database
-          +--> optional cache/materialized-result store
-          +--> optional object storage for large artifacts
-```
-
-A Fly Volume may be useful for a single-machine demo cache or local artifact store, but it is local to the Machine it is attached to. It should not be treated as shared durable storage for a multi-machine application. The product registry should therefore use an external or managed database before the public demo is opened to evaluators.
+Both deployment profiles use PostgreSQL through a standard connection string. Railway supplies PostgreSQL for the evaluator profile; Docker Compose supplies it for self-hosting. Large artifacts may later use an object-store adapter, but local container or service storage must not become an undeclared source of truth.
 
 ### Health and Deployment Contract
 
-The web process should expose at least:
+The API process should expose at least:
 
-- `/healthz`: process is running;
+- `/healthz`: the process is running;
 - `/readyz`: required dependencies are reachable and the process can serve traffic;
-- `/products/{id}`: hosted product endpoint;
+- `/products/{id}`: the hosted product endpoint;
 - a lightweight smoke-test route for deployment verification.
 
-The deployment configuration should include health checks, a Dockerfile, a `fly.toml`, a non-secret environment template, and a repeatable deployment/smoke-test command. Database migrations should be explicit and should not rely on a mounted local volume being available during a release step.
+The portable deployment contract also requires:
+
+- documented, validated environment variables, including the public API origin and allowed frontend origins;
+- an explicit API start command and worker start command;
+- repeatable schema migration and smoke-test commands;
+- graceful API shutdown and safe worker job handoff or retry;
+- no dependency on a specific working directory, writable application image, or local persistent filesystem;
+- equivalent readiness behavior in Railway and Docker Compose.
 
 ### Secrets and Public Access
 
-LLM credentials, The Graph credentials, x402 facilitator credentials, database credentials, and signing material must remain server-side. They should be injected into the hosted processes through the platform's secret mechanism and never be sent to the browser or committed to the repository.
+LLM credentials, The Graph credentials, x402 facilitator credentials, database credentials, and signing material must remain server-side. Railway secrets or Docker runtime secrets/environment files inject them into backend processes. They must never be included in frontend build output, container images, or repository history.
 
-The public deployment should expose the Creator Console and the demo product API, but expensive Builder execution should remain authenticated, quota-bounded, or owner-controlled. A public evaluator-facing URL is not the same thing as an unrestricted build sandbox.
+The public deployment exposes the Creator Console and demo product API, but expensive Builder execution remains authenticated, quota-bounded, or owner-controlled. A public evaluator-facing URL is not an unrestricted build sandbox.
 
 ### Managed Hosting Boundary
 
-The hosted-service promise should be represented in the product model with a deployment target and runtime status:
+The hosted-service promise remains a product-level deployment target rather than a provider name:
 
 ```text
 Data Product
@@ -305,7 +315,7 @@ Data Product
     -> Endpoint: /products/{id}
 ```
 
-This leaves room for future `dedicated-hosted` or customer-managed targets without making the MVP provision Fly Apps or Machines dynamically.
+Vercel plus Railway and Docker Compose are two ways to run the shared Sprue platform. This leaves room for future `dedicated-hosted` or customer-managed targets without coupling product definitions to infrastructure vendors.
 
 ## Data Plane
 
@@ -342,7 +352,7 @@ This list is an operator catalog, not a required sequence. Different requests ma
 - Report unsupported transformations explicitly instead of adding unrestricted code execution as a fallback.
 - Keep the job queue separate from the DAG executor. A queue retry does not guarantee exactly-once payment or other business side effects; reconcile paid work before retrying it.
 
-Refresh timing and materialization remain separate product policies. This execution boundary does not select a framework, queue library, database vendor, or deployment platform.
+Refresh timing and materialization remain separate product policies. This execution boundary does not select a framework, queue library, or execution implementation, and it must remain portable across the confirmed deployment profiles.
 
 ### Scheduler, Materializer, and Cache
 
@@ -440,7 +450,8 @@ The following structure is intentionally framework-agnostic and may change durin
 ├── README.md
 ├── apps/
 │   ├── web/                # Creator Console
-│   └── api/                # Control API and hosted product endpoints
+│   ├── api/                # Control API and hosted product endpoints
+│   └── worker/             # Builds, backfills, and refreshes
 ├── packages/
 │   ├── domain/             # Product, version, policy, and event models
 │   ├── dag/                # Spec types, validation, compilation, runtime
@@ -448,7 +459,10 @@ The following structure is intentionally framework-agnostic and may change durin
 │   ├── graph/              # The Graph adapters and schema handling
 │   ├── payments/           # x402 integration and payment events
 │   └── shared/             # Shared types and utilities
-├── infrastructure/        # Deployment, environment, and service configuration
+├── infrastructure/
+│   ├── vercel/             # Evaluator frontend deployment
+│   ├── railway/            # Evaluator API, worker, and database deployment
+│   └── docker/             # Images, Compose profile, and self-host configuration
 ├── tests/                  # Unit, integration, and end-to-end tests
 └── docs/                   # Technical and submission documentation
 ```
@@ -461,8 +475,8 @@ The first implementation should include:
 
 - one Creator Console;
 - one backend that combines the control plane and data plane where practical;
-- one shared hosted runtime;
-- one public web process and one private worker process, logically separated even if they share an image;
+- one logical shared runtime across a public Creator Console, a public API process, and a private worker process;
+- one Vercel plus Railway evaluator profile and one equivalent Docker Compose self-hosting profile;
 - one representative Graph-backed data product;
 - one funded creator account wallet with bounded, Sprue-managed Graph payments;
 - fixed, validated transformation node types;
@@ -474,7 +488,7 @@ The first implementation should include:
 The first implementation should not require:
 
 - a separate server or container for every product;
-- a product registry stored only on a local Fly filesystem or single-purpose demo volume;
+- a product registry stored only on an ephemeral service or container filesystem;
 - a public Builder Agent with unlimited execution;
 - a full marketplace;
 - general-purpose autonomous treasury management beyond bounded data purchases;
@@ -490,7 +504,7 @@ The first implementation should not require:
 - Products should be private by default and bounded by resource policies.
 - Hosted APIs must expose freshness, status, and useful error information.
 - External integrations must be replaceable behind clear adapters.
-- The technical stack remains open until the next planning phase validates sponsor and deployment requirements.
+- The remaining technical stack must preserve the confirmed Vercel, Railway, and Docker deployment contract.
 
 ## Open Decisions for Technical Selection
 
@@ -498,9 +512,9 @@ The first implementation should not require:
 - Backend language and API framework.
 - LLM provider and agent orchestration approach.
 - The Graph MCP versus direct API usage for each operation.
-- DAG execution model and persistence layer.
+- DAG operator subset, execution library, and persistence schema.
 - Scheduler and cache implementation.
-- Hosting provider and deployment model.
+- Exact Railway service sizing, evaluator availability window, Docker image layout, and operational runbook.
 - Exact test/mainnet environment, supported Hedera payment asset, SDK versions, and Blocky402 settlement configuration; the downstream network family and facilitator are selected.
 - Creator-wallet delegation, funding, budget enforcement, and Graph payment compatibility.
 - Privy-to-Hedera account/recipient mapping, creator ownership and access to proceeds, and buyer signer support. Do not infer compatibility from EVM support alone.

@@ -78,6 +78,22 @@ The selected sponsor integrations are The Graph, Hedera, and Privy. The user sel
 
 Bazantic integration and Recipe deliverables are no longer in the active plan. Its research is retained only as historical context. Building, refreshing, hosting, and privately using an API must not require downstream paid publication.
 
+## Confirmed Deployment Strategy
+
+On 2026-09-05, the user selected Vercel plus Railway for the temporary evaluator-facing deployment. Vercel hosts the Creator Console. Railway hosts the public API, private background worker, and PostgreSQL database. Platform-provided domains are sufficient for the hackathon; a custom domain is not required.
+
+Sprue must also support Docker-based self-hosting from the same source without changing application or business logic. Deployment manifests may differ, but provider-specific behavior must remain outside the domain, DAG, Agent, Graph, wallet, and payment modules. The portable deployment contract is:
+
+- configure services and public URLs through validated environment variables;
+- use a standard PostgreSQL connection string and explicit migrations;
+- keep durable state out of ephemeral filesystems;
+- expose health and readiness endpoints;
+- run the API and worker as separate commands or containers from the same codebase;
+- provide a Docker Compose profile for the frontend, API, worker, and PostgreSQL;
+- keep secrets server-side and outside images, frontend bundles, and repository history.
+
+Vercel and Railway are the demo delivery profile, not permanent product dependencies. A Docker operator must be able to supply equivalent configuration, networking, persistence, and secrets without patching source code.
+
 ## Account Wallet and Revenue Model
 
 The user confirmed this model on 2026-09-05: the creator funds an account wallet; Sprue handles Graph purchases within the creator's authorized budget. If the creator opts into x402 publication, API sales produce creator revenue, with a Sprue service fee deducted from those sales if enabled and disclosed. Top-ups are user funds, not platform revenue.

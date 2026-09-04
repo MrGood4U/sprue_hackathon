@@ -40,7 +40,7 @@ Define the product direction, target user, core differentiation, sponsor opportu
 
 Turn the product direction into a concrete system and repository structure. Define the main user journey, frontend and backend responsibilities, shared Data Product Spec, transformation DAG, product lifecycle, API shape, and the smallest demonstrable vertical slice.
 
-The current product shape is a hosted web platform with two connected surfaces: a Creator Console for building and operating products, and a Hosted Product API for external consumer agents and applications. Sprue provides the managed chain from natural-language analysis through The Graph, transformation, API hosting, and x402 access. For a public demo, the preferred deployment shape is one shared hosted runtime with separate web and worker responsibilities, external source-of-truth persistence, server-side secrets, and health-checked deployment. The current structure is documented in [`project-structure.md`](project-structure.md).
+The current product shape is a hosted web platform with two connected surfaces: a Creator Console for building and operating products, and a Hosted Product API for external consumer agents and applications. Sprue provides the managed chain from natural-language analysis through The Graph, transformation, API hosting, and x402 access. For the temporary evaluator-facing demo, deploy the Creator Console to Vercel and the API, worker, and PostgreSQL to Railway. Keep the same application portable to Docker self-hosting without source changes. The current structure is documented in [`project-structure.md`](project-structure.md).
 
 ### 3. Technical Selection, Including Sponsors
 
@@ -142,7 +142,20 @@ On 2026-09-05, the user approved Option A: dynamically compose predefined, devel
 
 The MVP must validate operator support, configuration, input/output compatibility, cycles, permissions, and resource budgets. Unsupported intent should produce an explicit limitation or a supported alternative, not an unrestricted code-execution fallback. Validate and bound generated Graph query configuration separately.
 
-Store a versioned execution definition separately from UI layout and pin each run to a definition version. Queue scheduling, DAG execution, and result refresh/materialization are separate responsibilities. The exact operator subset, implementation stack, execution libraries, and hosting provider remain open decisions.
+Store a versioned execution definition separately from UI layout and pin each run to a definition version. Queue scheduling, DAG execution, and result refresh/materialization are separate responsibilities. The exact operator subset, implementation stack, and execution libraries remain open decisions.
+
+## Confirmed Deployment Strategy
+
+On 2026-09-05, the user selected Vercel plus Railway for temporary evaluator access:
+
+```text
+Vercel: Creator Console
+Railway: public API + private worker + PostgreSQL
+```
+
+Use provider-supplied domains for the hackathon. Do not make Vercel or Railway behavior part of application logic. The same source must support a Docker Compose deployment of the frontend, API, worker, and PostgreSQL, configured through environment variables and a standard PostgreSQL connection string. Platform manifests and deployment commands may differ; product behavior, APIs, jobs, migrations, and data models must not.
+
+This is a demo delivery decision, not a commitment to permanent managed hosting. Exact service sizing and the activation/deactivation schedule remain operational decisions. No cloud account, deployment, or paid resource has been created by this plan.
 
 ## Architecture Plan
 
@@ -166,6 +179,15 @@ Store a versioned execution definition separately from UI layout and pin each ru
 - Separate upstream Graph payment and downstream Hedera x402 adapters; Sprue owns pricing and endpoint gating, and Blocky402 handles downstream verification/settlement.
 - Creator-wallet authorization, upstream payment orchestration, and funding/expense/revenue reconciliation.
 - Optional scheduler, cache, and materialized-result store.
+
+### Deployment and Portability
+
+- Deploy the Creator Console to Vercel for evaluator access.
+- Deploy the public API and private worker as separate Railway services; use Railway PostgreSQL for the demo.
+- Provide Docker images and a Compose profile that run equivalent frontend, API, worker, and PostgreSQL roles without source changes.
+- Keep provider configuration under infrastructure files and runtime configuration in validated environment variables.
+- Use explicit database migrations, health/readiness checks, and smoke tests in both deployment profiles.
+- Keep durable state outside ephemeral service filesystems and never bake secrets into images or frontend bundles.
 
 ### Shared Data Model
 
@@ -223,11 +245,13 @@ The frontend edits the graph; the backend validates, compiles, runs, and persist
 
 ### Phase 5: Add Monetization and Demo Hardening
 
-1. Add a publish action that configures the selected product's Sprue-hosted x402 gate, Hedera price/recipient, and Blocky402 integration.
-2. Run a real consumer-agent paid request and correlate the returned data with Hedera settlement evidence.
-3. Show Graph expenses, gross API sales, creator proceeds, and any enabled platform fee as distinct records in the workspace.
-4. Add caching, rate limits, and bounded demo budgets.
-5. Record a reliable 2-4-minute end-to-end demo covering both sponsor paths; this proposed duration also fits Hedera's five-minute ceiling. Verify the public repository history and final award-specific evidence.
+1. Package equivalent frontend, API, worker, and PostgreSQL roles for Docker Compose self-hosting.
+2. Deploy the Creator Console to Vercel and the API, worker, and PostgreSQL to Railway; run migrations, health checks, and evaluator-path smoke tests.
+3. Add a publish action that configures the selected product's Sprue-hosted x402 gate, Hedera price/recipient, and Blocky402 integration.
+4. Run a real consumer-agent paid request and correlate the returned data with Hedera settlement evidence.
+5. Show Graph expenses, gross API sales, creator proceeds, and any enabled platform fee as distinct records in the workspace.
+6. Add caching, rate limits, and bounded demo budgets.
+7. Record a reliable 2-4-minute end-to-end demo covering both sponsor paths; this proposed duration also fits Hedera's five-minute ceiling. Verify the public repository history and final award-specific evidence.
 
 ## Validation Strategy
 
@@ -287,6 +311,7 @@ For each substantial AI-assisted contribution, record the following information 
 | 2026-09-05 | Creator-wallet payment model | Corrected sponsor roles, scope, money flows, and evidence plans around the creator account wallet | Human specified wallet top-ups, Sprue-managed Graph purchases, optional Bazantic publication, creator revenue, and possible sales-based service fees | Checked official Graph x402 and Privy wallet documentation; product intent is confirmed, but provider interoperability and fee settlement remain untested; no funds moved |
 | 2026-09-05 | Hedera sponsor replacement | Drafted `sponsor/Hedera.md`, replaced active Bazantic/Recipe work with Sprue-hosted x402 gating and Hedera/Blocky402 settlement, and updated financial and evidence boundaries | Human selected Hedera for the x402 step and requested the reference and replacement; wallet compatibility, fee terms, and implementation choices remain pending | Checked official ETHGlobal Hedera requirements, Blocky402, Graph payment, and Privy x402 documentation; validated documentation consistency; no wallets, paid calls, or deployed integrations were created |
 | 2026-09-05 | DAG execution boundary and hosting costs | Recorded the predefined-operator DAG model in project guidance, architecture, and the implementation plan; researched Render's web, worker, database, and free-tier costs | Human approved Option A and requested a hackathon budget estimate; the stack and hosting provider remain unselected | Cross-checked the confirmed decision and official Render pricing, workspace-plan, database-storage, billing, and free-tier documentation; documentation changes only, with no deployment or purchase |
+| 2026-09-05 | Portable evaluator deployment | Defined Vercel and Railway service roles plus a provider-neutral Docker self-hosting contract | Human selected Vercel plus Railway for temporary evaluator access and required Docker self-hosting without source changes | Compared official Vercel and Railway capabilities and pricing with past ETHGlobal deployment patterns; documentation changes only, with no cloud account, resource, or deployment created |
 
 This table must be updated when AI materially influences architecture, implementation, testing, or submission content.
 
@@ -328,3 +353,4 @@ The central explanation for judges is:
 | 2026-09-05 | Replaced the buyer-first wallet proposal with the confirmed creator-account model | Make Graph payment automation core, Bazantic publication optional, and revenue/fee accounting explicit |
 | 2026-09-05 | Replaced Bazantic with Hedera and Blocky402 in the active x402 plan; retained superseded research and earlier logs | Follow the user's sponsor decision, remove Recipe deliverables, and expose recipient compatibility and separate-network accounting gates without claiming implementation |
 | 2026-09-05 | Confirmed dynamic DAG composition from predefined operators, excluding arbitrary generated-code execution from the MVP | Record the user's Option A decision while leaving the stack and hosting choice open |
+| 2026-09-05 | Selected Vercel plus Railway for the evaluator demo and required source-compatible Docker self-hosting | Optimize temporary judge access while preserving deployment portability and avoiding permanent provider coupling |
