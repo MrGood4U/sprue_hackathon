@@ -547,7 +547,7 @@ The human team selected the third visual exploration on 2026-09-05. The directio
 - Motion is short, interruptible, and state-explanatory; `prefers-reduced-motion` is respected.
 - Operational text uses flat, high-contrast surfaces rather than glass or ambient animation.
 
-The interactive prototype is in [`prototype/`](prototype/). It includes all seven page families and realistic mock transitions for planning, building, API testing, x402 publication, and a judge-safe consumer request. It performs no real authentication, data query, wallet action, payment, deployment, or persistence.
+The interactive prototype is in [`frontend/`](frontend/). It includes all seven page families and realistic mock transitions for planning, building, API testing, x402 publication, and a judge-safe consumer request. Route pages, shared components, Builder features, application composition, and mock data are separated into focused files. It performs no real authentication, data query, wallet action, payment, deployment, or persistence.
 
 The formal token proposal is in [`design-tokens.md`](design-tokens.md). It defines primitive, semantic, and component layers; meaningful color roles; typography and spacing scales; state behavior; accessibility checks; layout contracts; and the JSON-to-CSS generation workflow. The prototype consumes the generated CSS, but the proposal remains subject to human approval.
 

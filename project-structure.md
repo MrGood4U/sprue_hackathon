@@ -2,7 +2,7 @@
 
 ## Status
 
-This document records the completed project-structure conception and the selected technical/deployment boundaries. [Data-model version 1.3](data-model.md), including the Graph source/access, Privy wallet, and Hedera payment/settlement refinements, is approved as the implementation baseline. The initial downstream integration uses Hedera testnet HBAR through Blocky402. Product and interface design is the current stage: page architecture and interactions are approved, the Evidence-First Console direction and browser-only product boundary are selected, and a seven-page interactive prototype is ready for human review before MVP implementation.
+This document records the completed project-structure conception and the selected technical/deployment boundaries. [Data-model version 1.3](data-model.md), including the Graph source/access, Privy wallet, and Hedera payment/settlement refinements, is approved as the implementation baseline. The initial downstream integration uses Hedera testnet HBAR through Blocky402. Product and interface design is the current stage: page architecture and interactions are approved, the Evidence-First Console direction and browser-only product boundary are selected, and a seven-page interactive frontend under `frontend/` is ready for human review before MVP implementation. The root `backend/` boundary and frontend file-ownership rules are now documented.
 
 ## Product Model
 
@@ -452,7 +452,7 @@ Creator asks to change a definition
 
 ## Planned Repository Structure
 
-The following structure reflects the selected application boundaries and may be refined during design and implementation:
+The human team selected explicit root frontend and backend directories on 2026-09-05. The following structure keeps deployable ownership visible without forcing the hackathon MVP into unnecessary distributed services:
 
 ```text
 /
@@ -461,26 +461,32 @@ The following structure reflects the selected application boundaries and may be 
 ├── product-design.md       # Approved pages, interactions, UI states, and screen contracts
 ├── project-structure.md
 ├── README.md
-├── apps/
-│   ├── web/                # Creator Console
-│   ├── api/                # Control API and hosted product endpoints
-│   └── worker/             # Builds, backfills, and refreshes
-├── packages/
-│   ├── domain/             # Product, version, policy, and event models
-│   ├── dag/                # Spec types, validation, compilation, runtime
-│   ├── agent/              # Planning, source discovery, and build trace
-│   ├── graph/              # The Graph adapters and schema handling
-│   ├── payments/           # x402 integration and payment events
-│   └── shared/             # Shared types and utilities
+├── frontend/               # Creator Console, public consumer page, tokens, and frontend deployment adapter
+│   ├── src/app/            # Route selection and application composition
+│   ├── src/pages/          # One route-level page per file
+│   ├── src/components/     # Reusable UI and layout contracts
+│   ├── src/features/       # Product workflow components grouped by feature
+│   ├── src/services/       # Typed backend and browser-provider clients
+│   └── tests/              # Frontend packaging and future browser tests
+├── backend/                # One backend codebase with separate API and worker entry points
+│   ├── src/http/           # Control API and hosted product endpoints
+│   ├── src/modules/        # Domain, DAG, Agent, Graph, wallet, deployment, and payment modules
+│   ├── src/integrations/   # Replaceable provider adapters
+│   ├── src/jobs/           # Builds, backfills, refreshes, and reconciliation
+│   ├── src/db/             # Transactions, repositories, and read models
+│   ├── migrations/         # Explicit PostgreSQL migrations
+│   └── tests/              # Unit and integration tests
 ├── infrastructure/
 │   ├── vercel/             # Evaluator frontend deployment
 │   ├── railway/            # Evaluator API, worker, and database deployment
 │   └── docker/             # Images, Compose profile, and self-host configuration
-├── tests/                  # Unit, integration, and end-to-end tests
+├── tests/                  # Cross-service contract and end-to-end tests
 └── docs/                   # Technical and submission documentation
 ```
 
-During the hackathon, several logical services may be implemented in one deployable backend. The boundaries above are for clarity and future evolution, not a requirement to build a distributed system.
+During the hackathon, logical backend modules remain in one codebase and may share one Railway image. The API and worker use separate commands and process lifecycles from that codebase. The boundaries above are for ownership, testing, and future evolution, not a requirement to build a distributed system.
+
+The frontend route entry point must not contain page implementations. Each route-level page owns one file under `frontend/src/pages/`; shared layout and presentation contracts belong under `components/`, while workflow-specific elements belong under a named `features/` folder. See [`frontend/README.md`](frontend/README.md) for the complete allocation rules and [`backend/README.md`](backend/README.md) for backend ownership.
 
 ## MVP Structure Boundary
 

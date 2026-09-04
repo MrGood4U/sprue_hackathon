@@ -2,12 +2,12 @@
 
 ## Comparison Target
 
-- Source visual truth: `prototype/evidence/source-evidence-first-console.png`
-- Final implementation screenshot: `prototype/evidence/implementation-builder-v5.png`
-- Full comparison: `prototype/evidence/comparison-full-final.png`
-- Focused Builder comparison: `prototype/evidence/comparison-builder-detail-final.png`
-- Minimum-width evidence: `prototype/evidence/implementation-builder-1024.png`
-- All-page review sheet: `prototype/evidence/all-pages-contact-sheet.png`
+- Source visual truth: `frontend/evidence/source-evidence-first-console.png`
+- Final implementation screenshot: `frontend/evidence/implementation-builder-v5.png`
+- Full comparison: `frontend/evidence/comparison-full-final.png`
+- Focused Builder comparison: `frontend/evidence/comparison-builder-detail-final.png`
+- Minimum-width evidence: `frontend/evidence/implementation-builder-1024.png`
+- All-page review sheet: `frontend/evidence/all-pages-contact-sheet.png`
 - Route and state: `/app/products/base-dex-stickiness/build`, proposed version, ready-to-build state, dark Evidence-First Console theme
 
 ## Viewport and Normalization
@@ -20,11 +20,11 @@
 
 ## Full-View Comparison Evidence
 
-`prototype/evidence/comparison-full-final.png` places the normalized source on the left and the final implementation on the right in one image. The comparison confirms the same primary regions and proportions: 210-pixel account sidebar, 106-pixel product header, 190-pixel intent panel, central DAG canvas, 270-pixel evidence panel, and bottom execution trace. Node placement, product tabs, readiness hierarchy, semantic colors, and primary action placement preserve the selected source.
+`frontend/evidence/comparison-full-final.png` places the normalized source on the left and the final implementation on the right in one image. The comparison confirms the same primary regions and proportions: 210-pixel account sidebar, 106-pixel product header, 190-pixel intent panel, central DAG canvas, 270-pixel evidence panel, and bottom execution trace. Node placement, product tabs, readiness hierarchy, semantic colors, and primary action placement preserve the selected source.
 
 ## Focused Region Evidence
 
-`prototype/evidence/comparison-builder-detail-final.png` compares the Builder region after excluding only the outer account sidebar and bottom trace. It verifies the intent hierarchy, six-node graph, cyan lineage, violet API output, evidence-panel order, monospaced metadata, border treatment, and canvas density at equal dimensions.
+`frontend/evidence/comparison-builder-detail-final.png` compares the Builder region after excluding only the outer account sidebar and bottom trace. It verifies the intent hierarchy, six-node graph, cyan lineage, violet API output, evidence-panel order, monospaced metadata, border treatment, and canvas density at equal dimensions.
 
 ## Required Fidelity Surfaces
 
@@ -39,14 +39,14 @@
 
 ### Iteration 1
 
-- Initial implementation evidence: `prototype/evidence/implementation-builder-v1.png`.
+- Initial implementation evidence: `frontend/evidence/implementation-builder-v1.png`.
 - P2: DAG nodes were too wide, the API Output node overflowed beneath the evidence panel, and the graph sat too high in the canvas.
 - P2: The execution trace began too high and its actions were materially shorter than the source.
 - P2: Node metadata and evidence typography were too small, while an extra canvas status row consumed source whitespace.
 
 Fixes: reduced node width, rebalanced gaps and right-panel width, centered the graph against the full canvas, aligned the trace boundary and action height, increased operational typography, and removed the extra canvas row.
 
-Post-fix evidence: `prototype/evidence/implementation-builder-v5.png`, `prototype/evidence/comparison-full-final.png`, and `prototype/evidence/comparison-builder-detail-final.png` show all six nodes, matching region boundaries, aligned vertical placement, and legible evidence without overlap.
+Post-fix evidence: `frontend/evidence/implementation-builder-v5.png`, `frontend/evidence/comparison-full-final.png`, and `frontend/evidence/comparison-builder-detail-final.png` show all six nodes, matching region boundaries, aligned vertical placement, and legible evidence without overlap.
 
 ### Final Pass
 

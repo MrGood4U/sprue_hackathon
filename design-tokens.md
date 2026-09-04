@@ -4,7 +4,7 @@
 
 Draft 0.1, proposed on 2026-09-05 for human review. This document formalizes the selected Evidence-First Console direction. It does not approve the visual system or complete the broader Product and Interface Design stage.
 
-The machine-readable source is [`prototype/src/design-tokens.json`](prototype/src/design-tokens.json). [`prototype/src/tokens.css`](prototype/src/tokens.css) is generated from that source and is consumed by the interactive prototype.
+The machine-readable source is [`frontend/src/design-tokens.json`](frontend/src/design-tokens.json). [`frontend/src/tokens.css`](frontend/src/tokens.css) is generated from that source and is consumed by the interactive prototype.
 
 ## Objective
 
@@ -156,10 +156,10 @@ State priority is `disabled -> loading -> active -> focus -> hover -> default`.
 
 ## Source and Build Contract
 
-Edit only `prototype/src/design-tokens.json`, then generate and validate the CSS:
+Edit only `frontend/src/design-tokens.json`, then generate and validate the CSS:
 
 ```bash
-cd prototype
+cd frontend
 npm run tokens
 npm run test:tokens
 ```

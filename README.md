@@ -21,10 +21,10 @@ Vercel and Railway are temporary delivery targets, not application dependencies.
 
 ## Interactive Design Prototype
 
-The self-contained React prototype under [`prototype/`](prototype/) covers Entry, Dashboard, Wallet and Access, Product Builder, API and Deployment, Monetization and Revenue, and the Public Consumer Demo. It uses English mock data and simulates the core state transitions without calling real services or moving funds.
+The self-contained React prototype under [`frontend/`](frontend/) covers Entry, Dashboard, Wallet and Access, Product Builder, API and Deployment, Monetization and Revenue, and the Public Consumer Demo. It uses English mock data and simulates the core state transitions without calling real services or moving funds. Each route-level page now lives in its own file, with shared UI, navigation, product-shell, and Builder feature components separated by responsibility.
 
 ```bash
-cd prototype
+cd frontend
 npm install
 npm run dev
 ```
@@ -40,6 +40,8 @@ Open `http://127.0.0.1:4173`. Use a browser window at least 1024 CSS pixels wide
 - [Approved page architecture and interaction design](product-design.md)
 - [Proposed Evidence-First Console design tokens](design-tokens.md)
 - [Prototype design QA and visual evidence](design-qa.md)
+- [Frontend structure and file-ownership plan](frontend/README.md)
+- [Backend boundary and source-layout plan](backend/README.md)
 
 Product-design Draft 1.2 records seven page families, route ownership, per-page interactions, UI states, large-screen web behavior, accessibility, screen-to-data contracts, the selected visual direction, formal token proposal, and the interactive prototype. Design-token decisions DT1-DT4 and final human prototype review remain before MVP implementation.
 
