@@ -6,6 +6,8 @@ Last checked: 2026-09-05
 
 Status: Research complete; integration and eligibility not yet verified.
 
+Participation: Start Fresh, confirmed by the user on 2026-09-05. The AI Continuity award is not applicable to the current plan.
+
 This is a development reference, not proof of qualification. The official event page remains authoritative; recheck it before submission. Official requirements are separated from Sprue-specific proposals below.
 
 ## Official Requirements Digest
@@ -35,9 +37,9 @@ MCP, x402, and this challenge are not universal AI-track requirements.
 
 ## Recommended Sprue Direction
 
-The following is our project assessment, not additional sponsor rules or an approved track selection.
+The following is our project assessment, not additional sponsor rules or a final award selection.
 
-Prioritize the AI award. Confirm the team's actual development history before selecting its pool; a new repository alone is not evidence that all project work is new.
+Prioritize the AI From Scratch award for the confirmed Start Fresh category. Still audit the team's development history and starter provenance; the user's category confirmation does not itself complete those checks.
 
 Preserve Sprue's existing promise: a creator defines a metric, receives an inspectable specification and DAG, and operates a persistent derived-data API. The differentiating work is source-aware compilation, deterministic execution, conversational revision, and product operation.
 
@@ -54,11 +56,12 @@ Other sponsor-linked resources, listed for later investigation rather than verif
 
 ## Development Gates and Evidence
 
-These are Sprue's proposed acceptance checks. All remain unchecked until corresponding evidence exists. Store sanitized artifacts under a future `docs/evidence/graph/` directory; never include credentials.
+These are Sprue's proposed acceptance checks. Only the user's participation confirmation is complete; technical and provenance checks remain pending. Store sanitized artifacts under a future `docs/evidence/graph/` directory; never include credentials.
 
 | Status | Check | Evidence to preserve | Related gate |
 |---|---|---|---|
-| [ ] | Confirm the submission pool with the human team | Development timeline, starter provenance, and any baseline commit | G5 |
+| [x] | Record the team's participation category | User confirmed Start Fresh on 2026-09-05; recorded in `plan.md` | G5, category only |
+| [ ] | Audit development provenance for the selected pool | Development timeline, starter sources, and baseline/history evidence | G5 |
 | [ ] | Prove the chosen source supports the intended metric | Deployment ID, network, query, variables, retrieval time, indexed block where available, and coverage assessment | G2, G3 |
 | [ ] | Trace a creator request through the planner and runtime | Prompt, specification version, validated DAG, execution trace, and independently checked output | G3 |
 | [ ] | Exercise a second request or conversational revision | Changed semantics, resulting specification diff, and changed output | G3 |
@@ -89,7 +92,7 @@ These are engineering choices for Sprue, not extra prize conditions:
 
 ## Pending Decisions
 
-- Final pool selection and event-wide eligibility review.
+- Final award selection, development-provenance audit, and event-wide eligibility review; Start Fresh is confirmed.
 - Concrete network, protocol, deployment IDs, schema versions, and data coverage.
 - MCP versus direct GraphQL responsibilities, credentials, quotas, and refresh budget.
 - Whether the stretch target is affordable within the existing MVP scope.

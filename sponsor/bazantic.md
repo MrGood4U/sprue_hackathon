@@ -6,6 +6,8 @@ Last checked: 2026-09-05
 
 Status: Prize research complete; technical integration and eligibility not yet verified.
 
+Participation: Start Fresh, confirmed by the user on 2026-09-05. Award A is not applicable; its rules remain below for reference, not as planned work.
+
 Requested reference: [Bazantic prize page](https://ethglobal.com/events/ethonline2026/prizes/bazantic). The individual page could not be retrieved during this review. The digest below was checked against the complete Bazantic section of the [official event prize listing](https://ethglobal.com/events/ethonline2026/prizes), not a third-party summary.
 
 This document separates official conditions from Sprue proposals. Recheck the source before submission; a checklist is not proof of qualification.
@@ -35,7 +37,7 @@ Judging emphasis: repeatable improvement for A; meaningful service interdependen
 
 The following is our assessment, not a final award selection or additional sponsor requirements.
 
-Prioritize award B for feasibility review. Keep A conditional on the team's confirmed event pool. Treat C as a separate scope decision: do not assume that renaming a Graph endpoint or publishing Sprue alone establishes the required service novelty.
+Prioritize award B for feasibility review under Start Fresh; exclude award A from the current plan. Treat C as a separate scope decision: do not assume that renaming a Graph endpoint or publishing Sprue alone establishes the required service novelty.
 
 A candidate consumer task is to combine a Sprue-derived retention metric with a separate Graph query for current pool liquidity, then explain which pools match a creator's stated criteria. This is only a proposed example; verify actual schemas and metric coverage first. The two calls should answer distinct questions, with their results joined by an explicit identifier.
 
@@ -67,17 +69,18 @@ Our MVP chooses x402. Do not broaden it to another payment protocol unless there
 
 ## Development Gates and Evidence
 
-The checks below are Sprue's proposed implementation and submission controls. All remain unchecked. Store sanitized evidence in a future `docs/evidence/bazantic/` directory.
+The checks below are Sprue's proposed implementation and submission controls. Only participation-category confirmation is complete; A-specific work is not applicable, and other checks remain pending. Store sanitized evidence in a future `docs/evidence/bazantic/` directory.
 
 | Status | Check | Evidence to preserve | Related gate |
 |---|---|---|---|
-| [ ] | Confirm award choice and team eligibility | Team decision and relevant event-rule review | B2-B4 |
+| [x] | Record the team's participation category | User confirmed Start Fresh on 2026-09-05; A excluded | Award applicability only |
+| [ ] | Confirm award choice and remaining eligibility | Team decision and relevant event-rule review | B3-B4 |
 | [ ] | Establish the project-service mapping | Service/gateway identifiers, origin route, and configuration without secrets | B1 |
 | [ ] | Exercise a separate consumer against the published product | Request trace, payment evidence, returned product version, and origin log correlation | B1; Sprue MVP |
 | [ ] | Validate the proposed two-input task | Recipe version, both calls, join key, and explanation of how each input affects the output | B3 |
-| [ ] | If pursuing A, predefine evaluation criteria | A controlled run manifest, success rubric, all trial outcomes, and unedited artifacts | B2 |
+| N/A | A-specific controlled evaluation | Not planned for Start Fresh | B2 |
 | [ ] | If pursuing C, investigate the candidate's provenance | Catalog checks, event-start availability evidence, and sponsor clarification if necessary | B4 |
-| [ ] | Assemble the submission evidence index | Links to applicable runs and recordings, plus the owner-confirmed account identifier | B1-B4 |
+| [ ] | Assemble the submission evidence index | Links to applicable runs and recordings, plus the owner-confirmed account identifier | B1, B3, B4 as selected |
 
 The paid-request check belongs to Sprue's own MVP definition; do not present it as a separately stated onchain-transaction requirement of every Bazantic award.
 
@@ -93,7 +96,7 @@ This is our proposed authoring template:
 - [ ] Show a result that includes provenance and does not confuse a derived metric with a raw onchain fact.
 - [ ] Retest the Recipe after any API schema, price, or publication change.
 
-For an A evaluation, choose the rubric before observing results, preserve unsuccessful trials, and avoid cherry-picking. Report service drift or other uncontrolled differences rather than attributing every change to the Recipe.
+The A evaluation is not planned under Start Fresh. Its methodology can still inform optional internal testing: choose the rubric before observing results, preserve unsuccessful trials, and report uncontrolled service drift rather than attributing every change to the Recipe.
 
 ## Technical Unknowns to Resolve
 

@@ -67,9 +67,13 @@ Sprue is a web application with:
 
 The selected sponsor integrations are The Graph, Bazantic, and Privy. The Graph supplies indexed onchain data and source discovery; Bazantic supports agent-facing service discovery or consumption; Privy supports embedded wallet infrastructure for the hosted product experience. x402 remains the payment protocol used for monetized access.
 
+## Hackathon Participation
+
+The user confirmed Start Fresh participation on 2026-09-05. Do not plan Continuity-only awards as eligible targets. This records the team's participation category, not proof that all event or sponsor conditions have been satisfied; preserve development history and verify submission evidence.
+
 ## Sponsor References
 
-Before implementing or changing a sponsor integration, consult the corresponding reference in `sponsor/`. [The Graph requirements](sponsor/graph.md) and [Bazantic requirements](sponsor/bazantic.md) distinguish official qualification rules from proposed Sprue acceptance checks. Keep evidence-based completion status and recheck official sources before submission.
+Before implementing or changing a sponsor integration, consult the corresponding reference in `sponsor/`: [The Graph](sponsor/graph.md), [Bazantic](sponsor/bazantic.md), and [Privy](sponsor/privy.md). These distinguish official qualification rules from proposed Sprue acceptance checks. Keep evidence-based completion status and recheck official sources before submission.
 
 ## Repository Language Rule
 

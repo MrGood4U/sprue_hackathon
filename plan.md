@@ -6,6 +6,10 @@ This document records the product plan, implementation priorities, validation st
 
 All repository records are written in English. Team communication may use Chinese, but repository artifacts remain English-only.
 
+## Confirmed Participation
+
+The user confirmed Start Fresh on 2026-09-05. This resolves the participation-category question, not the audit of development provenance or individual sponsor eligibility. The Graph's AI From Scratch award is the candidate AI target; its Continuity award and Bazantic's Continuity-only agent-usability award are excluded from the current plan. Final award selection and integration evidence remain pending.
+
 ## Product Goal
 
 Sprue turns a natural-language description of onchain data logic into a persistent, reusable, and optionally monetizable data product.
@@ -45,6 +49,8 @@ Choose the implementation stack and validate the external dependencies that dire
 The Graph's requirements and proposed development gates are recorded in [sponsor/graph.md](sponsor/graph.md). Review them during dependency validation and final submission preparation. Research is complete, but integration checks and final eligibility confirmation remain pending.
 
 Bazantic's award conditions, proposed publication boundary, Recipe evidence gates, and unresolved technical questions are recorded in [sponsor/bazantic.md](sponsor/bazantic.md). Evaluate the sponsor-API workflow as a candidate fit; do not assume eligibility, automated provisioning, or wallet compatibility from the prize description alone.
+
+Privy's conditions, wallet-action evidence gates, and x402/control references are recorded in [sponsor/privy.md](sponsor/privy.md). Evaluate a consumer payment as the smallest candidate integration, with an organizational control workflow only if pursuing the B2B award. These are proposals; no wallet/payment implementation or final award selection has been approved by this research.
 
 ### 4. MVP Implementation
 
@@ -249,6 +255,7 @@ For each substantial AI-assisted contribution, record the following information 
 | 2026-09-05 | Sponsor selection | Updated the integration plan to The Graph, Bazantic, and Privy | Human selected the sponsor combination | Roles were mapped to data, agent-service, and embedded-wallet layers; official qualification details remain a technical-selection task |
 | 2026-09-05 | The Graph sponsor research | Summarized official award requirements, reviewed linked technical references, and proposed source-validation and evidence gates in `sponsor/graph.md` | Human supplied the official prize URL and requested a reusable development reference; track selection and final review remain pending | Cross-checked the official ETHGlobal page, Graph documentation, and sponsor-linked skill repository READMEs; no live integration or eligibility certification performed |
 | 2026-09-05 | Bazantic sponsor research | Drafted `sponsor/bazantic.md` with award-specific conditions, proposed Recipe checks, and publication integration unknowns | Human supplied the Bazantic prize URL for the sponsor-reference workflow; award selection and review remain pending | Read the complete Bazantic section of the official event prize listing after the individual page could not be retrieved; no account, gateway, Recipe, or payment integration was created |
+| 2026-09-05 | Participation and Privy research | Recorded Start Fresh, updated Graph/Bazantic applicability, and drafted `sponsor/privy.md` with wallet-flow and control evidence gates | Human confirmed Start Fresh and supplied the official Privy prize URL; integration choices and final review remain pending | Checked the Privy prize page and official x402/policy documentation; the linked quickstart could not be retrieved; no wallets, credentials, or paid actions were used |
 
 This table must be updated when AI materially influences architecture, implementation, testing, or submission content.
 
@@ -285,3 +292,5 @@ The central explanation for judges is:
 | 2026-09-05 | Selected The Graph, Bazantic, and Privy as the planned sponsor integrations | Align the technical-selection phase with the team's sponsor strategy |
 | 2026-09-05 | Added The Graph sponsor reference and linked development gates | Separate official requirements from implementation proposals and preserve a source-backed compliance checklist |
 | 2026-09-05 | Added the Bazantic sponsor reference and research record | Make award-specific evidence and publication unknowns explicit before implementation |
+| 2026-09-05 | Confirmed Start Fresh and excluded Continuity-only targets | Apply the user's participation category without claiming completed eligibility checks |
+| 2026-09-05 | Added the Privy sponsor reference and research record | Distinguish wallet creation from functional payment/control evidence and flag interoperability work |
