@@ -1,4 +1,4 @@
-prototype/node_modules/
-prototype/dist/
-prototype/.vite/
-prototype/.qa-browser*/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.qa-browser*/

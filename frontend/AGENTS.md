@@ -11,3 +11,5 @@ Treat `src/design-tokens.json` as the visual source of truth and `src/tokens.css
 Sprue is a browser-based web product for large-screen viewports. Do not create or imply a Windows, macOS, or other native desktop client. Mobile and tablet-specific layouts are outside the current scope.
 
 Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts/prepare-sites-build.mjs`, and `tests/sites-worker.test.mjs` intact so the same local prototype can be handed to Sites. Before a Sites handoff, run `npm run build` and `npm run test:sites`; the build must leave `dist/client/index.html`, `dist/server/index.js`, and `dist/.openai/hosting.json`.
+
+Keep each route-level page in its own file under `src/pages/`. Application files may select routes and compose layouts but must not contain page implementations. Extract feature-owned workflows under `src/features/` and reusable presentation contracts under `src/components/`; do not create catch-all component or utility modules. Run `npm run test:structure` after changing route or page ownership.
