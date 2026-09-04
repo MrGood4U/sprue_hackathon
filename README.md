@@ -2,15 +2,15 @@
 
 Describe it. Shape it. Sell it.
 
-Sprue is a hosted web product that turns natural-language onchain data logic into persistent, reusable, and optionally monetizable APIs. Product structure, technical selection, and data-model version 1.1 are approved; MVP implementation is the current stage. Graph-driven source, customer-API-key, and per-query x402 refinements are under human review in Draft 1.2. No runnable MVP or live payment integration exists yet.
+Sprue is a hosted web product that turns natural-language onchain data logic into persistent, reusable, and optionally monetizable APIs. Product structure, technical selection, and data-model version 1.1 are approved; MVP implementation is the current stage. Graph source/access and Hedera x402/settlement refinements are under human review in Draft 1.3. No runnable MVP or live payment integration exists yet.
 
 ## Selected Sponsors
 
 - [The Graph](sponsor/graph.md): Upstream data accessed through the creator's existing Graph API key/subscription or purchased per query by Sprue under the creator's authorized wallet budget.
 - [Privy](sponsor/privy.md): Creator account wallet and bounded Graph-spending authorization.
-- [Hedera](sponsor/Hedera.md): Downstream x402 settlement through Blocky402; Sprue hosts the API and implements its payment gate.
+- [Hedera](sponsor/Hedera.md): Downstream x402 v2 `exact` settlement through Blocky402; Sprue hosts the API and implements its payment gate.
 
-Creator-controlled Hedera receipt, wallet compatibility, and fee settlement remain validation gates. Graph-spending funds and API-sale proceeds must be tracked separately by network and asset. Bazantic was replaced on 2026-09-05; [its reference](sponsor/bazantic.md) remains historical only.
+Official documentation now establishes the Hedera x402 wire profile and Blocky402's hosted testnet/mainnet capability. Creator-controlled Hedera account resolution, per-asset receipt/access, live settlement reconciliation, wallet compatibility, and fee settlement remain validation gates. Graph-spending funds and API-sale proceeds must be tracked separately by network and asset. Bazantic was replaced on 2026-09-05; [its reference](sponsor/bazantic.md) remains historical only.
 
 ## Deployment Profiles
 
@@ -24,6 +24,6 @@ Vercel and Railway are temporary delivery targets, not application dependencies.
 - [Product intent and repository rules](agents.md)
 - [Plan, decisions, and AI contribution log](plan.md)
 - [Proposed project structure and financial model](project-structure.md)
-- [MVP data model, Draft 1.2 Graph refinement, and validation gates](data-model.md)
+- [MVP data model, Draft 1.3 Graph/Hedera refinements, and validation gates](data-model.md)
 
 Participation: Start Fresh. All repository text is written in English; team communication may use Chinese. Preserve meaningful Git history and update the AI contribution record as work progresses. Runnable setup and verified demo evidence will be added with implementation.

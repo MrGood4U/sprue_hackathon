@@ -86,7 +86,7 @@ Pin and test compatible SDK versions before adopting example code. Do not hard-c
 
 For the upstream integration, validate against [The Graph's paid-query endpoint](https://thegraph.com/docs/en/subgraphs/tooling/x402-payments/). Using documented components on both sides is not an end-to-end compatibility test. Prefer constrained remote wallet authorization over exporting the creator's private key.
 
-For downstream sales, [Blocky402](https://blocky402.com/) documents a Hedera-specific client signer. This is not proof that Privy's x402 client supports it. Validate receiving-account ownership, actual receipt, and the creator's ability to access proceeds independently of buyer signing. Do not export user keys or substitute platform custody to make an example run; any additional account or change to the ownership model requires an explicit decision. See [Hedera's integration gates](Hedera.md).
+For downstream sales, [Hedera's official x402 documentation](https://docs.hedera.com/solutions/ai/x402) and [Blocky402](https://blocky402.com/docs/) document x402 v2's Hedera `exact` scheme and a Hedera-specific client signer. This is not proof that Privy's x402 client or embedded wallet supports it. Validate EVM-address-to-Hedera-account resolution, account completion, receiving-asset capability, actual receipt, and the creator's ability to access proceeds independently of buyer signing. Do not export user keys or substitute platform custody to make an example run; any additional account or change to the ownership model requires an explicit decision. See [Hedera's integration gates](Hedera.md).
 
 ### Wallet Controls
 
@@ -152,9 +152,9 @@ A signed authorization alone is not our proof of a completed paid data request. 
 ## Pending Technical Decisions
 
 - Can the provider policy be owned or jointly controlled so that Sprue cannot unilaterally weaken the user's approved signer scope?
-- Which exact networks, assets, x402 versions, and signing methods work for the upstream Graph endpoint and downstream Hedera/Blocky402 path, respectively?
+- Which exact networks, assets, x402 versions, and signing methods work for the upstream Graph endpoint? The downstream protocol profile is Hedera x402 v2 `exact`, but the selected asset, pinned package versions, and Privy interoperability still need validation.
 - Can the intended Privy-backed creator control a usable Hedera recipient, receive the selected asset, and subsequently access proceeds? Do not equate this with an external buyer's ability to sign a payment.
-- Does Blocky402 expose enough settlement evidence to reconcile the configured recipient, payment, and Sprue API delivery?
+- Do Blocky402's pinned live response fields reconcile cleanly through Hedera Mirror Node to the configured recipient, exact payment, and Sprue API delivery under failure and replay conditions?
 - Does the chosen settlement path support an authorized platform fee? Its rate, basis, rounding, recipient, payout timing, and refunds must be decided before charging.
 - Which exact Graph x402 wallet method and EIP-712 shape must the Privy policy cover, and can retries or alternate signing paths bypass it?
 - Can a Graph payment be recovered reliably by Privy transaction ID, developer `reference_id`, network hash, and explicit API polling without production webhooks?

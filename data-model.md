@@ -2,11 +2,11 @@
 
 ## Status
 
-Version: Draft 1.2
+Version: Draft 1.3
 
 Date: 2026-09-05
 
-Stage: Version 1.1 is the approved MVP baseline. Draft 1.2 refines The Graph source identity, customer-API-key versus x402 access, reproducibility, pagination, and per-query records from official documentation and confirmed product intent. It requires human review before source, credential, or payment migrations. External integration and implementation validation remain open.
+Stage: Version 1.1 is the approved MVP baseline. Draft 1.2 added The Graph source and dual-access refinements. Draft 1.3 adds Hedera x402 v2 `exact` requirements, account/asset receive capability, facilitator-capability evidence, and normalized settlement reconciliation from current official documentation. The combined draft requires human review before source, credential, wallet-capability, publication, or payment migrations. External integration and implementation validation remain open.
 
 This document is the source of truth for Sprue's MVP domain model, PostgreSQL persistence model, lifecycle rules, financial separation, and runtime records. It translates the product and architecture decisions in [agents.md](agents.md), [plan.md](plan.md), and [project-structure.md](project-structure.md) into an implementation-ready model.
 
@@ -23,7 +23,7 @@ The model describes intended behavior. It is not evidence that an external walle
 - The creator has an account-level Privy-backed wallet and can authorize bounded Graph spending.
 - The intended Privy control pattern is a user-owned wallet with a Sprue-controlled additional signer restricted by a provider policy. Sprue may hold the additional signer's authorization key in a secret manager, but never the wallet private key. Live enforcement remains an integration gate.
 - Graph purchases use a Base or Base Sepolia payment path and remain separate from Hedera API-sale proceeds.
-- A product can remain private or be published behind Sprue's x402 gate, with Hedera settlement through Blocky402.
+- A product can remain private or be published behind Sprue's x402 gate, using x402 v2's Hedera `exact` scheme and Hedera settlement through Blocky402.
 - The creator controls the intended sales recipient. Privy-to-Hedera compatibility remains unverified and must be represented as a verification state.
 - A Sprue service fee is disabled unless explicit terms and a working settlement mechanism are approved.
 - The evaluator deployment uses Vercel plus Railway; the same application must run through Docker Compose without source changes.
@@ -63,6 +63,7 @@ The existing fee decision is not reopened here: the default fee remains zero/dis
 - Every monetary record references one `network` and one `asset`.
 - Human-readable amounts are derived from `amount_atomic` and the asset's pinned `decimals` value.
 - Balances on different networks or in different assets are never summed into one spendable balance.
+- Hedera x402 uses CAIP-2 network identifiers `hedera:testnet` or `hedera:mainnet`; HBAR uses entity ID `0.0.0` and eight-decimal tinybar units, while HTS fungible tokens use their entity ID and token-specific decimals.
 
 ### JSONB Boundaries
 
@@ -108,6 +109,8 @@ erDiagram
     WALLET_POLICIES ||--o{ WALLET_SIGNER_GRANTS : restricts
     NETWORKS ||--o{ WALLET_ADDRESSES : identifies
     NETWORKS ||--o{ ASSETS : supports
+    WALLET_ADDRESSES ||--o{ WALLET_ASSET_CAPABILITIES : verifies
+    ASSETS ||--o{ WALLET_ASSET_CAPABILITIES : qualifies
     WALLET_SIGNER_GRANTS ||--o{ SPENDING_POLICIES : authorizes
     SPENDING_POLICIES ||--o{ BUDGET_RESERVATIONS : reserves
     WALLET_ADDRESSES ||--o{ WALLET_BALANCE_SNAPSHOTS : observes
@@ -155,6 +158,8 @@ erDiagram
     API_ACCESS_REQUESTS }o--o| PAYMENT_INTENTS : requires
     SOURCE_REQUESTS }o--o| PAYMENT_INTENTS : requires
     PAYMENT_INTENTS ||--o{ PAYMENT_ATTEMPTS : retries
+    PAYMENT_INTENTS ||--o{ PAYMENT_SETTLEMENTS : settles
+    PAYMENT_ATTEMPTS ||--o{ PAYMENT_SETTLEMENTS : reports
     PAYMENT_INTENTS ||--o{ PAYMENT_ALLOCATIONS : explains
     PAYMENT_INTENTS ||--o{ FINANCIAL_LEDGER_ENTRIES : records
     API_ACCESS_REQUESTS ||--o{ USAGE_EVENTS : meters
@@ -330,8 +335,8 @@ Constraints and indexes:
 | Column | Type | Null | Rules and purpose |
 |---|---|---:|---|
 | `id` | `uuid` | no | Primary key |
-| `namespace` | `text` | no | For example `eip155` or `hedera` |
-| `reference` | `text` | no | Chain/network reference as text |
+| `namespace` | `text` | no | CAIP-2 namespace, for example `eip155` or `hedera` |
+| `reference` | `text` | no | CAIP-2 reference as text; Hedera x402 uses `testnet` or `mainnet` |
 | `environment` | `text` | no | `testnet` or `mainnet` |
 | `name` | `text` | no | Display name |
 | `explorer_base_url` | `text` | yes | Non-secret explorer URL |
@@ -341,6 +346,7 @@ Constraints and indexes:
 
 - Unique `(namespace, reference)`.
 - Seed only explicitly supported payment and source networks.
+- The canonical protocol identifier is derived as `namespace:reference`; do not store a second independently mutable copy.
 
 #### `assets`
 
@@ -349,6 +355,7 @@ Constraints and indexes:
 | `id` | `uuid` | no | Primary key |
 | `network_id` | `uuid` | no | FK to `networks` |
 | `standard` | `text` | no | `native`, `erc20`, `hts`, or verified equivalent |
+| `asset_type` | `text` | no | `fungible` or `non_fungible`; x402 payment assets must be fungible |
 | `asset_identifier` | `text` | no | Contract, token, or canonical native identifier |
 | `symbol` | `text` | no | Display symbol; not an identity |
 | `decimals` | `smallint` | no | Check `0 <= decimals <= 255` |
@@ -358,6 +365,7 @@ Constraints and indexes:
 
 - Unique `(network_id, standard, asset_identifier)`.
 - Asset metadata is pinned for financial records and changed only through an audited migration or administration action.
+- For Hedera x402, HBAR is `(standard = 'native', asset_identifier = '0.0.0', asset_type = 'fungible', decimals = 8)`; an HTS payment asset is a fungible token entity ID such as `0.0.1234` with verified decimals.
 
 ### 3. Wallets, Delegation, and Budget
 
@@ -400,9 +408,13 @@ Constraints and indexes:
 | `id` | `uuid` | no | Primary key |
 | `account_wallet_id` | `uuid` | no | FK to `account_wallets` |
 | `network_id` | `uuid` | no | FK to `networks` |
-| `address_kind` | `text` | no | `evm`, `hedera_account`, `hedera_alias`, or supported equivalent |
+| `address_kind` | `text` | no | `evm`, `hedera_account_id`, `hedera_evm_address`, `hedera_long_zero_address`, or supported equivalent |
 | `address` | `text` | no | Original display form |
 | `normalized_address` | `text` | no | Network-aware comparison form |
+| `network_account_ref` | `text` | yes | Canonical network account identity after resolution; for Hedera, the `shard.realm.num` account ID |
+| `identity_status` | `text` | no | `unverified`, `resolved`, or `mismatched` |
+| `identity_evidence_ref` | `text` | yes | Sanitized provider or Mirror Node evidence for identifier-to-account resolution |
+| `account_completion_status` | `text` | no | `not_applicable`, `unverified`, `hollow`, or `complete` |
 | `can_spend` | `boolean` | no | Default `false`; proven capability only |
 | `can_receive` | `boolean` | no | Default `false`; proven capability only |
 | `control_status` | `text` | no | `unverified`, `pending`, `verified`, `rejected` |
@@ -414,8 +426,38 @@ Constraints and indexes:
 Constraints and indexes:
 
 - Unique `(network_id, address_kind, normalized_address)`.
-- A publication cannot activate unless its recipient address has `can_receive = true` and `control_status = 'verified'`.
+- A Hedera account may have an account ID, an EVM Address from Public Key, and an EVM Address from Account ID. Store each observed representation separately and group it through the resolved `network_account_ref`; never infer the mapping from string shape alone.
+- For the MVP Hedera x402 `payTo`, require a resolved `hedera_account_id`. Alias-triggered auto-account creation is not an activation path because facilitator policies differ and a hollow account cannot spend until completed.
+- A publication cannot activate unless its recipient address has `can_receive = true`, `control_status = 'verified'`, `identity_status = 'resolved'`, and a matching active asset-capability row.
 - `can_spend` and `can_receive` are independent.
+
+#### `wallet_asset_capabilities`
+
+An address-level capability is insufficient for HTS: receiving and later spending a particular token depend on the resolved account, token association, account completion, and signature requirements. This table records the verified capability for one wallet address and asset without treating a balance observation as proof of control.
+
+| Column | Type | Null | Rules and purpose |
+|---|---|---:|---|
+| `id` | `uuid` | no | Primary key |
+| `wallet_address_id` | `uuid` | no | FK to `wallet_addresses` |
+| `asset_id` | `uuid` | no | FK to `assets` on the same network |
+| `association_status` | `text` | no | `not_required`, `unverified`, `associated`, `not_associated`, or `auto_association_available` |
+| `can_receive` | `boolean` | no | Whether a bounded test and account/token state prove receipt capability |
+| `can_spend` | `boolean` | no | Whether creator-controlled signing and account state prove later access to the asset |
+| `receiver_signature_required` | `boolean` | yes | Hedera account property when observed |
+| `evidence_source` | `text` | no | Provider, Hedera Mirror Node, or bounded test source |
+| `evidence_ref` | `text` | yes | Sanitized evidence reference |
+| `evidence_hash` | `text` | yes | Hash of normalized public evidence |
+| `status` | `text` | no | `active`, `stale`, `rejected` |
+| `observed_at` | `timestamptz` | no | Capability observation time |
+| `created_at` | `timestamptz` | no | Record creation time |
+
+Constraints and indexes:
+
+- Unique active row per `(wallet_address_id, asset_id)` through a partial unique index.
+- The address and asset must belong to the same network.
+- HBAR uses `association_status = 'not_required'`; an HTS publication requires `association_status = 'associated'`. `auto_association_available` is only a preflight observation and must be replaced by confirmed association evidence after any test transfer.
+- If `receiver_signature_required = true`, `can_receive` remains false unless the exact payment path has been shown to collect the required recipient signature.
+- `can_spend = true` for Hedera requires a complete account and demonstrated creator-controlled signing. Receipt alone does not prove access to proceeds.
 
 #### `wallet_policies`
 
@@ -807,8 +849,14 @@ Immutable versions of private, API-key, or x402 access policy.
 | `asset_id` | `uuid` | yes | Required for x402 |
 | `price_atomic` | `numeric(78,0)` | yes | Positive for x402 |
 | `recipient_wallet_address_id` | `uuid` | yes | Verified creator-controlled recipient |
+| `payment_protocol_version` | `text` | yes | Required for x402; Hedera `exact` currently uses `2` |
+| `payment_scheme` | `text` | yes | Required for x402; Hedera value `exact` |
+| `max_timeout_seconds` | `integer` | yes | Positive requirement timeout bounded by platform policy |
 | `facilitator` | `text` | yes | MVP x402 value `blocky402` |
 | `facilitator_config_ref` | `text` | yes | Server-side configuration reference, no secret |
+| `facilitator_capability_json` | `jsonb` | yes | Sanitized `/supported` capability used at validation time |
+| `facilitator_capability_hash` | `text` | yes | Hash of the canonical capability entry |
+| `facilitator_capability_observed_at` | `timestamptz` | yes | Time the facilitator advertised the selected scheme/network/version and fee payer |
 | `service_fee_enabled` | `boolean` | no | Default `false` |
 | `service_fee_terms_json` | `jsonb` | yes | Version, basis, rate/fixed amount, rounding, recipient, refunds |
 | `accepted_by_user_id` | `uuid` | yes | Required when a fee is enabled |
@@ -819,8 +867,9 @@ Immutable versions of private, API-key, or x402 access policy.
 Constraints and indexes:
 
 - Unique `(deployment_id, revision_no)`.
-- An active x402 revision requires network, asset, positive price, Blocky402 configuration, and a verified receiving address.
+- An active x402 revision requires network, fungible asset, positive price, protocol version, scheme, positive timeout, Blocky402 configuration, a current matching facilitator capability, and a verified receiving address with an active matching asset capability.
 - The asset must belong to the selected network.
+- The MVP Hedera profile pins x402 version `2`, scheme `exact`, network `hedera:testnet` or `hedera:mainnet`, and a resolved Hedera account ID for `payTo`. The request-time fee payer comes from the facilitator capability and is pinned on the payment intent.
 - A fee-enabled revision requires explicit accepted terms; the terms remain immutable.
 - Only `deployments.active_publication_version_id` determines the active revision.
 
@@ -1241,6 +1290,8 @@ One intended or observed transfer obligation. Upstream Graph purchases and downs
 | `payment_protocol` | `text` | no | `x402`, `direct`, or another explicit protocol |
 | `payment_protocol_version` | `text` | yes | Provider-returned protocol version; never guessed |
 | `payment_scheme` | `text` | yes | Selected protocol scheme, such as x402 `exact` |
+| `network_fee_payer_address` | `text` | yes | Facilitator fee payer pinned from the accepted requirement when the scheme requires one |
+| `max_timeout_seconds` | `integer` | yes | Positive accepted requirement timeout |
 | `resource_ref` | `text` | yes | Sanitized resource/operation identity bound to the requirement |
 | `requirement_json` | `jsonb` | yes | Sanitized complete provider payment requirement |
 | `requirement_hash` | `text` | yes | Hash of the canonical complete requirement |
@@ -1256,7 +1307,8 @@ Constraints and indexes:
 - Unique `(workspace_id, idempotency_key)`.
 - Asset must belong to network.
 - Index `(workspace_id, kind, status, created_at desc)`.
-- An x402 intent requires a protocol version, scheme, requirement hash, and selected requirement. Its normalized amount, network, asset, and recipient must exactly match the selected option.
+- An x402 intent requires a protocol version, scheme, positive timeout, requirement hash, and selected requirement. Its normalized amount, network, asset, recipient, and any required fee payer must exactly match the selected option.
+- A Hedera `exact` intent requires x402 version `2`, a Hedera network, a fungible HBAR/HTS asset, a resolved Hedera account ID recipient, and the facilitator-advertised fee payer.
 - `uncertain` must be reconciled before retrying or creating a replacement intent.
 
 #### `payment_attempts`
@@ -1266,9 +1318,9 @@ Constraints and indexes:
 | `id` | `uuid` | no | Primary key |
 | `payment_intent_id` | `uuid` | no | FK to `payment_intents` |
 | `attempt_no` | `integer` | no | Positive retry number |
-| `network_id` | `uuid` | no | Copied from the intent for network-aware transaction uniqueness |
+| `network_id` | `uuid` | no | Copied from the intent for adapter and reconciliation scope |
 | `provider` | `text` | no | Provider handling this attempt, such as `privy`, `graph_x402`, or `blocky402` |
-| `provider_operation` | `text` | yes | Provider endpoint/method family, such as Privy wallet RPC |
+| `provider_operation` | `text` | yes | Provider operation family, such as Privy wallet RPC or Blocky402 verify/settle |
 | `provider_idempotency_key` | `text` | yes | Per-provider state-changing request key |
 | `provider_idempotency_expires_at` | `timestamptz` | yes | Known provider deduplication expiry |
 | `request_fingerprint` | `text` | yes | Hash of the canonical provider request body bound to the idempotency key |
@@ -1276,7 +1328,7 @@ Constraints and indexes:
 | `provider_reference_id` | `text` | yes | Developer-supplied provider reconciliation reference |
 | `authorization_hash` | `text` | yes | Hash of signed authorization, not reusable payload |
 | `authorization_expires_at` | `timestamptz` | yes | Expiry bound into the provider authorization request |
-| `transaction_ref` | `text` | yes | Network transaction hash, Hedera consensus reference, or equivalent |
+| `provider_transaction_ref` | `text` | yes | Transaction reference exactly as returned by the provider; normalized network evidence belongs in `payment_settlements` |
 | `status` | `text` | no | `requested`, `submitted`, `confirmed`, `failed`, `uncertain` |
 | `sanitized_result_json` | `jsonb` | yes | Redacted provider/receipt facts |
 | `requested_at` | `timestamptz` | no | Attempt start |
@@ -1290,9 +1342,44 @@ Constraints and indexes:
 - Unique `(provider, provider_request_id)` when present.
 - Unique `(provider, provider_reference_id)` when present.
 - Unique `(provider, provider_idempotency_key)` when present.
-- Unique `(network_id, transaction_ref)` when a transaction reference is present.
 - `network_id` must match the payment intent's network.
 - A provider idempotency key must be tied to one request fingerprint. Provider expiry never makes the logical payment intent safe to repeat without reconciliation.
+
+#### `payment_settlements`
+
+Normalized network evidence for an attempted payment. A facilitator response is a report, while a confirmed settlement also reconciles the network transaction and exact transfer facts. This distinction lets Sprue preserve Blocky402's returned field without pretending it is already a transaction hash or consensus timestamp.
+
+| Column | Type | Null | Rules and purpose |
+|---|---|---:|---|
+| `id` | `uuid` | no | Primary key |
+| `payment_intent_id` | `uuid` | no | FK to `payment_intents` |
+| `payment_attempt_id` | `uuid` | no | FK to `payment_attempts` |
+| `network_id` | `uuid` | no | Settlement network copied for network-aware uniqueness |
+| `asset_id` | `uuid` | no | Settled asset |
+| `provider` | `text` | no | Reporting/reconciliation adapter, such as `blocky402` or `graph_x402` |
+| `provider_transaction_ref` | `text` | yes | Unmodified provider-returned transaction reference |
+| `network_transaction_id` | `text` | yes | Native transaction identity; for Hedera, the transaction ID |
+| `network_transaction_hash` | `text` | yes | Native transaction hash when available |
+| `consensus_timestamp` | `text` | yes | Hedera `seconds.nanoseconds` consensus time or equivalent ordered network time |
+| `payer_address` | `text` | yes | Normalized economic payer observed in the transfer |
+| `fee_payer_address` | `text` | yes | Network-fee payer observed in the transfer or facilitator result |
+| `recipient_address` | `text` | no | Normalized credited recipient |
+| `amount_atomic` | `numeric(78,0)` | no | Positive amount credited in the selected asset |
+| `result_code` | `text` | yes | Network result such as Hedera `SUCCESS` |
+| `evidence_sources_json` | `jsonb` | no | Validated list of `facilitator`, `mirror_node`, `consensus_node`, or explicit adapter observations |
+| `evidence_json` | `jsonb` | yes | Sanitized normalized transfer/receipt facts, not raw authorization payloads |
+| `evidence_hash` | `text` | yes | Hash of canonical evidence |
+| `status` | `text` | no | `reported`, `confirmed`, `mismatched`, or `failed` |
+| `reported_at` | `timestamptz` | no | Time provider first reported the outcome |
+| `confirmed_at` | `timestamptz` | yes | Time network evidence confirmed exact settlement |
+
+Constraints and indexes:
+
+- Unique `(provider, provider_transaction_ref)` when the provider reference is present.
+- Unique `(network_id, network_transaction_id)` and `(network_id, network_transaction_hash)` when present.
+- The attempt must belong to the intent; network, asset, recipient, and amount must exactly match that intent.
+- A confirmed row requires a successful result, at least one native transaction identifier, facilitator and network evidence, exact transfer evidence, and `confirmed_at`. One payment intent has at most one confirmed settlement; refunds and accounting reversals use separate payment intents instead of mutating the network fact.
+- For Hedera, query the Mirror Node by transaction ID to enrich the facilitator result with transaction hash, consensus timestamp, result, HBAR/HTS transfers, and assessed fees. Mirror data is reconciliation evidence; it never replaces x402 authorization verification.
 
 #### `payment_allocations`
 
@@ -1394,7 +1481,7 @@ created -> authorization_required -> submitted -> confirmed
 confirmed -> reversed
 ```
 
-An `uncertain` intent is never assumed unpaid. Reconcile by provider request ID, provider reference ID, provider idempotency key and request fingerprint, authorization hash, and transaction reference before retrying.
+An `uncertain` intent is never assumed unpaid. Reconcile by provider request ID, provider reference ID, provider idempotency key and request fingerprint, authorization hash, provider transaction reference, and normalized network settlement evidence before retrying.
 
 ### Publication
 
@@ -1403,7 +1490,7 @@ draft -> active -> retired
      -> invalid
 ```
 
-Only the deployment pointer makes a publication active. Activating x402 access requires a healthy deployment, ready materialization in MVP mode, verified recipient, and validated payment configuration.
+Only the deployment pointer makes a publication active. Activating x402 access requires a healthy deployment, ready materialization in MVP mode, verified recipient and asset capability, and validated payment/facilitator capability configuration.
 
 ### API Access Request
 
@@ -1472,11 +1559,12 @@ In one database transaction:
 ### Serve an x402 Request
 
 1. Pin the deployment's active product version, publication revision, and materialization in `api_access_requests`.
-2. Create one payment intent using the publication's exact network, asset, amount, recipient, facilitator, and fee terms.
-3. Record the first HTTP attempt and return `402` without exposing paid data.
-4. On retry, hash and verify the payment authorization, then reconcile settlement through Blocky402.
-5. Record confirmed payment evidence before returning the pinned artifact.
-6. Record the response attempt, allocations, ledger facts, and usage with idempotent source keys.
+2. Revalidate Blocky402's live `/supported` entry for the publication's x402 version, `exact` scheme, Hedera network, and fee payer; fail closed if it no longer matches the accepted profile.
+3. Create one payment intent using the publication's exact network, asset, amount, resolved `payTo` account ID, timeout, facilitator fee payer, and fee terms.
+4. Record the first HTTP attempt and return `402` without exposing paid data.
+5. On retry, hash the payment payload, call Blocky402 verification, and settle only the exact accepted partially signed Hedera `TransferTransaction`.
+6. Store the facilitator transaction reference, reconcile the native Hedera transaction and exact credited transfer into `payment_settlements`, and confirm the payment before returning the pinned artifact.
+7. Record the response attempt, allocations, ledger facts, and usage with idempotent source keys.
 
 Do not switch to a newer product or price revision between the challenge and paid retry.
 
@@ -1492,7 +1580,7 @@ These values are queries/views, not mutable source-of-truth balances:
 - `platform_revenue`: confirmed platform-fee allocations only after fee terms and settlement evidence are present.
 - `latest_wallet_balance`: latest snapshot per wallet address and asset; never aggregates unlike assets.
 - `product_run_status`: latest logical run plus current attempt/node progress.
-- `api_request_receipt`: logical request, HTTP attempts, payment status, pinned product version, and response hash.
+- `api_request_receipt`: logical request, HTTP attempts, payment status, normalized settlement evidence, pinned product version, and response hash.
 
 Do not cache a derived balance as authoritative unless the cache records its source timestamp and can be rebuilt.
 
@@ -1505,7 +1593,7 @@ Do not cache a derived balance as authoritative unless the cache records its sou
 5. An API access request pins one publication revision for its entire payment lifecycle.
 6. No Graph payment is initiated without a verified user-owned wallet, active additional-signer grant, unchanged approved provider-policy snapshot, active Sprue spending policy, available reservation, and matching method/network/asset/destination.
 7. No reservation is consumed more than once.
-8. No x402 publication activates with an unverified recipient.
+8. No x402 publication activates with an unverified recipient, unresolved network account identity, or missing recipient/asset capability.
 9. No paid response is recorded as served before matching payment confirmation.
 10. A confirmed payment is never retried merely because response delivery failed.
 11. Gross sale, creator proceeds, provider fees, network fees, and platform fees are separate values and must reconcile under the pinned terms.
@@ -1523,6 +1611,9 @@ Do not cache a derived balance as authoritative unless the cache records its sou
 23. Every canonical product-version source has one immutable relational projection to the exact source snapshot, access mode, gateway environment, and adapter version.
 24. Every Graph source selects exactly one access path: a customer-owned API-key credential or a creator-wallet x402 spending policy.
 25. Credential failure or revocation blocks API-key execution and never triggers an automatic x402 payment; changing modes requires an explicit product-version change.
+26. Every Hedera x402 payment requirement uses version `2`, scheme `exact`, a supported `hedera:*` network, a fungible HBAR/HTS asset, a resolved Hedera account ID recipient, and the current facilitator-advertised fee payer.
+27. A facilitator success response is not sufficient for financial confirmation until one normalized settlement row matches the payment intent's network, asset, amount, and recipient and contains successful network evidence.
+28. An HTS recipient is not treated as receive-capable from wallet ownership alone; token association or a completed, tested automatic-association path is required.
 
 ## Security and Retention
 
@@ -1542,12 +1633,12 @@ The initial migration series should preserve dependency clarity rather than crea
 1. PostgreSQL extensions and common validation helpers.
 2. `users`, `workspaces`, and `workspace_members`.
 3. `networks` and `assets`, followed by verified seed data.
-4. `account_wallets`, `wallet_addresses`, `wallet_policies`, `wallet_signer_grants`, `spending_policies`, and `wallet_balance_snapshots`.
+4. `account_wallets`, `wallet_addresses`, `wallet_asset_capabilities`, `wallet_policies`, `wallet_signer_grants`, `spending_policies`, and `wallet_balance_snapshots`.
 5. `provider_credentials`, `source_snapshots`, `agent_sessions`, `agent_messages`, `data_products`, `data_product_versions`, `data_product_version_sources`, and `product_version_layouts`; add the deferred Agent-session product FK after both tables exist.
 6. `deployments`, `publication_versions`, `api_credentials`, and `refresh_schedules`; add active-pointer FKs after target tables exist.
 7. `execution_runs` and `run_attempts`.
 8. `budget_reservations` and `payment_intents`, followed by the deferred consumed-payment FK.
-9. `payment_attempts` and `payment_allocations`.
+9. `payment_attempts`, `payment_settlements`, and `payment_allocations`.
 10. `artifacts`, `node_runs`, `node_run_artifacts`, `source_requests`, `source_http_attempts`, and `materializations`; add deployment materialization pointers afterward.
 11. `trace_streams`, `trace_events`, `api_access_requests`, `api_http_attempts`, and `usage_events`.
 12. `financial_ledger_entries`, derived views, immutable-field protections, and final cross-table validation triggers where justified.
@@ -1560,7 +1651,8 @@ Every migration must have a rollback or forward-fix strategy. Seed scripts conta
 User + Workspace
   -> AccountWallet
       -> Base wallet address (verified spending capability)
-      -> Hedera recipient (unverified until integration spike)
+      -> Hedera account ID and mapped address representations (unverified until integration spike)
+      -> WalletAssetCapability for the selected HBAR/HTS payment asset
   -> WalletPolicy snapshot + WalletSignerGrant + SpendingPolicy
   -> AgentSession + AgentMessages
   -> validated Graph SourceSnapshot (deployment + schema)
@@ -1584,7 +1676,8 @@ User + Workspace
   -> optional x402 PublicationVersion after recipient validation
   -> ApiAccessRequest
       -> HTTP attempt 1: 402
-      -> Hedera API-sale PaymentIntent + PaymentAttempt
+      -> Hedera x402 v2 exact PaymentIntent + PaymentAttempt
+      -> PaymentSettlement (facilitator report + Mirror Node transaction evidence)
       -> HTTP attempt 2: 200
       -> PaymentAllocations + FinancialLedgerEntries + UsageEvents
 ```
@@ -1596,13 +1689,15 @@ User + Workspace
 - [x] Human confirmed that each Graph source may use either the customer's existing Graph API key/subscription or creator-wallet x402 pay-per-query access on 2026-09-05.
 - [x] Documentation review confirms that every P0 user action maps to explicit inserts, updates, or reads.
 - [x] Official Graph documentation confirms distinct logical Subgraph, gateway Deployment, manifest IPFS, schema, `_meta`, GraphQL-error, pagination, API-key, and per-query x402 concepts can be represented without credentials or payment authorization material.
-- [ ] Human reviews Draft 1.2's immutable deployment snapshot, cursor pagination, pinned-block, and per-query x402 attempt model before affected migrations.
+- [ ] Human reviews Draft 1.3, including Draft 1.2's Graph refinements and Draft 1.3's Hedera account/asset capability, x402 requirement, and settlement-evidence model, before affected migrations.
 - [ ] The initial live Graph source and actual x402 payment responses fit the documented source, request, HTTP-attempt, and payment fields.
 - [ ] A live customer-supplied Graph API key validates, rotates, revokes, and executes through its selected source without persistence leakage, wallet expense records, or automatic x402 fallback.
 - [x] Official Privy documentation confirms that wallet, owner, additional-signer/key-quorum, policy, provider reference, request-expiry, and idempotency identifiers can be stored without wallet or authorization private-key material.
 - [ ] A live Privy user-owned wallet, policy-bound signer grant, revocation, policy-drift check, permitted action, and rejected action fit the documented fields and transitions.
-- [ ] Hedera account/address forms and selected asset metadata fit `networks`, `assets`, and `wallet_addresses`.
-- [ ] Blocky402 exposes sufficient provider request and settlement references for payment reconciliation.
+- [x] Current official Hedera documentation confirms x402 v2 `exact`, `hedera:testnet`/`hedera:mainnet`, HBAR entity ID `0.0.0`, HTS fungible-token IDs, facilitator fee-payer requirements, account-ID recipients, and Mirror Node transaction evidence can be represented without wallet private keys or reusable payment payloads.
+- [x] Current official Hedera documentation lists Blocky402's hosted testnet/mainnet facilitator URLs and standard `/supported`, `/verify`, and `/settle` endpoints; both live `/supported` responses advertised their corresponding Hedera network on 2026-09-05.
+- [ ] A live creator recipient resolves to a complete creator-controlled Hedera account ID and demonstrates receive/access capability for the selected HBAR or HTS asset.
+- [ ] A live Blocky402 payment confirms that its concrete response fields and transaction reference reconcile to the documented `payment_attempts` and `payment_settlements` records without duplicate settlement.
 - [ ] The selected live Graph payment flow exposes sufficient references to connect challenge, reservation, payment, paid retry, query result, and settlement.
 - [ ] The DAG JSON schema and operator configuration schemas are versioned and testable.
 - [ ] All statuses have explicit transition tests, including uncertain payment and revoked authorization paths.
@@ -1619,7 +1714,8 @@ The following remain integration gates. The model deliberately represents uncert
 - Exact identifier formats and response/request IDs returned by the selected live Graph MCP, gateway deployment route, and x402 client versions.
 - Exact Graph x402 signing method and typed-data shape, the matching Privy policy rules, and live owner/signer/policy response values.
 - Whether the intended Privy-backed creator can control a Hedera recipient and access proceeds.
-- Exact Hedera network, account/address representation, payment asset, token association, and Blocky402 receipt format.
+- Which Hedera environment and fungible HBAR/HTS asset the MVP will use, and whether the intended recipient needs manual token association.
+- The concrete Blocky402 response field names, error/replay behavior, and transaction-reference reconciliation observed in the pinned implementation version.
 - Whether platform-fee settlement is native, requires a second transfer, or should remain disabled.
 
 Provider-specific metadata that proves necessary should first be added to validated adapter schemas. Add a relational column only when it participates in ownership, integrity, lifecycle, security, reconciliation, or a required query.
@@ -1633,4 +1729,4 @@ After human approval, changes to this model require:
 3. Tests for affected transitions, constraints, and derived views.
 4. An AI contribution and project change-log entry in [plan.md](plan.md) when AI materially influenced the change.
 
-The human team approved version 1.1 as the MVP implementation baseline on 2026-09-05. Draft 1.2 records evidence-driven Graph source, customer credential, and per-query x402 refinements for human review before affected migrations are generated. Other open checklist items remain implementation and external-integration validation gates.
+The human team approved version 1.1 as the MVP implementation baseline on 2026-09-05. Draft 1.2 recorded evidence-driven Graph source, customer credential, and per-query x402 refinements. Draft 1.3 adds evidence-driven Hedera x402 requirements, recipient/asset capabilities, and settlement reconciliation. The combined draft requires human review before affected migrations are generated. Other open checklist items remain implementation and external-integration validation gates.

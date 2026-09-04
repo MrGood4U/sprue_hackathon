@@ -2,7 +2,7 @@
 
 ## Status
 
-This document records the completed project-structure conception and the selected technical/deployment boundaries. The version 1.1 decisions in [data-model.md](data-model.md), including the Privy wallet and payment refinements, are approved as the implementation baseline. Draft 1.2 contains Graph source, customer-credential, and per-query x402 refinements that require human review before affected migrations. MVP implementation is the current stage.
+This document records the completed project-structure conception and the selected technical/deployment boundaries. The version 1.1 decisions in [data-model.md](data-model.md), including the Privy wallet and payment refinements, are approved as the implementation baseline. Draft 1.3 combines Graph source/access refinements with Hedera x402, recipient/asset capability, and settlement-evidence refinements that require human review before affected migrations. MVP implementation is the current stage.
 
 ## Product Model
 
@@ -47,7 +47,7 @@ The selected sponsor integrations are The Graph, Hedera, and Privy. The user rep
 
 ### Hedera and Blocky402: Optional Paid API Access
 
-Sprue enables an x402 payment gate on its own hosted endpoint when the creator opts into paid access. Hedera is the settlement network; Blocky402 is the facilitator for payment verification and settlement. Creating, refreshing, hosting, and privately using an API must not depend on that publication step. Blocky402 is not assumed to provide an API hosting service, a publishing dashboard, or marketplace discovery. Sprue implements product pricing, recipient configuration, request gating, and payment-to-response correlation behind an adapter.
+Sprue enables an x402 payment gate on its own hosted endpoint when the creator opts into paid access. Hedera is the settlement network; Blocky402 is the facilitator for payment verification and settlement. The documented downstream profile is x402 version 2 with Hedera's `exact` scheme, HBAR or an HTS fungible token, a resolved Hedera account ID recipient, and a fee payer discovered from Blocky402's `/supported` capability. Creating, refreshing, hosting, and privately using an API must not depend on that publication step. Blocky402 is not an API host, publishing dashboard, or marketplace. Sprue implements product pricing, recipient configuration, request gating, and payment-to-response correlation behind an adapter.
 
 The intended product role is:
 
@@ -61,7 +61,7 @@ Sprue Data Product
     -> creator revenue and any agreed Sprue fee
 ```
 
-See [the Hedera reference](sponsor/Hedera.md) for official award rules and proposed integration gates. The target is a real paid data service with a working consumer, not a Recipe. SDK versions, payment asset, account mapping, creator access to receipts, and service-fee settlement remain unverified.
+See [the Hedera reference](sponsor/Hedera.md) for official award rules, the documented protocol profile, and proposed integration gates. The target is a real paid data service with a working consumer, not a Recipe. Exact package versions, the MVP payment asset, Privy-to-Hedera account mapping, creator access to receipts, live failure/replay behavior, and service-fee settlement remain unverified.
 
 ### Privy: Creator Account Wallet Layer
 
@@ -71,7 +71,7 @@ Bounded automatic Graph x402 payments remain core sponsor-demo scope even though
 
 ### x402: Payment Protocol
 
-x402 has two distinct uses in the plan: upstream Graph data purchases and downstream API sales settled on Hedera through Blocky402. These are separate requests, payment obligations, adapters, and accounting records. Blocky402 is not required on the upstream Graph path. Each adapter must validate its actual network, payment asset, scheme, and signing method independently.
+x402 has two distinct uses in the plan: upstream Graph data purchases and downstream API sales settled on Hedera through Blocky402. These are separate requests, payment obligations, adapters, and accounting records. Blocky402 is not required on the upstream Graph path. The downstream adapter uses Hedera x402 v2 `exact`; this does not imply that Graph uses the same signer, network, asset, requirement shape, or facilitator.
 
 ## Account Wallet and Money Flows
 
@@ -88,7 +88,7 @@ External buyer -> Sprue x402 gate -> Blocky402 -> Hedera API sale
                      +-> Sprue service fee, only if enabled and validated
 ```
 
-The branches represent economic allocation, not a claim that Blocky402 supports an atomic split. The creator account remains the intended ownership identity. Validate network-specific account references and control of proceeds; any separate account or settlement address must be justified explicitly. Never silently change to platform custody or export a user key to fit a sample integration.
+The branches represent economic allocation, not a claim that Blocky402 supports an atomic split. The creator account remains the intended ownership identity. Resolve any EVM address to a complete creator-controlled Hedera account ID, validate capability for the selected HBAR/HTS asset, and reconcile the facilitator transaction through Mirror Node. Any separate account or settlement address must be justified explicitly. Never silently change to platform custody or export a user key to fit a sample integration.
 
 The [Graph payment documentation](https://thegraph.com/docs/en/subgraphs/tooling/x402-payments/) specifies USDC on Base or Base Sepolia. Downstream settlement follows the selected Hedera path. Keep asset/network balances separate: API revenue does not automatically refill the Graph budget. No bridge, conversion, or cross-chain treasury automation is included in the MVP. This distinction concerns payment networks, not the chain whose data a product analyzes.
 
@@ -379,10 +379,10 @@ Refresh timing and materialization remain separate product policies. This execut
 
 ### Publication and Payment Adapters
 
-- Have Sprue advertise each monetized product's Hedera payment requirement, including price, asset, and validated creator recipient.
-- Use the Blocky402 adapter for downstream payment verification and settlement; do not assume its Hedera signing scheme is interchangeable with Graph's EVM scheme.
+- Have Sprue advertise x402 v2 `exact` requirements containing the Hedera network, atomic price, fungible asset entity ID, resolved creator `payTo` account ID, bounded timeout, and current Blocky402 fee payer.
+- Use the Blocky402 `/supported`, `/verify`, and `/settle` boundary; do not assume its partially signed Hedera `TransferTransaction` is interchangeable with Graph's EVM signing flow.
 - Enable the gate through Sprue's publish action. Reject unpaid or invalid public access without exposing the underlying result; keep explicitly authorized private access separate.
-- Prevent duplicate independent charges across middleware and runtime. Persist request/settlement correlation and reconcile uncertain outcomes before retrying.
+- Prevent duplicate independent charges across middleware and runtime. Persist request/settlement correlation, then reconcile the facilitator reference to Hedera transaction ID/hash, consensus timestamp, result, and exact transfers before retrying or recognizing revenue.
 - Record upstream expenses separately from downstream sales, creator proceeds, and any enabled service-fee settlement.
 - Return the data response only after the payment requirement is satisfied.
 
@@ -392,6 +392,7 @@ The initial domain model should include these logical objects:
 
 - `Workspace`: customer or project boundary.
 - `AccountWallet`: one concrete creator-owned or explicitly external provider wallet resource, with provider wallet/entity/owner references and network-scoped addresses. Funding and receipt capabilities are validated separately.
+- `WalletAssetCapability`: network-account resolution plus per-asset receive/spend, token-association, account-completion, and receiver-signature evidence.
 - `WalletPolicy`: immutable snapshot of the provider-enforced rules, owner control, chain type, and provider policy identity approved for delegated actions.
 - `WalletSignerGrant`: user consent attaching Sprue's additional signer/key quorum to a wallet under an exact provider-policy snapshot; signer secret material remains outside the database.
 - `SpendingPolicy`: approved Graph purchase limits, allowed destinations, revocation state, and budget reservations.
@@ -401,10 +402,10 @@ The initial domain model should include these logical objects:
 - `ProviderCredential`: logical customer-supplied Graph API-key identity, secret-manager reference, version/fingerprint, validation status, and external-subscription billing boundary.
 - `TransformationGraph`: validated nodes and edges.
 - `Deployment`: runtime and endpoint status for a version.
-- `MonetizationPolicy`: opt-in access, x402 price, Hedera network/asset, Blocky402 configuration reference, validated creator recipient, and any accepted service-fee terms/version.
+- `MonetizationPolicy`: opt-in access, x402 version/scheme/timeout, Hedera network/asset, Blocky402 capability/configuration reference, validated creator recipient, and any accepted service-fee terms/version.
 - `BuildRun`: execution state, logs, trace, and validation results.
 - `UsageEvent`: request, cost, freshness, and resource information.
-- `PaymentEvent`: upstream or downstream payment identity, network, asset, amount, payer/recipient, status, request correlation, and settlement reference.
+- `PaymentEvent`: upstream or downstream payment identity, network, asset, amount, payer/recipient/fee payer, status, request correlation, facilitator reference, and normalized network settlement evidence.
 - `WalletLedgerEntry`: network/asset-specific funding, Graph expense, gross API sale, creator proceeds, provider charge, or platform fee linked to account/product/payment identifiers. A ledger entry is not a cross-chain transfer.
 
 ## Main User Flows
@@ -524,8 +525,8 @@ The first implementation should not require:
 - DAG operator subset, execution library, and persistence schema.
 - Scheduler and cache implementation.
 - Exact Railway service sizing, evaluator availability window, Docker image layout, and operational runbook.
-- Exact test/mainnet environment, supported Hedera payment asset, SDK versions, and Blocky402 settlement configuration; the downstream network family and facilitator are selected.
+- Exact `@x402` package versions and the MVP HBAR/HTS asset; Hedera x402 v2 `exact`, Blocky402, and testnet-first validation are selected.
 - Creator-wallet delegation, funding, budget enforcement, and Graph payment compatibility.
 - Privy-to-Hedera account/recipient mapping, creator ownership and access to proceeds, and buyer signer support. Do not infer compatibility from EVM support alone.
-- Blocky402 settlement evidence, failure/retry behavior, and whether the path supports the intended revenue/fee allocation; fee terms are not yet selected.
+- Live Blocky402 response fields, replay/failure/retry behavior, Mirror Node reconciliation, and whether the path supports the intended revenue/fee allocation; fee terms are not yet selected.
 - Authentication, workspace isolation, and demo quotas.
