@@ -2,7 +2,7 @@
 
 Describe it. Shape it. Sell it.
 
-Sprue is a hosted web product that turns natural-language onchain data logic into persistent, reusable, and optionally monetizable APIs. Product structure, technical selection, and data-model version 1.3 are approved. Product and interface design is the current stage; MVP implementation follows after the page inventory and interaction specification are approved. The initial downstream payment profile is Hedera testnet with HBAR through Blocky402. No runnable MVP or live payment integration exists yet.
+Sprue is a hosted web product that turns natural-language onchain data logic into persistent, reusable, and optionally monetizable APIs. Product structure, technical selection, and data-model version 1.3 are approved. Product and interface design is the current stage: page architecture and interactions are approved, while final desktop design tokens and representative wireframes remain before MVP implementation. The initial downstream payment profile is Hedera testnet with HBAR through Blocky402. No runnable MVP or live payment integration exists yet.
 
 ## Selected Sponsors
 
@@ -25,8 +25,8 @@ Vercel and Railway are temporary delivery targets, not application dependencies.
 - [Plan, decisions, and AI contribution log](plan.md)
 - [Proposed project structure and financial model](project-structure.md)
 - [Approved MVP data model version 1.3 and validation gates](data-model.md)
-- [Draft product and interface design](product-design.md)
+- [Approved page architecture and interaction design](product-design.md)
 
-Product-design Draft 0.1 proposes seven page families, route ownership, per-page interaction elements, UI states, responsive/accessibility behavior, and screen-to-data contracts. It remains subject to human approval before implementation.
+Product-design version 1.0 approves seven page families, route ownership, per-page interactions, UI states, a desktop-only Creator Console, accessibility behavior, and screen-to-data contracts. Final design tokens and representative desktop wireframes remain the current design work before implementation.
 
 Participation: Start Fresh. All repository text is written in English; team communication may use Chinese. Preserve meaningful Git history and update the AI contribution record as work progresses. Runnable setup and verified demo evidence will be added with implementation.

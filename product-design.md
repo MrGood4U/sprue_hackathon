@@ -2,9 +2,9 @@
 
 ## Status
 
-Draft 0.1, created on 2026-09-05. This proposal is not yet approved for implementation.
+Version 1.0, approved on 2026-09-05 as the page-architecture and interaction baseline. The human team approved D1, D2, and D4 and revised D3 to make the MVP desktop-only. Final visual-system tokens and desktop wireframes remain the next design deliverable; application implementation has not started.
 
-This document defines the MVP information architecture, page inventory, interactions, state behavior, responsive behavior, accessibility requirements, and screen-to-domain contracts. Human approval of the decisions in [Human Decisions Required](#human-decisions-required) is required before this document becomes the UI implementation baseline.
+This document defines the MVP information architecture, page inventory, interactions, state behavior, desktop layout behavior, accessibility requirements, and screen-to-domain contracts. The decisions are recorded in [Confirmed Design Decisions](#confirmed-design-decisions).
 
 ## Design Objective
 
@@ -48,9 +48,9 @@ An ETHGlobal judge who needs a short, understandable path through the real produ
 
 The MVP implements one active owner per workspace. Invitations, role management, and non-owner Creator Console views are out of scope.
 
-## Proposed Page Count
+## Approved Page Count
 
-The MVP should contain **seven route-level page families**. Parameterized routes and create/edit variants within one family do not increase this count. Privy callbacks, generic errors, and not-found routes are utility routes rather than product pages.
+The MVP contains **seven route-level page families**. Parameterized routes and create/edit variants within one family do not increase this count. Privy callbacks, generic errors, and not-found routes are utility routes rather than product pages.
 
 | No. | Page family | Proposed route | Audience | Primary outcome |
 |---:|---|---|---|---|
@@ -72,7 +72,7 @@ The public header contains the Sprue wordmark, a `View demo` link, and one prima
 
 ### Creator Console Navigation
 
-Desktop and tablet use a persistent application sidebar with two top-level destinations:
+Supported desktop layouts use a persistent application sidebar with two top-level destinations:
 
 - `Products`
 - `Wallet & Access`
@@ -502,16 +502,18 @@ Skeletons reserve the final content shape. Spinners are reserved for short local
 - Any action that can spend, deploy, publish, revoke, or retire requires a confirmation containing consequence and scope.
 - Buttons remain disabled during a state-changing request and show progress. Duplicate clicks reuse the same logical operation rather than creating another payment or deployment.
 
-## Responsive Behavior
+## Desktop Support and Layout Behavior
 
-| Width | Navigation | Builder behavior | Data and financial views |
-|---|---|---|---|
-| `>= 1280px` | Persistent sidebar and product tabs | Three-pane workspace plus bottom trace drawer | Tables with optional detail drawer |
-| `1024-1279px` | Compact sidebar | Canvas primary; chat and inspector collapse into side panels | Reduced columns; detail drawer |
-| `768-1023px` | Collapsible navigation | One primary panel with tabs for Chat, Graph, Inspector, and Trace | Cards plus horizontally contained tables only where unavoidable |
-| `< 768px` | Compact top bar and menu | Structured DAG list is primary; node configuration and connections use forms, not drag-only canvas | Stacked cards; critical labels never truncate without disclosure |
+The MVP targets desktop web browsers. Mobile and tablet-specific interface design is deferred.
 
-All page families remain understandable at 375 CSS pixels with no page-level horizontal scrolling. Public documentation and the consumer request flow must be fully operable on mobile. Complex freeform canvas arrangement is an enhancement; semantic DAG editing must remain possible through the structured node list and explicit connection controls.
+| Width | Support level | Navigation | Builder behavior | Data and financial views |
+|---|---|---|---|---|
+| `>= 1440px` | Primary design and judge-demo target | Persistent sidebar and product tabs | Three-pane workspace plus bottom trace drawer | Full tables with detail drawer |
+| `1280-1439px` | Fully supported | Persistent compact sidebar | Three panes with bounded collapsible side panels | Reduced optional columns; detail drawer |
+| `1024-1279px` | Minimum supported Creator Console width | Compact sidebar | Canvas remains primary; chat and inspector open one at a time | Essential columns plus detail drawer |
+| `< 1024px` | Outside MVP support scope | No mobile-specific navigation commitment | Creator Console may show a concise desktop-required notice | Public content must not leak or corrupt data, but no mobile layout is promised |
+
+The public product page and generated API remain reachable independently of Creator Console layout, but the hackathon UI is not required to provide a separately designed phone or tablet experience. The structured DAG outline remains a desktop keyboard and single-pointer alternative to drag operations; it is not a mobile-editor commitment.
 
 ## Accessibility Baseline
 
@@ -527,7 +529,7 @@ The target is WCAG 2.2 AA for the implemented MVP path.
 - Live build/payment updates use a restrained atomic status region and do not move focus.
 - Icon-only controls have accessible names; decorative icons are hidden from assistive technology.
 - Normal text contrast is at least 4.5:1; meaningful non-text UI reaches at least 3:1.
-- Pointer targets are at least 44 by 44 CSS pixels for the primary responsive path.
+- Pointer targets meet the WCAG 2.2 AA web minimum of 24 by 24 CSS pixels or documented spacing exceptions; primary actions should use larger targets where practical.
 - Motion explains cause and effect, uses transform/opacity, and respects `prefers-reduced-motion`.
 - Charts, if added, have a table or text summary and do not rely on color alone.
 - Authentication permits paste and password-manager/provider flows without a cognitive puzzle.
@@ -573,6 +575,7 @@ Every state-changing contract needs authorization, idempotency, a stable correla
 ### P0 Implementation
 
 - All seven page families.
+- Desktop Creator Console support from 1024 CSS pixels, optimized for the 1440-pixel judge-demo viewport.
 - One owner workspace.
 - One representative Graph-backed product.
 - Both Graph access configuration paths, with x402 used in the sponsor demo.
@@ -595,6 +598,7 @@ Every state-changing contract needs authorization, idempotency, a stable correla
 
 ### Deferred
 
+- Mobile and tablet-specific Creator Console and public-page layouts.
 - Marketplace browse/search pages.
 - Team, invitation, and role-management pages.
 - Per-product wallet management.
@@ -621,50 +625,43 @@ The operator-controlled live demonstration should fit within four minutes:
 
 A prebuilt fallback product may protect the presentation from a slow live build, but it must be labeled as previously built and cannot replace the recorded live sponsor evidence.
 
-## Human Decisions Required
+## Confirmed Design Decisions
 
 ### D1. Page Architecture
 
-Approve or revise the proposed seven page families and the shared product views: Build, API, and Monetize.
-
-**Recommendation:** Approve. This keeps wallet resources account-scoped, gives the complex Builder enough space, and separates private API readiness from optional payment configuration without creating a page for every table.
+**Approved:** Seven page families with shared product views for Build, API, and Monetize. This keeps wallet resources account-scoped, gives the complex Builder enough space, and separates private API readiness from optional payment configuration without creating a page for every table.
 
 ### D2. Evaluator Paid-Request Method
 
-Choose how an evaluator can exercise the public page without receiving creator or platform signing authority:
+**Approved direction:** Use a tightly capped, rate-limited demo consumer for the hosted judge path and keep a documented CLI as reproducible evidence. The consumer remains a separate buyer and cannot receive creator or platform signing authority.
 
-- Connect or configure their own compatible Hedera testnet consumer.
-- Copy a documented CLI command and use separately supplied testnet credentials.
-- Trigger a tightly capped, rate-limited demo consumer funded and controlled by the team, while clearly identifying it as a separate buyer.
+This product decision does not authorize funding or deployment by itself. Before implementation, define the demo consumer's wallet ownership, testnet funding cap, request rate limit, abuse controls, reset procedure, and shutdown behavior.
 
-**Recommendation:** Use the capped demo consumer for the hosted judge path and keep the CLI as reproducible evidence. This requires a separate security, funding, rate-limit, and authorization decision before implementation.
+### D3. Desktop-Only MVP Scope
 
-### D3. Mobile Editing Commitment
+**Approved as revised:** The Creator Console targets desktop browsers only for the MVP. The primary judge-demo viewport is 1440 CSS pixels, with 1024 CSS pixels as the minimum supported width. Mobile and tablet-specific layouts are deferred.
 
-Approve the structured list/form DAG editor as the mobile and keyboard alternative to canvas dragging.
-
-**Recommendation:** Approve the accessible structured editor as P0, while treating precise mobile canvas arrangement as P1.
+The structured list/form DAG editor remains P0 as a desktop keyboard and single-pointer alternative to drag-only editing and as a reliable fallback during the demo. It does not create a mobile support obligation.
 
 ### D4. Visual-System Timing
 
-Approve information architecture and interactions before selecting final colors, typography, and detailed component styling.
-
-**Recommendation:** Approve. Visual exploration can then target a stable interface rather than redesigning product behavior.
+**Approved:** Information architecture and interactions are approved before final colors, typography, component tokens, and desktop wireframes are selected. Visual exploration can now target a stable interface rather than redesigning product behavior.
 
 ## Approval Gate
 
-This stage is complete only when:
+The page-architecture and interaction gate is complete. The broader Product and Interface Design stage remains current until the visual system and representative desktop wireframes are approved.
 
-- The human team approves the page count and route ownership.
-- The evaluator paid-request method has an authorized design or is explicitly separated from the initial UI implementation.
-- Every P0 journey has a visible start, completion, blocker, and recovery path.
-- Every important action maps to the approved data model or an approved model revision.
-- Build, Refresh, Deploy, Monetize, Revoke, Retire, and payment actions have explicit confirmation and idempotent state handling.
-- Responsive and accessibility expectations are accepted.
-- Final visual direction and component tokens are either approved or scheduled as the next design deliverable.
+Before the design stage is complete:
+
+- Define and approve desktop design tokens for color, typography, spacing, radius, elevation, icons, and motion.
+- Produce representative desktop wireframes for the Product Dashboard, Product Builder, Wallet and Access, API and Deployment, Monetization and Revenue, and Public Product pages.
+- Validate the 1440-pixel target and 1024-pixel minimum layouts.
+- Preserve every approved P0 journey, blocker, recovery path, data-model mapping, confirmation, and idempotent state behavior in the visual design.
+- Document the capped demo consumer's security and funding boundary before implementing its paid action.
 
 ## Change Log
 
 | Date | Change | Status |
 |---|---|---|
 | 2026-09-05 | Created Draft 0.1 with seven proposed page families, primary journeys, interactions, UI states, responsive/accessibility behavior, and screen-to-domain contracts | Awaiting human review |
+| 2026-09-05 | Approved version 1.0 with D1, D2, and D4 accepted; revised D3 to a desktop-only Creator Console and retained structured DAG controls for keyboard/single-pointer access rather than mobile support | Page architecture and interactions approved; visual system pending |
