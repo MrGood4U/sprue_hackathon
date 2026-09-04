@@ -2,7 +2,7 @@
 
 ## Status
 
-This document records the current project-structure conception. It describes product boundaries and logical services before the technical stack is finalized.
+This document records the completed project-structure conception and the selected technical/deployment boundaries. Data-model definition is the current pre-implementation stage. Detailed entities, fields, relationships, constraints, indexes, and migration order will be specified in `data-model.md` before application code is created.
 
 ## Product Model
 
@@ -438,9 +438,9 @@ Creator asks to change a definition
     -> Creator reviews the updated result
 ```
 
-## Tentative Repository Structure
+## Planned Repository Structure
 
-The following structure is intentionally framework-agnostic and may change during technical selection:
+The following structure reflects the selected application boundaries and may be refined during data-model definition and implementation:
 
 ```text
 /
@@ -506,11 +506,9 @@ The first implementation should not require:
 - External integrations must be replaceable behind clear adapters.
 - The remaining technical stack must preserve the confirmed Vercel, Railway, and Docker deployment contract.
 
-## Open Decisions for Technical Selection
+## Data-Model and Implementation Details to Resolve
 
-- Frontend framework and component system.
-- Backend language and API framework.
-- LLM provider and agent orchestration approach.
+- Exact package versions and the initial LLM provider behind the Agent adapter.
 - The Graph MCP versus direct API usage for each operation.
 - DAG operator subset, execution library, and persistence schema.
 - Scheduler and cache implementation.

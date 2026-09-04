@@ -2,7 +2,7 @@
 
 Describe it. Shape it. Sell it.
 
-Sprue is a hosted web product that turns natural-language onchain data logic into persistent, reusable, and optionally monetizable APIs. This repository is currently in planning and technical selection; no runnable MVP or live payment integration exists yet.
+Sprue is a hosted web product that turns natural-language onchain data logic into persistent, reusable, and optionally monetizable APIs. Product structure and technical selection are complete; data-model definition is the current pre-implementation stage. No runnable MVP or live payment integration exists yet.
 
 ## Selected Sponsors
 

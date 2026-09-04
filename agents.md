@@ -94,6 +94,14 @@ Sprue must also support Docker-based self-hosting from the same source without c
 
 Vercel and Railway are the demo delivery profile, not permanent product dependencies. A Docker operator must be able to supply equivalent configuration, networking, persistence, and secrets without patching source code.
 
+## Current Planning Stage
+
+Project-structure conception and technical selection were marked complete on 2026-09-05. Data-model definition is the current stage and is a gate before application implementation or database migration generation.
+
+Create and review `data-model.md` before implementation. It must map every MVP workflow to explicit domain entities, relationships, ownership, lifecycle states, PostgreSQL fields and constraints, API-facing representations, and durable execution records. It must treat product/DAG versions as reproducible definitions, model job retries and side-effect idempotency, represent money in atomic units with explicit network and asset identity, keep financial categories separate, and reference secrets without storing secret values.
+
+Do not infer database fields ad hoc while building endpoints. If implementation reveals a missing concept, update the reviewed data model and record the decision before adding the migration or dependent behavior.
+
 ## Account Wallet and Revenue Model
 
 The user confirmed this model on 2026-09-05: the creator funds an account wallet; Sprue handles Graph purchases within the creator's authorized budget. If the creator opts into x402 publication, API sales produce creator revenue, with a Sprue service fee deducted from those sales if enabled and disclosed. Top-ups are user funds, not platform revenue.

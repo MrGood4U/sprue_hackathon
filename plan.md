@@ -26,8 +26,9 @@ The project will follow this high-level sequence:
 
 ```text
 Brainstorming (complete)
-    -> project structure conception
-    -> technical selection, including sponsor integrations
+    -> project structure conception (complete)
+    -> technical selection, including sponsor integrations (complete)
+    -> data model definition (current)
     -> MVP implementation
     -> project refinement
 ```
@@ -36,13 +37,13 @@ Brainstorming (complete)
 
 Define the product direction, target user, core differentiation, sponsor opportunities, MVP boundary, and demo narrative. The current direction is Sprue: natural-language data logic becomes a persistent, reusable, and optionally monetizable onchain data product.
 
-### 2. Project Structure Conception
+### 2. Project Structure Conception — Complete
 
 Turn the product direction into a concrete system and repository structure. Define the main user journey, frontend and backend responsibilities, shared Data Product Spec, transformation DAG, product lifecycle, API shape, and the smallest demonstrable vertical slice.
 
 The current product shape is a hosted web platform with two connected surfaces: a Creator Console for building and operating products, and a Hosted Product API for external consumer agents and applications. Sprue provides the managed chain from natural-language analysis through The Graph, transformation, API hosting, and x402 access. For the temporary evaluator-facing demo, deploy the Creator Console to Vercel and the API, worker, and PostgreSQL to Railway. Keep the same application portable to Docker self-hosting without source changes. The current structure is documented in [`project-structure.md`](project-structure.md).
 
-### 3. Technical Selection, Including Sponsors
+### 3. Technical Selection, Including Sponsors — Complete
 
 Choose the implementation stack and validate the external dependencies that directly support the core flow. The selected sponsors are The Graph, Hedera, and Privy. The Graph supplies data purchased by Sprue on the creator's behalf. Privy provides the creator account wallet for funding and delegated Graph payments; the intended creator-controlled Hedera receipt path still needs validation. Sprue implements optional x402 access for its hosted APIs, using Blocky402 to verify and settle downstream payments on Hedera. Validate the upstream payment path and downstream settlement independently; sponsor qualification still requires evidence.
 
@@ -56,11 +57,38 @@ The creator tops up the account wallet and grants limited spending authority; Sp
 
 The current payment plan spans two networks: Graph spending on Base or Base Sepolia and API-sale settlement on Hedera. Keep network/asset balances and authorization scopes separate. Do not assume revenue replenishes the Graph budget, add automatic bridging, or substitute a platform-custodial recipient without an explicit decision. Prefer test environments for the first bounded spike; confirm the exact assets and account prerequisites before any funded action.
 
-### 4. MVP Implementation
+The user marked technical selection complete on 2026-09-05. The implementation baseline is:
+
+- React, Vite, TypeScript, and React Flow for the Creator Console;
+- Node.js 24 LTS, Express, and TypeScript for the API and worker runtime;
+- PostgreSQL through `pg` and Drizzle ORM for source-of-truth persistence;
+- `pg-boss` as the initial PostgreSQL-backed job queue;
+- predefined, developer-implemented DAG operators selected and connected by the Agent;
+- Vercel for the evaluator frontend, Railway for the evaluator API, worker, and PostgreSQL, and Docker Compose for equivalent self-hosting;
+- The Graph, Privy, and Hedera/Blocky402 behind explicit integration adapters.
+
+Package versions, external API compatibility, wallet control, payment behavior, and sponsor evidence still require implementation-time validation. Changing a baseline technology requires an explicit plan update.
+
+### 4. Data Model Definition — Current
+
+Define the complete MVP data model before feature implementation. Create `data-model.md` as the reviewed source of truth for:
+
+1. Domain entities, ownership boundaries, identifiers, and lifecycle states.
+2. Relationships, cardinalities, and an entity-relationship diagram.
+3. PostgreSQL tables, columns, types, enums, defaults, foreign keys, uniqueness rules, checks, and indexes.
+4. Immutable product versions, DAG definitions, node configuration, run snapshots, and lineage.
+5. Durable jobs, leases, retries, idempotency keys, and per-node execution state.
+6. Wallet references, delegated spending policies, reservations, Graph expenses, x402 sales, creator proceeds, provider charges, and platform fees by network and asset.
+7. Deployment, API-key, visibility, refresh, usage, and settlement records without storing raw secrets.
+8. Audit timestamps, retention expectations, migration order, and representative records for the primary demo flow.
+
+The phase is complete only when every MVP action has an unambiguous read/write path, monetary values use atomic units with explicit asset/network identity, retryable side effects have idempotency and reconciliation fields, and the domain model maps clearly to PostgreSQL and API contracts. Review the model before generating migrations or implementation scaffolding.
+
+### 5. MVP Implementation
 
 Build the smallest reliable end-to-end product: creator-wallet funding and bounded Graph purchases, natural-language planning, validated data transformation, persistent API, conversational editing, optional Hedera x402 access through Blocky402, and a real paid consumer request with revenue reconciliation and any enabled fee.
 
-### 5. Project Refinement
+### 6. Project Refinement
 
 Improve the product after the core flow works. Focus on interface quality, explainability, reproducibility, build traces, caching, bounded resource usage, error handling, demo reliability, documentation, and final submission materials. Stretch features should not destabilize the core vertical slice.
 
@@ -189,7 +217,7 @@ This is a demo delivery decision, not a commitment to permanent managed hosting.
 - Use explicit database migrations, health/readiness checks, and smoke tests in both deployment profiles.
 - Keep durable state outside ephemeral service filesystems and never bake secrets into images or frontend bundles.
 
-### Shared Data Model
+### Shared DAG Representation
 
 The frontend and backend should use one simple, validated representation:
 
@@ -210,6 +238,8 @@ The frontend and backend should use one simple, validated representation:
 The frontend edits the graph; the backend validates, compiles, runs, and persists it.
 
 ## Implementation Sequence
+
+Begin this sequence only after `data-model.md` satisfies the Data Model Definition acceptance gate and receives human review. External dependency spikes that do not create application schema may be prepared earlier, but application entities, migrations, repositories, and API persistence must follow the reviewed model.
 
 ### Phase 1: Validate External Dependencies
 
@@ -312,6 +342,7 @@ For each substantial AI-assisted contribution, record the following information 
 | 2026-09-05 | Hedera sponsor replacement | Drafted `sponsor/Hedera.md`, replaced active Bazantic/Recipe work with Sprue-hosted x402 gating and Hedera/Blocky402 settlement, and updated financial and evidence boundaries | Human selected Hedera for the x402 step and requested the reference and replacement; wallet compatibility, fee terms, and implementation choices remain pending | Checked official ETHGlobal Hedera requirements, Blocky402, Graph payment, and Privy x402 documentation; validated documentation consistency; no wallets, paid calls, or deployed integrations were created |
 | 2026-09-05 | DAG execution boundary and hosting costs | Recorded the predefined-operator DAG model in project guidance, architecture, and the implementation plan; researched Render's web, worker, database, and free-tier costs | Human approved Option A and requested a hackathon budget estimate; the stack and hosting provider remain unselected | Cross-checked the confirmed decision and official Render pricing, workspace-plan, database-storage, billing, and free-tier documentation; documentation changes only, with no deployment or purchase |
 | 2026-09-05 | Portable evaluator deployment | Defined Vercel and Railway service roles plus a provider-neutral Docker self-hosting contract | Human selected Vercel plus Railway for temporary evaluator access and required Docker self-hosting without source changes | Compared official Vercel and Railway capabilities and pricing with past ETHGlobal deployment patterns; documentation changes only, with no cloud account, resource, or deployment created |
+| 2026-09-05 | Development sequence and data-model gate | Marked the agreed technical baseline complete and defined the required data-model deliverable, contents, and acceptance gate before implementation | Human declared technical selection complete and added data-model definition as the next planning stage | Cross-checked the new stage against the MVP workflow, DAG execution boundary, financial model, deployment profiles, and existing implementation plan; no schema, migration, or application code created |
 
 This table must be updated when AI materially influences architecture, implementation, testing, or submission content.
 
@@ -354,3 +385,4 @@ The central explanation for judges is:
 | 2026-09-05 | Replaced Bazantic with Hedera and Blocky402 in the active x402 plan; retained superseded research and earlier logs | Follow the user's sponsor decision, remove Recipe deliverables, and expose recipient compatibility and separate-network accounting gates without claiming implementation |
 | 2026-09-05 | Confirmed dynamic DAG composition from predefined operators, excluding arbitrary generated-code execution from the MVP | Record the user's Option A decision while leaving the stack and hosting choice open |
 | 2026-09-05 | Selected Vercel plus Railway for the evaluator demo and required source-compatible Docker self-hosting | Optimize temporary judge access while preserving deployment portability and avoiding permanent provider coupling |
+| 2026-09-05 | Marked technical selection complete and inserted data-model definition before MVP implementation | Make entities, relationships, constraints, execution state, and financial records explicit before code and migrations are created |
