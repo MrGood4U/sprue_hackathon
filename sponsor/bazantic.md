@@ -37,6 +37,8 @@ Judging emphasis: repeatable improvement for A; meaningful service interdependen
 
 The following is our assessment, not a final award selection or additional sponsor requirements.
 
+The user clarified that Bazantic is optional publication infrastructure: Sprue first builds and hosts the API, and the creator chooses whether to sell access through x402. The creator's Privy-backed account wallet funds Graph purchases independently and receives API revenue. A possible Sprue service fee is a downstream sales allocation, not a verified Bazantic splitting feature. Recipe award work must support this product boundary.
+
 Prioritize award B for feasibility review under Start Fresh; exclude award A from the current plan. Treat C as a separate scope decision: do not assume that renaming a Graph endpoint or publishing Sprue alone establishes the required service novelty.
 
 A candidate consumer task is to combine a Sprue-derived retention metric with a separate Graph query for current pool liquidity, then explain which pools match a creator's stated criteria. This is only a proposed example; verify actual schemas and metric coverage first. The two calls should answer distinct questions, with their results joined by an explicit identifier.
@@ -50,9 +52,9 @@ Do not add an unrelated data provider merely to pursue C. Confirm the proposed s
 Keep this behind a replaceable publication adapter until a live integration spike succeeds:
 
 - Sprue owns product specifications, transformation execution, refresh jobs, hosted data, and source lineage.
-- Bazantic is the candidate external publication layer for the hosted product endpoint.
+- Bazantic is the optional external publication layer for an already-working hosted endpoint; private use and upstream Graph payment do not require it.
 - The consumer-facing description must match the deployed product version, input schema, freshness policy, and access conditions.
-- Privy wallet involvement remains a separate integration decision; wallet compatibility is not established by this prize summary.
+- Privy supplies the creator's account wallet for data spending and revenue; Bazantic recipient compatibility and fee collection remain unverified. External buyers need not use Privy.
 
 Proposed consumption path:
 
@@ -105,6 +107,7 @@ The prize listing does not establish these implementation details:
 1. Is gateway and Recipe creation/update available through a supported API or SDK, or only a dashboard? Do not claim one-click provisioning until verified.
 2. Which payment networks, assets, x402 versions, settlement paths, and client libraries are supported?
 3. Can each product use its own price and recipient? How are settlement records exposed, and can the intended Privy wallet participate?
+   Can proceeds be split between the creator and Sprue, or is a separately authorized settlement step needed? Confirm fee basis, provider deductions, rounding, reversals, and payout evidence before implementing a nonzero platform fee.
 4. How does Bazantic authenticate to the origin? Test that direct unpaid access is denied; do not rely on a hidden URL.
 5. How are request bodies, query parameters, response codes, timeouts, and schema changes handled?
 6. What prevents duplicate charging during retries, and what happens when payment succeeds but upstream execution fails?

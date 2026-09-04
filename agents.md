@@ -33,17 +33,17 @@ The transformation layer may support a focused set of composable operations such
 The MVP is complete when a user can:
 
 1. Describe an onchain data product in natural language.
-2. See Sprue discover a real Graph source and build a data-product specification.
-3. See the resulting transformation pipeline run against live data.
+2. Fund a Privy-backed account wallet, authorize bounded data spending, and see Sprue discover a real Graph source and build a data-product specification.
+3. See Sprue pay for Graph data from that wallet and run the transformation pipeline against live data.
 4. Access the result through a persistent API endpoint.
 5. Modify the product conversationally and see the definition/output update.
-6. Publish the product through x402 and complete a real paid request from a consumer agent.
+6. Optionally publish the product through Bazantic's x402 gateway, receive revenue in the creator's account wallet, and inspect any disclosed Sprue service-fee allocation. The demo must exercise a real paid consumer request.
 
 The primary demo story is:
 
 > Describe it. Shape it. Sell it.
 
-The main vertical slice is more important than breadth. Product wallets, autonomous treasury management, marketplace features, complex multi-tenancy, automatic pricing, and broad sponsor integrations are future work unless they directly support the core demo.
+The main vertical slice is more important than breadth. The creator account wallet and bounded Graph payments are core scope. Separate wallets per product, general-purpose autonomous treasury management, marketplace features, complex multi-tenancy, and automatic pricing remain future work.
 
 ## Product Principles
 
@@ -63,9 +63,16 @@ Sprue is a web application with:
 - a visual Data Product/DAG workspace;
 - a build trace showing source, schema, transformations, validation, and deployment;
 - API preview and endpoint details;
+- account-wallet funding, Graph spending, and remaining authorized budget;
 - publication, x402 payment, and revenue status.
 
-The selected sponsor integrations are The Graph, Bazantic, and Privy. The Graph supplies indexed onchain data and source discovery; Bazantic supports agent-facing service discovery or consumption; Privy supports embedded wallet infrastructure for the hosted product experience. x402 remains the payment protocol used for monetized access.
+The selected sponsor integrations are The Graph, Bazantic, and Privy. The Graph is the upstream data provider that Sprue pays on the creator's behalf. Privy provides the creator account wallet for top-ups, delegated data spending, and API revenue. Bazantic is the optional x402 publication layer for an already-hosted API; it is not required to build or privately use that API. External buyers need a compatible payment client, not necessarily a Privy wallet.
+
+## Account Wallet and Revenue Model
+
+The user confirmed this model on 2026-09-05: the creator funds an account wallet; Sprue handles Graph purchases within the creator's authorized budget. If the creator opts into x402 publication, API sales produce creator revenue, with a Sprue service fee deducted from those sales if enabled and disclosed. Top-ups are user funds, not platform revenue.
+
+The fee rate, calculation basis, recipient configuration, and settlement timing remain undecided. Do not assume Bazantic provides native revenue splitting or that one wallet library proves end-to-end compatibility. Keep funding, upstream expenses, gross sales, creator proceeds, and platform fees separately auditable. Do not move funds or enable a fee without the relevant user authorization.
 
 ## Hackathon Participation
 

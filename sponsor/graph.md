@@ -47,6 +47,7 @@ Keep composability as a conditional stretch target. An internal Sprue DAG is not
 
 ### Technical References and Implications
 
+- [Paid Graph queries](https://thegraph.com/docs/en/subgraphs/tooling/x402-payments/): The official Subgraph gateway documents x402 access using USDC on Base or Base Sepolia, alongside its existing API-key route. Sprue's confirmed product model uses the creator account wallet to fund upstream data purchases; validate a Privy-backed signer against the chosen endpoint. This does not establish that every discovery/MCP operation uses the same billing path. Do not export a user wallet's private key merely to copy a CLI example.
 - [Subgraph MCP](https://thegraph.com/docs/en/subgraphs/tooling/subgraph-mcp/introduction/): Supports deployment discovery, schema inspection, and querying. It does not contain the LLM. Proposed boundary: the Sprue planner interprets intent, while a Graph adapter executes constrained discovery and query operations.
 - [Standardized schemas](https://thegraph.com/docs/en/subgraphs/existing-subgraphs/standard-subgraphs/): Common entities and metrics allow query-pattern reuse within a protocol category. Extensions and schema/methodology versions still matter. Proposed stretch: run one metric template against two verified compatible deployments, recording versions and any adaptations. Do not assume that matching category names prove compatibility.
 - [Subgraph skills](https://github.com/graphprotocol/subgraphs-skills): Development, optimization, and testing guidance for subgraphs. Consult if source creation becomes necessary; creating a new indexer is not our default MVP path.
@@ -63,6 +64,7 @@ These are Sprue's proposed acceptance checks. Only the user's participation conf
 | [x] | Record the team's participation category | User confirmed Start Fresh on 2026-09-05; recorded in `plan.md` | G5, category only |
 | [ ] | Audit development provenance for the selected pool | Development timeline, starter sources, and baseline/history evidence | G5 |
 | [ ] | Prove the chosen source supports the intended metric | Deployment ID, network, query, variables, retrieval time, indexed block where available, and coverage assessment | G2, G3 |
+| [ ] | Pay for the selected Graph query from the creator account wallet | Funding record, constrained authorization, payment outcome, query response, and linked expense | Sprue product requirement |
 | [ ] | Trace a creator request through the planner and runtime | Prompt, specification version, validated DAG, execution trace, and independently checked output | G3 |
 | [ ] | Exercise a second request or conversational revision | Changed semantics, resulting specification diff, and changed output | G3 |
 | [ ] | Reproduce setup from a clean checkout | Exact commands, environment-variable names, dependency versions, and successful run notes | G4 |
@@ -95,6 +97,7 @@ These are engineering choices for Sprue, not extra prize conditions:
 - Final award selection, development-provenance audit, and event-wide eligibility review; Start Fresh is confirmed.
 - Concrete network, protocol, deployment IDs, schema versions, and data coverage.
 - MCP versus direct GraphQL responsibilities, credentials, quotas, and refresh budget.
+- Exact paid-query endpoint, wallet signer compatibility, discovery billing, and cost reconciliation. API-key access alone does not demonstrate the confirmed wallet-funded product flow.
 - Whether the stretch target is affordable within the existing MVP scope.
 - Provider terms and permissions relevant to caching, transformation, and paid redistribution.
 - Whether multiple award entries are permitted; do not assume prize stacking.

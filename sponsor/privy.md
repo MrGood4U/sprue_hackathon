@@ -32,13 +32,15 @@ Neither award is labeled Continuity-only on this page. Event-wide rules still ap
 
 ## Recommended Sprue Direction
 
-The following is our assessment, not an approved award selection.
+The user confirmed the creator-account wallet model on 2026-09-05. The product role below supersedes the earlier buyer-first proposal; award selection and provider interoperability remain unverified.
 
-Evaluate award B first because a paid consumer request is already part of Sprue's MVP. A candidate flow is a buyer using a Privy wallet to purchase a Sprue data-product response through the Bazantic publication layer. This would connect the wallet integration to a real product action without introducing a separate treasury product.
+The creator has a Privy-backed account wallet, tops it up, and grants Sprue limited authority to pay Graph data costs. Sprue handles purchases during builds and refreshes, without the creator manually paying each query. The same account wallet is the intended recipient identity for optional API sales; exact recipient/settlement configuration must be validated. External API buyers are not required to use Privy.
 
 Do not treat login, wallet creation, a displayed balance, or passive receipt of revenue alone as our completed integration evidence. Show the wallet action and its outcome as part of the user's task.
 
-Consider award A only if we can demonstrate a credible organizational workflow with a real enforced control. One candidate extension is a workspace's data-purchasing wallet with a narrowly scoped spending authorization. Test an allowed purchase and a prohibited request. This is a scope proposal, not a reason to build full organization management or autonomous treasury infrastructure.
+Evaluate the upstream data-purchase flow for award B. For award A, demonstrate the same workflow in a credible business/workspace context with an enforced Privy control, including a permitted and rejected operation. Bounded delegated spending is now core product work; separate product wallets and general-purpose treasury automation are not required.
+
+If the creator enables paid publication through Bazantic, account for creator revenue and any disclosed Sprue service fee on sales. No fee rate, collection mechanism, or native split capability is assumed. Do not confuse creator deposits, upstream Graph expenses, gross API sales, net proceeds, and platform income.
 
 Do not assume one recording qualifies for both awards. Choose after the integration spike and check entry rules.
 
@@ -53,6 +55,8 @@ Privy's [x402 guide](https://docs.privy.io/recipes/agent-integrations/x402) docu
 An important EVM detail: x402 authorization uses typed-data signing. A rule covering only `eth_sendTransaction` does not restrict that signing path. Validate controls against the actual payment authorization method, token, recipient, domain, and amount. See the same [guide's recipient-screening section](https://docs.privy.io/recipes/agent-integrations/x402).
 
 Pin and test compatible SDK versions before adopting example code. Do not hard-code a header format, network, token, signature mode, or facilitator merely because one documentation example uses it.
+
+For the upstream integration, validate against [The Graph's paid-query endpoint](https://thegraph.com/docs/en/subgraphs/tooling/x402-payments/). Using documented components on both sides is not an end-to-end compatibility test. Prefer constrained remote wallet authorization over exporting the creator's private key.
 
 ### Wallet Controls
 
@@ -69,20 +73,24 @@ For Sprue, prefer one narrow policy and a reproducible acceptance/rejection test
 
 ## Proposed End-to-End Evidence
 
-Proposed consumption sequence, subject to compatibility validation:
+Confirmed product sequence, subject to technical validation:
 
 ```text
-Consumer selects a Sprue data product
-    -> sees price and grants bounded payment permission
-    -> Privy wallet authorizes payment
-    -> Bazantic gateway/payment infrastructure validates the paid request
-    -> Sprue returns the derived result
-    -> consumer sees payment outcome, source lineage, and freshness
+Creator funds the account wallet
+    -> authorizes bounded Graph spending
+    -> Sprue uses Privy authorization to pay Graph
+    -> Graph supplies data for the hosted API
+    -> creator sees expenses, budget, and API freshness
+
+If the creator opts into Bazantic publication:
+External buyer pays for API access
+    -> creator receives sales proceeds
+    -> any accepted Sprue service fee is allocated and settled
 ```
 
 This does not assign settlement to Privy or assume that Bazantic itself is the facilitator. Establish those responsibilities during technical selection.
 
-Keep buyer and seller identities explicit. A consumer spending wallet and a creator revenue wallet have different permissions; do not conflate them because both appear in the same demo.
+The creator is a buyer of upstream Graph data and a potential seller of downstream API access. These two roles share the creator account's financial view, but their transactions and permissions must be tracked separately. The external API buyer is a different actor and can use any supported payment client.
 
 ## Development Gates and Evidence
 
@@ -91,8 +99,9 @@ These are our proposed acceptance checks, not additional sponsor rules. All tech
 | Status | Check | Evidence to preserve | Related gate |
 |---|---|---|---|
 | [ ] | Select the award and define its user task | Human decision and a short explanation of why Privy is necessary | P1-P3 |
-| [ ] | Establish the intended wallet identity and ownership | Redacted creation/use record, public address, network, and authorization model | P1 |
-| [ ] | Complete the selected wallet action within Sprue | Request trace, transaction or action outcome, and resulting product behavior | P2 or P3 |
+| [ ] | Establish and fund the creator account wallet | Redacted creation/use record, public address, deposit, and authorization model | P1 |
+| [ ] | Complete Sprue-managed Graph purchasing | Upstream request, wallet authorization, payment outcome, returned facts, and expense linkage | P2 or P3 |
+| [ ] | Reconcile optional API revenue and any enabled service fee | Downstream payment, accepted fee terms, creator proceeds, platform allocation, and settlement references | Sprue product requirement |
 | [ ] | If pursuing A, test the enforced restriction | Policy/signer configuration, one permitted action, and one rejected request | P2 |
 | [ ] | Verify availability and dependencies of the chosen feature | Documentation, account prerequisites, and any sponsor clarification | P3, P4 |
 | [ ] | Reproduce the judge flow from documented setup | Environment-variable names, tested versions, funding instructions, and bounded access | P1 |
@@ -102,13 +111,14 @@ A signed authorization alone is not our proof of a completed paid data request. 
 
 ## Pending Technical Decisions
 
-- Which side uses Privy first: consumer payments, creator payouts, or an organizational operation?
-- Which wallet ownership, delegation, and revocation model fits that choice?
-- Which chain, token, x402 version, signature mode, and facilitator work with Bazantic? Privy's generic x402 support does not prove this compatibility.
+- Which exact account-wallet ownership, delegated signing, budget, and revocation configuration will implement the confirmed creator role?
+- Which chain, token, x402 version, signature mode, and facilitator work for the upstream Graph endpoint and downstream Bazantic publication, respectively?
 - Does Bazantic support the intended recipient configuration and expose enough evidence to reconcile payment and API delivery?
+- Does the chosen settlement path support an authorized platform fee? Its rate, basis, rounding, recipient, payout timing, and refunds must be decided before charging.
 - Which exact wallet method must a control cover, and can retries or alternate signing paths bypass it?
 - How will the demo wallet be funded, bounded, and isolated from production assets? Confirm acceptable demo networks with the sponsor; SDK testnet support alone is not event approval.
 - How will insufficient funds, rejected authorization, duplicate retries, and upstream failure be handled?
+- How will concurrent builds reserve budget and stop safely on revocation? Depositing more funds must not expand an existing spending mandate automatically.
 - Can the selected flow use generally available features without commercial onboarding?
 - Which award entries can be combined, and what final evidence does the sponsor expect?
 

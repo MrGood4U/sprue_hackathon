@@ -11,12 +11,14 @@ Sprue is a hosted web platform for creating and operating derived onchain data p
 The customer describes a desired data product in natural language. Sprue provides the managed service chain:
 
 ```text
-Natural-language analysis
+Creator account wallet funding and bounded spending authorization
+    -> natural-language analysis
     -> The Graph source discovery and data access
     -> Data Product Spec and transformation DAG
-    -> validation and execution
+    -> Sprue-managed Graph payment, validation, and execution
     -> hosted data API
-    -> x402 publication and payment handling
+    -> optional Bazantic x402 publication
+    -> creator revenue and any disclosed platform fee
 ```
 
 The platform should hide the operational complexity of agent execution, data transformation, scheduling, API hosting, caching, and payment verification from the customer.
@@ -38,37 +40,63 @@ The selected sponsor integrations are:
 
 - Discover and inspect indexed onchain data sources.
 - Query the raw facts needed by a product.
+- Receive data payments initiated by Sprue from the creator's funded account wallet, within authorized limits.
 - Reuse existing subgraphs whenever they satisfy the data requirement.
 - Generate a new subgraph only when the required facts are not already indexed and the hackathon scope allows it.
 
-### Bazantic: Agent-Facing Service Layer
+### Bazantic: Optional x402 Publication Layer
 
-Bazantic is planned for the layer that helps make Sprue-created services discoverable, consumable, and useful to agents. The exact integration surface, protocol requirements, and qualification criteria must be confirmed during technical selection before implementation.
+Bazantic is used when a creator chooses to publish an already-hosted API for paid x402 access. Creating, refreshing, hosting, and privately using an API must not depend on that publication step. MCP/Recipes support the published service's agent usability and award evidence; they do not replace Sprue's builder or runtime. Provisioning, recipient configuration, and possible fee splitting require validation.
 
 The intended product role is:
 
 ```text
 Sprue Data Product
-    -> machine-readable capability and API description
-    -> agent discovery or consumption through Bazantic
-    -> optional x402 payment
+    -> working private hosted API
+    -> creator opts into Bazantic publication
+    -> external x402 buyer pays
+    -> creator revenue and any agreed Sprue fee
 ```
 
-### Privy: Embedded Wallet Layer
+### Privy: Creator Account Wallet Layer
 
-Privy is planned for embedded wallet infrastructure inside the hosted product experience. A product or workspace may receive an application-managed wallet identity for receiving monetization revenue and displaying product-level financial state.
+Each creator account needs a Privy-backed wallet for top-ups, authorized Graph spending, and receipts from published APIs. Sprue executes upstream purchases on the creator's behalf; external buyers are not required to use Privy. Start with an account-level wallet and per-product accounting rather than one wallet for every product.
 
-The MVP should begin with the smallest real Privy integration that satisfies the sponsor requirements. Full autonomous treasury management, automatic cost payment, and complex financial policies remain later enhancements.
+Bounded automatic Graph payments are core scope. The proposed authorization design keeps the creator as owner and gives Sprue a revocable, policy-limited signer; exact ownership and policy configuration must be validated. General-purpose autonomous treasury management remains outside the MVP.
 
 ### x402: Payment Protocol
 
-x402 remains the payment protocol for monetized product access. It connects the Hosted Product API to consumer-agent payments and is not a replacement for the selected sponsor roles above.
+x402 has two distinct proposed uses: upstream Graph data purchases and downstream sales through Bazantic. These are separate requests, payment obligations, and accounting records; Bazantic is not required on the upstream path.
+
+## Account Wallet and Money Flows
+
+The user confirmed this product model on 2026-09-05. Provider-specific settlement remains unverified.
+
+```text
+Creator top-up -> creator account wallet
+                     |
+                     +-> Sprue-authorized Graph purchases -> build/refresh data
+
+External buyer -> optional Bazantic publication -> API sale proceeds
+                     |
+                     +-> creator revenue
+                     +-> Sprue service fee, only if enabled and disclosed
+```
+
+The branches represent economic allocation, not a claim that Bazantic supports an atomic split. A single creator account wallet is the intended funding/receipt identity; any separate settlement address must be justified during integration.
+
+- Top-ups remain creator funds, not Sprue sales. Keep upstream Graph costs separate from downstream revenue.
+- Record gross sale amount, provider/network deductions, creator proceeds, and any platform fee independently. Account-level balances and per-product profitability are different views.
+- No fee rate or nonzero default is selected. Confirm its basis, rounding, minimums, recipient, timing, and refund handling before enabling collection; do not silently charge top-ups or data purchases.
+- Evaluate native splitting versus an explicitly authorized later settlement step. An accounting entry alone is not evidence that a fee or creator payout settled.
+- Reserve budget before concurrent paid jobs, enforce spend/recipient/network limits, and stop on insufficient funds, exhaustion, or revoked authorization. Reconcile uncertain payment outcomes before retrying.
+- Funding alone is not permission for unlimited spending. Once a bounded recurring policy is approved, routine queries should not need individual manual payment.
 
 ## Actors
 
 ### Product Creator
 
-The customer who defines and owns a data product. They control its specification, visibility, refresh policy, price, and budget.
+The customer who defines and owns a data product. They fund the account wallet, authorize bounded Graph spending, and control the specification, visibility, refresh policy, price, budget, and acceptance of any service-fee terms.
 
 ### Builder Agent
 
@@ -132,7 +160,7 @@ An edit should create a new product version or an auditable revision. The endpoi
                   | Scheduler/Worker  |
                   | Materializer/Cache|
                   | API Gateway       |
-                  | x402 Middleware   |
+                  | Payment Adapters  |
                   +---------+---------+
                             |
                             v
@@ -168,6 +196,7 @@ Stores the durable definition of each product, including:
 - refresh and materialization policy;
 - visibility and authentication policy;
 - x402 price and recipient configuration;
+- creator account-wallet reference and any accepted service-fee policy version;
 - resource and spending limits;
 - active version and deployment status.
 
@@ -212,7 +241,7 @@ Fly App: sprue
 │   ├── Creator Console
 │   ├── Control API
 │   ├── Hosted Product API
-│   └── x402 gateway
+│   └── publication adapter and authenticated origin access
 └── worker
     ├── product builds
     ├── validation runs
@@ -226,7 +255,7 @@ For the smallest MVP, the control API and Hosted Product API may run in the same
 
 ### Persistence Requirement
 
-The product registry, versions, policies, build metadata, usage events, and payment events are source-of-truth data and must not depend on an ephemeral filesystem.
+The product registry, versions, policies, account-wallet references, budget reservations, build metadata, usage events, and payment/ledger events are source-of-truth data and must not depend on an ephemeral filesystem.
 
 The preferred hosted shape is:
 
@@ -279,6 +308,7 @@ The data plane executes and serves the product.
 - Connect to The Graph and selected MCP or API interfaces.
 - Resolve source and schema references from the product definition.
 - Fetch raw indexed onchain facts.
+- Execute paid Graph requests through the creator-wallet authorization adapter; link expense and payment status to the corresponding build/refresh job.
 - Normalize source-specific fields into the runtime input model.
 
 ### Background Worker
@@ -312,11 +342,12 @@ The MVP should implement only the node types needed for one convincing product f
 - Expose health, freshness, and error status.
 - Apply rate, query, storage, and spending limits.
 
-### x402 Middleware
+### Publication and Payment Adapters
 
 - Advertise the payment requirement for monetized products.
 - Verify or delegate payment settlement through the selected facilitator/network.
-- Record successful payment events and product revenue.
+- Use Bazantic for opted-in publication, with authenticated origin access and no duplicate independent charge behind the gateway.
+- Record upstream expenses separately from downstream sales, creator proceeds, and any enabled service-fee settlement.
 - Return the data response only after the payment requirement is satisfied.
 
 ## Core Domain Objects
@@ -324,15 +355,18 @@ The MVP should implement only the node types needed for one convincing product f
 The initial domain model should include these logical objects:
 
 - `Workspace`: customer or project boundary.
+- `AccountWallet`: creator account's funding/spending/receipt identity, owner, network, and delegated authorization references.
+- `SpendingPolicy`: approved Graph purchase limits, allowed destinations, revocation state, and budget reservations.
 - `DataProduct`: durable product identity and current status.
 - `DataProductVersion`: immutable or auditable specification revision.
 - `SourceReference`: The Graph source, schema, and network metadata.
 - `TransformationGraph`: validated nodes and edges.
 - `Deployment`: runtime and endpoint status for a version.
-- `MonetizationPolicy`: x402 price, recipient, and access requirements.
+- `MonetizationPolicy`: opt-in publication, x402 price, creator recipient, and any accepted service-fee terms/version.
 - `BuildRun`: execution state, logs, trace, and validation results.
 - `UsageEvent`: request, cost, freshness, and resource information.
-- `PaymentEvent`: x402 payment and revenue information.
+- `PaymentEvent`: upstream or downstream payment identity, status, and settlement reference.
+- `WalletLedgerEntry`: funding, Graph expense, gross API sale, creator proceeds, provider charge, or platform fee linked to account/product/payment identifiers.
 
 ## Main User Flows
 
@@ -340,23 +374,28 @@ The initial domain model should include these logical objects:
 
 ```text
 Open Creator Console
+    -> set up/fund account wallet and authorize bounded data spending
     -> describe a data product
     -> review source, schema, DAG, output, and estimated cost
     -> confirm Build
+    -> Sprue pays Graph within the approved budget
     -> observe build trace
     -> inspect live result and API
-    -> publish privately or with x402
+    -> keep using the private API or opt into Bazantic publication and disclosed fee terms
 ```
 
 ### Consumer Request Flow
 
 ```text
-Consumer requests hosted endpoint
-    -> API returns data or HTTP 402
-    -> consumer completes x402 payment
-    -> Sprue verifies settlement
-    -> runtime returns the product response
-    -> usage and revenue are recorded
+Authorized private user requests origin -> runtime returns data under its access policy
+
+External buyer requests Bazantic-published endpoint
+    -> gateway presents the x402 payment requirement
+    -> buyer completes payment with a compatible wallet/client
+    -> selected payment infrastructure verifies the request
+    -> authenticated Sprue origin returns the product response
+    -> payment and creator revenue are reconciled
+    -> any enabled service fee is allocated/settled by the validated mechanism
 ```
 
 ### Conversational Edit Flow
@@ -406,10 +445,11 @@ The first implementation should include:
 - one shared hosted runtime;
 - one public web process and one private worker process, logically separated even if they share an image;
 - one representative Graph-backed data product;
+- one funded creator account wallet with bounded, Sprue-managed Graph payments;
 - fixed, validated transformation node types;
 - one stable product endpoint;
 - one real x402-gated request from a consumer agent;
-- enough persistence to show product state, version, build trace, and payment result.
+- enough persistence to show product state, version, build trace, funding, Graph expenses, sales, and any enabled service-fee settlement.
 
 The first implementation should not require:
 
@@ -417,7 +457,7 @@ The first implementation should not require:
 - a product registry stored only on a local Fly filesystem or single-purpose demo volume;
 - a public Builder Agent with unlimited execution;
 - a full marketplace;
-- autonomous treasury management;
+- general-purpose autonomous treasury management beyond bounded data purchases;
 - production-grade multi-region infrastructure;
 - broad support for arbitrary user code.
 
@@ -441,4 +481,6 @@ The first implementation should not require:
 - Scheduler and cache implementation.
 - Hosting provider and deployment model.
 - x402 network, facilitator, and settlement configuration.
+- Creator-wallet delegation, funding, budget enforcement, and Graph payment compatibility.
+- Bazantic recipient mapping and whether it supports the intended revenue/fee settlement; fee terms are not yet selected.
 - Authentication, workspace isolation, and demo quotas.

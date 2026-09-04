@@ -44,17 +44,19 @@ The current product shape is a hosted web platform with two connected surfaces: 
 
 ### 3. Technical Selection, Including Sponsors
 
-Choose the implementation stack and validate the external dependencies that directly support the core flow. The selected sponsors are The Graph, Bazantic, and Privy. The Graph is the primary indexed-data and source-discovery layer; Bazantic is planned for agent-facing service discovery or consumption; Privy is planned for embedded wallet infrastructure within the hosted product experience. x402 remains the payment protocol for monetized access. Exact sponsor qualification requirements must be verified against official documentation before implementation is finalized.
+Choose the implementation stack and validate the external dependencies that directly support the core flow. The Graph supplies data purchased by Sprue on the creator's behalf. Privy provides the creator account wallet for funding, delegated Graph payments, and API revenue. Bazantic provides optional x402 publication of an already-hosted API. Validate the upstream payment path and downstream settlement independently; sponsor qualification still requires evidence.
 
 The Graph's requirements and proposed development gates are recorded in [sponsor/graph.md](sponsor/graph.md). Review them during dependency validation and final submission preparation. Research is complete, but integration checks and final eligibility confirmation remain pending.
 
 Bazantic's award conditions, proposed publication boundary, Recipe evidence gates, and unresolved technical questions are recorded in [sponsor/bazantic.md](sponsor/bazantic.md). Evaluate the sponsor-API workflow as a candidate fit; do not assume eligibility, automated provisioning, or wallet compatibility from the prize description alone.
 
-Privy's conditions, wallet-action evidence gates, and x402/control references are recorded in [sponsor/privy.md](sponsor/privy.md). Evaluate a consumer payment as the smallest candidate integration, with an organizational control workflow only if pursuing the B2B award. These are proposals; no wallet/payment implementation or final award selection has been approved by this research.
+Privy's conditions, wallet-action evidence gates, and x402/control references are recorded in [sponsor/privy.md](sponsor/privy.md). The user has clarified that the core wallet belongs to the creator account, not primarily an external buyer. Funding, bounded upstream data purchases, and downstream income are the intended workflow; final award selection and technical validation remain pending.
+
+The creator tops up the account wallet and grants limited spending authority; Sprue handles individual Graph purchases without requiring manual payment for every query. Optional API publication may include a disclosed platform fee deducted from sales revenue. The fee rate, calculation basis, collection method, and settlement timing are open decisions, not authorization to charge. See [the financial model](project-structure.md#account-wallet-and-money-flows).
 
 ### 4. MVP Implementation
 
-Build the smallest reliable end-to-end product: natural-language planning, Graph-backed data transformation, validated DAG execution, persistent API, conversational editing, x402 publication, and one real paid consumer request.
+Build the smallest reliable end-to-end product: creator-wallet funding and bounded Graph purchases, natural-language planning, validated data transformation, persistent API, conversational editing, optional Bazantic publication, and a real paid consumer request with revenue reconciliation and any enabled fee.
 
 ### 5. Project Refinement
 
@@ -77,25 +79,29 @@ Example request:
 The MVP is successful when the following flow works end to end:
 
 ```text
-Natural-language request
+Creator account wallet funding and spending authorization
+    -> natural-language request
     -> source and schema discovery
     -> Data Product Spec
     -> transformation DAG
-    -> live-data validation
+    -> Sprue-paid Graph data retrieval and live-data validation
     -> persistent API endpoint
     -> conversational modification
-    -> x402 publication
+    -> optional Bazantic x402 publication (exercised in the demo)
     -> real consumer payment
-    -> paid data response
+    -> paid data response and creator revenue
+    -> disclosed service-fee allocation, if enabled
 ```
 
-The demonstration must use a real Graph-backed data flow and a real x402 payment path. Simulated UI states may support the presentation, but they must not replace the core integration.
+The demonstration must show creator funding, a real Graph purchase authorized through the creator wallet, and a separate downstream paid API request. The API must also work in its private hosted mode without Bazantic publication. Simulated UI states must not replace these integrations; any enabled service fee must reconcile to real settlement evidence.
 
 ## Scope Priorities
 
 ### P0: Required Core Flow
 
 - Web-based Builder Agent interface.
+- Creator account wallet, funding status, limited spending authorization, and expense history.
+- Automated Graph payments within the account budget, including safe stops for insufficient funds or revoked permission.
 - Natural-language data-product request.
 - Existing The Graph source discovery and schema inspection.
 - A focused Data Product Spec representation.
@@ -105,6 +111,7 @@ The demonstration must use a real Graph-backed data flow and a real x402 payment
 - Persistent product configuration and API endpoint.
 - Conversational editing of an existing product definition.
 - x402-gated endpoint with a real paid request.
+- Creator revenue tracking and an explicit service-fee policy/ledger if a fee is enabled; no fee rate is assumed.
 - Build trace showing source, transformation, validation, and deployment status.
 
 ### P1: Strong Product Enhancements
@@ -118,8 +125,8 @@ The demonstration must use a real Graph-backed data flow and a real x402 payment
 ### P2: Future Work Unless the Core Flow Is Stable
 
 - New subgraph generation when an existing source is insufficient.
-- Composition of upstream x402 data providers.
-- Product-specific wallets and autonomous treasury management.
+- Composition of additional upstream paid providers beyond the required Graph integration.
+- Separate per-product wallets and general-purpose autonomous treasury management.
 - Marketplace discovery.
 - Automatic pricing optimization.
 - Broad multi-chain and multi-tenant support.
@@ -134,6 +141,7 @@ The demonstration must use a real Graph-backed data flow and a real x402 payment
 - Build trace and status timeline.
 - API preview, schema, refresh policy, and monetization controls.
 - Revenue and request status for the demo product.
+- Account top-up, available budget, Graph expenses, gross API sales, net proceeds, and disclosed platform fees.
 
 ### Backend
 
@@ -143,7 +151,8 @@ The demonstration must use a real Graph-backed data flow and a real x402 payment
 - Transformation runtime.
 - Product registry and persistent configuration.
 - API gateway for `/products/{id}` endpoints.
-- x402 payment middleware and payment verification.
+- Upstream payment and optional Bazantic publication adapters with payment verification.
+- Creator-wallet authorization, upstream payment orchestration, and funding/expense/revenue reconciliation.
 - Optional scheduler, cache, and materialized-result store.
 
 ### Shared Data Model
@@ -170,10 +179,11 @@ The frontend edits the graph; the backend validates, compiles, runs, and persist
 
 ### Phase 1: Validate External Dependencies
 
-1. Run a minimal The Graph query against real data.
-2. Run a minimal x402 service on the selected network.
-3. Verify the consumer flow: `402 -> payment -> 200`.
-4. Record credentials, network, facilitator, and deployment assumptions without committing secrets.
+1. Validate a bounded Graph query and its live source coverage.
+2. Validate creator-wallet funding and a Privy-authorized payment to the selected Graph gateway; test permission and balance failures.
+3. Publish a test hosted API through Bazantic and verify a separate consumer's `402 -> payment -> 200` flow and creator receipt.
+4. Investigate revenue allocation and fee collection; approve fee terms before enabling any charge.
+5. Record credentials, networks, facilitators, payment evidence, and deployment assumptions without committing secrets.
 
 ### Phase 2: Build the Deterministic Runtime
 
@@ -202,7 +212,7 @@ The frontend edits the graph; the backend validates, compiles, runs, and persist
 
 1. Add a publish action that enables x402 for the selected product.
 2. Run a real consumer-agent paid request.
-3. Show the payment and revenue result in the workspace.
+3. Show Graph expenses, gross API sales, creator proceeds, and any enabled platform fee as distinct records in the workspace.
 4. Add caching, rate limits, and bounded demo budgets.
 5. Record a short, reliable end-to-end demo and verify the public repository history.
 
@@ -214,6 +224,9 @@ The frontend edits the graph; the backend validates, compiles, runs, and persist
 - Show source-to-output lineage for representative results.
 - Reproduce at least one result from the displayed specification and raw source data.
 - Test the x402 endpoint from a separate consumer path.
+- Verify that a creator can build and privately use an API without Bazantic publication.
+- Test delegated Graph spending limits, revocation, concurrent budget reservations, and payment retry reconciliation.
+- Reconcile deposits, upstream expenses, sales, creator proceeds, and any platform fee; never count deposits as earned revenue.
 - Keep a manual fallback demo path if an external service is temporarily unavailable, while clearly labeling it as a fallback.
 - Never commit API keys, private keys, wallet seed phrases, or other secrets.
 
@@ -256,6 +269,7 @@ For each substantial AI-assisted contribution, record the following information 
 | 2026-09-05 | The Graph sponsor research | Summarized official award requirements, reviewed linked technical references, and proposed source-validation and evidence gates in `sponsor/graph.md` | Human supplied the official prize URL and requested a reusable development reference; track selection and final review remain pending | Cross-checked the official ETHGlobal page, Graph documentation, and sponsor-linked skill repository READMEs; no live integration or eligibility certification performed |
 | 2026-09-05 | Bazantic sponsor research | Drafted `sponsor/bazantic.md` with award-specific conditions, proposed Recipe checks, and publication integration unknowns | Human supplied the Bazantic prize URL for the sponsor-reference workflow; award selection and review remain pending | Read the complete Bazantic section of the official event prize listing after the individual page could not be retrieved; no account, gateway, Recipe, or payment integration was created |
 | 2026-09-05 | Participation and Privy research | Recorded Start Fresh, updated Graph/Bazantic applicability, and drafted `sponsor/privy.md` with wallet-flow and control evidence gates | Human confirmed Start Fresh and supplied the official Privy prize URL; integration choices and final review remain pending | Checked the Privy prize page and official x402/policy documentation; the linked quickstart could not be retrieved; no wallets, credentials, or paid actions were used |
+| 2026-09-05 | Creator-wallet payment model | Corrected sponsor roles, scope, money flows, and evidence plans around the creator account wallet | Human specified wallet top-ups, Sprue-managed Graph purchases, optional Bazantic publication, creator revenue, and possible sales-based service fees | Checked official Graph x402 and Privy wallet documentation; product intent is confirmed, but provider interoperability and fee settlement remain untested; no funds moved |
 
 This table must be updated when AI materially influences architecture, implementation, testing, or submission content.
 
@@ -294,3 +308,4 @@ The central explanation for judges is:
 | 2026-09-05 | Added the Bazantic sponsor reference and research record | Make award-specific evidence and publication unknowns explicit before implementation |
 | 2026-09-05 | Confirmed Start Fresh and excluded Continuity-only targets | Apply the user's participation category without claiming completed eligibility checks |
 | 2026-09-05 | Added the Privy sponsor reference and research record | Distinguish wallet creation from functional payment/control evidence and flag interoperability work |
+| 2026-09-05 | Replaced the buyer-first wallet proposal with the confirmed creator-account model | Make Graph payment automation core, Bazantic publication optional, and revenue/fee accounting explicit |
