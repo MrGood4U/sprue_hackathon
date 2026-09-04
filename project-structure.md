@@ -1,0 +1,410 @@
+# Sprue Project Structure
+
+## Status
+
+This document records the current project-structure conception. It describes product boundaries and logical services before the technical stack is finalized.
+
+## Product Model
+
+Sprue is a hosted web platform for creating and operating derived onchain data products.
+
+The customer describes a desired data product in natural language. Sprue provides the managed service chain:
+
+```text
+Natural-language analysis
+    -> The Graph source discovery and data access
+    -> Data Product Spec and transformation DAG
+    -> validation and execution
+    -> hosted data API
+    -> x402 publication and payment handling
+```
+
+The platform should hide the operational complexity of agent execution, data transformation, scheduling, API hosting, caching, and payment verification from the customer.
+
+Sprue has two connected product surfaces:
+
+1. **Creator Console**: the web application where a customer describes, inspects, builds, deploys, edits, and monetizes a data product.
+2. **Hosted Product API**: a stable HTTP endpoint operated by Sprue and consumed by applications or agents. The endpoint may be private, authenticated, or x402-gated.
+
+The platform itself is the managed hosting service. A customer does not need to deploy a separate server for every data product.
+
+For a public hackathon demo, the first hosted target should be one shared Sprue runtime. The platform should route requests by product identity and configuration rather than provisioning a new server for every product.
+
+## Actors
+
+### Product Creator
+
+The customer who defines and owns a data product. They control its specification, visibility, refresh policy, price, and budget.
+
+### Builder Agent
+
+The agent that interprets natural-language intent, discovers appropriate sources, proposes a specification, creates or modifies the transformation DAG, estimates execution requirements, and reports build progress.
+
+### Sprue Platform
+
+The control plane and managed runtime that stores product definitions, validates changes, executes transformations, hosts endpoints, schedules refreshes, enforces resource limits, and records usage and payment events.
+
+### Consumer Agent or Application
+
+An external client that requests data from a hosted product API. If the product is monetized, the client completes the x402 payment flow before receiving the response.
+
+## Product Lifecycle
+
+```text
+Draft
+  -> Planned
+  -> Awaiting confirmation
+  -> Building
+  -> Validating
+  -> Deployed
+  -> Live
+  -> Published / Monetized
+  -> Observed and iterated
+```
+
+Any stage may enter `Failed` or `Suspended` when validation, deployment, budget, payment, or upstream data requirements are not satisfied.
+
+An edit should create a new product version or an auditable revision. The endpoint identity may remain stable while its active definition changes.
+
+## Logical Architecture
+
+```text
+                         Creator
+                           |
+                           v
+                  +-------------------+
+                  |   Creator Console |
+                  |  Web Application  |
+                  +---------+---------+
+                            |
+                            v
+                  +-------------------+
+                  |    Control Plane  |
+                  |                   |
+                  | Agent Orchestrator|
+                  | Product Registry  |
+                  | Spec/DAG Validator|
+                  | Version Manager   |
+                  | Deploy Controller |
+                  | Policy and Budget |
+                  +---------+---------+
+                            |
+                            v
+                  +-------------------+
+                  |     Data Plane    |
+                  |                   |
+                  | Graph Data Adapter|
+                  | DAG Runtime       |
+                  | Scheduler/Worker  |
+                  | Materializer/Cache|
+                  | API Gateway       |
+                  | x402 Middleware   |
+                  +---------+---------+
+                            |
+                            v
+                    Hosted Product APIs
+                            |
+                            v
+                    Consumer Agents
+```
+
+## Control Plane
+
+The control plane manages intent, configuration, and lifecycle rather than serving every data request directly.
+
+### Builder Agent Orchestrator
+
+- Accept natural-language product requests.
+- Discover and inspect The Graph sources.
+- Produce a structured Data Product Spec.
+- Propose a transformation DAG and output schema.
+- Explain assumptions and estimated costs.
+- Apply conversational edits to an existing product.
+- Emit a structured build trace.
+
+### Product Registry
+
+Stores the durable definition of each product, including:
+
+- product identity and owner;
+- description and natural-language intent;
+- source references and schema assumptions;
+- transformation DAG;
+- output schema;
+- refresh and materialization policy;
+- visibility and authentication policy;
+- x402 price and recipient configuration;
+- resource and spending limits;
+- active version and deployment status.
+
+### Validation and Versioning
+
+- Validate node types, parameters, graph connectivity, and output schema.
+- Reject unsupported or unsafe execution plans before deployment.
+- Preserve previous working versions when a new version fails.
+- Keep source-to-output lineage and reproducible build metadata.
+
+### Job Dispatch and Queue
+
+- Accept Build, Backfill, and Refresh requests in the web process.
+- Store durable jobs with status, ownership, retry count, and idempotency information.
+- Let the private worker claim and execute jobs outside the public request lifecycle.
+- Update `BuildRun` records so the Creator Console can stream or poll progress.
+- Use a database-backed job table for the MVP; introduce a dedicated queue only when the workload requires it.
+
+### Deployment Controller
+
+The deployment controller turns an approved product definition into a hosted runtime configuration. For the MVP, all products may run on one shared backend with routes such as:
+
+```text
+/products/{product_id}
+```
+
+The product definition changes; the platform infrastructure does not need to be reprovisioned for every product.
+
+The controller should depend on a runtime adapter rather than on Fly.io-specific behavior. The first adapter may target one shared Fly App; a future adapter could support a dedicated customer deployment without changing the Creator Console or product model.
+
+## Fly.io-Compatible Hosting Model
+
+Fly.io is a suitable deployment target for a public demo because the application can be packaged as a Docker image and deployed from a repository-local `fly.toml`. The deployment model affects the runtime structure in several important ways.
+
+### Recommended Fly App Layout
+
+Use one Fly App with logically separate process groups built from the same image:
+
+```text
+Fly App: sprue
+├── web
+│   ├── Creator Console
+│   ├── Control API
+│   ├── Hosted Product API
+│   └── x402 gateway
+└── worker
+    ├── product builds
+    ├── validation runs
+    ├── backfills
+    └── scheduled refreshes
+```
+
+Only the `web` process should receive public HTTP traffic. The `worker` process should not be exposed as a public service. Keeping long-running builds and refresh jobs out of the request process protects the public API from timeouts and makes the boundary compatible with Fly process groups.
+
+For the smallest MVP, the control API and Hosted Product API may run in the same `web` process. The logical boundary should still remain visible in the code so that the worker can be separated without redesigning the product model.
+
+### Persistence Requirement
+
+The product registry, versions, policies, build metadata, usage events, and payment events are source-of-truth data and must not depend on an ephemeral filesystem.
+
+The preferred hosted shape is:
+
+```text
+Web and worker processes
+          |
+          +--> managed relational database
+          +--> optional cache/materialized-result store
+          +--> optional object storage for large artifacts
+```
+
+A Fly Volume may be useful for a single-machine demo cache or local artifact store, but it is local to the Machine it is attached to. It should not be treated as shared durable storage for a multi-machine application. The product registry should therefore use an external or managed database before the public demo is opened to evaluators.
+
+### Health and Deployment Contract
+
+The web process should expose at least:
+
+- `/healthz`: process is running;
+- `/readyz`: required dependencies are reachable and the process can serve traffic;
+- `/products/{id}`: hosted product endpoint;
+- a lightweight smoke-test route for deployment verification.
+
+The deployment configuration should include health checks, a Dockerfile, a `fly.toml`, a non-secret environment template, and a repeatable deployment/smoke-test command. Database migrations should be explicit and should not rely on a mounted local volume being available during a release step.
+
+### Secrets and Public Access
+
+LLM credentials, The Graph credentials, x402 facilitator credentials, database credentials, and signing material must remain server-side. They should be injected into the hosted processes through the platform's secret mechanism and never be sent to the browser or committed to the repository.
+
+The public deployment should expose the Creator Console and the demo product API, but expensive Builder execution should remain authenticated, quota-bounded, or owner-controlled. A public evaluator-facing URL is not the same thing as an unrestricted build sandbox.
+
+### Managed Hosting Boundary
+
+The hosted-service promise should be represented in the product model with a deployment target and runtime status:
+
+```text
+Data Product
+    -> Deployment Target: shared-hosted
+    -> Runtime Status: live
+    -> Endpoint: /products/{id}
+```
+
+This leaves room for future `dedicated-hosted` or customer-managed targets without making the MVP provision Fly Apps or Machines dynamically.
+
+## Data Plane
+
+The data plane executes and serves the product.
+
+### Graph Data Adapter
+
+- Connect to The Graph and selected MCP or API interfaces.
+- Resolve source and schema references from the product definition.
+- Fetch raw indexed onchain facts.
+- Normalize source-specific fields into the runtime input model.
+
+### Background Worker
+
+- Run product builds, validation jobs, historical backfills, and scheduled refreshes outside the public request process.
+- Report progress and failure details through `BuildRun` records.
+- Enforce per-build and per-product resource limits.
+
+### DAG Runtime
+
+Execute a focused set of validated operations such as:
+
+```text
+Source -> Filter -> Map -> Join -> GroupBy -> Window -> Aggregate -> Score -> Output
+```
+
+The MVP should implement only the node types needed for one convincing product flow.
+
+### Scheduler, Materializer, and Cache
+
+- Refresh products according to their declared policy.
+- Materialize expensive derived results when appropriate.
+- Serve repeated requests from cached results where possible.
+- Track freshness and last successful update.
+
+### API Gateway
+
+- Resolve a product endpoint to its active version.
+- Enforce visibility and authentication policy.
+- Return a documented output schema.
+- Expose health, freshness, and error status.
+- Apply rate, query, storage, and spending limits.
+
+### x402 Middleware
+
+- Advertise the payment requirement for monetized products.
+- Verify or delegate payment settlement through the selected facilitator/network.
+- Record successful payment events and product revenue.
+- Return the data response only after the payment requirement is satisfied.
+
+## Core Domain Objects
+
+The initial domain model should include these logical objects:
+
+- `Workspace`: customer or project boundary.
+- `DataProduct`: durable product identity and current status.
+- `DataProductVersion`: immutable or auditable specification revision.
+- `SourceReference`: The Graph source, schema, and network metadata.
+- `TransformationGraph`: validated nodes and edges.
+- `Deployment`: runtime and endpoint status for a version.
+- `MonetizationPolicy`: x402 price, recipient, and access requirements.
+- `BuildRun`: execution state, logs, trace, and validation results.
+- `UsageEvent`: request, cost, freshness, and resource information.
+- `PaymentEvent`: x402 payment and revenue information.
+
+## Main User Flows
+
+### Creator Build Flow
+
+```text
+Open Creator Console
+    -> describe a data product
+    -> review source, schema, DAG, output, and estimated cost
+    -> confirm Build
+    -> observe build trace
+    -> inspect live result and API
+    -> publish privately or with x402
+```
+
+### Consumer Request Flow
+
+```text
+Consumer requests hosted endpoint
+    -> API returns data or HTTP 402
+    -> consumer completes x402 payment
+    -> Sprue verifies settlement
+    -> runtime returns the product response
+    -> usage and revenue are recorded
+```
+
+### Conversational Edit Flow
+
+```text
+Creator asks to change a definition
+    -> Agent proposes a new version
+    -> validator checks the revised DAG
+    -> runtime rebuilds or refreshes the product
+    -> endpoint keeps the stable product identity
+    -> Creator reviews the updated result
+```
+
+## Tentative Repository Structure
+
+The following structure is intentionally framework-agnostic and may change during technical selection:
+
+```text
+/
+├── agents.md
+├── plan.md
+├── project-structure.md
+├── README.md
+├── apps/
+│   ├── web/                # Creator Console
+│   └── api/                # Control API and hosted product endpoints
+├── packages/
+│   ├── domain/             # Product, version, policy, and event models
+│   ├── dag/                # Spec types, validation, compilation, runtime
+│   ├── agent/              # Planning, source discovery, and build trace
+│   ├── graph/              # The Graph adapters and schema handling
+│   ├── payments/           # x402 integration and payment events
+│   └── shared/             # Shared types and utilities
+├── infrastructure/        # Deployment, environment, and service configuration
+├── tests/                  # Unit, integration, and end-to-end tests
+└── docs/                   # Technical and submission documentation
+```
+
+During the hackathon, several logical services may be implemented in one deployable backend. The boundaries above are for clarity and future evolution, not a requirement to build a distributed system.
+
+## MVP Structure Boundary
+
+The first implementation should include:
+
+- one Creator Console;
+- one backend that combines the control plane and data plane where practical;
+- one shared hosted runtime;
+- one public web process and one private worker process, logically separated even if they share an image;
+- one representative Graph-backed data product;
+- fixed, validated transformation node types;
+- one stable product endpoint;
+- one real x402-gated request from a consumer agent;
+- enough persistence to show product state, version, build trace, and payment result.
+
+The first implementation should not require:
+
+- a separate server or container for every product;
+- a product registry stored only on a local Fly filesystem or single-purpose demo volume;
+- a public Builder Agent with unlimited execution;
+- a full marketplace;
+- autonomous treasury management;
+- production-grade multi-region infrastructure;
+- broad support for arbitrary user code.
+
+## Design Constraints
+
+- The customer must explicitly approve expensive Build, Backfill, Deploy, and Monetize actions.
+- Builder planning and runtime execution must be separate permission domains.
+- Product definitions must be inspectable, versioned, and reproducible.
+- Products should be private by default and bounded by resource policies.
+- Hosted APIs must expose freshness, status, and useful error information.
+- External integrations must be replaceable behind clear adapters.
+- The technical stack remains open until the next planning phase validates sponsor and deployment requirements.
+
+## Open Decisions for Technical Selection
+
+- Frontend framework and component system.
+- Backend language and API framework.
+- LLM provider and agent orchestration approach.
+- The Graph MCP versus direct API usage for each operation.
+- DAG execution model and persistence layer.
+- Scheduler and cache implementation.
+- Hosting provider and deployment model.
+- x402 network, facilitator, and settlement configuration.
+- Authentication, workspace isolation, and demo quotas.
