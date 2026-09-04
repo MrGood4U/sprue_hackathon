@@ -65,7 +65,7 @@ Sprue is a web application with:
 - API preview and endpoint details;
 - publication, x402 payment, and revenue status.
 
-The core sponsor/integration priority is The Graph first, Hedera/x402 second, and other integrations only when they strengthen the main workflow.
+The selected sponsor integrations are The Graph, Bazantic, and Privy. The Graph supplies indexed onchain data and source discovery; Bazantic supports agent-facing service discovery or consumption; Privy supports embedded wallet infrastructure for the hosted product experience. x402 remains the payment protocol used for monetized access.
 
 ## Repository Language Rule
 

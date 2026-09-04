@@ -30,6 +30,40 @@ The platform itself is the managed hosting service. A customer does not need to 
 
 For a public hackathon demo, the first hosted target should be one shared Sprue runtime. The platform should route requests by product identity and configuration rather than provisioning a new server for every product.
 
+## Sponsor Integration Strategy
+
+The selected sponsor integrations are:
+
+### The Graph: Onchain Data Foundation
+
+- Discover and inspect indexed onchain data sources.
+- Query the raw facts needed by a product.
+- Reuse existing subgraphs whenever they satisfy the data requirement.
+- Generate a new subgraph only when the required facts are not already indexed and the hackathon scope allows it.
+
+### Bazantic: Agent-Facing Service Layer
+
+Bazantic is planned for the layer that helps make Sprue-created services discoverable, consumable, and useful to agents. The exact integration surface, protocol requirements, and qualification criteria must be confirmed during technical selection before implementation.
+
+The intended product role is:
+
+```text
+Sprue Data Product
+    -> machine-readable capability and API description
+    -> agent discovery or consumption through Bazantic
+    -> optional x402 payment
+```
+
+### Privy: Embedded Wallet Layer
+
+Privy is planned for embedded wallet infrastructure inside the hosted product experience. A product or workspace may receive an application-managed wallet identity for receiving monetization revenue and displaying product-level financial state.
+
+The MVP should begin with the smallest real Privy integration that satisfies the sponsor requirements. Full autonomous treasury management, automatic cost payment, and complex financial policies remain later enhancements.
+
+### x402: Payment Protocol
+
+x402 remains the payment protocol for monetized product access. It connects the Hosted Product API to consumer-agent payments and is not a replacement for the selected sponsor roles above.
+
 ## Actors
 
 ### Product Creator

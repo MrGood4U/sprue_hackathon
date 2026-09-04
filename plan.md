@@ -40,7 +40,7 @@ The current product shape is a hosted web platform with two connected surfaces: 
 
 ### 3. Technical Selection, Including Sponsors
 
-Choose the implementation stack and validate the external dependencies that directly support the core flow. The current priority is The Graph for indexed onchain data and source discovery, followed by Hedera/x402 for paid service access. Additional sponsor integrations should be selected only when they strengthen the main product workflow.
+Choose the implementation stack and validate the external dependencies that directly support the core flow. The selected sponsors are The Graph, Bazantic, and Privy. The Graph is the primary indexed-data and source-discovery layer; Bazantic is planned for agent-facing service discovery or consumption; Privy is planned for embedded wallet infrastructure within the hosted product experience. x402 remains the payment protocol for monetized access. Exact sponsor qualification requirements must be verified against official documentation before implementation is finalized.
 
 ### 4. MVP Implementation
 
@@ -242,6 +242,7 @@ For each substantial AI-assisted contribution, record the following information 
 | 2026-09-05 | Project planning | Drafted this implementation and AI-disclosure plan | Human reviewed and approved the plan structure | Cross-checked against the MVP definition and repository language rule |
 | 2026-09-05 | Project structure | Translated the hosted-web-product direction into control-plane, data-plane, lifecycle, domain-model, and repository-structure proposals | Human specified that Sprue should provide the managed service chain from Agent analysis through hosted API and x402 | Reviewed against the current product direction and recorded in `project-structure.md` |
 | 2026-09-05 | Deployment architecture | Reviewed the hosted structure against Fly.io-style public deployment constraints | Human identified the need for an evaluator-accessible hosted demo | Checked official Fly.io guidance for process groups, persistence, secrets, deployment, and health checks |
+| 2026-09-05 | Sponsor selection | Updated the integration plan to The Graph, Bazantic, and Privy | Human selected the sponsor combination | Roles were mapped to data, agent-service, and embedded-wallet layers; official qualification details remain a technical-selection task |
 
 This table must be updated when AI materially influences architecture, implementation, testing, or submission content.
 
@@ -275,3 +276,4 @@ The central explanation for judges is:
 | 2026-09-05 | Added the five-stage macro development plan; brainstorming marked complete | Align the detailed plan with the team's overall execution sequence |
 | 2026-09-05 | Started project structure conception and documented the hosted platform model | Define the product surfaces, service boundaries, and MVP architecture before technical selection |
 | 2026-09-05 | Added Fly.io-compatible deployment guidance to the project structure | Make the public hosted demo reliable without turning every data product into a separate deployment |
+| 2026-09-05 | Selected The Graph, Bazantic, and Privy as the planned sponsor integrations | Align the technical-selection phase with the team's sponsor strategy |
