@@ -2,7 +2,7 @@
 
 ## Status
 
-Version 1.0, approved on 2026-09-05 as the page-architecture and interaction baseline. The human team approved D1, D2, and D4 and revised D3 to make the MVP desktop-only. Final visual-system tokens and desktop wireframes remain the next design deliverable; application implementation has not started.
+Version 1.1, updated on 2026-09-05 with the selected Evidence-First Console visual direction and a seven-page interactive prototype. The human team approved D1, D2, and D4, revised D3 to target large-screen web browsers, and selected the third visual exploration. Final human review of the prototype remains pending; MVP application implementation has not started.
 
 This document defines the MVP information architecture, page inventory, interactions, state behavior, desktop layout behavior, accessibility requirements, and screen-to-domain contracts. The decisions are recorded in [Confirmed Design Decisions](#confirmed-design-decisions).
 
@@ -504,7 +504,7 @@ Skeletons reserve the final content shape. Spinners are reserved for short local
 
 ## Desktop Support and Layout Behavior
 
-The MVP targets desktop web browsers. Mobile and tablet-specific interface design is deferred.
+The MVP is a web application for large-screen browsers. It is not a Windows, macOS, or other native desktop client. Mobile and tablet-specific interface design is deferred.
 
 | Width | Support level | Navigation | Builder behavior | Data and financial views |
 |---|---|---|---|---|
@@ -534,20 +534,20 @@ The target is WCAG 2.2 AA for the implemented MVP path.
 - Charts, if added, have a table or text summary and do not rely on color alone.
 - Authentication permits paste and password-manager/provider flows without a cognitive puzzle.
 
-## Initial Visual Direction
+## Selected Visual Direction: Evidence-First Console
 
-This draft sets interaction direction, not a final brand system.
+The human team selected the third visual exploration on 2026-09-05. The direction treats Sprue as a precise browser-based data compiler rather than a crypto trading dashboard or native desktop application.
 
-- Calm, precise developer-tool interface rather than a generic crypto trading dashboard.
-- Light-first neutral surfaces for the hackathon MVP; dark mode is a refinement unless explicitly promoted.
-- Trust-oriented primary color, restrained semantic success/warning/error colors, and a single accent for the primary action.
-- Dense enough for source, DAG, and payment evidence, but with a clear 4/8-pixel spacing rhythm and progressive disclosure.
-- Sans-serif UI text; monospaced text only for code, identifiers, hashes, JSON, and tabular amounts.
-- One consistent SVG icon family. Emoji are not structural icons.
-- Subtle, interruptible state transitions; no decorative parallax, continuous ambient animation, or animation that hides final content.
-- Avoid heavy glass effects behind operational text because they weaken contrast and evidence readability.
+- Dark charcoal operational surfaces: `#090d10` background, `#0e1418` panel surface, and `#273138` dividers.
+- White primary text with restrained gray secondary text; cyan represents data lineage, violet represents Agent and primary actions, green represents confirmed state, and amber represents spending or payment attention.
+- Inter for interface text and DM Mono for code, identifiers, hashes, JSON, and tabular amounts.
+- A compact 4/8-pixel spacing rhythm, 5-8 pixel radii, thin borders, and minimal elevation.
+- Phosphor icons provide one consistent icon family; emoji, custom inline SVG, and decorative illustration are not structural UI assets.
+- The Product Builder uses a persistent account sidebar, product tabs, intent and Agent summary, central DAG canvas, build-readiness evidence, and a bottom execution trace.
+- Motion is short, interruptible, and state-explanatory; `prefers-reduced-motion` is respected.
+- Operational text uses flat, high-contrast surfaces rather than glass or ambient animation.
 
-Exact fonts, colors, radii, elevations, and component tokens require a separate visual-system approval after the page structure is accepted.
+The interactive prototype is in [`prototype/`](prototype/). It includes all seven page families and realistic mock transitions for planning, building, API testing, x402 publication, and a judge-safe consumer request. It performs no real authentication, data query, wallet action, payment, deployment, or persistence.
 
 ## Screen-to-Backend Contract Summary
 
@@ -590,7 +590,7 @@ Every state-changing contract needs authorization, idempotency, a stable correla
 
 - Dedicated run/activity page and richer comparisons.
 - Chart visualizations and export beyond JSON.
-- Dark mode.
+- Optional light theme.
 - More product templates and onboarding education.
 - Multiple API credentials with advanced scopes and usage charts.
 - Product archive/restore UI.
@@ -637,9 +637,9 @@ A prebuilt fallback product may protect the presentation from a slow live build,
 
 This product decision does not authorize funding or deployment by itself. Before implementation, define the demo consumer's wallet ownership, testnet funding cap, request rate limit, abuse controls, reset procedure, and shutdown behavior.
 
-### D3. Desktop-Only MVP Scope
+### D3. Large-Screen Web MVP Scope
 
-**Approved as revised:** The Creator Console targets desktop browsers only for the MVP. The primary judge-demo viewport is 1440 CSS pixels, with 1024 CSS pixels as the minimum supported width. Mobile and tablet-specific layouts are deferred.
+**Approved as revised:** The Creator Console is a web application targeting large-screen browsers for the MVP. It is not a native Windows or macOS client. The primary judge-demo viewport is 1440 CSS pixels, with 1024 CSS pixels as the minimum supported width. Mobile and tablet-specific layouts are deferred.
 
 The structured list/form DAG editor remains P0 as a desktop keyboard and single-pointer alternative to drag-only editing and as a reliable fallback during the demo. It does not create a mobile support obligation.
 
@@ -649,13 +649,13 @@ The structured list/form DAG editor remains P0 as a desktop keyboard and single-
 
 ## Approval Gate
 
-The page-architecture and interaction gate is complete. The broader Product and Interface Design stage remains current until the visual system and representative desktop wireframes are approved.
+The page-architecture and interaction gate is complete. The visual direction is selected and the representative web prototype is ready for human review. The broader Product and Interface Design stage remains current until that review and the capped demo-consumer boundary are approved.
 
 Before the design stage is complete:
 
-- Define and approve desktop design tokens for color, typography, spacing, radius, elevation, icons, and motion.
-- Produce representative desktop wireframes for the Product Dashboard, Product Builder, Wallet and Access, API and Deployment, Monetization and Revenue, and Public Product pages.
-- Validate the 1440-pixel target and 1024-pixel minimum layouts.
+- Review and approve the Evidence-First Console tokens and seven-page interactive prototype.
+- Treat the prototype as a browser-based design reference, not production application architecture or a native desktop-client requirement.
+- Preserve the validated 1440-pixel target and 1024-pixel minimum layouts during MVP implementation.
 - Preserve every approved P0 journey, blocker, recovery path, data-model mapping, confirmation, and idempotent state behavior in the visual design.
 - Document the capped demo consumer's security and funding boundary before implementing its paid action.
 
@@ -664,4 +664,5 @@ Before the design stage is complete:
 | Date | Change | Status |
 |---|---|---|
 | 2026-09-05 | Created Draft 0.1 with seven proposed page families, primary journeys, interactions, UI states, responsive/accessibility behavior, and screen-to-domain contracts | Awaiting human review |
-| 2026-09-05 | Approved version 1.0 with D1, D2, and D4 accepted; revised D3 to a desktop-only Creator Console and retained structured DAG controls for keyboard/single-pointer access rather than mobile support | Page architecture and interactions approved; visual system pending |
+| 2026-09-05 | Approved version 1.0 with D1, D2, and D4 accepted; revised D3 to a large-screen browser Creator Console and retained structured DAG controls for keyboard/single-pointer access rather than mobile support | Page architecture and interactions approved; visual system pending |
+| 2026-09-05 | Added version 1.1 with the selected Evidence-First Console direction, explicit browser-only product boundary, design tokens, and a seven-page interactive prototype | Prototype ready for human review; MVP implementation has not started |

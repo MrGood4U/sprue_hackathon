@@ -2,7 +2,7 @@
 
 Describe it. Shape it. Sell it.
 
-Sprue is a hosted web product that turns natural-language onchain data logic into persistent, reusable, and optionally monetizable APIs. Product structure, technical selection, and data-model version 1.3 are approved. Product and interface design is the current stage: page architecture and interactions are approved, while final desktop design tokens and representative wireframes remain before MVP implementation. The initial downstream payment profile is Hedera testnet with HBAR through Blocky402. No runnable MVP or live payment integration exists yet.
+Sprue is a hosted web product that turns natural-language onchain data logic into persistent, reusable, and optionally monetizable APIs. It is a browser application, not a Windows or macOS native client. Product structure, technical selection, and data-model version 1.3 are approved. Product and interface design is the current stage: page architecture and interactions are approved, the Evidence-First Console direction is selected, and a seven-page interactive prototype is ready for review. The initial downstream payment profile is Hedera testnet with HBAR through Blocky402. No runnable MVP or live payment integration exists yet.
 
 ## Selected Sponsors
 
@@ -19,6 +19,18 @@ Official documentation establishes the Hedera x402 wire profile and Blocky402's 
 
 Vercel and Railway are temporary delivery targets, not application dependencies. Deployment portability, explicit migrations, health checks, server-side secrets, and non-ephemeral source-of-truth persistence are required. No live deployment exists yet.
 
+## Interactive Design Prototype
+
+The self-contained React prototype under [`prototype/`](prototype/) covers Entry, Dashboard, Wallet and Access, Product Builder, API and Deployment, Monetization and Revenue, and the Public Consumer Demo. It uses English mock data and simulates the core state transitions without calling real services or moving funds.
+
+```bash
+cd prototype
+npm install
+npm run dev
+```
+
+Open `http://127.0.0.1:4173`. Use a browser window at least 1024 CSS pixels wide; 1440 by 1024 is the primary judge-demo target. Build and packaging checks are available through `npm run build` and `npm run test:sites`.
+
 ## Project Records
 
 - [Product intent and repository rules](agents.md)
@@ -26,7 +38,8 @@ Vercel and Railway are temporary delivery targets, not application dependencies.
 - [Proposed project structure and financial model](project-structure.md)
 - [Approved MVP data model version 1.3 and validation gates](data-model.md)
 - [Approved page architecture and interaction design](product-design.md)
+- [Prototype design QA and visual evidence](design-qa.md)
 
-Product-design version 1.0 approves seven page families, route ownership, per-page interactions, UI states, a desktop-only Creator Console, accessibility behavior, and screen-to-data contracts. Final design tokens and representative desktop wireframes remain the current design work before implementation.
+Product-design version 1.1 records seven page families, route ownership, per-page interactions, UI states, large-screen web behavior, accessibility, screen-to-data contracts, the selected visual tokens, and the interactive prototype. Final human prototype review remains before MVP implementation.
 
 Participation: Start Fresh. All repository text is written in English; team communication may use Chinese. Preserve meaningful Git history and update the AI contribution record as work progresses. Runnable setup and verified demo evidence will be added with implementation.

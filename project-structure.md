@@ -2,7 +2,7 @@
 
 ## Status
 
-This document records the completed project-structure conception and the selected technical/deployment boundaries. [Data-model version 1.3](data-model.md), including the Graph source/access, Privy wallet, and Hedera payment/settlement refinements, is approved as the implementation baseline. The initial downstream integration uses Hedera testnet HBAR through Blocky402. Product and interface design is the current stage: page architecture and interactions are approved, while final desktop design tokens and representative wireframes remain before MVP implementation.
+This document records the completed project-structure conception and the selected technical/deployment boundaries. [Data-model version 1.3](data-model.md), including the Graph source/access, Privy wallet, and Hedera payment/settlement refinements, is approved as the implementation baseline. The initial downstream integration uses Hedera testnet HBAR through Blocky402. Product and interface design is the current stage: page architecture and interactions are approved, the Evidence-First Console direction and browser-only product boundary are selected, and a seven-page interactive prototype is ready for human review before MVP implementation.
 
 ## Product Model
 

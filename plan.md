@@ -29,7 +29,7 @@ Brainstorming (complete)
     -> project structure conception (complete)
     -> technical selection, including sponsor integrations (complete)
     -> data model definition (complete)
-    -> product and interface design (current)
+    -> product and interface design (current: prototype review)
     -> MVP implementation
     -> project refinement
 ```
@@ -98,11 +98,11 @@ The phase will produce `product-design.md` covering:
 3. Each page's content hierarchy, interactive controls, forms, tables, visualizations, and contextual actions.
 4. Cross-page transitions and the state preserved between chat, DAG editing, builds, deployments, wallet actions, and publication.
 5. Empty, loading, success, partial, error, insufficient-funds, revoked-authorization, and payment-reconciliation states.
-6. Desktop viewport behavior, keyboard access, accessibility expectations, and evaluator-safe copy.
+6. Large-screen web viewport behavior, keyboard access, accessibility expectations, and evaluator-safe copy.
 7. The data-model entities and backend/API contracts consumed by every important screen and action.
 8. MVP-versus-deferred boundaries so design breadth does not expand implementation scope.
 
-The human team approved the seven-page information architecture, interaction specification, capped demo-consumer direction, and desktop-only Creator Console scope on 2026-09-05. Mobile and tablet-specific layouts are deferred; the structured DAG editor remains a desktop keyboard and single-pointer alternative. Final desktop design tokens and representative wireframes are the remaining work in this phase. The phase is complete when those visual decisions preserve every P0 path and approved data-model contract without requiring components to invent product behavior.
+The human team approved the seven-page information architecture, interaction specification, capped demo-consumer direction, and large-screen browser scope on 2026-09-05. The product is a web application, not a Windows or macOS native client. Mobile and tablet-specific layouts are deferred; the structured DAG editor remains a browser-based keyboard and single-pointer alternative. The human team then selected the third visual exploration, Evidence-First Console. A seven-page interactive prototype now records the selected tokens, hierarchy, and mock interactions in `prototype/`; visual QA passed at the 1440-pixel target and the 1024-pixel minimum was checked. Final human prototype review and the capped demo-consumer security/funding boundary remain before this phase is complete.
 
 ### 6. MVP Implementation
 
@@ -375,7 +375,8 @@ For each substantial AI-assisted contribution, record the following information 
 | 2026-09-05 | Data model version 1.3 approval and HBAR profile | Promoted the combined Graph/Hedera refinement to the implementation baseline and synchronized the initial downstream profile | Human explicitly approved Draft 1.3 and selected HBAR for the first Hedera integration | Updated planning records to use Hedera testnet HBAR while retaining HTS only as a future-compatible model; no migration, account, wallet, token, transaction, paid request, or deployment was created |
 | 2026-09-05 | Product and interface design stage | Inserted a design gate between the approved data model and MVP implementation, with page inventory, interaction specification, UI-state, navigation, accessibility, and data-contract deliverables | Human requested that page count and per-page interaction elements be designed before development | Synchronized the macro plan and current-stage records; no page count, visual direction, component, application code, or deployment was assumed in this planning-only change |
 | 2026-09-05 | Product and interface design Draft 0.1 | Proposed seven page families, shared navigation, creator/consumer journeys, per-page interactions, financial and operational states, responsive/accessibility rules, and screen-to-domain contracts | Human asked to begin the dedicated design artifact | Applied a developer-tool UX review and mapped every major interaction to data-model version 1.3; the page architecture, evaluator payment method, mobile editing commitment, and visual-system timing await human approval; no component, application code, wallet action, payment, or deployment was created |
-| 2026-09-05 | Product and interface design version 1.0 | Promoted the seven-page architecture and interaction specification, revised narrow-screen requirements to a desktop-only Creator Console, and separated structured DAG accessibility from mobile support | Human approved D1, D2, and D4 and explicitly excluded mobile from the current product target | Updated the planning baseline and kept visual tokens, desktop wireframes, and capped demo-consumer safeguards as remaining design work; no UI code, wallet action, funding, payment, or deployment was created |
+| 2026-09-05 | Product and interface design version 1.0 | Promoted the seven-page architecture and interaction specification, revised narrow-screen requirements to a large-screen browser Creator Console, and separated structured DAG accessibility from mobile support | Human approved D1, D2, and D4 and explicitly excluded mobile from the current product target | Updated the planning baseline and kept visual tokens, browser wireframes, and capped demo-consumer safeguards as remaining design work; no UI code, wallet action, funding, payment, or deployment was created |
+| 2026-09-05 | Evidence-First Console prototype | Implemented a self-contained seven-page React prototype from the selected third visual direction, added realistic mock transitions, documented visual QA, and clarified the browser-only product boundary | Human selected the third visual exploration and clarified that Sprue is a web product rather than a Windows client | Built and tested the static prototype, passed the Sites worker test, exercised the primary Builder/API/Monetize/consumer/wallet interactions in the Codex in-app browser, checked browser logs, compared the 1440-by-1024 render with the selected source, and checked the 1024-pixel minimum; no real authentication, wallet, payment, Graph query, backend, or deployment was used |
 
 This table must be updated when AI materially influences architecture, implementation, testing, or submission content.
 
@@ -429,4 +430,5 @@ The central explanation for judges is:
 | 2026-09-05 | Approved data model version 1.3 and selected Hedera testnet HBAR for the first downstream integration | Unblock affected migration design while keeping Privy-to-Hedera control and live settlement as evidence gates |
 | 2026-09-05 | Inserted product and interface design before MVP implementation and made it the current stage | Decide page count, per-page interactions, navigation, UI states, accessibility, and screen-to-data contracts before components encode product behavior |
 | 2026-09-05 | Created product and interface design Draft 0.1 | Propose a seven-page MVP architecture with explicit creator, consumer, financial, responsive, accessibility, and backend-contract behavior for human review before implementation |
-| 2026-09-05 | Approved product-design version 1.0 and made the Creator Console desktop-only | Record D1, D2, and D4 approval, remove mobile/tablet layout work from the MVP, retain non-drag DAG controls for desktop accessibility, and move the design stage to tokens and wireframes |
+| 2026-09-05 | Approved product-design version 1.0 for a large-screen browser Creator Console | Record D1, D2, and D4 approval, remove mobile/tablet layout work from the MVP, retain non-drag DAG controls for browser accessibility, and move the design stage to tokens and wireframes |
+| 2026-09-05 | Selected Evidence-First Console and created the seven-page browser prototype | Preserve the chosen third visual direction, clarify that Sprue has no native Windows/macOS client, and make the approved page architecture reviewable before MVP implementation |
