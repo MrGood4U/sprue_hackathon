@@ -2,7 +2,7 @@
 
 ## Status
 
-This document records the completed project-structure conception and the selected technical/deployment boundaries. The version 1.1 decisions in [data-model.md](data-model.md), including the Privy wallet and payment refinements, are approved as the implementation baseline. Draft 1.2 contains Graph source and per-query x402 refinements that require human review before affected migrations. MVP implementation is the current stage.
+This document records the completed project-structure conception and the selected technical/deployment boundaries. The version 1.1 decisions in [data-model.md](data-model.md), including the Privy wallet and payment refinements, are approved as the implementation baseline. Draft 1.2 contains Graph source, customer-credential, and per-query x402 refinements that require human review before affected migrations. MVP implementation is the current stage.
 
 ## Product Model
 
@@ -40,6 +40,7 @@ The selected sponsor integrations are The Graph, Hedera, and Privy. The user rep
 
 - Discover and inspect indexed onchain data sources.
 - Query the raw facts needed by a product.
+- Accept the creator's existing Graph API key/subscription as one explicit source-access mode.
 - Receive data payments initiated by Sprue from the creator's funded account wallet, within authorized limits.
 - Reuse existing subgraphs whenever they satisfy the data requirement.
 - Generate a new subgraph only when the required facts are not already indexed and the hackathon scope allows it.
@@ -64,9 +65,9 @@ See [the Hedera reference](sponsor/Hedera.md) for official award rules and propo
 
 ### Privy: Creator Account Wallet Layer
 
-Each creator account needs a Privy-backed wallet for top-ups and authorized Graph spending. Creator-controlled receipts from published APIs remain the intended product model, but mapping the Privy wallet to a usable Hedera receiving account is a validation gate. Sprue executes upstream purchases on the creator's behalf; external buyers are not required to use Privy. Keep account-level ownership and per-product accounting rather than creating a wallet for every product. Do not assume a shared account identity means one network balance or one compatible signer.
+Each creator account has a Privy-backed wallet available for top-ups and authorized Graph x402 spending, while a source using the creator's existing Graph API key does not spend from that wallet. Creator-controlled receipts from published APIs remain the intended product model, but mapping the Privy wallet to a usable Hedera receiving account is a validation gate. Sprue executes upstream purchases on the creator's behalf only when x402 is selected; external buyers are not required to use Privy. Keep account-level ownership and per-product accounting rather than creating a wallet for every product. Do not assume a shared account identity means one network balance or one compatible signer.
 
-Bounded automatic Graph payments are core scope. The proposed authorization design keeps the creator as owner and gives Sprue a revocable, policy-limited signer; exact ownership and policy configuration must be validated. General-purpose autonomous treasury management remains outside the MVP.
+Bounded automatic Graph x402 payments remain core sponsor-demo scope even though customer-API-key access is also a first-class product mode. The proposed authorization design keeps the creator as owner and gives Sprue a revocable, policy-limited signer; exact ownership and policy configuration must be validated. General-purpose autonomous treasury management remains outside the MVP.
 
 ### x402: Payment Protocol
 
@@ -74,11 +75,12 @@ x402 has two distinct uses in the plan: upstream Graph data purchases and downst
 
 ## Account Wallet and Money Flows
 
-The user confirmed the creator-wallet model and subsequently selected Hedera for downstream x402 on 2026-09-05. Provider-specific interoperability remains unverified.
+The user confirmed the creator-wallet model, dual Graph access modes, and Hedera for downstream x402 on 2026-09-05. Provider-specific interoperability remains unverified.
 
 ```text
-Creator top-up -> Privy-backed creator wallet on Base / Base Sepolia
-                     -> authorized Graph purchases -> build/refresh data
+Graph source -> customer-owned Graph API key/subscription -> build/refresh data
+             -> or Privy-backed creator wallet on Base / Base Sepolia
+                    -> authorized Graph x402 purchases -> build/refresh data
 
 External buyer -> Sprue x402 gate -> Blocky402 -> Hedera API sale
                      |
@@ -102,7 +104,7 @@ The [Graph payment documentation](https://thegraph.com/docs/en/subgraphs/tooling
 
 ### Product Creator
 
-The customer who defines and owns a data product. They fund the account wallet, authorize bounded Graph spending, and control the specification, visibility, refresh policy, price, budget, and acceptance of any service-fee terms.
+The customer who defines and owns a data product. They supply an existing Graph API key or fund the account wallet and authorize bounded Graph x402 spending, and they control the specification, visibility, refresh policy, price, budget, and acceptance of any service-fee terms.
 
 ### Builder Agent
 
@@ -327,7 +329,9 @@ The data plane executes and serves the product.
 - Resolve source and schema references from the product definition.
 - Keep logical Subgraph IDs, gateway Deployment IDs, and manifest IPFS CIDs distinct. Validate an immutable deployment/schema snapshot before publication; do not let a moving Subgraph ID silently change a deployed product.
 - Fetch raw indexed onchain facts.
-- Execute paid Graph requests through the creator-wallet authorization adapter; link expense and payment status to the corresponding build/refresh job.
+- Execute each source through the creator-selected mode: a customer-supplied Graph API key backed by their existing subscription, or x402 through the creator-wallet authorization adapter.
+- Keep customer API keys in server-side secret storage, record their credential version/fingerprint and provider usage, and create no wallet expense for externally billed subscription requests.
+- For x402, link expense and payment status to the corresponding build/refresh job. Never switch from a failed API key to x402 without an explicit versioned creator choice.
 - Use static GraphQL documents, validated variables, cursor pagination, one pinned block across pages, and `_meta` provenance. Treat GraphQL errors and indexing-error flags as data-quality failures under the MVP deny policy.
 - Model each page as one logical request and its x402 challenge/payment retry as separate HTTP attempts. Reserve the exact returned requirement before signing; a settled payment remains an expense even if data delivery fails.
 - Keep the creator-owned provider wallet, Sprue additional-signer grant, immutable observed provider-policy snapshot, and Sprue application budget as separate controls. Block paid work on revocation or policy drift.
@@ -394,6 +398,7 @@ The initial domain model should include these logical objects:
 - `DataProduct`: durable product identity and current status.
 - `DataProductVersion`: immutable or auditable specification revision.
 - `SourceSnapshot`: immutable validated Graph logical/deployment/manifest identifiers, schema hash, data network, and discovery provenance pinned by a product version.
+- `ProviderCredential`: logical customer-supplied Graph API-key identity, secret-manager reference, version/fingerprint, validation status, and external-subscription billing boundary.
 - `TransformationGraph`: validated nodes and edges.
 - `Deployment`: runtime and endpoint status for a version.
 - `MonetizationPolicy`: opt-in access, x402 price, Hedera network/asset, Blocky402 configuration reference, validated creator recipient, and any accepted service-fee terms/version.

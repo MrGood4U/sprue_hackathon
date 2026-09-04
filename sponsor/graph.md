@@ -70,7 +70,11 @@ Sprue therefore stores static query and variable hashes separately, cursor state
 
 ### Access and Per-Query Payment Boundary
 
-The Graph exposes separate API-key and x402 gateway routes. API-key access uses a server-side credential and is recommended by the provider for sustained high-volume use; x402 access requires no API key and instead returns a payment requirement containing amount, network, asset, and recipient before the signed retry. The provider describes x402 as pay-per-query, so every paginated GraphQL page is treated as a separate potential payment obligation.
+The Graph exposes separate API-key and x402 gateway routes. The [API-key management guide](https://thegraph.com/docs/en/subgraphs/providers/subgraph-studio/managing-api-keys/) says to keep keys in environment variables or a secret manager and supports bearer-header authentication; Sprue uses a server-side bearer header so credentials never enter stored endpoint URLs. API-key access is recommended by the provider for sustained high-volume use; x402 access requires no API key and instead returns a payment requirement containing amount, network, asset, and recipient before the signed retry. The provider describes x402 as pay-per-query, so every paginated GraphQL page is treated as a separate potential payment obligation.
+
+The human team confirmed both as first-class Sprue product modes on 2026-09-05. A creator may bind a source to their existing Graph API key/subscription or select creator-wallet x402 pay-per-query. Draft 1.2 stores the customer key only through a workspace-owned `provider_credentials` secret reference with version/fingerprint and lifecycle state. API-key requests record provider usage but create no wallet payment or Graph x402 expense; any subscription charge remains externally billed unless separately imported as evidence.
+
+The selected mode is explicit and versioned. Credential rotation can preserve the same logical credential identity, but credential failure or revocation blocks the request. Sprue never falls back automatically from a customer API key to x402 because that would turn an authentication failure into an unapproved wallet expense.
 
 Draft 1.2 separates one logical `source_requests` row from its physical `source_http_attempts`: the initial `402` and the payment-bearing retry share a request fingerprint. Sprue validates the complete returned requirement before creating the payment intent and exact budget reservation. Confirmed settlement remains an expense even if the subsequent Graph response fails, and no reusable payment authorization is stored.
 
@@ -87,6 +91,7 @@ These are Sprue's proposed acceptance checks. Only the user's participation conf
 | [x] | Record the team's participation category | User confirmed Start Fresh on 2026-09-05; recorded in `plan.md` | G5, category only |
 | [ ] | Audit development provenance for the selected pool | Development timeline, starter sources, and baseline/history evidence | G5 |
 | [ ] | Prove the chosen source supports the intended metric | Logical Subgraph ID, pinned Deployment ID, manifest/schema hash, network, static query, variables, pagination, retrieval time, `_meta` block/error facts, and coverage assessment | G2, G3 |
+| [ ] | Validate customer-API-key mode | Server-side secret reference, successful bounded query, credential version/fingerprint, usage event, rotation/revocation failure, and proof that no key or bearer header was persisted | Sprue product requirement |
 | [ ] | Pay for the selected Graph query from the creator account wallet | Funding record, constrained authorization, payment outcome, query response, and linked expense | Sprue product requirement |
 | [ ] | Trace a creator request through the planner and runtime | Prompt, specification version, validated DAG, execution trace, and independently checked output | G3 |
 | [ ] | Exercise a second request or conversational revision | Changed semantics, resulting specification diff, and changed output | G3 |
@@ -119,7 +124,7 @@ These are engineering choices for Sprue, not extra prize conditions:
 
 - Final award selection, development-provenance audit, and event-wide eligibility review; Start Fresh is confirmed.
 - Concrete network, protocol, deployment IDs, schema versions, and data coverage.
-- MCP versus direct GraphQL responsibilities, credentials, quotas, and refresh budget. The model supports both without treating discovery access as runtime payment evidence.
+- MCP versus direct GraphQL responsibilities, customer credential validation, provider-side key restrictions/quotas, and refresh budget. The model supports both without treating discovery or customer-subscription access as wallet-payment evidence.
 - Concrete paid deployment endpoint, Graph x402 protocol/client version, payment requirement shape, Privy signer compatibility, discovery billing, and live cost reconciliation. API-key access alone does not demonstrate the confirmed wallet-funded product flow.
 - Whether the stretch target is affordable within the existing MVP scope.
 - Provider terms and permissions relevant to caching, transformation, and paid redistribution.

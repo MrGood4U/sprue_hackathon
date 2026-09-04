@@ -84,7 +84,7 @@ Define the complete MVP data model before feature implementation. Review [data-m
 
 The phase is complete only when every MVP action has an unambiguous read/write path, monetary values use atomic units with explicit asset/network identity, retryable side effects have idempotency and reconciliation fields, and the domain model maps clearly to PostgreSQL and API contracts. Review the model before generating migrations or implementation scaffolding.
 
-Version 1.1 was approved on 2026-09-05. The human team accepted materialized-result serving, owner-only MVP authorization with future-ready membership records, bounded PostgreSQL JSON artifacts, retention of user-visible Agent records without hidden chain-of-thought, and the Privy model of a user-owned wallet with a policy-bound Sprue additional signer, immutable provider-policy snapshots, and Sprue database budget enforcement. Draft 1.2 was then prepared from current official Graph documentation; its immutable source snapshot, cursor pagination, pinned-block provenance, and per-query x402 HTTP-attempt refinements require human review before affected migrations. Remaining live provider compatibility and implementation checks are tracked as validation gates.
+Version 1.1 was approved on 2026-09-05. The human team accepted materialized-result serving, owner-only MVP authorization with future-ready membership records, bounded PostgreSQL JSON artifacts, retention of user-visible Agent records without hidden chain-of-thought, and the Privy model of a user-owned wallet with a policy-bound Sprue additional signer, immutable provider-policy snapshots, and Sprue database budget enforcement. Draft 1.2 was then prepared from current official Graph documentation. The human team subsequently confirmed dual Graph access through either a customer-supplied API key/existing subscription or creator-wallet x402 pay-per-query; the draft's credential model, immutable source snapshot, cursor pagination, pinned-block provenance, and per-query HTTP-attempt refinements still require review before affected migrations. Remaining live provider compatibility and implementation checks are tracked as validation gates.
 
 ### 5. MVP Implementation — Current
 
@@ -133,6 +133,7 @@ The demonstration must show creator funding, a real Graph purchase authorized th
 
 - Web-based Builder Agent interface.
 - Creator account wallet, funding status, limited spending authorization, and expense history.
+- Per-source creator choice between a customer-supplied Graph API key/existing subscription and creator-wallet x402 pay-per-query, with no automatic paid fallback.
 - Automated Graph payments within the account budget, including safe stops for insufficient funds or revoked permission.
 - Natural-language data-product request.
 - Existing The Graph source discovery and schema inspection.
@@ -241,16 +242,17 @@ The frontend edits the graph; the backend validates, compiles, runs, and persist
 
 ## Implementation Sequence
 
-The approved version 1.1 decisions in [data-model.md](data-model.md) are the baseline for this sequence. Review and accept or revise Draft 1.2 before generating source or payment migrations; other implementation evidence may still require an explicit model revision through the same change-control process.
+The approved version 1.1 decisions in [data-model.md](data-model.md) are the baseline for this sequence. Review and accept or revise Draft 1.2 before generating source, provider-credential, or payment migrations; other implementation evidence may still require an explicit model revision through the same change-control process.
 
 ### Phase 1: Validate External Dependencies
 
 1. Discover a candidate Graph source, distinguish its logical Subgraph ID from its immutable deployment and manifest identifiers, validate and hash its schema, then run a bounded static query with cursor pagination, pinned-block `_meta` provenance, and explicit GraphQL/indexing-error handling.
-2. Validate creator-wallet funding and a Graph payment from a Privy user-owned wallet through a policy-bound Sprue additional signer. Capture wallet owner, signer/key-quorum, policy, provider idempotency, transaction reference, permitted-action, rejected-action, revocation, and policy-drift evidence.
-3. Validate Hedera account/recipient mapping, supported payment asset, creator control of receipts, and buyer signing separately. Do not infer Privy compatibility from generic EVM support or export user keys to adapt a sample.
-4. Protect a test Sprue-hosted API with x402 and Blocky402; verify a separate consumer's `402 -> payment -> 200` flow on Hedera, correlated with settlement and creator receipt.
-5. Investigate revenue allocation and fee collection; approve fee terms before enabling any charge. Keep upstream funding and downstream income separate; no automatic bridge is planned.
-6. Record credential names, networks, facilitators, payment evidence, and deployment assumptions without committing secrets. Any custody-model change needs a human decision before implementation.
+2. Validate a customer-supplied Graph API key through server-side secret storage, credential rotation/revocation, one successful bounded query, and usage evidence without persisting the key or creating a wallet expense.
+3. Validate creator-wallet funding and a Graph x402 payment from a Privy user-owned wallet through a policy-bound Sprue additional signer. Capture wallet owner, signer/key-quorum, policy, provider idempotency, transaction reference, permitted-action, rejected-action, revocation, and policy-drift evidence.
+4. Validate Hedera account/recipient mapping, supported payment asset, creator control of receipts, and buyer signing separately. Do not infer Privy compatibility from generic EVM support or export user keys to adapt a sample.
+5. Protect a test Sprue-hosted API with x402 and Blocky402; verify a separate consumer's `402 -> payment -> 200` flow on Hedera, correlated with settlement and creator receipt.
+6. Investigate revenue allocation and fee collection; approve fee terms before enabling any charge. Keep upstream funding and downstream income separate; no automatic bridge is planned.
+7. Record credential names, networks, facilitators, payment evidence, and deployment assumptions without committing secrets. Any custody-model change needs a human decision before implementation.
 
 ### Phase 2: Build the Deterministic Runtime
 
@@ -350,6 +352,7 @@ For each substantial AI-assisted contribution, record the following information 
 | 2026-09-05 | Privy implementation research and data model Draft 1.1 | Reviewed current official wallet-control, policy, idempotency, transaction, chain-support, Node SDK, and agent-wallet references; proposed separating wallet ownership, provider policies, signer grants, application budgets, and provider attempts in the model | Human supplied Privy's official documentation and GitHub organization to improve the data model; review of the resulting material refinement remains pending | Cross-checked official Privy documentation, `privy-io/node-sdk`, `privy-io/examples`, and representative Privy-owned agent repositories; validated documentation structure only, with no wallet, signer, policy, transaction, credential, or funded action created |
 | 2026-09-05 | Data model version 1.1 approval | Promoted the reviewed Privy wallet and payment refinement to the implementation baseline and synchronized current project status | Human explicitly approved the user-owned wallet, policy-bound Sprue additional signer, immutable provider-policy snapshot, and Sprue database budget model | Updated documentation status only; no migration, wallet, signer, policy, credential, transaction, or funded action was created |
 | 2026-09-05 | Graph documentation review and data model Draft 1.2 | Reviewed current official source identifiers, gateway routes, MCP discovery/schema operations, GraphQL pagination and `_meta` behavior, API-key access, and per-query x402 flow; proposed immutable source snapshots and upstream HTTP-attempt records | Human supplied The Graph's official documentation and requested a corresponding data-model check; review of the material refinement remains pending | Cross-checked the source and payment model against official Graph documentation; performed documentation validation only, with no query credential, migration, paid request, wallet action, or deployment created |
+| 2026-09-05 | Dual Graph access model | Added first-class customer-API-key/existing-subscription access alongside creator-wallet x402 pay-per-query, including credential lifecycle, secret references, mode constraints, metering, and no-paid-fallback behavior | Human explicitly required users to be able to choose either their existing Graph API key or per-call Graph x402 | Updated Draft 1.2 and product guidance only; no API key, secret, provider account, query, wallet action, payment, or migration was created |
 
 This table must be updated when AI materially influences architecture, implementation, testing, or submission content.
 
@@ -398,3 +401,4 @@ The central explanation for judges is:
 | 2026-09-05 | Proposed data model Draft 1.1 from current Privy implementation references | Model wallet owner, entity, additional signer, provider policy, finite idempotency, and transaction reconciliation as distinct concerns for human review before migrations are generated |
 | 2026-09-05 | Approved data model version 1.1 as the implementation baseline | Record the human decision on the Privy control model and unblock wallet and payment migration design while retaining live integration gates |
 | 2026-09-05 | Proposed data model Draft 1.2 from current Graph documentation | Separate logical source identity from immutable deployment/schema snapshots, preserve block/error provenance, and represent every x402 challenge and paid retry without assuming live compatibility |
+| 2026-09-05 | Added customer Graph API-key access as a peer to x402 in Draft 1.2 | Follow the human product decision, keep externally billed subscription usage separate from wallet expenses, and forbid silent paid fallback |

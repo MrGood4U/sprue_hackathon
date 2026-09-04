@@ -6,7 +6,7 @@ Version: Draft 1.2
 
 Date: 2026-09-05
 
-Stage: Version 1.1 is the approved MVP baseline. Draft 1.2 refines The Graph source identity, reproducibility, pagination, and per-query x402 records from official documentation and requires human review before source or payment migrations. External integration and implementation validation remain open.
+Stage: Version 1.1 is the approved MVP baseline. Draft 1.2 refines The Graph source identity, customer-API-key versus x402 access, reproducibility, pagination, and per-query records from official documentation and confirmed product intent. It requires human review before source, credential, or payment migrations. External integration and implementation validation remain open.
 
 This document is the source of truth for Sprue's MVP domain model, PostgreSQL persistence model, lifecycle rules, financial separation, and runtime records. It translates the product and architecture decisions in [agents.md](agents.md), [plan.md](plan.md), and [project-structure.md](project-structure.md) into an implementation-ready model.
 
@@ -19,6 +19,7 @@ The model describes intended behavior. It is not evidence that an external walle
 - Product definitions and execution layouts are separate.
 - Product edits create auditable versions; an unsuccessful edit must not replace the last working version.
 - A published product pins a validated Graph source snapshot and immutable deployment target. Following a Subgraph ID's current deployment is allowed only for discovery/preview unless a later product version revalidates the resolved deployment and schema.
+- For each Graph source, the creator explicitly chooses either a customer-supplied Graph API key tied to their existing subscription or creator-wallet x402 pay-per-query access. Sprue never changes modes automatically.
 - The creator has an account-level Privy-backed wallet and can authorize bounded Graph spending.
 - The intended Privy control pattern is a user-owned wallet with a Sprue-controlled additional signer restricted by a provider policy. Sprue may hold the additional signer's authorization key in a secret manager, but never the wallet private key. Live enforcement remains an integration gate.
 - Graph purchases use a Base or Base Sepolia payment path and remain separate from Hedera API-sale proceeds.
@@ -100,6 +101,7 @@ erDiagram
     USERS ||--o{ WORKSPACE_MEMBERS : joins
     WORKSPACES ||--o{ WORKSPACE_MEMBERS : contains
     WORKSPACES ||--o{ ACCOUNT_WALLETS : controls
+    WORKSPACES ||--o{ PROVIDER_CREDENTIALS : stores
     ACCOUNT_WALLETS ||--o{ WALLET_ADDRESSES : exposes
     WORKSPACES ||--o{ WALLET_POLICIES : defines
     ACCOUNT_WALLETS ||--o{ WALLET_SIGNER_GRANTS : delegates
@@ -122,6 +124,8 @@ erDiagram
     DATA_PRODUCTS ||--o{ DATA_PRODUCT_VERSIONS : versions
     DATA_PRODUCT_VERSIONS ||--o{ DATA_PRODUCT_VERSION_SOURCES : pins
     SOURCE_SNAPSHOTS ||--o{ DATA_PRODUCT_VERSION_SOURCES : supplies
+    PROVIDER_CREDENTIALS ||--o{ DATA_PRODUCT_VERSION_SOURCES : authenticates
+    SPENDING_POLICIES ||--o{ DATA_PRODUCT_VERSION_SOURCES : funds
     DATA_PRODUCT_VERSIONS ||--o| PRODUCT_VERSION_LAYOUTS : displays
     DATA_PRODUCTS ||--o{ DEPLOYMENTS : exposes
     DEPLOYMENTS }o--|| DATA_PRODUCT_VERSIONS : activates
@@ -132,6 +136,7 @@ erDiagram
     RUN_ATTEMPTS ||--o{ NODE_RUNS : evaluates
     NODE_RUNS ||--o{ SOURCE_REQUESTS : queries
     SOURCE_SNAPSHOTS ||--o{ SOURCE_REQUESTS : pins
+    PROVIDER_CREDENTIALS ||--o{ SOURCE_REQUESTS : authenticates
     SOURCE_REQUESTS ||--o{ SOURCE_HTTP_ATTEMPTS : retries
     NODE_RUNS ||--o{ NODE_RUN_ARTIFACTS : binds
     ARTIFACTS ||--o{ NODE_RUN_ARTIFACTS : supplies
@@ -154,6 +159,7 @@ erDiagram
     PAYMENT_INTENTS ||--o{ FINANCIAL_LEDGER_ENTRIES : records
     API_ACCESS_REQUESTS ||--o{ USAGE_EVENTS : meters
     EXECUTION_RUNS ||--o{ USAGE_EVENTS : meters
+    SOURCE_REQUESTS ||--o{ USAGE_EVENTS : meters
 ```
 
 ## Canonical Data Product Specification
@@ -185,7 +191,8 @@ erDiagram
       "access": {
         "mode": "x402",
         "gatewayEnvironment": "testnet",
-        "credentialRef": null
+        "providerCredentialId": null,
+        "spendingPolicyId": "00000000-0000-0000-0000-000000000000"
       },
       "consistency": {
         "mode": "pinned_block",
@@ -250,8 +257,11 @@ Rules:
 - Node types and versions come from the registered operator allowlist.
 - Source entries reference an immutable validated snapshot and keep Subgraph ID, gateway Deployment ID, and manifest IPFS CID distinct. Published versions use a deployment target rather than silently following the current Subgraph version.
 - Source nodes pin a static bounded query document, runtime variable bindings, block-consistency policy, and cursor pagination strategy. The adapter must not interpolate unvalidated values or silently broaden the query.
-- `access.mode` is explicit. Graph x402 execution has no API key and requires a validated wallet/payment path; API-key access requires a server-side credential reference and does not prove the wallet-funded product flow.
-- The credential reference names server-side configuration but contains no credential. Endpoint strings never contain persisted credentials.
+- `access.mode` is an explicit creator choice per source: `customer_api_key` uses the creator's existing Graph account/subscription, while `x402` pays per query from the creator wallet.
+- Exactly one access reference is selected. `customer_api_key` requires `providerCredentialId` and no spending policy; `x402` requires `spendingPolicyId` and no provider credential.
+- A provider credential ID names server-side secret configuration but contains no credential. Endpoint strings never contain persisted credentials.
+- Changing access mode or the selected logical credential/policy creates a new product version. Rotating secret material behind the same credential record does not alter DAG semantics, and each request records the credential version it actually used.
+- Sprue never silently falls back from a failed/revoked customer API key to x402 because that would create an unapproved wallet expense.
 - The execution definition has no viewport coordinates or UI-only styling.
 - The validator rejects cycles, incompatible ports, unsupported configuration, missing sources, and policies outside platform limits.
 - A version pins the meaning of time windows, inclusion/exclusion rules, missing-data behavior, and output schema.
@@ -584,7 +594,43 @@ Constraints and indexes:
 - At least one content field is present unless `redaction_status = 'content_removed'`.
 - Hidden model reasoning is not a supported role or field.
 
-### 5. Source Snapshots, Data Products, and Versions
+### 5. Provider Credentials, Source Snapshots, Data Products, and Versions
+
+#### `provider_credentials`
+
+A logical, user-supplied upstream provider credential. The Graph API key value remains in a server-side secret manager; this row stores only ownership, lifecycle, validation, and non-secret version evidence.
+
+| Column | Type | Null | Rules and purpose |
+|---|---|---:|---|
+| `id` | `uuid` | no | Primary key |
+| `workspace_id` | `uuid` | no | FK to `workspaces` |
+| `created_by_user_id` | `uuid` | no | FK to `users` |
+| `provider` | `text` | no | MVP `the_graph` |
+| `credential_type` | `text` | no | MVP `graph_api_key` |
+| `ownership_model` | `text` | no | MVP `customer_supplied` |
+| `billing_model` | `text` | no | MVP `customer_subscription` |
+| `label` | `text` | no | User-facing credential name |
+| `secret_ref` | `text` | no | Secret-manager alias/reference, never the API key |
+| `secret_version` | `text` | no | Non-secret vault/provider version identifier used for audit |
+| `public_prefix` | `text` | yes | Minimal redacted prefix for user recognition |
+| `credential_fingerprint` | `text` | no | One-way fingerprint for correlation and rotation checks |
+| `provider_constraints_json` | `jsonb` | yes | Sanitized observed subgraph/domain/spending constraints; informative unless live-enforced |
+| `status` | `text` | no | `pending_validation`, `active`, `invalid`, or `revoked` |
+| `validated_at` | `timestamptz` | yes | Last successful provider validation |
+| `last_used_at` | `timestamptz` | yes | Last attempted use |
+| `revoked_at` | `timestamptz` | yes | Required when revoked |
+| `created_at` | `timestamptz` | no | Record creation time |
+| `updated_at` | `timestamptz` | no | Rotation/lifecycle update time |
+| `lock_version` | `integer` | no | Optimistic concurrency for rotation and revocation |
+
+Constraints and indexes:
+
+- Unique `(workspace_id, provider, label)` and `(workspace_id, provider, credential_fingerprint)`.
+- Index `(workspace_id, provider, status)`.
+- `active` requires a resolvable secret reference and successful validation. `revoked` requires `revoked_at` and blocks new requests immediately.
+- API key rotation updates the secret reference/version/fingerprint atomically while retaining the logical credential ID. In-flight and completed source requests retain the version/fingerprint they used.
+- Raw API keys, bearer headers, and credential-bearing endpoint URLs have no valid persistence field.
+- Provider-side domain, Subgraph, or spending controls are recorded when observable but do not replace Sprue authorization and resource limits.
 
 #### `source_snapshots`
 
@@ -681,7 +727,9 @@ Immutable relational projection of `data_product_versions.specification_json.sou
 | `data_product_version_id` | `uuid` | no | FK to `data_product_versions` |
 | `source_key` | `text` | no | Source `id` inside the canonical specification |
 | `source_snapshot_id` | `uuid` | no | FK to `source_snapshots` |
-| `access_mode` | `text` | no | `x402` or `api_key`, copied from the source entry |
+| `access_mode` | `text` | no | `customer_api_key` or `x402`, copied from the source entry |
+| `provider_credential_id` | `uuid` | yes | FK to `provider_credentials` for `customer_api_key` mode |
+| `spending_policy_id` | `uuid` | yes | FK to `spending_policies` for `x402` mode |
 | `gateway_environment` | `text` | no | Validated gateway environment copied from the source entry |
 | `adapter_version` | `text` | no | Graph adapter version copied from the source entry |
 | `source_config_hash` | `text` | no | Hash of the canonical source entry |
@@ -692,8 +740,9 @@ Constraints and indexes:
 - Primary key `(data_product_version_id, source_key)`.
 - Index `(source_snapshot_id, data_product_version_id)` for dependency and revalidation lookups.
 - The snapshot and product version must resolve to the same workspace.
+- `customer_api_key` requires one same-workspace active Graph API credential and no spending policy; `x402` requires one same-workspace Graph spending policy and no provider credential.
 - Every canonical source entry has exactly one matching projection row, and no projection exists without a matching source entry and hash.
-- Projection rows are immutable with their product version. A changed target, schema, access mode, or adapter creates a new product version.
+- Projection rows are immutable with their product version. A changed target, schema, access mode, selected logical credential/policy, or adapter creates a new product version. Secret rotation within the selected logical credential does not.
 
 #### `product_version_layouts`
 
@@ -958,7 +1007,11 @@ One logical bounded GraphQL operation, including one pagination page. Under x402
 | `node_run_id` | `uuid` | no | FK to `node_runs` |
 | `source_snapshot_id` | `uuid` | no | FK to the immutable `source_snapshots` row |
 | `request_no` | `integer` | no | Monotonic within source node attempt |
-| `access_mode` | `text` | no | `x402` or `api_key` |
+| `access_mode` | `text` | no | `customer_api_key` or `x402` |
+| `provider_credential_id` | `uuid` | yes | FK to selected `provider_credentials` row |
+| `spending_policy_id` | `uuid` | yes | FK to selected `spending_policies` row |
+| `credential_secret_version` | `text` | yes | API-key secret version used by this request |
+| `credential_fingerprint` | `text` | yes | API-key fingerprint used by this request |
 | `gateway_environment` | `text` | no | `mainnet`, `testnet`, or explicit validated environment |
 | `operation_name` | `text` | yes | Static GraphQL operation name |
 | `query_text` | `text` | no | Sanitized static bounded query document |
@@ -983,10 +1036,12 @@ One logical bounded GraphQL operation, including one pagination page. Under x402
 Constraints and indexes:
 
 - Unique `(node_run_id, request_no)`.
-- Index `(source_snapshot_id, status)`, `(payment_intent_id)`, and `(execution_run_id, node_run_id)`.
+- Index `(source_snapshot_id, status)`, `(provider_credential_id, requested_at)`, `(payment_intent_id)`, and `(execution_run_id, node_run_id)`.
 - The source snapshot must belong to the same workspace and match the pinned source entry in the product specification.
-- `x402` requires a payment intent and consumed budget reservation before success; `api_key` requires an active server-side credential reference and no Graph x402 payment intent.
+- `customer_api_key` requires the selected active same-workspace credential plus its current secret version/fingerprint, and forbids a spending policy, budget reservation, or Graph payment intent.
+- `x402` requires the selected same-workspace spending policy, forbids a provider credential, and requires a payment intent and consumed budget reservation from that same policy before success.
 - Payment network/asset is read from the payment intent, not the source snapshot's data network.
+- API-key requests emit provider-request usage but no wallet cash movement or Graph x402 expense. Any charge on the customer's external Graph subscription remains externally billed unless separately imported as evidence.
 - A successful paid request links a consumed reservation, confirmed payment, response artifact, and successful payment-bearing HTTP attempt.
 - Under `pinned_block`, every page for the source node uses the same requested block. A mismatched response deployment, schema, block, indexing-error policy, or GraphQL error prevents successful materialization.
 
@@ -999,7 +1054,7 @@ Physical HTTP attempts for a logical source request. This separates Graph's init
 | `id` | `uuid` | no | Primary key |
 | `source_request_id` | `uuid` | no | FK to `source_requests` |
 | `attempt_no` | `integer` | no | Positive physical-attempt sequence |
-| `request_fingerprint` | `text` | no | Hash of target, query, variables, block, cursor, and non-secret request metadata |
+| `request_fingerprint` | `text` | no | Hash of target, query, variables, block, cursor, access mode, and non-secret credential/payment metadata |
 | `has_payment_authorization` | `boolean` | no | Whether this attempt carries x402 payment authorization |
 | `payment_authorization_hash` | `text` | yes | Hash only; never persist the reusable authorization payload |
 | `payment_requirement_hash` | `text` | yes | Hash of the accepted 402 requirement when applicable |
@@ -1017,6 +1072,7 @@ Constraints and indexes:
 - Index `(source_request_id, request_fingerprint)`, `(provider_request_id)` when present, and `(status, sent_at)` for reconciliation.
 - `payment_authorization_hash` is present exactly when `has_payment_authorization = true`.
 - A `payment_required` attempt has HTTP `402`; a successful x402 source request requires a later successful attempt for the same request fingerprint with payment authorization.
+- A customer-API-key attempt never carries a payment authorization; bearer/API-key headers are redacted before persistence.
 - A transport retry after a signed or uncertain attempt must reconcile its payment intent before creating another authorization.
 
 #### `materializations`
@@ -1147,16 +1203,19 @@ Append-only operational metering, not a financial settlement record.
 | `workspace_id` | `uuid` | no | FK to `workspaces` |
 | `data_product_id` | `uuid` | yes | Related product |
 | `execution_run_id` | `uuid` | yes | Related run |
+| `source_request_id` | `uuid` | yes | FK to related `source_requests` operation |
 | `api_access_request_id` | `uuid` | yes | Related consumer operation |
-| `metric` | `text` | no | `source_rows`, `output_rows`, `compute_ms`, `storage_bytes`, `api_response_bytes` |
+| `metric` | `text` | no | `provider_requests`, `source_rows`, `output_rows`, `compute_ms`, `storage_bytes`, `api_response_bytes` |
 | `quantity` | `numeric(78,0)` | no | Non-negative quantity |
 | `unit` | `text` | no | Stable unit matching metric |
+| `dimensions_json` | `jsonb` | yes | Validated low-cardinality dimensions such as provider and access mode |
 | `recorded_at` | `timestamptz` | no | Metering time |
 
 Constraints and indexes:
 
 - At least one related subject is required.
 - Index `(workspace_id, metric, recorded_at)` and `(data_product_id, recorded_at)`.
+- Every completed Graph source request emits one `provider_requests` event with provider and access mode dimensions.
 - Provider bills and token transfers belong in payment/financial tables, not usage events.
 
 ### 9. Payments, Allocations, and Ledger
@@ -1363,7 +1422,7 @@ The same logical access request correlates the `402` and paid retry. If payment 
 In one database transaction:
 
 1. Lock the product metadata row if assigning the next version number.
-2. Validate every source snapshot belongs to the workspace and matches the canonical source entry.
+2. Validate every source snapshot and selected provider credential or spending policy belongs to the workspace and matches the canonical source entry.
 3. Insert the immutable `data_product_versions` row, its source projection rows, and optional layout.
 4. Create a planning trace stream and initial events.
 5. Commit before scheduling validation/build work.
@@ -1379,6 +1438,13 @@ In one database transaction:
 3. Enqueue the pg-boss job in the same PostgreSQL transaction where supported.
 
 Do not reserve an invented Graph price when the actual x402 requirement has not been received.
+
+### Execute a Customer-API-Key Graph Request
+
+1. Verify that the product-version source explicitly selects `customer_api_key` and that the logical credential is active in the same workspace.
+2. Resolve the API key from the server-side secret manager and pin its non-secret version/fingerprint on the source request.
+3. Send the bounded GraphQL operation, recording the physical HTTP attempt, `_meta` provenance, GraphQL errors, artifact, and provider-request usage.
+4. Create no wallet payment, budget reservation, Graph expense ledger entry, or silent x402 fallback. Provider subscription billing remains external unless separately imported as evidence.
 
 ### Accept a Graph x402 Requirement and Reserve Budget
 
@@ -1455,6 +1521,8 @@ Do not cache a derived balance as authoritative unless the cache records its sou
 21. Every page in one pinned-block source-node execution uses the same deployment, schema, and requested block, and records returned `_meta` provenance and GraphQL errors.
 22. Confirmed Graph payment consumes budget even when data delivery fails; failed delivery never turns spent funds back into available budget.
 23. Every canonical product-version source has one immutable relational projection to the exact source snapshot, access mode, gateway environment, and adapter version.
+24. Every Graph source selects exactly one access path: a customer-owned API-key credential or a creator-wallet x402 spending policy.
+25. Credential failure or revocation blocks API-key execution and never triggers an automatic x402 payment; changing modes requires an explicit product-version change.
 
 ## Security and Retention
 
@@ -1475,7 +1543,7 @@ The initial migration series should preserve dependency clarity rather than crea
 2. `users`, `workspaces`, and `workspace_members`.
 3. `networks` and `assets`, followed by verified seed data.
 4. `account_wallets`, `wallet_addresses`, `wallet_policies`, `wallet_signer_grants`, `spending_policies`, and `wallet_balance_snapshots`.
-5. `source_snapshots`, `agent_sessions`, `agent_messages`, `data_products`, `data_product_versions`, `data_product_version_sources`, and `product_version_layouts`; add the deferred Agent-session product FK after both tables exist.
+5. `provider_credentials`, `source_snapshots`, `agent_sessions`, `agent_messages`, `data_products`, `data_product_versions`, `data_product_version_sources`, and `product_version_layouts`; add the deferred Agent-session product FK after both tables exist.
 6. `deployments`, `publication_versions`, `api_credentials`, and `refresh_schedules`; add active-pointer FKs after target tables exist.
 7. `execution_runs` and `run_attempts`.
 8. `budget_reservations` and `payment_intents`, followed by the deferred consumed-payment FK.
@@ -1504,9 +1572,11 @@ User + Workspace
       -> RunAttempt
       -> NodeRuns
       -> SourceRequest
-          -> HTTP attempt 1: Graph x402 challenge
-          -> exact BudgetReservation + Graph PaymentIntent + PaymentAttempt
-          -> HTTP attempt 2: payment-bearing Graph query
+          -> customer API-key branch: ProviderCredential version + HTTP attempt + UsageEvent
+          -> or x402 branch:
+              -> HTTP attempt 1: Graph x402 challenge
+              -> exact BudgetReservation + Graph PaymentIntent + PaymentAttempt
+              -> HTTP attempt 2: payment-bearing Graph query
           -> source Artifact
       -> output Artifact + Materialization
   -> Deployment activates v1 + materialization
@@ -1523,10 +1593,12 @@ User + Workspace
 
 - [x] Human confirmed the four MVP defaults on 2026-09-05.
 - [x] Human approved the user-owned wallet, policy-bound Sprue additional signer, immutable provider-policy snapshot, and Sprue database budget model on 2026-09-05.
+- [x] Human confirmed that each Graph source may use either the customer's existing Graph API key/subscription or creator-wallet x402 pay-per-query access on 2026-09-05.
 - [x] Documentation review confirms that every P0 user action maps to explicit inserts, updates, or reads.
 - [x] Official Graph documentation confirms distinct logical Subgraph, gateway Deployment, manifest IPFS, schema, `_meta`, GraphQL-error, pagination, API-key, and per-query x402 concepts can be represented without credentials or payment authorization material.
 - [ ] Human reviews Draft 1.2's immutable deployment snapshot, cursor pagination, pinned-block, and per-query x402 attempt model before affected migrations.
 - [ ] The initial live Graph source and actual x402 payment responses fit the documented source, request, HTTP-attempt, and payment fields.
+- [ ] A live customer-supplied Graph API key validates, rotates, revokes, and executes through its selected source without persistence leakage, wallet expense records, or automatic x402 fallback.
 - [x] Official Privy documentation confirms that wallet, owner, additional-signer/key-quorum, policy, provider reference, request-expiry, and idempotency identifiers can be stored without wallet or authorization private-key material.
 - [ ] A live Privy user-owned wallet, policy-bound signer grant, revocation, policy-drift check, permitted action, and rejected action fit the documented fields and transitions.
 - [ ] Hedera account/address forms and selected asset metadata fit `networks`, `assets`, and `wallet_addresses`.
@@ -1561,4 +1633,4 @@ After human approval, changes to this model require:
 3. Tests for affected transitions, constraints, and derived views.
 4. An AI contribution and project change-log entry in [plan.md](plan.md) when AI materially influenced the change.
 
-The human team approved version 1.1 as the MVP implementation baseline on 2026-09-05. Draft 1.2 records evidence-driven Graph source and per-query x402 refinements for human review before affected migrations are generated. Other open checklist items remain implementation and external-integration validation gates.
+The human team approved version 1.1 as the MVP implementation baseline on 2026-09-05. Draft 1.2 records evidence-driven Graph source, customer credential, and per-query x402 refinements for human review before affected migrations are generated. Other open checklist items remain implementation and external-integration validation gates.

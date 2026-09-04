@@ -41,8 +41,8 @@ Keep the versioned execution definition separate from visual layout. A backgroun
 The MVP is complete when a user can:
 
 1. Describe an onchain data product in natural language.
-2. Fund a Privy-backed account wallet, authorize bounded data spending, and see Sprue discover a real Graph source and build a data-product specification.
-3. See Sprue pay for Graph data from that wallet and run the transformation pipeline against live data.
+2. Choose a customer-supplied Graph API key/existing subscription or fund a Privy-backed account wallet and authorize bounded x402 data spending, then see Sprue discover a real Graph source and build a data-product specification.
+3. See Sprue use the selected Graph access mode and run the transformation pipeline against live data. The sponsor demo exercises the wallet-funded x402 branch.
 4. Access the result through a persistent API endpoint.
 5. Modify the product conversationally and see the definition/output update.
 6. Optionally enable x402 access on the hosted API, settle API sales on Hedera through Blocky402, and inspect creator receipts and any disclosed Sprue service-fee allocation. The demo must exercise a real paid consumer request. Validate the creator's Hedera recipient setup before claiming the Privy wallet supports this path.
@@ -51,7 +51,7 @@ The primary demo story is:
 
 > Describe it. Shape it. Sell it.
 
-The main vertical slice is more important than breadth. The creator account wallet and bounded Graph payments are core scope. Separate wallets per product, general-purpose autonomous treasury management, marketplace features, complex multi-tenancy, and automatic pricing remain future work.
+The main vertical slice is more important than breadth. Both customer-API-key and x402 source access are product scope; the creator account wallet and bounded Graph x402 payment are core sponsor-demo scope. Separate wallets per product, general-purpose autonomous treasury management, marketplace features, complex multi-tenancy, and automatic pricing remain future work.
 
 ## Product Principles
 
@@ -74,7 +74,7 @@ Sprue is a web application with:
 - account-wallet funding, Graph spending, and remaining authorized budget;
 - publication, x402 payment, and revenue status.
 
-The selected sponsor integrations are The Graph, Hedera, and Privy. The user selected Hedera to replace Bazantic on 2026-09-05. The Graph supplies upstream data purchased by Sprue on the creator's behalf. Privy provides the creator account wallet and bounded Graph-spending authorization. Hedera is the downstream settlement network, with Blocky402 as facilitator. Sprue owns the hosted API and its optional x402 payment gate; Blocky402 is not assumed to provide a hosted API publishing dashboard or marketplace. External buyers need a compatible Hedera payment client, not necessarily a Privy wallet.
+The selected sponsor integrations are The Graph, Hedera, and Privy. The user selected Hedera to replace Bazantic on 2026-09-05. The Graph supplies upstream data through either the creator's existing Graph API key/subscription or x402 purchased by Sprue on the creator's behalf. Privy provides the creator account wallet and bounded Graph-spending authorization for x402 mode. Hedera is the downstream settlement network, with Blocky402 as facilitator. Sprue owns the hosted API and its optional x402 payment gate; Blocky402 is not assumed to provide a hosted API publishing dashboard or marketplace. External buyers need a compatible Hedera payment client, not necessarily a Privy wallet.
 
 Bazantic integration and Recipe deliverables are no longer in the active plan. Its research is retained only as historical context. Building, refreshing, hosting, and privately using an API must not require downstream paid publication.
 
@@ -106,7 +106,7 @@ Do not infer database fields ad hoc while building endpoints. If implementation 
 
 ## Account Wallet and Revenue Model
 
-The user confirmed this model on 2026-09-05: the creator funds an account wallet; Sprue handles Graph purchases within the creator's authorized budget. If the creator opts into x402 publication, API sales produce creator revenue, with a Sprue service fee deducted from those sales if enabled and disclosed. Top-ups are user funds, not platform revenue.
+The user confirmed this model on 2026-09-05: for each Graph source, the creator may select either a customer-supplied Graph API key backed by their existing Graph subscription or creator-wallet x402 pay-per-query access. In x402 mode, the creator funds an account wallet and Sprue handles Graph purchases within the authorized budget. If the creator opts into downstream x402 publication, API sales produce creator revenue, with a Sprue service fee deducted from those sales if enabled and disclosed. Top-ups are user funds, not platform revenue.
 
 The preferred Privy control model is a user-owned wallet with a Sprue-controlled additional signer restricted by a separately owned provider policy. The wallet owner, provider entity association, additional signer/key quorum, and policy are distinct resources and must remain distinct in persistence. Sprue may hold its own P-256 signer authorization private key in a server-side secret manager; this is not the creator's wallet private key and must never be stored in PostgreSQL or committed. A provider policy that Sprue can unilaterally weaken must not be described as a user-enforced spending boundary.
 
@@ -114,7 +114,7 @@ Privy's provider idempotency window is finite, so keep a stable logical payment 
 
 Keep Graph Subgraph IDs, gateway Deployment IDs, and manifest IPFS CIDs distinct. Published products should pin an immutable validated deployment and schema snapshot; following a Subgraph ID's current deployment is for discovery/preview unless a new product version revalidates it. Use static GraphQL documents with validated variables, cursor pagination, a consistent block across pages, and recorded `_meta` provenance and GraphQL errors.
 
-Treat one paginated Graph page as one logical source request. Under Graph x402, persist the initial `402` and payment-bearing retry as separate HTTP attempts, accept and validate the returned requirement before reserving its exact amount, and consume budget whenever settlement confirms even if data delivery later fails. API-key access and x402 access are distinct modes; only the latter demonstrates the confirmed creator-wallet payment flow.
+Treat one paginated Graph page as one logical source request. Under Graph x402, persist the initial `402` and payment-bearing retry as separate HTTP attempts, accept and validate the returned requirement before reserving its exact amount, and consume budget whenever settlement confirms even if data delivery later fails. Customer-API-key access and x402 access are both first-class product modes; the x402 mode remains the required evidence for the Privy wallet-funded sponsor flow. Store customer keys only through server-side secret references, meter their provider requests without inventing wallet expenses, and never fall back to x402 automatically after credential failure.
 
 The creator's account remains the intended funding and revenue identity. Graph's documented x402 path uses USDC on Base or Base Sepolia; API sales will settle separately on Hedera. Track balances, recipients, and settlement evidence by network and asset. Hedera revenue is not automatically available for Graph spending. Automatic bridging or conversion is outside the MVP unless separately approved.
 

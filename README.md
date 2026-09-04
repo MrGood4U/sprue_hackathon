@@ -2,11 +2,11 @@
 
 Describe it. Shape it. Sell it.
 
-Sprue is a hosted web product that turns natural-language onchain data logic into persistent, reusable, and optionally monetizable APIs. Product structure, technical selection, and data-model version 1.1 are approved; MVP implementation is the current stage. Graph-driven source and per-query x402 refinements are under human review in Draft 1.2. No runnable MVP or live payment integration exists yet.
+Sprue is a hosted web product that turns natural-language onchain data logic into persistent, reusable, and optionally monetizable APIs. Product structure, technical selection, and data-model version 1.1 are approved; MVP implementation is the current stage. Graph-driven source, customer-API-key, and per-query x402 refinements are under human review in Draft 1.2. No runnable MVP or live payment integration exists yet.
 
 ## Selected Sponsors
 
-- [The Graph](sponsor/graph.md): Upstream data purchased by Sprue under the creator's authorized budget.
+- [The Graph](sponsor/graph.md): Upstream data accessed through the creator's existing Graph API key/subscription or purchased per query by Sprue under the creator's authorized wallet budget.
 - [Privy](sponsor/privy.md): Creator account wallet and bounded Graph-spending authorization.
 - [Hedera](sponsor/Hedera.md): Downstream x402 settlement through Blocky402; Sprue hosts the API and implements its payment gate.
 
