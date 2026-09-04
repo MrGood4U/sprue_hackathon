@@ -29,7 +29,8 @@ Brainstorming (complete)
     -> project structure conception (complete)
     -> technical selection, including sponsor integrations (complete)
     -> data model definition (complete)
-    -> MVP implementation (current)
+    -> product and interface design (current)
+    -> MVP implementation
     -> project refinement
 ```
 
@@ -86,11 +87,28 @@ The phase is complete only when every MVP action has an unambiguous read/write p
 
 Version 1.3 was approved on 2026-09-05. It combines the previously approved defaults and Privy control model with current official Graph and Hedera refinements: dual Graph access, immutable source identity/provenance, per-query records, Hedera account-ID/address resolution, per-asset receive/access capability, x402 v2 `exact` requirements, Blocky402 capability snapshots, and normalized network settlement evidence. The human team also selected Hedera testnet HBAR (`0.0.0`) for the initial downstream integration and default demo path. Affected migrations may now be designed from this baseline. Remaining live provider compatibility and implementation checks are tracked as validation gates.
 
-### 5. MVP Implementation — Current
+### 5. Product and Interface Design — Current
+
+Define the evaluator-facing Creator Console before application implementation. This phase determines how many pages the MVP needs, what responsibility each page owns, and which interaction elements and UI states are required to complete the primary creator and consumer-demo journeys.
+
+The phase will produce `product-design.md` covering:
+
+1. Primary user journeys and the shortest judge-demo path.
+2. Page inventory, route map, navigation model, and page ownership boundaries.
+3. Each page's content hierarchy, interactive controls, forms, tables, visualizations, and contextual actions.
+4. Cross-page transitions and the state preserved between chat, DAG editing, builds, deployments, wallet actions, and publication.
+5. Empty, loading, success, partial, error, insufficient-funds, revoked-authorization, and payment-reconciliation states.
+6. Responsive behavior, keyboard access, accessibility expectations, and evaluator-safe copy.
+7. The data-model entities and backend/API contracts consumed by every important screen and action.
+8. MVP-versus-deferred boundaries so design breadth does not expand implementation scope.
+
+The phase is complete when the human team approves a coherent page count, every P0 workflow has an explicit interaction path, every important action maps to the approved data model, and implementation can proceed without inventing product behavior inside components. High-fidelity visual styling may follow after the information architecture and interaction specification are approved.
+
+### 6. MVP Implementation
 
 Build the smallest reliable end-to-end product: creator-wallet funding and bounded Graph purchases, natural-language planning, validated data transformation, persistent API, conversational editing, optional Hedera x402 access through Blocky402, and a real paid consumer request with revenue reconciliation and any enabled fee.
 
-### 6. Project Refinement
+### 7. Project Refinement
 
 Improve the product after the core flow works. Focus on interface quality, explainability, reproducibility, build traces, caching, bounded resource usage, error handling, demo reliability, documentation, and final submission materials. Stretch features should not destabilize the core vertical slice.
 
@@ -242,7 +260,7 @@ The frontend edits the graph; the backend validates, compiles, runs, and persist
 
 ## Implementation Sequence
 
-Approved [data-model.md](data-model.md) version 1.3 is the baseline for this sequence. Source, provider-credential, wallet-capability, publication, and payment migrations may now be designed; implementation evidence may still require an explicit model revision through the same change-control process.
+This sequence begins after the product and interface design stage is approved. Approved [data-model.md](data-model.md) version 1.3 is its persistence baseline. Source, provider-credential, wallet-capability, publication, and payment migrations may then be designed; implementation evidence may still require an explicit model revision through the same change-control process.
 
 ### Phase 1: Validate External Dependencies
 
@@ -355,6 +373,7 @@ For each substantial AI-assisted contribution, record the following information 
 | 2026-09-05 | Dual Graph access model | Added first-class customer-API-key/existing-subscription access alongside creator-wallet x402 pay-per-query, including credential lifecycle, secret references, mode constraints, metering, and no-paid-fallback behavior | Human explicitly required users to be able to choose either their existing Graph API key or per-call Graph x402 | Updated Draft 1.2 and product guidance only; no API key, secret, provider account, query, wallet action, payment, or migration was created |
 | 2026-09-05 | Hedera documentation review and data model Draft 1.3 | Reviewed current official Hedera x402, account identity, asset capability, facilitator, and Mirror Node transaction references; proposed recipient/asset capability and normalized settlement records | Human supplied Hedera's official documentation and requested the same evidence-driven model review workflow | Cross-checked official Hedera and Blocky402 documentation and performed read-only live `/supported` checks for hosted testnet/mainnet; updated documentation only, with no account, key, wallet, transaction, paid request, migration, or deployment created |
 | 2026-09-05 | Data model version 1.3 approval and HBAR profile | Promoted the combined Graph/Hedera refinement to the implementation baseline and synchronized the initial downstream profile | Human explicitly approved Draft 1.3 and selected HBAR for the first Hedera integration | Updated planning records to use Hedera testnet HBAR while retaining HTS only as a future-compatible model; no migration, account, wallet, token, transaction, paid request, or deployment was created |
+| 2026-09-05 | Product and interface design stage | Inserted a design gate between the approved data model and MVP implementation, with page inventory, interaction specification, UI-state, navigation, accessibility, and data-contract deliverables | Human requested that page count and per-page interaction elements be designed before development | Synchronized the macro plan and current-stage records; no page count, visual direction, component, application code, or deployment was assumed in this planning-only change |
 
 This table must be updated when AI materially influences architecture, implementation, testing, or submission content.
 
@@ -406,3 +425,4 @@ The central explanation for judges is:
 | 2026-09-05 | Added customer Graph API-key access as a peer to x402 in Draft 1.2 | Follow the human product decision, keep externally billed subscription usage separate from wallet expenses, and forbid silent paid fallback |
 | 2026-09-05 | Proposed data model Draft 1.3 from current Hedera and Blocky402 documentation | Pin x402 v2 `exact`, resolve recipient account identity, verify per-asset receive/access capability, and reconcile facilitator results to native Hedera settlement evidence without assuming Privy compatibility |
 | 2026-09-05 | Approved data model version 1.3 and selected Hedera testnet HBAR for the first downstream integration | Unblock affected migration design while keeping Privy-to-Hedera control and live settlement as evidence gates |
+| 2026-09-05 | Inserted product and interface design before MVP implementation and made it the current stage | Decide page count, per-page interactions, navigation, UI states, accessibility, and screen-to-data contracts before components encode product behavior |
