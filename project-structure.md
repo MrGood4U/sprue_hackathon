@@ -2,7 +2,7 @@
 
 ## Status
 
-This document records the completed project-structure conception and the selected technical/deployment boundaries. Data-model definition is complete, and MVP implementation is the current stage. Detailed entities, fields, relationships, constraints, indexes, and migration order are approved in [data-model.md](data-model.md) as the implementation baseline.
+This document records the completed project-structure conception and the selected technical/deployment boundaries. The version 1.0 data-model decisions are complete, and MVP implementation is the current stage. [Data-model Draft 1.1](data-model.md) contains evidence-driven Privy wallet and payment refinements that require human review before affected migrations are generated.
 
 ## Product Model
 
@@ -327,6 +327,7 @@ The data plane executes and serves the product.
 - Resolve source and schema references from the product definition.
 - Fetch raw indexed onchain facts.
 - Execute paid Graph requests through the creator-wallet authorization adapter; link expense and payment status to the corresponding build/refresh job.
+- Keep the creator-owned provider wallet, Sprue additional-signer grant, immutable observed provider-policy snapshot, and Sprue application budget as separate controls. Block paid work on revocation or policy drift.
 - Normalize source-specific fields into the runtime input model.
 
 ### Background Worker
@@ -383,7 +384,9 @@ Refresh timing and materialization remain separate product policies. This execut
 The initial domain model should include these logical objects:
 
 - `Workspace`: customer or project boundary.
-- `AccountWallet`: creator's logical wallet identity, ownership, network-specific account/address references, and delegated authorization scopes. Funding and receipt roles must be validated separately.
+- `AccountWallet`: one concrete creator-owned or explicitly external provider wallet resource, with provider wallet/entity/owner references and network-scoped addresses. Funding and receipt capabilities are validated separately.
+- `WalletPolicy`: immutable snapshot of the provider-enforced rules, owner control, chain type, and provider policy identity approved for delegated actions.
+- `WalletSignerGrant`: user consent attaching Sprue's additional signer/key quorum to a wallet under an exact provider-policy snapshot; signer secret material remains outside the database.
 - `SpendingPolicy`: approved Graph purchase limits, allowed destinations, revocation state, and budget reservations.
 - `DataProduct`: durable product identity and current status.
 - `DataProductVersion`: immutable or auditable specification revision.

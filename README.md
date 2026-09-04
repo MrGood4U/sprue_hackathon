@@ -2,7 +2,7 @@
 
 Describe it. Shape it. Sell it.
 
-Sprue is a hosted web product that turns natural-language onchain data logic into persistent, reusable, and optionally monetizable APIs. Product structure, technical selection, and data-model definition are complete; MVP implementation is the current stage. No runnable MVP or live payment integration exists yet.
+Sprue is a hosted web product that turns natural-language onchain data logic into persistent, reusable, and optionally monetizable APIs. Product structure, technical selection, and the version 1.0 data-model decisions are complete; MVP implementation is the current stage. Privy-driven wallet refinements are under human review in Draft 1.1, and no runnable MVP or live payment integration exists yet.
 
 ## Selected Sponsors
 
@@ -24,6 +24,6 @@ Vercel and Railway are temporary delivery targets, not application dependencies.
 - [Product intent and repository rules](agents.md)
 - [Plan, decisions, and AI contribution log](plan.md)
 - [Proposed project structure and financial model](project-structure.md)
-- [Approved MVP data model and implementation validation gates](data-model.md)
+- [MVP data model, Draft 1.1 Privy refinement, and validation gates](data-model.md)
 
 Participation: Start Fresh. All repository text is written in English; team communication may use Chinese. Preserve meaningful Git history and update the AI contribution record as work progresses. Runnable setup and verified demo evidence will be added with implementation.

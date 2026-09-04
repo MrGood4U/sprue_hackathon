@@ -98,7 +98,7 @@ Vercel and Railway are the demo delivery profile, not permanent product dependen
 
 Project-structure conception, technical selection, and data-model definition were marked complete on 2026-09-05. MVP implementation is the current stage.
 
-Use the approved [data-model.md](data-model.md) version 1.0 as the implementation baseline. It maps MVP workflows to explicit domain entities, relationships, ownership, lifecycle states, PostgreSQL fields and constraints, API-facing representations, and durable execution records. It treats product/DAG versions as reproducible definitions, models job retries and side-effect idempotency, represents money in atomic units with explicit network and asset identity, keeps financial categories separate, and references secrets without storing secret values.
+Use the approved version 1.0 decisions in [data-model.md](data-model.md) as the implementation baseline. Draft 1.1 contains evidence-driven Privy wallet and payment refinements that require human review before affected migrations are generated. The model maps MVP workflows to explicit domain entities, relationships, ownership, lifecycle states, PostgreSQL fields and constraints, API-facing representations, and durable execution records. It treats product/DAG versions as reproducible definitions, models job retries and side-effect idempotency, represents money in atomic units with explicit network and asset identity, keeps financial categories separate, and references secrets without storing secret values.
 
 The data model includes workspace membership and roles for forward compatibility, but the MVP implements only one active owner per workspace. Do not build invitations, role-management UI, or non-owner authorization flows unless the scope is explicitly expanded.
 
@@ -107,6 +107,10 @@ Do not infer database fields ad hoc while building endpoints. If implementation 
 ## Account Wallet and Revenue Model
 
 The user confirmed this model on 2026-09-05: the creator funds an account wallet; Sprue handles Graph purchases within the creator's authorized budget. If the creator opts into x402 publication, API sales produce creator revenue, with a Sprue service fee deducted from those sales if enabled and disclosed. Top-ups are user funds, not platform revenue.
+
+The preferred Privy control model is a user-owned wallet with a Sprue-controlled additional signer restricted by a separately owned provider policy. The wallet owner, provider entity association, additional signer/key quorum, and policy are distinct resources and must remain distinct in persistence. Sprue may hold its own P-256 signer authorization private key in a server-side secret manager; this is not the creator's wallet private key and must never be stored in PostgreSQL or committed. A provider policy that Sprue can unilaterally weaken must not be described as a user-enforced spending boundary.
+
+Privy's provider idempotency window is finite, so keep a stable logical payment intent separate from each provider-attempt key and request fingerprint. Policy drift, signer removal, provider-key expiry, cached provider errors, and idempotency expiry all require reconciliation before another Graph payment is attempted. Sprue's serializable budget reservations remain authoritative for strict per-workspace accounting even when a Privy provider policy also applies.
 
 The creator's account remains the intended funding and revenue identity. Graph's documented x402 path uses USDC on Base or Base Sepolia; API sales will settle separately on Hedera. Track balances, recipients, and settlement evidence by network and asset. Hedera revenue is not automatically available for Graph spending. Automatic bridging or conversion is outside the MVP unless separately approved.
 

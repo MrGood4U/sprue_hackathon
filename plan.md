@@ -84,7 +84,7 @@ Define the complete MVP data model before feature implementation. Review [data-m
 
 The phase is complete only when every MVP action has an unambiguous read/write path, monetary values use atomic units with explicit asset/network identity, retryable side effects have idempotency and reconciliation fields, and the domain model maps clearly to PostgreSQL and API contracts. Review the model before generating migrations or implementation scaffolding.
 
-Version 1.0 was approved on 2026-09-05. The human team accepted materialized-result serving, owner-only MVP authorization with future-ready membership records, bounded PostgreSQL JSON artifacts, and retention of user-visible Agent records without hidden chain-of-thought. Remaining provider compatibility and implementation checks are tracked as validation gates, not as unresolved product defaults.
+Version 1.0 was approved on 2026-09-05. The human team accepted materialized-result serving, owner-only MVP authorization with future-ready membership records, bounded PostgreSQL JSON artifacts, and retention of user-visible Agent records without hidden chain-of-thought. Draft 1.1 was then prepared from current official Privy implementation references; its wallet-owner, signer-grant, provider-policy, and provider-attempt refinements require human review before affected migrations. Remaining live provider compatibility and implementation checks are tracked as validation gates.
 
 ### 5. MVP Implementation — Current
 
@@ -241,12 +241,12 @@ The frontend edits the graph; the backend validates, compiles, runs, and persist
 
 ## Implementation Sequence
 
-The approved [data model](data-model.md) is the baseline for this sequence. Application entities, migrations, repositories, and API persistence must follow it; implementation evidence may require an explicit model revision through its change-control process.
+The approved version 1.0 decisions in [data-model.md](data-model.md) are the baseline for this sequence. Review and accept or revise Draft 1.1 before generating wallet or payment migrations; other implementation evidence may still require an explicit model revision through the same change-control process.
 
 ### Phase 1: Validate External Dependencies
 
 1. Validate a bounded Graph query and its live source coverage.
-2. Validate creator-wallet funding and a Privy-authorized payment to the selected Graph gateway; test permission and balance failures.
+2. Validate creator-wallet funding and a Graph payment from a Privy user-owned wallet through a policy-bound Sprue additional signer. Capture wallet owner, signer/key-quorum, policy, provider idempotency, transaction reference, permitted-action, rejected-action, revocation, and policy-drift evidence.
 3. Validate Hedera account/recipient mapping, supported payment asset, creator control of receipts, and buyer signing separately. Do not infer Privy compatibility from generic EVM support or export user keys to adapt a sample.
 4. Protect a test Sprue-hosted API with x402 and Blocky402; verify a separate consumer's `402 -> payment -> 200` flow on Hedera, correlated with settlement and creator receipt.
 5. Investigate revenue allocation and fee collection; approve fee terms before enabling any charge. Keep upstream funding and downstream income separate; no automatic bridge is planned.
@@ -347,6 +347,7 @@ For each substantial AI-assisted contribution, record the following information 
 | 2026-09-05 | Development sequence and data-model gate | Marked the agreed technical baseline complete and defined the required data-model deliverable, contents, and acceptance gate before implementation | Human declared technical selection complete and added data-model definition as the next planning stage | Cross-checked the new stage against the MVP workflow, DAG execution boundary, financial model, deployment profiles, and existing implementation plan; no schema, migration, or application code created |
 | 2026-09-05 | Data model draft | Drafted `data-model.md` with PostgreSQL entities, fields, constraints, relationships, state machines, transaction boundaries, financial separation, migration order, and a pre-implementation review checklist | Human requested the data model and asked that uncertain decisions be raised for discussion; at draft time, four proposed defaults remained pending review | Cross-checked the draft against project intent, architecture, and active Graph, Privy, and Hedera sponsor references; performed documentation validation only, with no migration, wallet, payment, or application code created |
 | 2026-09-05 | Data model approval | Converted the reviewed draft into the version 1.0 MVP implementation baseline and synchronized the current project stage | Human approved all four defaults, including future-ready workspace membership records with only a single-owner flow implemented in the MVP | Confirmed the decisions are represented consistently in `data-model.md`, `agents.md`, `plan.md`, `project-structure.md`, and `README.md`; external compatibility and implementation checks remain open |
+| 2026-09-05 | Privy implementation research and data model Draft 1.1 | Reviewed current official wallet-control, policy, idempotency, transaction, chain-support, Node SDK, and agent-wallet references; proposed separating wallet ownership, provider policies, signer grants, application budgets, and provider attempts in the model | Human supplied Privy's official documentation and GitHub organization to improve the data model; review of the resulting material refinement remains pending | Cross-checked official Privy documentation, `privy-io/node-sdk`, `privy-io/examples`, and representative Privy-owned agent repositories; validated documentation structure only, with no wallet, signer, policy, transaction, credential, or funded action created |
 
 This table must be updated when AI materially influences architecture, implementation, testing, or submission content.
 
@@ -392,3 +393,4 @@ The central explanation for judges is:
 | 2026-09-05 | Marked technical selection complete and inserted data-model definition before MVP implementation | Make entities, relationships, constraints, execution state, and financial records explicit before code and migrations are created |
 | 2026-09-05 | Added the first complete data-model draft and left the phase open for human review | Establish an implementation-ready persistence contract while keeping unresolved product defaults explicit |
 | 2026-09-05 | Approved data model version 1.0 and moved the project into MVP implementation | Record the four confirmed defaults while preserving external integration and implementation checks as open validation gates |
+| 2026-09-05 | Proposed data model Draft 1.1 from current Privy implementation references | Model wallet owner, entity, additional signer, provider policy, finite idempotency, and transaction reconciliation as distinct concerns for human review before migrations are generated |

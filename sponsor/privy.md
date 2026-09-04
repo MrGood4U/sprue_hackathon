@@ -6,7 +6,7 @@ Last checked: 2026-09-05
 
 Participation: Start Fresh, confirmed by the user on 2026-09-05.
 
-Status: Research complete; integration, award selection, and final qualification remain pending.
+Status: Official prize, wallet-control, policy, idempotency, transaction, chain-support, Node SDK, and representative agent-wallet documentation reviewed; live integration, award selection, and final qualification remain pending.
 
 This reference separates official conditions from proposed Sprue implementation checks. The [official prize page](https://ethglobal.com/events/ethonline2026/prizes/privy) remains authoritative; recheck it before submission.
 
@@ -48,6 +48,32 @@ Do not assume one recording qualifies for both awards. Choose after the integrat
 
 These are documented capabilities, not evidence that our combination of providers already works.
 
+### User Ownership and Delegated Offline Actions
+
+Privy's [wallet creation guide](https://docs.privy.io/wallets/wallets/create/create-a-wallet) distinguishes a wallet's owner from its entity association. A user entity can be associated with a wallet without controlling it, so Sprue must record and verify the owner configuration separately from the creator's Privy user ID.
+
+For Sprue, the preferred documented pattern is a user-owned wallet with a Sprue-controlled authorization key or key quorum added as an [additional signer](https://docs.privy.io/wallets/using-wallets/signers/add-signers). The user remains the wallet owner; the additional signer enables [offline actions](https://docs.privy.io/controls/authorization-keys/owners/configuration/user/offline) and is restricted by an attached policy. This resolves the earlier conceptual conflict: Sprue does not know the wallet private key, but Sprue does know and securely operate its own additional-signer authorization key.
+
+Privy uses P-256 authorization keys for signed API requests. The private authorization key is generated and retained by the application, not Privy, and must live in a server-side secret manager. It is not the user's wallet private key. The repository and database may store only the provider key/quorum ID, public-key fingerprint, and secret reference. See [authorization signatures](https://docs.privy.io/api-reference/authorization-signatures).
+
+The client-side [signer removal flow](https://docs.privy.io/wallets/using-wallets/signers/remove-signers) removes all additional signers from a wallet. Sprue must therefore refresh every recorded grant for that wallet after revocation instead of assuming only one local record changed.
+
+### Provider Policies and Sprue Budgets
+
+Privy policies are independent resources with provider IDs, owners, a chain type, versioned rules, and conditions. Requests with no matching `ALLOW` rule are denied by default, and `DENY` takes precedence. Policy owners protect policy updates; without an owner, the app secret alone can update the policy. See the [policy overview](https://docs.privy.io/controls/policies/overview) and [policy creation guide](https://docs.privy.io/controls/policies/create-a-policy).
+
+Sprue must not claim user-enforced limits if Sprue can unilaterally loosen the provider policy. The accepted policy definition is stored as an immutable local snapshot. A changed provider definition blocks new paid operations until the user-visible scope is reviewed and the local snapshot is replaced.
+
+The intended Graph policy must constrain the actual RPC/signing method. Privy supports EVM transaction, calldata, message, and EIP-712 typed-data conditions, but a transfer rule for `eth_sendTransaction` does not constrain `eth_signTypedData_v4`. Match the Graph x402 client's emitted method, typed-data domain, types, recipient, token, and amount exactly. See [Privy's Ethereum policy examples](https://docs.privy.io/controls/policies/example-policies/ethereum).
+
+Privy's [stateful policies](https://docs.privy.io/controls/policies/stateful-policies) can express rolling cumulative controls, but the current documented aggregation limit is ten per app, supported methods are narrower than all wallet actions, and concurrent requests can pass before prior values are recorded. Sprue's database spending policy and serializable budget reservations therefore remain necessary for strict per-workspace budgets; provider controls provide an independent safety boundary, not the sole accounting source.
+
+### Idempotency and Transaction Reconciliation
+
+Privy's [idempotency keys](https://docs.privy.io/api-reference/idempotency-keys) deduplicate a matching state-changing request for 24 hours. The request body must remain identical. RPC and wallet-create 5xx responses can remain cached for that key during the window, while policy-violation behavior differs. Sprue must keep a stable logical payment intent plus a provider-attempt key, request fingerprint, and known expiry. An expired key or cached error does not prove that no transaction occurred.
+
+Privy supports a developer-provided transaction [`reference_id`](https://docs.privy.io/transaction-management/transactions/reference-id), up to 64 characters, for API lookup and webhook correlation, in addition to Privy's transaction ID and the network transaction hash. Preserve all three identifiers when available. Production transaction webhooks may require an Enterprise plan, so the hackathon path must also support explicit API reconciliation.
+
 ### x402 Client Integration
 
 Privy's [x402 guide](https://docs.privy.io/recipes/agent-integrations/x402) documents payment authorization from embedded wallets in React and Node.js; the selected facilitator handles settlement. Relevant entry points include `useX402Fetch` and `createX402Client`.
@@ -69,9 +95,17 @@ For Sprue, prefer one narrow policy and a reproducible acceptance/rejection test
 ### Other References
 
 - [Privy documentation](https://docs.privy.io/): General documentation entry point.
+- [Privy documentation index](https://docs.privy.io/llms.txt): Current machine-readable documentation map used for this review.
 - [Controls and authorization model](https://docs.privy.io/controls/overview): Background for choosing user-owned versus delegated wallet control.
-- [Privy GitHub](https://github.com/privy-io): Sponsor-linked source and examples; select and review a concrete repository before reuse.
-- [Sponsor-linked quickstart](https://docs.privy.io/basics/get-started/quickstart): Could not be retrieved during this review; use the documentation entry point to locate the current setup guide.
+- [Privy Node SDK](https://github.com/privy-io/node-sdk): Current server-side TypeScript SDK; supports Node.js 20 LTS or later and is compatible with Sprue's selected Node.js 24 LTS runtime.
+- [Privy examples](https://github.com/privy-io/examples): Current starter collection; archived standalone examples should not be used as the primary integration source.
+- [Privy AWS AgentCore example](https://github.com/privy-io/aws-agentcore-sdk): Representative user-login, Base/Solana funding, and agent-delegation frontend. It confirms that signer IDs are public identifiers while app secrets and authorization private keys remain server-only.
+- [Privy agentic-wallet skill](https://github.com/privy-io/privy-agentic-wallets-skill): Sponsor-owned agent-wallet reference; useful for API orientation, but Sprue's user-owned delegated-wallet pattern remains distinct from a fully service-controlled agent wallet.
+- [Node SDK quickstart](https://docs.privy.io/basics/nodeJS/quickstart): Current backend setup and wallet-operation entry point.
+
+### Chain-Support Boundary
+
+Privy's [chain-support guide](https://docs.privy.io/wallets/overview/chains) places Ethereum and EVM-compatible networks in its highest managed transaction tier, but does not name Hedera on the current page. It also warns that policies, observability, balances, and other capabilities vary independently by chain. This is not sufficient evidence that a Privy EVM wallet is a supported Hedera/Blocky402 recipient with the required control and settlement behavior. Keep Hedera compatibility unverified until a live test or explicit sponsor confirmation.
 
 ## Proposed End-to-End Evidence
 
@@ -116,11 +150,13 @@ A signed authorization alone is not our proof of a completed paid data request. 
 ## Pending Technical Decisions
 
 - Which exact account-wallet ownership, delegated signing, budget, and revocation configuration will implement the confirmed creator role?
+- Can the provider policy be owned or jointly controlled so that Sprue cannot unilaterally weaken the user's approved signer scope?
 - Which exact networks, assets, x402 versions, and signing methods work for the upstream Graph endpoint and downstream Hedera/Blocky402 path, respectively?
 - Can the intended Privy-backed creator control a usable Hedera recipient, receive the selected asset, and subsequently access proceeds? Do not equate this with an external buyer's ability to sign a payment.
 - Does Blocky402 expose enough settlement evidence to reconcile the configured recipient, payment, and Sprue API delivery?
 - Does the chosen settlement path support an authorized platform fee? Its rate, basis, rounding, recipient, payout timing, and refunds must be decided before charging.
-- Which exact wallet method must a control cover, and can retries or alternate signing paths bypass it?
+- Which exact Graph x402 wallet method and EIP-712 shape must the Privy policy cover, and can retries or alternate signing paths bypass it?
+- Can a Graph payment be recovered reliably by Privy transaction ID, developer `reference_id`, network hash, and explicit API polling without production webhooks?
 - How will the demo wallet be funded, bounded, and isolated from production assets? Confirm acceptable demo networks with the sponsor; SDK testnet support alone is not event approval.
 - How will insufficient funds, rejected authorization, duplicate retries, and upstream failure be handled?
 - How will concurrent builds reserve budget and stop safely on revocation? Depositing more funds must not expand an existing spending mandate automatically.

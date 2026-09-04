@@ -2,11 +2,11 @@
 
 ## Status
 
-Version: 1.0
+Version: Draft 1.1
 
 Date: 2026-09-05
 
-Stage: Approved as the MVP implementation baseline. External integration and implementation validation remain open.
+Stage: Version 1.0 is the approved MVP baseline. Draft 1.1 refines Privy resource boundaries from official documentation and requires human review before wallet or payment migrations. External integration and implementation validation remain open.
 
 This document is the source of truth for Sprue's MVP domain model, PostgreSQL persistence model, lifecycle rules, financial separation, and runtime records. It translates the product and architecture decisions in [agents.md](agents.md), [plan.md](plan.md), and [project-structure.md](project-structure.md) into an implementation-ready model.
 
@@ -19,6 +19,7 @@ The model describes intended behavior. It is not evidence that an external walle
 - Product definitions and execution layouts are separate.
 - Product edits create auditable versions; an unsuccessful edit must not replace the last working version.
 - The creator has an account-level Privy-backed wallet and can authorize bounded Graph spending.
+- The intended Privy control pattern is a user-owned wallet with a Sprue-controlled additional signer restricted by a provider policy. Sprue may hold the additional signer's authorization key in a secret manager, but never the wallet private key. Live enforcement remains an integration gate.
 - Graph purchases use a Base or Base Sepolia payment path and remain separate from Hedera API-sale proceeds.
 - A product can remain private or be published behind Sprue's x402 gate, with Hedera settlement through Blocky402.
 - The creator controls the intended sales recipient. Privy-to-Hedera compatibility remains unverified and must be represented as a verification state.
@@ -75,7 +76,8 @@ Each JSON document has a schema version where evolution is expected. Unknown unv
 
 ### Secrets and Sensitive Values
 
-- Store provider wallet IDs, policy IDs, and credential references, never private keys, seed phrases, raw API keys, or wallet signing material.
+- Store provider wallet, owner, signer, key-quorum, policy, and credential references, never private keys, seed phrases, raw API keys, or wallet signing material.
+- The P-256 authorization private key used by Sprue as an additional Privy signer is a server secret. Persist only its secret-manager reference and public/provider identifiers.
 - Store API credentials as a prefix plus a one-way hash.
 - Store hashes of x402 authorization payloads when correlation is required; do not persist reusable raw authorization headers.
 - Remove credentials from Graph endpoint URLs before persistence.
@@ -98,10 +100,12 @@ erDiagram
     WORKSPACES ||--o{ WORKSPACE_MEMBERS : contains
     WORKSPACES ||--o{ ACCOUNT_WALLETS : controls
     ACCOUNT_WALLETS ||--o{ WALLET_ADDRESSES : exposes
+    WORKSPACES ||--o{ WALLET_POLICIES : defines
+    ACCOUNT_WALLETS ||--o{ WALLET_SIGNER_GRANTS : delegates
+    WALLET_POLICIES ||--o{ WALLET_SIGNER_GRANTS : restricts
     NETWORKS ||--o{ WALLET_ADDRESSES : identifies
     NETWORKS ||--o{ ASSETS : supports
-    WALLET_ADDRESSES ||--o{ WALLET_AUTHORIZATIONS : delegates
-    WALLET_AUTHORIZATIONS ||--o{ SPENDING_POLICIES : enforces
+    WALLET_SIGNER_GRANTS ||--o{ SPENDING_POLICIES : authorizes
     SPENDING_POLICIES ||--o{ BUDGET_RESERVATIONS : reserves
     WALLET_ADDRESSES ||--o{ WALLET_BALANCE_SNAPSHOTS : observes
     ASSETS ||--o{ SPENDING_POLICIES : denominates
@@ -327,7 +331,7 @@ Constraints and indexes:
 
 #### `account_wallets`
 
-Logical creator wallet identity. It can have multiple network-specific addresses without implying transferable balances or signer compatibility.
+One concrete provider wallet resource owned by the creator or an explicitly modeled external party. A Privy wallet has one provider wallet ID and chain type; its address may be represented on multiple compatible networks without implying that balances, transaction support, or signer compatibility transfer between those networks.
 
 | Column | Type | Null | Rules and purpose |
 |---|---|---:|---|
@@ -336,16 +340,25 @@ Logical creator wallet identity. It can have multiple network-specific addresses
 | `owner_user_id` | `uuid` | no | FK to `users` |
 | `provider` | `text` | no | Initially `privy`; external accounts remain explicit |
 | `provider_wallet_id` | `text` | no | Provider reference, never key material |
+| `provider_external_id` | `text` | yes | Optional write-once provider lookup ID |
+| `provider_chain_type` | `text` | no | Provider chain family; initially Privy `ethereum` for Graph spending |
+| `provider_entity_id` | `text` | yes | Provider user/organization association; association alone does not grant control |
+| `provider_owner_id` | `text` | yes | Provider user, authorization-key, or key-quorum owner reference |
+| `provider_owner_type` | `text` | no | `user`, `authorization_key`, `key_quorum`, or `unverified` |
 | `label` | `text` | yes | User-facing label |
-| `control_model` | `text` | no | `user_owned`, `user_owned_delegated`, `external`, `unverified` |
-| `status` | `text` | no | `provisioning`, `active`, `restricted`, `revoked`, `failed` |
+| `control_model` | `text` | no | `user_owned`, `user_owned_delegated`, `organization_owned`, `service_owned`, `external`, or `unverified` |
+| `status` | `text` | no | `provisioning`, `active`, `restricted`, `archived`, `failed` |
+| `archived_at` | `timestamptz` | yes | Provider archive time when writes/signing become unavailable |
 | `created_at` | `timestamptz` | no | Creation time |
 | `updated_at` | `timestamptz` | no | Status/metadata update |
 
 Constraints and indexes:
 
 - Unique `(provider, provider_wallet_id)`.
+- Unique `(provider, provider_external_id)` when an external ID is present.
 - Index `(workspace_id, status)`.
+- `user_owned_delegated` requires a verified user-controlled owner plus at least one active, policy-bound signer grant.
+- `archived_at` is required only for `archived`; an archived wallet may still receive funds onchain but cannot be treated as spend-capable.
 - No private key, seed, recovery material, or reusable signing token column is allowed.
 
 #### `wallet_addresses`
@@ -372,28 +385,68 @@ Constraints and indexes:
 - A publication cannot activate unless its recipient address has `can_receive = true` and `control_status = 'verified'`.
 - `can_spend` and `can_receive` are independent.
 
-#### `wallet_authorizations`
+#### `wallet_policies`
+
+Immutable snapshots of provider-enforced wallet policies. Privy policies are independently addressable and mutable provider resources, so each observed definition change creates a new revision instead of overwriting the policy that a user originally approved.
 
 | Column | Type | Null | Rules and purpose |
 |---|---|---:|---|
 | `id` | `uuid` | no | Primary key |
 | `workspace_id` | `uuid` | no | FK to `workspaces` |
-| `wallet_address_id` | `uuid` | no | FK to `wallet_addresses` |
 | `provider` | `text` | no | Initially `privy` |
-| `provider_authorization_id` | `text` | no | Policy/signer/intent reference |
-| `authorization_type` | `text` | no | `policy`, `signer`, `quorum`, `intent` |
-| `scope_schema_version` | `integer` | no | Scope document version |
-| `scope_json` | `jsonb` | no | Validated network, method, asset, recipient, and amount scope |
-| `status` | `text` | no | `pending`, `active`, `revoked`, `expired`, `failed` |
-| `valid_from` | `timestamptz` | yes | Optional provider validity start |
-| `valid_until` | `timestamptz` | yes | Optional expiry |
-| `revoked_at` | `timestamptz` | yes | Required when revoked |
-| `created_at` | `timestamptz` | no | Creation time |
+| `provider_policy_id` | `text` | no | Provider policy reference |
+| `revision_no` | `integer` | no | Positive local observation revision |
+| `provider_owner_id` | `text` | yes | Provider owner/key-quorum reference controlling policy updates |
+| `owner_control_model` | `text` | no | `user`, `quorum_requires_user`, `service`, or `unverified` |
+| `provider_chain_type` | `text` | no | Policy chain family; initially Privy `ethereum` |
+| `policy_version` | `text` | no | Provider policy schema version; currently Privy `1.0` |
+| `name` | `text` | no | Human-readable provider policy name |
+| `definition_json` | `jsonb` | no | Sanitized, validated rules and conditions exactly as observed |
+| `definition_hash` | `text` | no | Hash of canonical policy definition |
+| `status` | `text` | no | `active`, `superseded`, `drifted`, or `revoked` |
+| `observed_at` | `timestamptz` | no | Time definition was read from or accepted by provider |
+| `created_at` | `timestamptz` | no | Record creation time |
 
 Constraints and indexes:
 
-- Unique `(provider, provider_authorization_id)`.
-- Index `(wallet_address_id, status, valid_until)`.
+- Unique `(provider, provider_policy_id, revision_no)` and `(provider, provider_policy_id, definition_hash)`.
+- One active revision per `(provider, provider_policy_id)` through a partial unique index.
+- Policy definition fields are immutable; a changed provider definition creates a new revision and marks dependent grants `drifted` until reviewed.
+- A policy with `service` or `unverified` owner control cannot be presented as a user-enforced spending boundary.
+- Sprue should use a provider owner configuration it cannot unilaterally bypass or loosen when claiming user-bounded delegation.
+
+#### `wallet_signer_grants`
+
+The user's grant of transaction/signing permission to an additional provider signer. For Privy, the signer is an authorization key or key quorum and its policy is a separate referenced resource.
+
+| Column | Type | Null | Rules and purpose |
+|---|---|---:|---|
+| `id` | `uuid` | no | Primary key |
+| `workspace_id` | `uuid` | no | FK to `workspaces` |
+| `account_wallet_id` | `uuid` | no | FK to `account_wallets` |
+| `provider` | `text` | no | Initially `privy` |
+| `provider_signer_id` | `text` | no | Additional signer/authorization key/key-quorum reference |
+| `provider_signer_type` | `text` | no | `authorization_key`, `key_quorum`, or `unverified` |
+| `wallet_policy_id` | `uuid` | no | FK to the exact approved `wallet_policies` snapshot |
+| `signer_secret_ref` | `text` | yes | Server-side secret-manager reference, never authorization private key material |
+| `signer_public_key_fingerprint` | `text` | yes | Non-secret signer correlation fingerprint |
+| `granted_by_user_id` | `uuid` | no | FK to the consenting `users` row |
+| `consent_evidence_ref` | `text` | yes | Sanitized evidence reference for the user grant |
+| `status` | `text` | no | `pending`, `active`, `drifted`, `revoked`, `expired`, `failed` |
+| `valid_from` | `timestamptz` | yes | Optional provider validity start |
+| `valid_until` | `timestamptz` | yes | Optional expiry |
+| `granted_at` | `timestamptz` | yes | Time provider confirms signer attachment |
+| `revoked_at` | `timestamptz` | yes | Required when revoked |
+| `created_at` | `timestamptz` | no | Creation time |
+| `updated_at` | `timestamptz` | no | Provider synchronization/state transition time |
+
+Constraints and indexes:
+
+- Unique `(account_wallet_id, provider, provider_signer_id)`.
+- Index `(account_wallet_id, status, valid_until)`.
+- The policy chain type must match the wallet's provider chain type.
+- An active grant requires user consent, an active matching policy snapshot, and a resolvable server-side signer secret reference.
+- User revocation or provider policy drift blocks new Graph payments immediately; the provider may remove all additional signers rather than one grant, so reconciliation must refresh every grant on that wallet.
 - Application spending checks do not replace provider-enforced wallet controls.
 
 #### `spending_policies`
@@ -404,7 +457,7 @@ Sprue's application-level budget policy for bounded Graph purchases.
 |---|---|---:|---|
 | `id` | `uuid` | no | Primary key |
 | `workspace_id` | `uuid` | no | FK to `workspaces` |
-| `wallet_authorization_id` | `uuid` | no | FK to `wallet_authorizations` |
+| `wallet_signer_grant_id` | `uuid` | no | FK to `wallet_signer_grants` |
 | `network_id` | `uuid` | no | Payment network |
 | `asset_id` | `uuid` | no | Payment asset on the same network |
 | `purpose` | `text` | no | MVP value `graph_purchase` |
@@ -1030,8 +1083,15 @@ Constraints and indexes:
 | `payment_intent_id` | `uuid` | no | FK to `payment_intents` |
 | `attempt_no` | `integer` | no | Positive retry number |
 | `network_id` | `uuid` | no | Copied from the intent for network-aware transaction uniqueness |
+| `provider` | `text` | no | Provider handling this attempt, such as `privy`, `graph_x402`, or `blocky402` |
+| `provider_operation` | `text` | yes | Provider endpoint/method family, such as Privy wallet RPC |
+| `provider_idempotency_key` | `text` | yes | Per-provider state-changing request key |
+| `provider_idempotency_expires_at` | `timestamptz` | yes | Known provider deduplication expiry |
+| `request_fingerprint` | `text` | yes | Hash of the canonical provider request body bound to the idempotency key |
 | `provider_request_id` | `text` | yes | Facilitator/provider correlation ID |
+| `provider_reference_id` | `text` | yes | Developer-supplied provider reconciliation reference |
 | `authorization_hash` | `text` | yes | Hash of signed authorization, not reusable payload |
+| `authorization_expires_at` | `timestamptz` | yes | Expiry bound into the provider authorization request |
 | `transaction_ref` | `text` | yes | Network transaction hash, Hedera consensus reference, or equivalent |
 | `status` | `text` | no | `requested`, `submitted`, `confirmed`, `failed`, `uncertain` |
 | `sanitized_result_json` | `jsonb` | yes | Redacted provider/receipt facts |
@@ -1043,9 +1103,12 @@ Constraints and indexes:
 Constraints and indexes:
 
 - Unique `(payment_intent_id, attempt_no)`.
-- Unique `(payment_intent_id, provider_request_id)` when present.
+- Unique `(provider, provider_request_id)` when present.
+- Unique `(provider, provider_reference_id)` when present.
+- Unique `(provider, provider_idempotency_key)` when present.
 - Unique `(network_id, transaction_ref)` when a transaction reference is present.
 - `network_id` must match the payment intent's network.
+- A provider idempotency key must be tied to one request fingerprint. Provider expiry never makes the logical payment intent safe to repeat without reconciliation.
 
 #### `payment_allocations`
 
@@ -1147,7 +1210,7 @@ created -> authorization_required -> submitted -> confirmed
 confirmed -> reversed
 ```
 
-An `uncertain` intent is never assumed unpaid. Reconcile by provider request ID, authorization hash, and transaction reference before retrying.
+An `uncertain` intent is never assumed unpaid. Reconcile by provider request ID, provider reference ID, provider idempotency key and request fingerprint, authorization hash, and transaction reference before retrying.
 
 ### Publication
 
@@ -1186,12 +1249,13 @@ Never overwrite the current deployment pointer during an edit.
 In one database transaction:
 
 1. Lock the active spending policy.
-2. Sum confirmed period spend and active reservations in the same network/asset.
-3. Reject amounts outside per-request, period, lifetime, destination, authorization, or balance constraints.
-4. Insert the execution run and budget reservation with stable idempotency keys.
-5. Enqueue the pg-boss job in the same PostgreSQL transaction where supported.
+2. Verify the wallet's user owner, active additional-signer grant, pinned provider-policy snapshot, and absence of policy drift or revocation.
+3. Sum confirmed period spend and active reservations in the same network/asset.
+4. Reject amounts outside per-request, period, lifetime, destination, authorization, or balance constraints.
+5. Insert the execution run and budget reservation with a stable logical idempotency key.
+6. Enqueue the pg-boss job in the same PostgreSQL transaction where supported.
 
-The worker creates or reuses a payment intent. It consumes the reservation only after confirmed settlement and releases it on a definite non-payment failure.
+The worker creates or reuses a payment intent and creates a provider attempt with its own request fingerprint, reconciliation reference, authorization expiry, and provider idempotency key. Privy's idempotency window is finite, so expiration is never treated as proof that a transaction did not execute. The worker consumes the reservation only after confirmed settlement and releases it on a definite non-payment failure.
 
 ### Publish a Successful Materialization
 
@@ -1236,7 +1300,7 @@ Do not cache a derived balance as authoritative unless the cache records its sou
 3. Every execution run pins one immutable product version and matching specification hash.
 4. A deployment serves only a ready version and ready materialization from that product.
 5. An API access request pins one publication revision for its entire payment lifecycle.
-6. No Graph payment is initiated without an active provider authorization, active Sprue spending policy, available reservation, and matching network/asset/destination.
+6. No Graph payment is initiated without a verified user-owned wallet, active additional-signer grant, unchanged approved provider-policy snapshot, active Sprue spending policy, available reservation, and matching method/network/asset/destination.
 7. No reservation is consumed more than once.
 8. No x402 publication activates with an unverified recipient.
 9. No paid response is recorded as served before matching payment confirmation.
@@ -1248,6 +1312,8 @@ Do not cache a derived balance as authoritative unless the cache records its sou
 15. Raw secrets, private keys, seed phrases, API keys, and reusable payment authorizations have no valid persistence field.
 16. `data_product_versions.output_schema_json` is an indexed projection of `specification_json.outputSchema` and must match it exactly.
 17. Active refresh schedules are projections of the active specification's refresh policy; changing schedule semantics requires a new product version.
+18. Provider owner, signer, and policy identifiers remain separate; association of a wallet with a provider user/entity is not proof of wallet control.
+19. A provider idempotency key is scoped to one canonical request. Expiry or a cached provider error requires reconciliation before a replacement key can authorize another payment attempt.
 
 ## Security and Retention
 
@@ -1267,7 +1333,7 @@ The initial migration series should preserve dependency clarity rather than crea
 1. PostgreSQL extensions and common validation helpers.
 2. `users`, `workspaces`, and `workspace_members`.
 3. `networks` and `assets`, followed by verified seed data.
-4. `account_wallets`, `wallet_addresses`, `wallet_authorizations`, `spending_policies`, and `wallet_balance_snapshots`.
+4. `account_wallets`, `wallet_addresses`, `wallet_policies`, `wallet_signer_grants`, `spending_policies`, and `wallet_balance_snapshots`.
 5. `agent_sessions`, `agent_messages`, `data_products`, `data_product_versions`, and `product_version_layouts`; add the deferred Agent-session product FK after both tables exist.
 6. `deployments`, `publication_versions`, `api_credentials`, and `refresh_schedules`; add active-pointer FKs after target tables exist.
 7. `execution_runs` and `run_attempts`.
@@ -1286,7 +1352,7 @@ User + Workspace
   -> AccountWallet
       -> Base wallet address (verified spending capability)
       -> Hedera recipient (unverified until integration spike)
-  -> WalletAuthorization + SpendingPolicy
+  -> WalletPolicy snapshot + WalletSignerGrant + SpendingPolicy
   -> AgentSession + AgentMessages
   -> DataProduct
       -> DataProductVersion v1 (canonical spec + spec hash)
@@ -1313,7 +1379,8 @@ User + Workspace
 - [x] Human confirmed the four MVP defaults on 2026-09-05.
 - [x] Documentation review confirms that every P0 user action maps to explicit inserts, updates, or reads.
 - [ ] The initial Graph source and actual x402 payment responses fit the provider-reference fields.
-- [ ] Privy policy identifiers and scope data can be stored without key material.
+- [x] Official Privy documentation confirms that wallet, owner, additional-signer/key-quorum, policy, provider reference, request-expiry, and idempotency identifiers can be stored without wallet or authorization private-key material.
+- [ ] A live Privy user-owned wallet, policy-bound signer grant, revocation, policy-drift check, permitted action, and rejected action fit the documented fields and transitions.
 - [ ] Hedera account/address forms and selected asset metadata fit `networks`, `assets`, and `wallet_addresses`.
 - [ ] Blocky402 exposes sufficient provider request and settlement references for payment reconciliation.
 - [ ] The selected Graph payment flow exposes sufficient references to connect reservation, payment, query, and response.
@@ -1330,7 +1397,7 @@ User + Workspace
 The following remain integration gates. The model deliberately represents uncertainty rather than assuming an answer:
 
 - Exact Graph provider source IDs, paid endpoint fields, request IDs, and payment receipt format.
-- Exact Privy wallet, delegated signer/policy, and x402 authorization identifiers.
+- Exact Graph x402 signing method and typed-data shape, the matching Privy policy rules, and live owner/signer/policy response values.
 - Whether the intended Privy-backed creator can control a Hedera recipient and access proceeds.
 - Exact Hedera network, account/address representation, payment asset, token association, and Blocky402 receipt format.
 - Whether platform-fee settlement is native, requires a second transfer, or should remain disabled.
@@ -1346,4 +1413,4 @@ After human approval, changes to this model require:
 3. Tests for affected transitions, constraints, and derived views.
 4. An AI contribution and project change-log entry in [plan.md](plan.md) when AI materially influenced the change.
 
-The human team approved this model as the MVP implementation baseline on 2026-09-05. Open checklist items are implementation and external-integration validation gates; they do not reopen the data-model definition phase unless evidence requires a model change.
+The human team approved version 1.0 as the MVP implementation baseline on 2026-09-05. Draft 1.1 records evidence-driven Privy refinements for human review before affected migrations are generated. Other open checklist items remain implementation and external-integration validation gates.
