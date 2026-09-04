@@ -2,11 +2,11 @@
 
 ## Status
 
-Version: 1.1
+Version: Draft 1.2
 
 Date: 2026-09-05
 
-Stage: Approved as the MVP implementation baseline. External integration and implementation validation remain open.
+Stage: Version 1.1 is the approved MVP baseline. Draft 1.2 refines The Graph source identity, reproducibility, pagination, and per-query x402 records from official documentation and requires human review before source or payment migrations. External integration and implementation validation remain open.
 
 This document is the source of truth for Sprue's MVP domain model, PostgreSQL persistence model, lifecycle rules, financial separation, and runtime records. It translates the product and architecture decisions in [agents.md](agents.md), [plan.md](plan.md), and [project-structure.md](project-structure.md) into an implementation-ready model.
 
@@ -18,6 +18,7 @@ The model describes intended behavior. It is not evidence that an external walle
 - The Agent dynamically composes predefined, developer-implemented DAG operators. It does not generate arbitrary executable JavaScript or Python for the MVP.
 - Product definitions and execution layouts are separate.
 - Product edits create auditable versions; an unsuccessful edit must not replace the last working version.
+- A published product pins a validated Graph source snapshot and immutable deployment target. Following a Subgraph ID's current deployment is allowed only for discovery/preview unless a later product version revalidates the resolved deployment and schema.
 - The creator has an account-level Privy-backed wallet and can authorize bounded Graph spending.
 - The intended Privy control pattern is a user-owned wallet with a Sprue-controlled additional signer restricted by a provider policy. Sprue may hold the additional signer's authorization key in a secret manager, but never the wallet private key. Live enforcement remains an integration gate.
 - Graph purchases use a Base or Base Sepolia payment path and remain separate from Hedera API-sale proceeds.
@@ -117,7 +118,10 @@ erDiagram
 ```mermaid
 erDiagram
     WORKSPACES ||--o{ DATA_PRODUCTS : owns
+    WORKSPACES ||--o{ SOURCE_SNAPSHOTS : validates
     DATA_PRODUCTS ||--o{ DATA_PRODUCT_VERSIONS : versions
+    DATA_PRODUCT_VERSIONS ||--o{ DATA_PRODUCT_VERSION_SOURCES : pins
+    SOURCE_SNAPSHOTS ||--o{ DATA_PRODUCT_VERSION_SOURCES : supplies
     DATA_PRODUCT_VERSIONS ||--o| PRODUCT_VERSION_LAYOUTS : displays
     DATA_PRODUCTS ||--o{ DEPLOYMENTS : exposes
     DEPLOYMENTS }o--|| DATA_PRODUCT_VERSIONS : activates
@@ -127,6 +131,8 @@ erDiagram
     EXECUTION_RUNS ||--o{ RUN_ATTEMPTS : retries
     RUN_ATTEMPTS ||--o{ NODE_RUNS : evaluates
     NODE_RUNS ||--o{ SOURCE_REQUESTS : queries
+    SOURCE_SNAPSHOTS ||--o{ SOURCE_REQUESTS : pins
+    SOURCE_REQUESTS ||--o{ SOURCE_HTTP_ATTEMPTS : retries
     NODE_RUNS ||--o{ NODE_RUN_ARTIFACTS : binds
     ARTIFACTS ||--o{ NODE_RUN_ARTIFACTS : supplies
     EXECUTION_RUNS ||--o{ ARTIFACTS : produces
@@ -156,7 +162,7 @@ erDiagram
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "runtimeVersion": "1",
   "intent": {
     "summary": "Measure DEX stickiness on Base over the last 30 days"
@@ -164,13 +170,27 @@ erDiagram
   "sources": [
     {
       "id": "source_dex_activity",
+      "sourceSnapshotId": "00000000-0000-0000-0000-000000000000",
       "provider": "the_graph",
       "kind": "subgraph",
       "adapterVersion": "1",
       "dataNetwork": "eip155:8453",
-      "providerSourceId": "deployment-or-subgraph-id",
+      "target": {
+        "type": "deployment_id",
+        "id": "opaque-deployment-id",
+        "logicalSubgraphId": "optional-subgraph-id",
+        "manifestIpfsCid": "optional-ipfs-cid"
+      },
       "schemaHash": "sha256:...",
-      "credentialRef": "graph/default"
+      "access": {
+        "mode": "x402",
+        "gatewayEnvironment": "testnet",
+        "credentialRef": null
+      },
+      "consistency": {
+        "mode": "pinned_block",
+        "indexingErrorPolicy": "deny"
+      }
     }
   ],
   "dag": {
@@ -181,9 +201,9 @@ erDiagram
         "operatorVersion": "1",
         "config": {
           "sourceId": "source_dex_activity",
-          "queryDocument": "query Activity($start: Int!, $end: Int!, $first: Int!, $skip: Int!) { ... }",
-          "variableBindings": {"start": "run.window.start", "end": "run.window.end"},
-          "pagination": {"strategy": "offset", "pageSize": 1000}
+          "queryDocument": "query Activity($start: Int!, $end: Int!, $first: Int!, $lastId: ID!, $block: Int!) { ... }",
+          "variableBindings": {"start": "run.window.start", "end": "run.window.end", "block": "run.sourceBlock", "lastId": "page.cursor"},
+          "pagination": {"strategy": "id_cursor", "cursorField": "id", "pageSize": 1000}
         }
       },
       {"id": "filter1", "type": "filter", "operatorVersion": "1", "config": {"minimumActiveDays": 2}},
@@ -225,11 +245,13 @@ erDiagram
 
 Rules:
 
+- Draft specification schema version 2 replaces the ambiguous version 1 source identifier and credential fields; no compatibility migration is required because no version 1 application records exist yet.
 - Node IDs are unique within a version and remain stable in run records.
 - Node types and versions come from the registered operator allowlist.
-- Source entries pin provider identity, data network, and schema hash.
-- Source nodes pin a bounded query document/template, runtime variable bindings, and pagination strategy. The adapter must not silently broaden the query.
-- The credential reference names server-side configuration but contains no credential.
+- Source entries reference an immutable validated snapshot and keep Subgraph ID, gateway Deployment ID, and manifest IPFS CID distinct. Published versions use a deployment target rather than silently following the current Subgraph version.
+- Source nodes pin a static bounded query document, runtime variable bindings, block-consistency policy, and cursor pagination strategy. The adapter must not interpolate unvalidated values or silently broaden the query.
+- `access.mode` is explicit. Graph x402 execution has no API key and requires a validated wallet/payment path; API-key access requires a server-side credential reference and does not prove the wallet-funded product flow.
+- The credential reference names server-side configuration but contains no credential. Endpoint strings never contain persisted credentials.
 - The execution definition has no viewport coordinates or UI-only styling.
 - The validator rejects cycles, incompatible ports, unsupported configuration, missing sources, and policies outside platform limits.
 - A version pins the meaning of time windows, inclusion/exclusion rules, missing-data behavior, and output schema.
@@ -490,7 +512,7 @@ Constraints and indexes:
 | `execution_run_id` | `uuid` | no | FK to `execution_runs` |
 | `node_id` | `text` | yes | Source node expected to spend the reservation |
 | `idempotency_key` | `text` | no | Stable per intended paid operation |
-| `amount_atomic` | `numeric(78,0)` | no | Reserved maximum, positive |
+| `amount_atomic` | `numeric(78,0)` | no | Reserved positive amount; for Graph x402, exactly the accepted requirement amount |
 | `status` | `text` | no | `reserved`, `consumed`, `released`, `expired` |
 | `expires_at` | `timestamptz` | no | Lease-like reservation expiry |
 | `consumed_payment_intent_id` | `uuid` | yes | FK to `payment_intents` when consumed |
@@ -502,6 +524,7 @@ Constraints and indexes:
 - Unique `(spending_policy_id, idempotency_key)`.
 - Index `(spending_policy_id, status, expires_at)` for atomic available-budget checks.
 - A reservation is consumed at most once and only by a payment in the same network/asset.
+- A Graph x402 reservation is created only after a valid `402` requirement is received and its amount matches the selected payment requirement.
 
 #### `wallet_balance_snapshots`
 
@@ -561,7 +584,42 @@ Constraints and indexes:
 - At least one content field is present unless `redaction_status = 'content_removed'`.
 - Hidden model reasoning is not a supported role or field.
 
-### 5. Data Products and Versions
+### 5. Source Snapshots, Data Products, and Versions
+
+#### `source_snapshots`
+
+An immutable, workspace-scoped record of the Graph source identity and schema that Sprue validated for a product version. Provider identifiers remain opaque because Graph gateway and MCP surfaces expose logical Subgraph IDs, Deployment IDs, and manifest IPFS hashes as distinct identifiers.
+
+| Column | Type | Null | Rules and purpose |
+|---|---|---:|---|
+| `id` | `uuid` | no | Primary key |
+| `workspace_id` | `uuid` | no | FK to `workspaces` |
+| `provider` | `text` | no | MVP `the_graph` |
+| `source_kind` | `text` | no | MVP `subgraph`; other Graph products require an explicit model and adapter revision |
+| `logical_source_id` | `text` | yes | Stable provider logical identity, such as a Subgraph ID |
+| `gateway_target_type` | `text` | no | `deployment_id` or `subgraph_id` for the selected gateway route |
+| `gateway_target_id` | `text` | no | Exact opaque identifier used in that route |
+| `provider_deployment_id` | `text` | yes | Exact deployment identifier observed from the selected Graph interface |
+| `manifest_ipfs_cid` | `text` | yes | Manifest CID when exposed; never conflated with another provider identifier merely because values can alias |
+| `data_network_ref` | `text` | no | Chain whose indexed facts are queried, preferably CAIP-2 |
+| `schema_format` | `text` | no | MVP `graphql_sdl` |
+| `schema_document` | `text` | no | Bounded schema returned during source inspection |
+| `schema_hash` | `text` | no | SHA-256 over the canonical schema document |
+| `standard_schema_json` | `jsonb` | yes | Optional validated family, methodology/version, extensions, and compatibility facts |
+| `discovery_method` | `text` | no | `graph_mcp`, `graph_explorer`, `manual`, or explicit adapter |
+| `status` | `text` | no | `candidate`, `validated`, `rejected`, or `superseded` |
+| `observed_at` | `timestamptz` | no | Time provider identifiers and schema were read |
+| `validated_at` | `timestamptz` | yes | Required when status becomes `validated` |
+| `created_at` | `timestamptz` | no | Record creation time |
+
+Constraints and indexes:
+
+- Unique `(workspace_id, provider, gateway_target_type, gateway_target_id, schema_hash)`.
+- Index `(workspace_id, provider, source_kind, status)` and `(provider, logical_source_id)`.
+- Provider identifiers, schema, network, and discovery facts are immutable after validation; a changed schema or resolved deployment creates another snapshot.
+- A published MVP product source must reference a validated `deployment_id` target. A `subgraph_id` target can be used for discovery or preview, but moving it into a published version requires resolving, validating, and pinning a deployment snapshot.
+- The MVP accepts only `source_kind = 'subgraph'` with `schema_format = 'graphql_sdl'`. Substreams or other Graph products require an explicit model and adapter revision rather than reuse of GraphQL fields by assumption.
+- Schema documents are public provider metadata but remain size-bounded to 5 MiB. They contain no endpoint credentials.
 
 #### `data_products`
 
@@ -613,6 +671,29 @@ Constraints and indexes:
 - `specification_json`, `spec_hash`, `output_schema_json`, parent, and creator fields are immutable after insertion.
 - Status transitions and validation summaries are mutable only through the version service and emit trace events.
 - Parent version, if present, must belong to the same product.
+
+#### `data_product_version_sources`
+
+Immutable relational projection of `data_product_versions.specification_json.sources`. It enforces source ownership and supports dependency, revalidation, and evidence queries without treating JSON references as database foreign keys.
+
+| Column | Type | Null | Rules and purpose |
+|---|---|---:|---|
+| `data_product_version_id` | `uuid` | no | FK to `data_product_versions` |
+| `source_key` | `text` | no | Source `id` inside the canonical specification |
+| `source_snapshot_id` | `uuid` | no | FK to `source_snapshots` |
+| `access_mode` | `text` | no | `x402` or `api_key`, copied from the source entry |
+| `gateway_environment` | `text` | no | Validated gateway environment copied from the source entry |
+| `adapter_version` | `text` | no | Graph adapter version copied from the source entry |
+| `source_config_hash` | `text` | no | Hash of the canonical source entry |
+| `created_at` | `timestamptz` | no | Projection creation time |
+
+Constraints and indexes:
+
+- Primary key `(data_product_version_id, source_key)`.
+- Index `(source_snapshot_id, data_product_version_id)` for dependency and revalidation lookups.
+- The snapshot and product version must resolve to the same workspace.
+- Every canonical source entry has exactly one matching projection row, and no projection exists without a matching source entry and hash.
+- Projection rows are immutable with their product version. A changed target, schema, access mode, or adapter creates a new product version.
 
 #### `product_version_layouts`
 
@@ -867,7 +948,7 @@ Constraints and indexes:
 
 #### `source_requests`
 
-One bounded provider operation, including each paid Graph page/request.
+One logical bounded GraphQL operation, including one pagination page. Under x402, the initial unpaid challenge and the payment-bearing retry remain physical HTTP attempts of this same logical source request.
 
 | Column | Type | Null | Rules and purpose |
 |---|---|---:|---|
@@ -875,20 +956,25 @@ One bounded provider operation, including each paid Graph page/request.
 | `workspace_id` | `uuid` | no | FK to `workspaces` |
 | `execution_run_id` | `uuid` | no | FK to `execution_runs` |
 | `node_run_id` | `uuid` | no | FK to `node_runs` |
+| `source_snapshot_id` | `uuid` | no | FK to the immutable `source_snapshots` row |
 | `request_no` | `integer` | no | Monotonic within source node attempt |
-| `provider` | `text` | no | MVP `the_graph` |
-| `source_kind` | `text` | no | `subgraph`, `substreams`, or verified Graph product |
-| `provider_source_id` | `text` | no | Pinned deployment/product identifier |
-| `data_network_ref` | `text` | no | Chain whose facts are queried; not payment network |
-| `schema_hash` | `text` | no | Pinned source schema hash |
-| `query_text` | `text` | no | Sanitized bounded query |
-| `query_hash` | `text` | no | Canonical query and variables hash |
+| `access_mode` | `text` | no | `x402` or `api_key` |
+| `gateway_environment` | `text` | no | `mainnet`, `testnet`, or explicit validated environment |
+| `operation_name` | `text` | yes | Static GraphQL operation name |
+| `query_text` | `text` | no | Sanitized static bounded query document |
+| `query_hash` | `text` | no | Canonical query-document hash |
 | `variables_json` | `jsonb` | no | Validated and redacted variables |
-| `provider_request_id` | `text` | yes | Provider correlation reference |
+| `variables_hash` | `text` | no | Canonical variables hash |
+| `pagination_cursor_json` | `jsonb` | yes | Validated cursor input/output for this page |
+| `requested_block_ref` | `text` | yes | Pinned block number/hash shared across pages when required |
 | `budget_reservation_id` | `uuid` | yes | FK to `budget_reservations` |
 | `payment_intent_id` | `uuid` | yes | FK to `payment_intents` |
 | `response_artifact_id` | `uuid` | yes | FK to `artifacts` |
-| `indexed_block_ref` | `text` | yes | Block/high-watermark when available |
+| `response_manifest_ipfs_cid` | `text` | yes | `_meta.deployment` value returned by the Subgraph |
+| `indexed_block_ref` | `text` | yes | `_meta.block` number/hash/high-watermark when available |
+| `indexed_block_timestamp` | `timestamptz` | yes | `_meta.block.timestamp` when available |
+| `has_indexing_errors` | `boolean` | yes | `_meta.hasIndexingErrors` when available |
+| `graphql_errors_json` | `jsonb` | yes | Sanitized GraphQL errors, including errors returned with HTTP 200 |
 | `status` | `text` | no | `planned`, `awaiting_payment`, `requested`, `succeeded`, `failed`, `uncertain` |
 | `requested_at` | `timestamptz` | yes | Provider call time |
 | `completed_at` | `timestamptz` | yes | Terminal time |
@@ -897,9 +983,41 @@ One bounded provider operation, including each paid Graph page/request.
 Constraints and indexes:
 
 - Unique `(node_run_id, request_no)`.
-- Index `(provider, provider_request_id)` and `(payment_intent_id)`.
-- Payment network/asset is read from the payment intent, not `data_network_ref`.
-- A successful paid request links a consumed reservation, confirmed payment, and response artifact.
+- Index `(source_snapshot_id, status)`, `(payment_intent_id)`, and `(execution_run_id, node_run_id)`.
+- The source snapshot must belong to the same workspace and match the pinned source entry in the product specification.
+- `x402` requires a payment intent and consumed budget reservation before success; `api_key` requires an active server-side credential reference and no Graph x402 payment intent.
+- Payment network/asset is read from the payment intent, not the source snapshot's data network.
+- A successful paid request links a consumed reservation, confirmed payment, response artifact, and successful payment-bearing HTTP attempt.
+- Under `pinned_block`, every page for the source node uses the same requested block. A mismatched response deployment, schema, block, indexing-error policy, or GraphQL error prevents successful materialization.
+
+#### `source_http_attempts`
+
+Physical HTTP attempts for a logical source request. This separates Graph's initial x402 challenge from the signed retry and prevents queue retries from hiding or duplicating a paid operation.
+
+| Column | Type | Null | Rules and purpose |
+|---|---|---:|---|
+| `id` | `uuid` | no | Primary key |
+| `source_request_id` | `uuid` | no | FK to `source_requests` |
+| `attempt_no` | `integer` | no | Positive physical-attempt sequence |
+| `request_fingerprint` | `text` | no | Hash of target, query, variables, block, cursor, and non-secret request metadata |
+| `has_payment_authorization` | `boolean` | no | Whether this attempt carries x402 payment authorization |
+| `payment_authorization_hash` | `text` | yes | Hash only; never persist the reusable authorization payload |
+| `payment_requirement_hash` | `text` | yes | Hash of the accepted 402 requirement when applicable |
+| `provider_request_id` | `text` | yes | Gateway/facilitator request correlation reference when exposed |
+| `http_status` | `integer` | yes | Response status, including initial `402` and final `200` |
+| `sanitized_response_metadata_json` | `jsonb` | yes | Allowlisted non-secret headers and response facts |
+| `status` | `text` | no | `sending`, `payment_required`, `succeeded`, `failed`, or `uncertain` |
+| `sent_at` | `timestamptz` | no | Attempt start |
+| `completed_at` | `timestamptz` | yes | Response or terminal uncertainty time |
+| `error_code` | `text` | yes | Stable transport/provider error code |
+
+Constraints and indexes:
+
+- Unique `(source_request_id, attempt_no)` and unique `(payment_authorization_hash)` when present.
+- Index `(source_request_id, request_fingerprint)`, `(provider_request_id)` when present, and `(status, sent_at)` for reconciliation.
+- `payment_authorization_hash` is present exactly when `has_payment_authorization = true`.
+- A `payment_required` attempt has HTTP `402`; a successful x402 source request requires a later successful attempt for the same request fingerprint with payment authorization.
+- A transport retry after a signed or uncertain attempt must reconcile its payment intent before creating another authorization.
 
 #### `materializations`
 
@@ -1061,7 +1179,13 @@ One intended or observed transfer obligation. Upstream Graph purchases and downs
 | `recipient_wallet_address_id` | `uuid` | yes | Known creator/platform recipient |
 | `recipient_address` | `text` | no | Pinned actual recipient string |
 | `facilitator` | `text` | no | `graph_x402`, `blocky402`, `direct_chain_observation`, or explicit adapter |
-| `requirement_json` | `jsonb` | yes | Sanitized, versioned payment requirement |
+| `payment_protocol` | `text` | no | `x402`, `direct`, or another explicit protocol |
+| `payment_protocol_version` | `text` | yes | Provider-returned protocol version; never guessed |
+| `payment_scheme` | `text` | yes | Selected protocol scheme, such as x402 `exact` |
+| `resource_ref` | `text` | yes | Sanitized resource/operation identity bound to the requirement |
+| `requirement_json` | `jsonb` | yes | Sanitized complete provider payment requirement |
+| `requirement_hash` | `text` | yes | Hash of the canonical complete requirement |
+| `selected_requirement_json` | `jsonb` | yes | Exact accepted option matching normalized amount/network/asset/recipient fields |
 | `idempotency_key` | `text` | no | Stable intended-payment identity |
 | `status` | `text` | no | `created`, `authorization_required`, `submitted`, `confirmed`, `failed`, `uncertain`, `reversed`, `expired` |
 | `expires_at` | `timestamptz` | yes | Requirement expiry |
@@ -1073,6 +1197,7 @@ Constraints and indexes:
 - Unique `(workspace_id, idempotency_key)`.
 - Asset must belong to network.
 - Index `(workspace_id, kind, status, created_at desc)`.
+- An x402 intent requires a protocol version, scheme, requirement hash, and selected requirement. Its normalized amount, network, asset, and recipient must exactly match the selected option.
 - `uncertain` must be reconciled before retrying or creating a replacement intent.
 
 #### `payment_attempts`
@@ -1238,24 +1363,36 @@ The same logical access request correlates the `402` and paid retry. If payment 
 In one database transaction:
 
 1. Lock the product metadata row if assigning the next version number.
-2. Insert an immutable `data_product_versions` row and optional layout.
-3. Create a planning trace stream and initial events.
-4. Commit before scheduling validation/build work.
+2. Validate every source snapshot belongs to the workspace and matches the canonical source entry.
+3. Insert the immutable `data_product_versions` row, its source projection rows, and optional layout.
+4. Create a planning trace stream and initial events.
+5. Commit before scheduling validation/build work.
 
 Never overwrite the current deployment pointer during an edit.
 
-### Reserve Budget and Dispatch a Paid Build
+### Start an Execution Run
 
 In one database transaction:
 
-1. Lock the active spending policy.
-2. Verify the wallet's user owner, active additional-signer grant, pinned provider-policy snapshot, and absence of policy drift or revocation.
-3. Sum confirmed period spend and active reservations in the same network/asset.
-4. Reject amounts outside per-request, period, lifetime, destination, authorization, or balance constraints.
-5. Insert the execution run and budget reservation with a stable logical idempotency key.
-6. Enqueue the pg-boss job in the same PostgreSQL transaction where supported.
+1. Validate the product version and its source snapshots.
+2. Insert the execution run with a stable logical idempotency key.
+3. Enqueue the pg-boss job in the same PostgreSQL transaction where supported.
 
-The worker creates or reuses a payment intent and creates a provider attempt with its own request fingerprint, reconciliation reference, authorization expiry, and provider idempotency key. Privy's idempotency window is finite, so expiration is never treated as proof that a transaction did not execute. The worker consumes the reservation only after confirmed settlement and releases it on a definite non-payment failure.
+Do not reserve an invented Graph price when the actual x402 requirement has not been received.
+
+### Accept a Graph x402 Requirement and Reserve Budget
+
+After the initial source HTTP attempt returns `402`, validate the complete requirement and choose one acceptable option. Then, in one database transaction:
+
+1. Lock the logical source request and reject a changed query/target/request fingerprint.
+2. Lock the active spending policy.
+3. Verify the wallet's user owner, active additional-signer grant, pinned provider-policy snapshot, and absence of policy drift or revocation.
+4. Verify the selected requirement's protocol version, scheme, network, asset, amount, recipient, expiry, and resource against the source request and allowed destinations.
+5. Sum confirmed period spend and active reservations in the same network/asset.
+6. Reject amounts outside per-request, period, lifetime, authorization, balance, or run resource constraints.
+7. Create or reuse the payment intent from the canonical requirement hash, reserve its exact amount with a stable logical idempotency key, and attach both records to the source request.
+
+After commit, the worker creates a provider attempt with its own request fingerprint, reconciliation reference, authorization expiry, and provider idempotency key, obtains the bounded signature, and records the payment-bearing source HTTP attempt. Privy's idempotency window is finite, so expiration is never treated as proof that a transaction did not execute. The worker consumes the reservation whenever settlement is confirmed, even if Graph data delivery later fails, and releases it only on a definite non-payment failure.
 
 ### Publish a Successful Materialization
 
@@ -1314,6 +1451,10 @@ Do not cache a derived balance as authoritative unless the cache records its sou
 17. Active refresh schedules are projections of the active specification's refresh policy; changing schedule semantics requires a new product version.
 18. Provider owner, signer, and policy identifiers remain separate; association of a wallet with a provider user/entity is not proof of wallet control.
 19. A provider idempotency key is scoped to one canonical request. Expiry or a cached provider error requires reconciliation before a replacement key can authorize another payment attempt.
+20. A published Graph source resolves to a validated immutable deployment snapshot; a logical Subgraph ID never changes published semantics silently.
+21. Every page in one pinned-block source-node execution uses the same deployment, schema, and requested block, and records returned `_meta` provenance and GraphQL errors.
+22. Confirmed Graph payment consumes budget even when data delivery fails; failed delivery never turns spent funds back into available budget.
+23. Every canonical product-version source has one immutable relational projection to the exact source snapshot, access mode, gateway environment, and adapter version.
 
 ## Security and Retention
 
@@ -1334,12 +1475,12 @@ The initial migration series should preserve dependency clarity rather than crea
 2. `users`, `workspaces`, and `workspace_members`.
 3. `networks` and `assets`, followed by verified seed data.
 4. `account_wallets`, `wallet_addresses`, `wallet_policies`, `wallet_signer_grants`, `spending_policies`, and `wallet_balance_snapshots`.
-5. `agent_sessions`, `agent_messages`, `data_products`, `data_product_versions`, and `product_version_layouts`; add the deferred Agent-session product FK after both tables exist.
+5. `source_snapshots`, `agent_sessions`, `agent_messages`, `data_products`, `data_product_versions`, `data_product_version_sources`, and `product_version_layouts`; add the deferred Agent-session product FK after both tables exist.
 6. `deployments`, `publication_versions`, `api_credentials`, and `refresh_schedules`; add active-pointer FKs after target tables exist.
 7. `execution_runs` and `run_attempts`.
 8. `budget_reservations` and `payment_intents`, followed by the deferred consumed-payment FK.
 9. `payment_attempts` and `payment_allocations`.
-10. `artifacts`, `node_runs`, `node_run_artifacts`, `source_requests`, and `materializations`; add deployment materialization pointers afterward.
+10. `artifacts`, `node_runs`, `node_run_artifacts`, `source_requests`, `source_http_attempts`, and `materializations`; add deployment materialization pointers afterward.
 11. `trace_streams`, `trace_events`, `api_access_requests`, `api_http_attempts`, and `usage_events`.
 12. `financial_ledger_entries`, derived views, immutable-field protections, and final cross-table validation triggers where justified.
 
@@ -1354,14 +1495,18 @@ User + Workspace
       -> Hedera recipient (unverified until integration spike)
   -> WalletPolicy snapshot + WalletSignerGrant + SpendingPolicy
   -> AgentSession + AgentMessages
+  -> validated Graph SourceSnapshot (deployment + schema)
   -> DataProduct
-      -> DataProductVersion v1 (canonical spec + spec hash)
+      -> DataProductVersion v1 (canonical spec + source snapshot + spec hash)
+      -> DataProductVersionSources (relational source projections)
       -> ProductVersionLayout (visual only)
-  -> ExecutionRun + BudgetReservation
+  -> ExecutionRun
       -> RunAttempt
       -> NodeRuns
       -> SourceRequest
-          -> Graph PaymentIntent + PaymentAttempt
+          -> HTTP attempt 1: Graph x402 challenge
+          -> exact BudgetReservation + Graph PaymentIntent + PaymentAttempt
+          -> HTTP attempt 2: payment-bearing Graph query
           -> source Artifact
       -> output Artifact + Materialization
   -> Deployment activates v1 + materialization
@@ -1379,12 +1524,14 @@ User + Workspace
 - [x] Human confirmed the four MVP defaults on 2026-09-05.
 - [x] Human approved the user-owned wallet, policy-bound Sprue additional signer, immutable provider-policy snapshot, and Sprue database budget model on 2026-09-05.
 - [x] Documentation review confirms that every P0 user action maps to explicit inserts, updates, or reads.
-- [ ] The initial Graph source and actual x402 payment responses fit the provider-reference fields.
+- [x] Official Graph documentation confirms distinct logical Subgraph, gateway Deployment, manifest IPFS, schema, `_meta`, GraphQL-error, pagination, API-key, and per-query x402 concepts can be represented without credentials or payment authorization material.
+- [ ] Human reviews Draft 1.2's immutable deployment snapshot, cursor pagination, pinned-block, and per-query x402 attempt model before affected migrations.
+- [ ] The initial live Graph source and actual x402 payment responses fit the documented source, request, HTTP-attempt, and payment fields.
 - [x] Official Privy documentation confirms that wallet, owner, additional-signer/key-quorum, policy, provider reference, request-expiry, and idempotency identifiers can be stored without wallet or authorization private-key material.
 - [ ] A live Privy user-owned wallet, policy-bound signer grant, revocation, policy-drift check, permitted action, and rejected action fit the documented fields and transitions.
 - [ ] Hedera account/address forms and selected asset metadata fit `networks`, `assets`, and `wallet_addresses`.
 - [ ] Blocky402 exposes sufficient provider request and settlement references for payment reconciliation.
-- [ ] The selected Graph payment flow exposes sufficient references to connect reservation, payment, query, and response.
+- [ ] The selected live Graph payment flow exposes sufficient references to connect challenge, reservation, payment, paid retry, query result, and settlement.
 - [ ] The DAG JSON schema and operator configuration schemas are versioned and testable.
 - [ ] All statuses have explicit transition tests, including uncertain payment and revoked authorization paths.
 - [ ] The 5 MiB inline artifact proposal is tested against the representative DEX result.
@@ -1397,7 +1544,7 @@ User + Workspace
 
 The following remain integration gates. The model deliberately represents uncertainty rather than assuming an answer:
 
-- Exact Graph provider source IDs, paid endpoint fields, request IDs, and payment receipt format.
+- Exact identifier formats and response/request IDs returned by the selected live Graph MCP, gateway deployment route, and x402 client versions.
 - Exact Graph x402 signing method and typed-data shape, the matching Privy policy rules, and live owner/signer/policy response values.
 - Whether the intended Privy-backed creator can control a Hedera recipient and access proceeds.
 - Exact Hedera network, account/address representation, payment asset, token association, and Blocky402 receipt format.
@@ -1414,4 +1561,4 @@ After human approval, changes to this model require:
 3. Tests for affected transitions, constraints, and derived views.
 4. An AI contribution and project change-log entry in [plan.md](plan.md) when AI materially influenced the change.
 
-The human team approved version 1.1 as the MVP implementation baseline on 2026-09-05. Open checklist items remain implementation and external-integration validation gates; new evidence still follows the change-control process above.
+The human team approved version 1.1 as the MVP implementation baseline on 2026-09-05. Draft 1.2 records evidence-driven Graph source and per-query x402 refinements for human review before affected migrations are generated. Other open checklist items remain implementation and external-integration validation gates.

@@ -2,7 +2,7 @@
 
 ## Status
 
-This document records the completed project-structure conception and the selected technical/deployment boundaries. [Data-model version 1.1](data-model.md), including the evidence-driven Privy wallet and payment refinements, is approved as the implementation baseline. MVP implementation is the current stage.
+This document records the completed project-structure conception and the selected technical/deployment boundaries. The version 1.1 decisions in [data-model.md](data-model.md), including the Privy wallet and payment refinements, are approved as the implementation baseline. Draft 1.2 contains Graph source and per-query x402 refinements that require human review before affected migrations. MVP implementation is the current stage.
 
 ## Product Model
 
@@ -325,8 +325,11 @@ The data plane executes and serves the product.
 
 - Connect to The Graph and selected MCP or API interfaces.
 - Resolve source and schema references from the product definition.
+- Keep logical Subgraph IDs, gateway Deployment IDs, and manifest IPFS CIDs distinct. Validate an immutable deployment/schema snapshot before publication; do not let a moving Subgraph ID silently change a deployed product.
 - Fetch raw indexed onchain facts.
 - Execute paid Graph requests through the creator-wallet authorization adapter; link expense and payment status to the corresponding build/refresh job.
+- Use static GraphQL documents, validated variables, cursor pagination, one pinned block across pages, and `_meta` provenance. Treat GraphQL errors and indexing-error flags as data-quality failures under the MVP deny policy.
+- Model each page as one logical request and its x402 challenge/payment retry as separate HTTP attempts. Reserve the exact returned requirement before signing; a settled payment remains an expense even if data delivery fails.
 - Keep the creator-owned provider wallet, Sprue additional-signer grant, immutable observed provider-policy snapshot, and Sprue application budget as separate controls. Block paid work on revocation or policy drift.
 - Normalize source-specific fields into the runtime input model.
 
@@ -390,7 +393,7 @@ The initial domain model should include these logical objects:
 - `SpendingPolicy`: approved Graph purchase limits, allowed destinations, revocation state, and budget reservations.
 - `DataProduct`: durable product identity and current status.
 - `DataProductVersion`: immutable or auditable specification revision.
-- `SourceReference`: The Graph source, schema, and network metadata.
+- `SourceSnapshot`: immutable validated Graph logical/deployment/manifest identifiers, schema hash, data network, and discovery provenance pinned by a product version.
 - `TransformationGraph`: validated nodes and edges.
 - `Deployment`: runtime and endpoint status for a version.
 - `MonetizationPolicy`: opt-in access, x402 price, Hedera network/asset, Blocky402 configuration reference, validated creator recipient, and any accepted service-fee terms/version.
