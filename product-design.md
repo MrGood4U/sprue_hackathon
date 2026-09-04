@@ -2,7 +2,7 @@
 
 ## Status
 
-Version 1.1, updated on 2026-09-05 with the selected Evidence-First Console visual direction and a seven-page interactive prototype. The human team approved D1, D2, and D4, revised D3 to target large-screen web browsers, and selected the third visual exploration. Final human review of the prototype remains pending; MVP application implementation has not started.
+Draft 1.2, updated on 2026-09-05 with a formal three-layer design-token proposal applied to the selected Evidence-First Console prototype. The human team approved D1, D2, and D4, revised D3 to target large-screen web browsers, and selected the third visual exploration. Human approval of the token proposal and final prototype review remain pending; MVP application implementation has not started.
 
 This document defines the MVP information architecture, page inventory, interactions, state behavior, desktop layout behavior, accessibility requirements, and screen-to-domain contracts. The decisions are recorded in [Confirmed Design Decisions](#confirmed-design-decisions).
 
@@ -549,6 +549,8 @@ The human team selected the third visual exploration on 2026-09-05. The directio
 
 The interactive prototype is in [`prototype/`](prototype/). It includes all seven page families and realistic mock transitions for planning, building, API testing, x402 publication, and a judge-safe consumer request. It performs no real authentication, data query, wallet action, payment, deployment, or persistence.
 
+The formal token proposal is in [`design-tokens.md`](design-tokens.md). It defines primitive, semantic, and component layers; meaningful color roles; typography and spacing scales; state behavior; accessibility checks; layout contracts; and the JSON-to-CSS generation workflow. The prototype consumes the generated CSS, but the proposal remains subject to human approval.
+
 ## Screen-to-Backend Contract Summary
 
 These are logical UI contracts, not final HTTP endpoint names.
@@ -649,11 +651,11 @@ The structured list/form DAG editor remains P0 as a desktop keyboard and single-
 
 ## Approval Gate
 
-The page-architecture and interaction gate is complete. The visual direction is selected and the representative web prototype is ready for human review. The broader Product and Interface Design stage remains current until that review and the capped demo-consumer boundary are approved.
+The page-architecture and interaction gate is complete. The visual direction is selected, a formal token proposal is applied, and the representative web prototype is ready for human review. The broader Product and Interface Design stage remains current until the tokens, prototype, and capped demo-consumer boundary are approved.
 
 Before the design stage is complete:
 
-- Review and approve the Evidence-First Console tokens and seven-page interactive prototype.
+- Review and approve DT1-DT4 in [`design-tokens.md`](design-tokens.md) and the seven-page interactive prototype.
 - Treat the prototype as a browser-based design reference, not production application architecture or a native desktop-client requirement.
 - Preserve the validated 1440-pixel target and 1024-pixel minimum layouts during MVP implementation.
 - Preserve every approved P0 journey, blocker, recovery path, data-model mapping, confirmation, and idempotent state behavior in the visual design.
@@ -666,3 +668,4 @@ Before the design stage is complete:
 | 2026-09-05 | Created Draft 0.1 with seven proposed page families, primary journeys, interactions, UI states, responsive/accessibility behavior, and screen-to-domain contracts | Awaiting human review |
 | 2026-09-05 | Approved version 1.0 with D1, D2, and D4 accepted; revised D3 to a large-screen browser Creator Console and retained structured DAG controls for keyboard/single-pointer access rather than mobile support | Page architecture and interactions approved; visual system pending |
 | 2026-09-05 | Added version 1.1 with the selected Evidence-First Console direction, explicit browser-only product boundary, design tokens, and a seven-page interactive prototype | Prototype ready for human review; MVP implementation has not started |
+| 2026-09-05 | Proposed Draft 1.2 with a documented primitive-to-semantic-to-component token system, generated CSS contract, accessibility checks, and prototype adoption | Token decisions DT1-DT4 and final prototype review await human approval |
