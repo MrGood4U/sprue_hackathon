@@ -1,0 +1,640 @@
+/* Sprue design tokens - generated from design-tokens.json. */
+/* Run npm run tokens after editing the JSON source. */
+
+/* === PRIMITIVE === */
+:root {
+  /* Data-node hover surface. */
+  --primitive-color-ink-625: hsl(202 29% 13%);
+  /* Raised neutral surface. */
+  --primitive-color-ink-650: hsl(206 26% 12%);
+  /* General interactive hover surface. */
+  --primitive-color-ink-700: hsl(208 24% 11%);
+  /* Interactive row hover surface. */
+  --primitive-color-ink-750: hsl(208 31% 10%);
+  /* Primary panel surface. */
+  --primitive-color-ink-800: hsl(204 26% 7%);
+  /* Builder side-rail surface. */
+  --primitive-color-ink-825: hsl(207 27% 6%);
+  /* Subtle panel and table-header surface. */
+  --primitive-color-ink-850: hsl(204 31% 6%);
+  /* Execution-trace surface. */
+  --primitive-color-ink-875: hsl(210 27% 6%);
+  /* Persistent navigation surface. */
+  --primitive-color-ink-900: hsl(207 31% 6%);
+  /* Form-control surface. */
+  --primitive-color-ink-925: hsl(207 33% 5%);
+  /* Primary application canvas. */
+  --primitive-color-ink-950: hsl(206 28% 5%);
+  /* Recessed code and response surface. */
+  --primitive-color-ink-975: hsl(206 30% 5%);
+  /* Deepest ink used beneath modal overlays. */
+  --primitive-color-ink-1000: hsl(210 40% 2%);
+  /* Primary foreground and lightest neutral. */
+  --primitive-color-slate-50: hsl(210 22% 96%);
+  /* Control foreground. */
+  --primitive-color-slate-100: hsl(206 16% 92%);
+  /* Code and identifier foreground. */
+  --primitive-color-slate-150: hsl(203 14% 82%);
+  /* Strong secondary labels. */
+  --primitive-color-slate-200: hsl(206 12% 77%);
+  /* Long-form secondary marketing copy. */
+  --primitive-color-slate-250: hsl(203 12% 70%);
+  /* Secondary interface text. */
+  --primitive-color-slate-300: hsl(204 11% 65%);
+  /* Accessible tertiary text on the application canvas. */
+  --primitive-color-slate-350: hsl(206 9% 52%);
+  /* Decorative subdued foreground. */
+  --primitive-color-slate-400: hsl(205 10% 45%);
+  /* Neutral progress and trace border. */
+  --primitive-color-slate-450: hsl(204 7% 45%);
+  /* Hovered control border. */
+  --primitive-color-slate-500: hsl(205 13% 37%);
+  /* Strong divider and control border. */
+  --primitive-color-slate-600: hsl(206 15% 27%);
+  /* Default low-contrast divider. */
+  --primitive-color-slate-700: hsl(205 18% 19%);
+  /* Hovered Agent link. */
+  --primitive-color-violet-100: hsl(247 100% 86%);
+  /* Soft Agent status foreground. */
+  --primitive-color-violet-200: hsl(248 100% 81%);
+  /* Inline Agent link. */
+  --primitive-color-violet-300: hsl(247 100% 78%);
+  /* Agent lineage and focus indicator. */
+  --primitive-color-violet-400: hsl(248 100% 74%);
+  /* Strong Agent emphasis. */
+  --primitive-color-violet-500: hsl(245 100% 70%);
+  /* Primary action and Agent emphasis surface. */
+  --primitive-color-violet-600: hsl(245 88% 64%);
+  /* Hovered primary-action surface with accessible light text. */
+  --primitive-color-violet-700: hsl(245 78% 59%);
+  /* Pressed primary-action surface. */
+  --primitive-color-violet-800: hsl(245 70% 54%);
+  /* Data lineage, Graph source, and creator allocation accent. */
+  --primitive-color-cyan-400: hsl(182 69% 61%);
+  /* Data-lineage border on dark surfaces. */
+  --primitive-color-cyan-700: hsl(185 49% 27%);
+  /* Success, ready, and settled foreground. */
+  --primitive-color-green-400: hsl(140 66% 56%);
+  /* Confirmed-evidence border. */
+  --primitive-color-green-650: hsl(144 33% 24%);
+  /* Confirmed-state control border. */
+  --primitive-color-green-700: hsl(143 43% 24%);
+  /* Spending, payment, and reconciliation attention foreground. */
+  --primitive-color-amber-400: hsl(38 91% 58%);
+  /* Spending-attention border. */
+  --primitive-color-amber-700: hsl(38 55% 25%);
+  /* Error and destructive-state foreground. */
+  --primitive-color-red-400: hsl(355 100% 71%);
+  /* Destructive control surface. */
+  --primitive-color-red-700: hsl(355 65% 42%);
+  /* Modal backdrop over the application canvas. */
+  --primitive-color-alpha-backdrop: hsl(210 40% 2% / 80%);
+  /* Deep elevation shadow color. */
+  --primitive-color-alpha-shadow: hsl(0 0% 0% / 55%);
+  /* Subtle inner highlight on filled controls. */
+  --primitive-color-alpha-white-8: hsl(0 0% 100% / 8%);
+  /* Selected Agent-surface inner ring. */
+  --primitive-color-alpha-violet-22: hsl(248 100% 74% / 22%);
+  /* Data-node hover halo. */
+  --primitive-color-alpha-cyan-14: hsl(182 69% 61% / 14%);
+  /* DAG canvas dot grid. */
+  --primitive-color-alpha-grid: hsl(203 19% 56% / 20%);
+  /* DAG node surface with slight canvas translucency. */
+  --primitive-color-alpha-node: hsl(205 29% 8% / 95%);
+  /* Selected Agent option surface. */
+  --primitive-color-tint-agent: hsl(234 38% 11%);
+  /* Agent icon tile surface. */
+  --primitive-color-tint-agent-subtle: hsl(229 38% 11%);
+  /* Warning notice surface. */
+  --primitive-color-tint-warning: hsl(45 24% 7%);
+  /* Compact payment-warning surface. */
+  --primitive-color-tint-warning-deep: hsl(39 39% 7%);
+  /* Verified-evidence surface. */
+  --primitive-color-tint-success: hsl(144 28% 7%);
+  /* No spacing. */
+  --primitive-spacing-0: 0;
+  /* Base quarter spacing step. */
+  --primitive-spacing-1: 4px;
+  /* Base interface spacing step. */
+  --primitive-spacing-2: 8px;
+  /* Default compact component spacing. */
+  --primitive-spacing-3: 12px;
+  /* Default component spacing. */
+  --primitive-spacing-4: 16px;
+  /* Comfortable component inset. */
+  --primitive-spacing-5: 20px;
+  /* Section-level compact spacing. */
+  --primitive-spacing-6: 24px;
+  /* Page vertical inset. */
+  --primitive-spacing-7: 28px;
+  /* Page horizontal inset. */
+  --primitive-spacing-8: 32px;
+  /* Large section spacing. */
+  --primitive-spacing-10: 40px;
+  /* Display section spacing. */
+  --primitive-spacing-12: 48px;
+  /* Major layout separation. */
+  --primitive-spacing-16: 64px;
+  /* Single-pixel optical adjustment. */
+  --primitive-spacing-px: 1px;
+  /* Half-step micro spacing. */
+  --primitive-spacing-0-5: 2px;
+  /* Compact inline spacing. */
+  --primitive-spacing-1-5: 6px;
+  /* Compact control inset. */
+  --primitive-spacing-2-5: 10px;
+  /* Dense panel spacing. */
+  --primitive-spacing-3-5: 14px;
+  /* Dense panel inset. */
+  --primitive-spacing-4-5: 18px;
+  /* Product-shell inset. */
+  --primitive-spacing-5-5: 22px;
+  /* Primary interface font stack. */
+  --primitive-font-family-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* Code, identifier, hash, JSON, and amount font stack. */
+  --primitive-font-family-mono: "DM Mono", "SFMono-Regular", Consolas, monospace;
+  /* Nine-pixel metadata and dense evidence text. */
+  --primitive-font-size-micro: 0.5625rem;
+  /* Ten-pixel captions and code labels. */
+  --primitive-font-size-caption: 0.625rem;
+  /* Eleven-pixel labels and secondary controls. */
+  --primitive-font-size-label: 0.6875rem;
+  /* Twelve-pixel dense application body text. */
+  --primitive-font-size-body: 0.75rem;
+  /* Fourteen-pixel descriptive body text. */
+  --primitive-font-size-body-lg: 0.875rem;
+  /* Sixteen-pixel compact heading. */
+  --primitive-font-size-subheading: 1rem;
+  /* Eighteen-pixel modal heading. */
+  --primitive-font-size-heading: 1.125rem;
+  /* Twenty-two-pixel product title. */
+  --primitive-font-size-product: 1.375rem;
+  /* Twenty-nine-pixel application page title. */
+  --primitive-font-size-page: 1.8125rem;
+  /* Forty-three-pixel public product title. */
+  --primitive-font-size-display: 2.6875rem;
+  /* Minimum entry-page hero title. */
+  --primitive-font-size-hero-min: 3rem;
+  /* Maximum entry-page hero title. */
+  --primitive-font-size-hero-max: 4.75rem;
+  /* Regular interface text. */
+  --primitive-font-weight-normal: 400;
+  /* Operational emphasis and code amounts. */
+  --primitive-font-weight-medium: 500;
+  /* Headings and primary labels. */
+  --primitive-font-weight-semibold: 600;
+  /* Rare high-emphasis text. */
+  --primitive-font-weight-bold: 700;
+  /* Tight display line height. */
+  --primitive-line-height-display: 0.99;
+  /* Application heading line height. */
+  --primitive-line-height-tight: 1.15;
+  /* Dense operational copy line height. */
+  --primitive-line-height-snug: 1.35;
+  /* Default body line height. */
+  --primitive-line-height-normal: 1.5;
+  /* Long-form explanatory copy line height. */
+  --primitive-line-height-relaxed: 1.6;
+  /* Square corner. */
+  --primitive-radius-none: 0;
+  /* Micro indicator radius. */
+  --primitive-radius-xs: 3px;
+  /* Badge and method-chip radius. */
+  --primitive-radius-sm: 4px;
+  /* Default control and DAG-node radius. */
+  --primitive-radius-control: 5px;
+  /* Icon tile and compact panel radius. */
+  --primitive-radius-md: 6px;
+  /* Default panel radius. */
+  --primitive-radius-panel: 7px;
+  /* Modal and prominent container radius. */
+  --primitive-radius-lg: 8px;
+  /* Circular and pill radius. */
+  --primitive-radius-full: 9999px;
+  /* Default divider and component border. */
+  --primitive-border-width-default: 1px;
+  /* Focus, active navigation, and semantic emphasis border. */
+  --primitive-border-width-emphasis: 2px;
+  /* Immediate press feedback. */
+  --primitive-duration-instant: 80ms;
+  /* Color, border, and opacity transition. */
+  --primitive-duration-fast: 150ms;
+  /* Short structural or transform transition. */
+  --primitive-duration-normal: 250ms;
+  /* Fast settle for direct-manipulation feedback. */
+  --primitive-easing-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* Disabled-control opacity while retaining readable text. */
+  --primitive-opacity-disabled: 0.65;
+  /* Default button and text-control height. */
+  --primitive-dimension-control-default: 39px;
+  /* Square icon-control size. */
+  --primitive-dimension-control-icon: 34px;
+  /* Sidebar navigation target height. */
+  --primitive-dimension-control-nav: 44px;
+  /* High-consequence build action height. */
+  --primitive-dimension-control-primary: 50px;
+  /* Persistent creator-console sidebar width. */
+  --primitive-dimension-sidebar: 210px;
+  /* Product shell header including tabs. */
+  --primitive-dimension-product-header: 106px;
+  /* Product title and action row height. */
+  --primitive-dimension-product-title-row: 66px;
+  /* Product tab strip height. */
+  --primitive-dimension-product-tabs: 40px;
+  /* Builder intent and Agent-summary rail width. */
+  --primitive-dimension-builder-intent: 190px;
+  /* Builder readiness-evidence rail width. */
+  --primitive-dimension-builder-evidence: 270px;
+  /* Builder execution-trace height. */
+  --primitive-dimension-builder-trace: 189px;
+  /* Canonical DAG node width. */
+  --primitive-dimension-dag-node-width: 94px;
+  /* Canonical DAG node height. */
+  --primitive-dimension-dag-node-height: 128px;
+  /* Maximum public consumer console width. */
+  --primitive-dimension-content-max: 1164px;
+  /* Minimum supported Creator Console viewport width. */
+  --primitive-dimension-viewport-min: 1024px;
+  /* Base content layer. */
+  --primitive-z-index-base: 0;
+  /* Persistent application navigation layer. */
+  --primitive-z-index-sticky: 10;
+  /* Modal and blocking overlay layer. */
+  --primitive-z-index-modal: 50;
+  /* Unsupported-viewport message layer. */
+  --primitive-z-index-gate: 999;
+  /* Flat operational surface. */
+  --primitive-shadow-none: none;
+  /* Only prominent elevation, reserved for modal content. */
+  --primitive-shadow-modal: 0 24px 80px var(--primitive-color-alpha-shadow);
+  /* Subtle inner highlight for filled primary controls. */
+  --primitive-shadow-inset-highlight: inset 0 0 0 1px var(--primitive-color-alpha-white-8);
+}
+
+/* === SEMANTIC === */
+:root {
+  /* Application and public-page canvas. */
+  --color-background-canvas: var(--primitive-color-ink-950);
+  /* Persistent creator-console navigation. */
+  --color-background-sidebar: var(--primitive-color-ink-900);
+  /* Primary content panel. */
+  --color-background-panel: var(--primitive-color-ink-800);
+  /* Table header, endpoint strip, and subdued panel. */
+  --color-background-panel-subtle: var(--primitive-color-ink-850);
+  /* Builder intent and readiness rail. */
+  --color-background-rail: var(--primitive-color-ink-825);
+  /* Code, request, and response surface. */
+  --color-background-code: var(--primitive-color-ink-975);
+  /* Form-control surface. */
+  --color-background-input: var(--primitive-color-ink-925);
+  /* General hover surface. */
+  --color-background-hover: var(--primitive-color-ink-700);
+  /* Raised neutral surface used for loading and hover feedback. */
+  --color-background-raised: var(--primitive-color-ink-650);
+  /* Table and list row hover surface. */
+  --color-background-row-hover: var(--primitive-color-ink-750);
+  /* Data-lineage node hover surface. */
+  --color-background-data-hover: var(--primitive-color-ink-625);
+  /* Selected Agent-authored option surface. */
+  --color-background-agent-selected: var(--primitive-color-tint-agent);
+  /* Agent icon and identity tile surface. */
+  --color-background-agent-subtle: var(--primitive-color-tint-agent-subtle);
+  /* Spending-attention notice surface. */
+  --color-background-warning: var(--primitive-color-tint-warning);
+  /* Compact payment-warning surface. */
+  --color-background-warning-deep: var(--primitive-color-tint-warning-deep);
+  /* Verified-evidence surface. */
+  --color-background-success: var(--primitive-color-tint-success);
+  /* Primary text and icons. */
+  --color-foreground-primary: var(--primitive-color-slate-50);
+  /* Button and control text. */
+  --color-foreground-control: var(--primitive-color-slate-100);
+  /* Strong secondary labels. */
+  --color-foreground-secondary-strong: var(--primitive-color-slate-200);
+  /* Secondary text and metadata. */
+  --color-foreground-secondary: var(--primitive-color-slate-300);
+  /* Tertiary text that still meets normal-text contrast on the canvas. */
+  --color-foreground-tertiary: var(--primitive-color-slate-350);
+  /* Decorative-only subdued content; not for essential small text. */
+  --color-foreground-decorative: var(--primitive-color-slate-400);
+  /* Secondary entry-page copy. */
+  --color-foreground-marketing-secondary: var(--primitive-color-slate-250);
+  /* Code, hash, identifier, and JSON text. */
+  --color-foreground-code: var(--primitive-color-slate-150);
+  /* Default panel and section divider. */
+  --color-border-default: var(--primitive-color-slate-700);
+  /* Control and emphasized boundary. */
+  --color-border-strong: var(--primitive-color-slate-600);
+  /* Hovered neutral control boundary. */
+  --color-border-hover: var(--primitive-color-slate-500);
+  /* Neutral trace and progress boundary. */
+  --color-border-neutral: var(--primitive-color-slate-450);
+  /* Data-lineage boundary. */
+  --color-border-data: var(--primitive-color-cyan-700);
+  /* Agent and primary-action boundary. */
+  --color-border-agent: var(--primitive-color-violet-500);
+  /* Verified-evidence boundary. */
+  --color-border-success: var(--primitive-color-green-650);
+  /* Ready-state control boundary. */
+  --color-border-success-control: var(--primitive-color-green-700);
+  /* Spending-attention boundary. */
+  --color-border-warning: var(--primitive-color-amber-700);
+  /* The Graph data lineage and creator-allocation accent. */
+  --color-accent-data: var(--primitive-color-cyan-400);
+  /* Agent output, focus, and selected-work accent. */
+  --color-accent-agent: var(--primitive-color-violet-400);
+  /* Primary action surface. */
+  --color-accent-agent-strong: var(--primitive-color-violet-600);
+  /* Accessible primary-action hover surface. */
+  --color-accent-agent-hover: var(--primitive-color-violet-700);
+  /* Primary-action pressed surface. */
+  --color-accent-agent-active: var(--primitive-color-violet-800);
+  /* Inline Agent action link. */
+  --color-accent-agent-link: var(--primitive-color-violet-300);
+  /* Hovered inline Agent action link. */
+  --color-accent-agent-link-hover: var(--primitive-color-violet-100);
+  /* Soft Agent status foreground. */
+  --color-accent-agent-soft: var(--primitive-color-violet-200);
+  /* Ready, confirmed, and settled state. */
+  --color-accent-success: var(--primitive-color-green-400);
+  /* Spending, payment, and reconciliation attention. */
+  --color-accent-warning: var(--primitive-color-amber-400);
+  /* Error and destructive-state foreground. */
+  --color-accent-danger: var(--primitive-color-red-400);
+  /* Destructive action surface. */
+  --color-accent-danger-strong: var(--primitive-color-red-700);
+  /* Modal backdrop. */
+  --color-overlay-backdrop: var(--primitive-color-alpha-backdrop);
+  /* Selected Agent option inset ring. */
+  --color-overlay-selected-agent: var(--primitive-color-alpha-violet-22);
+  /* Data-node hover halo. */
+  --color-overlay-data-halo: var(--primitive-color-alpha-cyan-14);
+  /* DAG dot grid. */
+  --color-overlay-grid: var(--primitive-color-alpha-grid);
+  /* DAG node surface. */
+  --color-overlay-node: var(--primitive-color-alpha-node);
+  /* Tight inline gap. */
+  --spacing-inline-xs: var(--primitive-spacing-1);
+  /* Default inline gap. */
+  --spacing-inline-sm: var(--primitive-spacing-2);
+  /* Comfortable inline gap. */
+  --spacing-inline: var(--primitive-spacing-3);
+  /* Dense component inset. */
+  --spacing-component-sm: var(--primitive-spacing-3);
+  /* Default component inset. */
+  --spacing-component: var(--primitive-spacing-4);
+  /* Comfortable component inset. */
+  --spacing-component-lg: var(--primitive-spacing-5);
+  /* Section separation. */
+  --spacing-section: var(--primitive-spacing-6);
+  /* Creator-console page horizontal inset. */
+  --spacing-page-x: var(--primitive-spacing-8);
+  /* Creator-console page vertical inset. */
+  --spacing-page-y: var(--primitive-spacing-7);
+  /* Interface font family. */
+  --typography-family-interface: var(--primitive-font-family-sans);
+  /* Technical content font family. */
+  --typography-family-code: var(--primitive-font-family-mono);
+  /* Dense evidence and metadata text. */
+  --typography-size-micro: var(--primitive-font-size-micro);
+  /* Caption and compact code text. */
+  --typography-size-caption: var(--primitive-font-size-caption);
+  /* Labels and secondary controls. */
+  --typography-size-label: var(--primitive-font-size-label);
+  /* Dense application body text. */
+  --typography-size-body: var(--primitive-font-size-body);
+  /* Descriptive application body text. */
+  --typography-size-body-lg: var(--primitive-font-size-body-lg);
+  /* Compact section heading. */
+  --typography-size-subheading: var(--primitive-font-size-subheading);
+  /* Modal and prominent section heading. */
+  --typography-size-heading: var(--primitive-font-size-heading);
+  /* Product-shell title. */
+  --typography-size-product: var(--primitive-font-size-product);
+  /* Application page title. */
+  --typography-size-page: var(--primitive-font-size-page);
+  /* Public product display title. */
+  --typography-size-display: var(--primitive-font-size-display);
+  /* Minimum entry hero title size. */
+  --typography-size-hero-min: var(--primitive-font-size-hero-min);
+  /* Maximum entry hero title size. */
+  --typography-size-hero-max: var(--primitive-font-size-hero-max);
+  /* Regular interface weight. */
+  --typography-weight-normal: var(--primitive-font-weight-normal);
+  /* Operational emphasis weight. */
+  --typography-weight-medium: var(--primitive-font-weight-medium);
+  /* Heading and label weight. */
+  --typography-weight-semibold: var(--primitive-font-weight-semibold);
+  /* Display line height. */
+  --typography-leading-display: var(--primitive-line-height-display);
+  /* Heading line height. */
+  --typography-leading-tight: var(--primitive-line-height-tight);
+  /* Dense operational line height. */
+  --typography-leading-snug: var(--primitive-line-height-snug);
+  /* Default body line height. */
+  --typography-leading-normal: var(--primitive-line-height-normal);
+  /* Long-form explanatory line height. */
+  --typography-leading-relaxed: var(--primitive-line-height-relaxed);
+  /* Badge and method-chip radius. */
+  --radius-badge: var(--primitive-radius-sm);
+  /* Button, input, tab, and DAG-node radius. */
+  --radius-control: var(--primitive-radius-control);
+  /* Compact panel and icon tile radius. */
+  --radius-compact: var(--primitive-radius-md);
+  /* Default panel radius. */
+  --radius-panel: var(--primitive-radius-panel);
+  /* Modal and prominent container radius. */
+  --radius-prominent: var(--primitive-radius-lg);
+  /* Circular and pill radius. */
+  --radius-round: var(--primitive-radius-full);
+  /* Default interface border width. */
+  --border-width-default: var(--primitive-border-width-default);
+  /* Focus and semantic emphasis width. */
+  --border-width-emphasis: var(--primitive-border-width-emphasis);
+  /* Pressed-state feedback duration. */
+  --motion-duration-press: var(--primitive-duration-instant);
+  /* Color, border, and opacity transition duration. */
+  --motion-duration-state: var(--primitive-duration-fast);
+  /* Short transform and structural transition duration. */
+  --motion-duration-structure: var(--primitive-duration-normal);
+  /* Default transition easing. */
+  --motion-easing-standard: var(--primitive-easing-standard);
+  /* Disabled-control opacity. */
+  --opacity-disabled: var(--primitive-opacity-disabled);
+  /* Default control height. */
+  --size-control-default: var(--primitive-dimension-control-default);
+  /* Square icon-control size. */
+  --size-control-icon: var(--primitive-dimension-control-icon);
+  /* Navigation target height. */
+  --size-control-nav: var(--primitive-dimension-control-nav);
+  /* High-consequence action height. */
+  --size-control-primary: var(--primitive-dimension-control-primary);
+  /* Creator-console sidebar width. */
+  --size-sidebar: var(--primitive-dimension-sidebar);
+  /* Product-shell header height. */
+  --size-product-header: var(--primitive-dimension-product-header);
+  /* Product title row height. */
+  --size-product-title-row: var(--primitive-dimension-product-title-row);
+  /* Product tab strip height. */
+  --size-product-tabs: var(--primitive-dimension-product-tabs);
+  /* Builder intent rail width. */
+  --size-builder-intent: var(--primitive-dimension-builder-intent);
+  /* Builder evidence rail width. */
+  --size-builder-evidence: var(--primitive-dimension-builder-evidence);
+  /* Builder execution trace height. */
+  --size-builder-trace: var(--primitive-dimension-builder-trace);
+  /* DAG node width. */
+  --size-dag-node-width: var(--primitive-dimension-dag-node-width);
+  /* DAG node height. */
+  --size-dag-node-height: var(--primitive-dimension-dag-node-height);
+  /* Maximum public console width. */
+  --size-content-max: var(--primitive-dimension-content-max);
+  /* Minimum supported Creator Console viewport. */
+  --size-viewport-min: var(--primitive-dimension-viewport-min);
+  /* Base content layer. */
+  --z-index-base: var(--primitive-z-index-base);
+  /* Persistent navigation layer. */
+  --z-index-sticky: var(--primitive-z-index-sticky);
+  /* Modal layer. */
+  --z-index-modal: var(--primitive-z-index-modal);
+  /* Unsupported-viewport layer. */
+  --z-index-gate: var(--primitive-z-index-gate);
+  /* Default operational surface elevation. */
+  --shadow-flat: var(--primitive-shadow-none);
+  /* Modal elevation. */
+  --shadow-modal: var(--primitive-shadow-modal);
+  /* Filled-control inner highlight. */
+  --shadow-control-highlight: var(--primitive-shadow-inset-highlight);
+}
+
+/* === COMPONENT === */
+:root {
+  /* Global keyboard focus indicator color. */
+  --focus-color: var(--color-accent-agent);
+  /* Global keyboard focus indicator width. */
+  --focus-width: var(--border-width-emphasis);
+  /* Global keyboard focus indicator offset. */
+  --focus-offset: var(--border-width-emphasis);
+  /* Default button height. */
+  --button-height: var(--size-control-default);
+  /* Build and other high-consequence action height. */
+  --button-height-primary: var(--size-control-primary);
+  /* Default horizontal button padding. */
+  --button-padding-x: var(--spacing-component);
+  /* Button icon-to-label gap. */
+  --button-gap: var(--spacing-inline-sm);
+  /* Default button radius. */
+  --button-radius: var(--radius-control);
+  /* Neutral and filled button foreground. */
+  --button-foreground: var(--color-foreground-control);
+  /* Neutral button border. */
+  --button-border: var(--color-border-strong);
+  /* Hovered neutral button border. */
+  --button-border-hover: var(--color-border-hover);
+  /* Hovered neutral button surface. */
+  --button-background-hover: var(--color-background-hover);
+  /* Primary button surface. */
+  --button-primary-background: var(--color-accent-agent-strong);
+  /* Primary button hover surface. */
+  --button-primary-background-hover: var(--color-accent-agent-hover);
+  /* Primary button pressed surface. */
+  --button-primary-background-active: var(--color-accent-agent-active);
+  /* Primary button border. */
+  --button-primary-border: var(--color-border-agent);
+  /* Primary button inner highlight. */
+  --button-primary-shadow: var(--shadow-control-highlight);
+  /* Disabled button opacity. */
+  --button-disabled-opacity: var(--opacity-disabled);
+  /* Default text-control height. */
+  --input-height: var(--size-control-default);
+  /* Input and textarea surface. */
+  --input-background: var(--color-background-input);
+  /* Input value foreground. */
+  --input-foreground: var(--color-foreground-primary);
+  /* Input placeholder foreground. */
+  --input-placeholder: var(--color-foreground-secondary);
+  /* Input border. */
+  --input-border: var(--color-border-strong);
+  /* Focused input border. */
+  --input-border-focus: var(--color-accent-agent);
+  /* Input radius. */
+  --input-radius: var(--radius-control);
+  /* Input horizontal padding. */
+  --input-padding-x: var(--spacing-component-sm);
+  /* Default panel background. */
+  --panel-background: var(--color-background-panel);
+  /* Default panel border. */
+  --panel-border: var(--color-border-default);
+  /* Default panel radius. */
+  --panel-radius: var(--radius-panel);
+  /* Default panel elevation. */
+  --panel-shadow: var(--shadow-flat);
+  /* Persistent creator-console sidebar width. */
+  --sidebar-width: var(--size-sidebar);
+  /* Sidebar background. */
+  --sidebar-background: var(--color-background-sidebar);
+  /* Sidebar item minimum target height. */
+  --sidebar-item-height: var(--size-control-nav);
+  /* Sidebar navigation label foreground. */
+  --sidebar-item-foreground: var(--color-foreground-secondary-strong);
+  /* Sidebar navigation hover and selected surface. */
+  --sidebar-item-background-hover: var(--color-background-hover);
+  /* Product header height including tabs. */
+  --product-header-height: var(--size-product-header);
+  /* Product title row height. */
+  --product-header-title-row-height: var(--size-product-title-row);
+  /* Product tab strip height. */
+  --product-header-tabs-height: var(--size-product-tabs);
+  /* Product header background. */
+  --product-header-background: var(--color-background-canvas);
+  /* Builder intent rail width. */
+  --builder-intent-width: var(--size-builder-intent);
+  /* Builder evidence rail width. */
+  --builder-evidence-width: var(--size-builder-evidence);
+  /* Builder execution trace height. */
+  --builder-trace-height: var(--size-builder-trace);
+  /* Builder side-rail background. */
+  --builder-rail-background: var(--color-background-rail);
+  /* Execution trace background. */
+  --builder-trace-background: var(--color-background-panel-subtle);
+  /* DAG node width. */
+  --dag-node-width: var(--size-dag-node-width);
+  /* DAG node height. */
+  --dag-node-height: var(--size-dag-node-height);
+  /* DAG node radius. */
+  --dag-node-radius: var(--radius-control);
+  /* DAG node background. */
+  --dag-node-background: var(--color-overlay-node);
+  /* DAG node hover background. */
+  --dag-node-background-hover: var(--color-background-data-hover);
+  /* Source and transformation node border. */
+  --dag-node-border-data: var(--color-accent-data);
+  /* Agent-authored node border. */
+  --dag-node-border-agent: var(--color-accent-agent);
+  /* DAG node hover halo. */
+  --dag-node-halo: var(--color-overlay-data-halo);
+  /* DAG canvas dot-grid color. */
+  --dag-grid: var(--color-overlay-grid);
+  /* Modal backdrop. */
+  --modal-backdrop: var(--color-overlay-backdrop);
+  /* Modal content background. */
+  --modal-background: var(--color-background-panel);
+  /* Modal content border. */
+  --modal-border: var(--color-border-strong);
+  /* Modal content radius. */
+  --modal-radius: var(--radius-prominent);
+  /* Modal elevation. */
+  --modal-shadow: var(--shadow-modal);
+  /* Data-lineage status foreground. */
+  --status-data: var(--color-accent-data);
+  /* Agent status foreground. */
+  --status-agent: var(--color-accent-agent);
+  /* Soft Agent status foreground. */
+  --status-agent-soft: var(--color-accent-agent-soft);
+  /* Confirmed-state foreground. */
+  --status-success: var(--color-accent-success);
+  /* Spending-attention foreground. */
+  --status-warning: var(--color-accent-warning);
+  /* Error-state foreground. */
+  --status-danger: var(--color-accent-danger);
+}

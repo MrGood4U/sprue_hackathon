@@ -1,0 +1,419 @@
+{
+  "$schema": "https://design-tokens.org/schema.json",
+  "$description": "Sprue Evidence-First Console design tokens. Edit this file and regenerate tokens.css.",
+  "primitive": {
+    "color": {
+      "ink": {
+        "1000": { "$value": "hsl(210 40% 2%)", "$type": "color", "$description": "Deepest ink used beneath modal overlays." },
+        "975": { "$value": "hsl(206 30% 5%)", "$type": "color", "$description": "Recessed code and response surface." },
+        "950": { "$value": "hsl(206 28% 5%)", "$type": "color", "$description": "Primary application canvas." },
+        "925": { "$value": "hsl(207 33% 5%)", "$type": "color", "$description": "Form-control surface." },
+        "900": { "$value": "hsl(207 31% 6%)", "$type": "color", "$description": "Persistent navigation surface." },
+        "875": { "$value": "hsl(210 27% 6%)", "$type": "color", "$description": "Execution-trace surface." },
+        "850": { "$value": "hsl(204 31% 6%)", "$type": "color", "$description": "Subtle panel and table-header surface." },
+        "825": { "$value": "hsl(207 27% 6%)", "$type": "color", "$description": "Builder side-rail surface." },
+        "800": { "$value": "hsl(204 26% 7%)", "$type": "color", "$description": "Primary panel surface." },
+        "750": { "$value": "hsl(208 31% 10%)", "$type": "color", "$description": "Interactive row hover surface." },
+        "700": { "$value": "hsl(208 24% 11%)", "$type": "color", "$description": "General interactive hover surface." },
+        "650": { "$value": "hsl(206 26% 12%)", "$type": "color", "$description": "Raised neutral surface." },
+        "625": { "$value": "hsl(202 29% 13%)", "$type": "color", "$description": "Data-node hover surface." }
+      },
+      "slate": {
+        "700": { "$value": "hsl(205 18% 19%)", "$type": "color", "$description": "Default low-contrast divider." },
+        "600": { "$value": "hsl(206 15% 27%)", "$type": "color", "$description": "Strong divider and control border." },
+        "500": { "$value": "hsl(205 13% 37%)", "$type": "color", "$description": "Hovered control border." },
+        "450": { "$value": "hsl(204 7% 45%)", "$type": "color", "$description": "Neutral progress and trace border." },
+        "400": { "$value": "hsl(205 10% 45%)", "$type": "color", "$description": "Decorative subdued foreground." },
+        "350": { "$value": "hsl(206 9% 52%)", "$type": "color", "$description": "Accessible tertiary text on the application canvas." },
+        "300": { "$value": "hsl(204 11% 65%)", "$type": "color", "$description": "Secondary interface text." },
+        "250": { "$value": "hsl(203 12% 70%)", "$type": "color", "$description": "Long-form secondary marketing copy." },
+        "200": { "$value": "hsl(206 12% 77%)", "$type": "color", "$description": "Strong secondary labels." },
+        "150": { "$value": "hsl(203 14% 82%)", "$type": "color", "$description": "Code and identifier foreground." },
+        "100": { "$value": "hsl(206 16% 92%)", "$type": "color", "$description": "Control foreground." },
+        "50": { "$value": "hsl(210 22% 96%)", "$type": "color", "$description": "Primary foreground and lightest neutral." }
+      },
+      "violet": {
+        "800": { "$value": "hsl(245 70% 54%)", "$type": "color", "$description": "Pressed primary-action surface." },
+        "700": { "$value": "hsl(245 78% 59%)", "$type": "color", "$description": "Hovered primary-action surface with accessible light text." },
+        "600": { "$value": "hsl(245 88% 64%)", "$type": "color", "$description": "Primary action and Agent emphasis surface." },
+        "500": { "$value": "hsl(245 100% 70%)", "$type": "color", "$description": "Strong Agent emphasis." },
+        "400": { "$value": "hsl(248 100% 74%)", "$type": "color", "$description": "Agent lineage and focus indicator." },
+        "300": { "$value": "hsl(247 100% 78%)", "$type": "color", "$description": "Inline Agent link." },
+        "200": { "$value": "hsl(248 100% 81%)", "$type": "color", "$description": "Soft Agent status foreground." },
+        "100": { "$value": "hsl(247 100% 86%)", "$type": "color", "$description": "Hovered Agent link." }
+      },
+      "cyan": {
+        "700": { "$value": "hsl(185 49% 27%)", "$type": "color", "$description": "Data-lineage border on dark surfaces." },
+        "400": { "$value": "hsl(182 69% 61%)", "$type": "color", "$description": "Data lineage, Graph source, and creator allocation accent." }
+      },
+      "green": {
+        "700": { "$value": "hsl(143 43% 24%)", "$type": "color", "$description": "Confirmed-state control border." },
+        "650": { "$value": "hsl(144 33% 24%)", "$type": "color", "$description": "Confirmed-evidence border." },
+        "400": { "$value": "hsl(140 66% 56%)", "$type": "color", "$description": "Success, ready, and settled foreground." }
+      },
+      "amber": {
+        "700": { "$value": "hsl(38 55% 25%)", "$type": "color", "$description": "Spending-attention border." },
+        "400": { "$value": "hsl(38 91% 58%)", "$type": "color", "$description": "Spending, payment, and reconciliation attention foreground." }
+      },
+      "red": {
+        "700": { "$value": "hsl(355 65% 42%)", "$type": "color", "$description": "Destructive control surface." },
+        "400": { "$value": "hsl(355 100% 71%)", "$type": "color", "$description": "Error and destructive-state foreground." }
+      },
+      "alpha": {
+        "backdrop": { "$value": "hsl(210 40% 2% / 80%)", "$type": "color", "$description": "Modal backdrop over the application canvas." },
+        "shadow": { "$value": "hsl(0 0% 0% / 55%)", "$type": "color", "$description": "Deep elevation shadow color." },
+        "white-8": { "$value": "hsl(0 0% 100% / 8%)", "$type": "color", "$description": "Subtle inner highlight on filled controls." },
+        "violet-22": { "$value": "hsl(248 100% 74% / 22%)", "$type": "color", "$description": "Selected Agent-surface inner ring." },
+        "cyan-14": { "$value": "hsl(182 69% 61% / 14%)", "$type": "color", "$description": "Data-node hover halo." },
+        "grid": { "$value": "hsl(203 19% 56% / 20%)", "$type": "color", "$description": "DAG canvas dot grid." },
+        "node": { "$value": "hsl(205 29% 8% / 95%)", "$type": "color", "$description": "DAG node surface with slight canvas translucency." }
+      },
+      "tint": {
+        "agent": { "$value": "hsl(234 38% 11%)", "$type": "color", "$description": "Selected Agent option surface." },
+        "agent-subtle": { "$value": "hsl(229 38% 11%)", "$type": "color", "$description": "Agent icon tile surface." },
+        "warning": { "$value": "hsl(45 24% 7%)", "$type": "color", "$description": "Warning notice surface." },
+        "warning-deep": { "$value": "hsl(39 39% 7%)", "$type": "color", "$description": "Compact payment-warning surface." },
+        "success": { "$value": "hsl(144 28% 7%)", "$type": "color", "$description": "Verified-evidence surface." }
+      }
+    },
+    "spacing": {
+      "0": { "$value": "0", "$type": "dimension", "$description": "No spacing." },
+      "px": { "$value": "1px", "$type": "dimension", "$description": "Single-pixel optical adjustment." },
+      "0-5": { "$value": "2px", "$type": "dimension", "$description": "Half-step micro spacing." },
+      "1": { "$value": "4px", "$type": "dimension", "$description": "Base quarter spacing step." },
+      "1-5": { "$value": "6px", "$type": "dimension", "$description": "Compact inline spacing." },
+      "2": { "$value": "8px", "$type": "dimension", "$description": "Base interface spacing step." },
+      "2-5": { "$value": "10px", "$type": "dimension", "$description": "Compact control inset." },
+      "3": { "$value": "12px", "$type": "dimension", "$description": "Default compact component spacing." },
+      "3-5": { "$value": "14px", "$type": "dimension", "$description": "Dense panel spacing." },
+      "4": { "$value": "16px", "$type": "dimension", "$description": "Default component spacing." },
+      "4-5": { "$value": "18px", "$type": "dimension", "$description": "Dense panel inset." },
+      "5": { "$value": "20px", "$type": "dimension", "$description": "Comfortable component inset." },
+      "5-5": { "$value": "22px", "$type": "dimension", "$description": "Product-shell inset." },
+      "6": { "$value": "24px", "$type": "dimension", "$description": "Section-level compact spacing." },
+      "7": { "$value": "28px", "$type": "dimension", "$description": "Page vertical inset." },
+      "8": { "$value": "32px", "$type": "dimension", "$description": "Page horizontal inset." },
+      "10": { "$value": "40px", "$type": "dimension", "$description": "Large section spacing." },
+      "12": { "$value": "48px", "$type": "dimension", "$description": "Display section spacing." },
+      "16": { "$value": "64px", "$type": "dimension", "$description": "Major layout separation." }
+    },
+    "fontFamily": {
+      "sans": { "$value": "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif", "$type": "fontFamily", "$description": "Primary interface font stack." },
+      "mono": { "$value": "\"DM Mono\", \"SFMono-Regular\", Consolas, monospace", "$type": "fontFamily", "$description": "Code, identifier, hash, JSON, and amount font stack." }
+    },
+    "fontSize": {
+      "micro": { "$value": "0.5625rem", "$type": "dimension", "$description": "Nine-pixel metadata and dense evidence text." },
+      "caption": { "$value": "0.625rem", "$type": "dimension", "$description": "Ten-pixel captions and code labels." },
+      "label": { "$value": "0.6875rem", "$type": "dimension", "$description": "Eleven-pixel labels and secondary controls." },
+      "body": { "$value": "0.75rem", "$type": "dimension", "$description": "Twelve-pixel dense application body text." },
+      "body-lg": { "$value": "0.875rem", "$type": "dimension", "$description": "Fourteen-pixel descriptive body text." },
+      "subheading": { "$value": "1rem", "$type": "dimension", "$description": "Sixteen-pixel compact heading." },
+      "heading": { "$value": "1.125rem", "$type": "dimension", "$description": "Eighteen-pixel modal heading." },
+      "product": { "$value": "1.375rem", "$type": "dimension", "$description": "Twenty-two-pixel product title." },
+      "page": { "$value": "1.8125rem", "$type": "dimension", "$description": "Twenty-nine-pixel application page title." },
+      "display": { "$value": "2.6875rem", "$type": "dimension", "$description": "Forty-three-pixel public product title." },
+      "hero-min": { "$value": "3rem", "$type": "dimension", "$description": "Minimum entry-page hero title." },
+      "hero-max": { "$value": "4.75rem", "$type": "dimension", "$description": "Maximum entry-page hero title." }
+    },
+    "fontWeight": {
+      "normal": { "$value": "400", "$type": "number", "$description": "Regular interface text." },
+      "medium": { "$value": "500", "$type": "number", "$description": "Operational emphasis and code amounts." },
+      "semibold": { "$value": "600", "$type": "number", "$description": "Headings and primary labels." },
+      "bold": { "$value": "700", "$type": "number", "$description": "Rare high-emphasis text." }
+    },
+    "lineHeight": {
+      "display": { "$value": "0.99", "$type": "number", "$description": "Tight display line height." },
+      "tight": { "$value": "1.15", "$type": "number", "$description": "Application heading line height." },
+      "snug": { "$value": "1.35", "$type": "number", "$description": "Dense operational copy line height." },
+      "normal": { "$value": "1.5", "$type": "number", "$description": "Default body line height." },
+      "relaxed": { "$value": "1.6", "$type": "number", "$description": "Long-form explanatory copy line height." }
+    },
+    "radius": {
+      "none": { "$value": "0", "$type": "dimension", "$description": "Square corner." },
+      "xs": { "$value": "3px", "$type": "dimension", "$description": "Micro indicator radius." },
+      "sm": { "$value": "4px", "$type": "dimension", "$description": "Badge and method-chip radius." },
+      "control": { "$value": "5px", "$type": "dimension", "$description": "Default control and DAG-node radius." },
+      "md": { "$value": "6px", "$type": "dimension", "$description": "Icon tile and compact panel radius." },
+      "panel": { "$value": "7px", "$type": "dimension", "$description": "Default panel radius." },
+      "lg": { "$value": "8px", "$type": "dimension", "$description": "Modal and prominent container radius." },
+      "full": { "$value": "9999px", "$type": "dimension", "$description": "Circular and pill radius." }
+    },
+    "borderWidth": {
+      "default": { "$value": "1px", "$type": "dimension", "$description": "Default divider and component border." },
+      "emphasis": { "$value": "2px", "$type": "dimension", "$description": "Focus, active navigation, and semantic emphasis border." }
+    },
+    "duration": {
+      "instant": { "$value": "80ms", "$type": "duration", "$description": "Immediate press feedback." },
+      "fast": { "$value": "150ms", "$type": "duration", "$description": "Color, border, and opacity transition." },
+      "normal": { "$value": "250ms", "$type": "duration", "$description": "Short structural or transform transition." }
+    },
+    "easing": {
+      "standard": { "$value": "cubic-bezier(0.2, 0.8, 0.2, 1)", "$type": "cubicBezier", "$description": "Fast settle for direct-manipulation feedback." }
+    },
+    "opacity": {
+      "disabled": { "$value": "0.65", "$type": "number", "$description": "Disabled-control opacity while retaining readable text." }
+    },
+    "dimension": {
+      "control-default": { "$value": "39px", "$type": "dimension", "$description": "Default button and text-control height." },
+      "control-icon": { "$value": "34px", "$type": "dimension", "$description": "Square icon-control size." },
+      "control-nav": { "$value": "44px", "$type": "dimension", "$description": "Sidebar navigation target height." },
+      "control-primary": { "$value": "50px", "$type": "dimension", "$description": "High-consequence build action height." },
+      "sidebar": { "$value": "210px", "$type": "dimension", "$description": "Persistent creator-console sidebar width." },
+      "product-header": { "$value": "106px", "$type": "dimension", "$description": "Product shell header including tabs." },
+      "product-title-row": { "$value": "66px", "$type": "dimension", "$description": "Product title and action row height." },
+      "product-tabs": { "$value": "40px", "$type": "dimension", "$description": "Product tab strip height." },
+      "builder-intent": { "$value": "190px", "$type": "dimension", "$description": "Builder intent and Agent-summary rail width." },
+      "builder-evidence": { "$value": "270px", "$type": "dimension", "$description": "Builder readiness-evidence rail width." },
+      "builder-trace": { "$value": "189px", "$type": "dimension", "$description": "Builder execution-trace height." },
+      "dag-node-width": { "$value": "94px", "$type": "dimension", "$description": "Canonical DAG node width." },
+      "dag-node-height": { "$value": "128px", "$type": "dimension", "$description": "Canonical DAG node height." },
+      "content-max": { "$value": "1164px", "$type": "dimension", "$description": "Maximum public consumer console width." },
+      "viewport-min": { "$value": "1024px", "$type": "dimension", "$description": "Minimum supported Creator Console viewport width." }
+    },
+    "zIndex": {
+      "base": { "$value": "0", "$type": "number", "$description": "Base content layer." },
+      "sticky": { "$value": "10", "$type": "number", "$description": "Persistent application navigation layer." },
+      "modal": { "$value": "50", "$type": "number", "$description": "Modal and blocking overlay layer." },
+      "gate": { "$value": "999", "$type": "number", "$description": "Unsupported-viewport message layer." }
+    },
+    "shadow": {
+      "none": { "$value": "none", "$type": "shadow", "$description": "Flat operational surface." },
+      "modal": { "$value": "0 24px 80px {primitive.color.alpha.shadow}", "$type": "shadow", "$description": "Only prominent elevation, reserved for modal content." },
+      "inset-highlight": { "$value": "inset 0 0 0 1px {primitive.color.alpha.white-8}", "$type": "shadow", "$description": "Subtle inner highlight for filled primary controls." }
+    }
+  },
+  "semantic": {
+    "color": {
+      "background": {
+        "canvas": { "$value": "{primitive.color.ink.950}", "$type": "color", "$description": "Application and public-page canvas." },
+        "sidebar": { "$value": "{primitive.color.ink.900}", "$type": "color", "$description": "Persistent creator-console navigation." },
+        "panel": { "$value": "{primitive.color.ink.800}", "$type": "color", "$description": "Primary content panel." },
+        "panel-subtle": { "$value": "{primitive.color.ink.850}", "$type": "color", "$description": "Table header, endpoint strip, and subdued panel." },
+        "rail": { "$value": "{primitive.color.ink.825}", "$type": "color", "$description": "Builder intent and readiness rail." },
+        "code": { "$value": "{primitive.color.ink.975}", "$type": "color", "$description": "Code, request, and response surface." },
+        "input": { "$value": "{primitive.color.ink.925}", "$type": "color", "$description": "Form-control surface." },
+        "hover": { "$value": "{primitive.color.ink.700}", "$type": "color", "$description": "General hover surface." },
+        "raised": { "$value": "{primitive.color.ink.650}", "$type": "color", "$description": "Raised neutral surface used for loading and hover feedback." },
+        "row-hover": { "$value": "{primitive.color.ink.750}", "$type": "color", "$description": "Table and list row hover surface." },
+        "data-hover": { "$value": "{primitive.color.ink.625}", "$type": "color", "$description": "Data-lineage node hover surface." },
+        "agent-selected": { "$value": "{primitive.color.tint.agent}", "$type": "color", "$description": "Selected Agent-authored option surface." },
+        "agent-subtle": { "$value": "{primitive.color.tint.agent-subtle}", "$type": "color", "$description": "Agent icon and identity tile surface." },
+        "warning": { "$value": "{primitive.color.tint.warning}", "$type": "color", "$description": "Spending-attention notice surface." },
+        "warning-deep": { "$value": "{primitive.color.tint.warning-deep}", "$type": "color", "$description": "Compact payment-warning surface." },
+        "success": { "$value": "{primitive.color.tint.success}", "$type": "color", "$description": "Verified-evidence surface." }
+      },
+      "foreground": {
+        "primary": { "$value": "{primitive.color.slate.50}", "$type": "color", "$description": "Primary text and icons." },
+        "control": { "$value": "{primitive.color.slate.100}", "$type": "color", "$description": "Button and control text." },
+        "secondary-strong": { "$value": "{primitive.color.slate.200}", "$type": "color", "$description": "Strong secondary labels." },
+        "secondary": { "$value": "{primitive.color.slate.300}", "$type": "color", "$description": "Secondary text and metadata." },
+        "tertiary": { "$value": "{primitive.color.slate.350}", "$type": "color", "$description": "Tertiary text that still meets normal-text contrast on the canvas." },
+        "decorative": { "$value": "{primitive.color.slate.400}", "$type": "color", "$description": "Decorative-only subdued content; not for essential small text." },
+        "marketing-secondary": { "$value": "{primitive.color.slate.250}", "$type": "color", "$description": "Secondary entry-page copy." },
+        "code": { "$value": "{primitive.color.slate.150}", "$type": "color", "$description": "Code, hash, identifier, and JSON text." }
+      },
+      "border": {
+        "default": { "$value": "{primitive.color.slate.700}", "$type": "color", "$description": "Default panel and section divider." },
+        "strong": { "$value": "{primitive.color.slate.600}", "$type": "color", "$description": "Control and emphasized boundary." },
+        "hover": { "$value": "{primitive.color.slate.500}", "$type": "color", "$description": "Hovered neutral control boundary." },
+        "neutral": { "$value": "{primitive.color.slate.450}", "$type": "color", "$description": "Neutral trace and progress boundary." },
+        "data": { "$value": "{primitive.color.cyan.700}", "$type": "color", "$description": "Data-lineage boundary." },
+        "agent": { "$value": "{primitive.color.violet.500}", "$type": "color", "$description": "Agent and primary-action boundary." },
+        "success": { "$value": "{primitive.color.green.650}", "$type": "color", "$description": "Verified-evidence boundary." },
+        "success-control": { "$value": "{primitive.color.green.700}", "$type": "color", "$description": "Ready-state control boundary." },
+        "warning": { "$value": "{primitive.color.amber.700}", "$type": "color", "$description": "Spending-attention boundary." }
+      },
+      "accent": {
+        "data": { "$value": "{primitive.color.cyan.400}", "$type": "color", "$description": "The Graph data lineage and creator-allocation accent." },
+        "agent": { "$value": "{primitive.color.violet.400}", "$type": "color", "$description": "Agent output, focus, and selected-work accent." },
+        "agent-strong": { "$value": "{primitive.color.violet.600}", "$type": "color", "$description": "Primary action surface." },
+        "agent-hover": { "$value": "{primitive.color.violet.700}", "$type": "color", "$description": "Accessible primary-action hover surface." },
+        "agent-active": { "$value": "{primitive.color.violet.800}", "$type": "color", "$description": "Primary-action pressed surface." },
+        "agent-link": { "$value": "{primitive.color.violet.300}", "$type": "color", "$description": "Inline Agent action link." },
+        "agent-link-hover": { "$value": "{primitive.color.violet.100}", "$type": "color", "$description": "Hovered inline Agent action link." },
+        "agent-soft": { "$value": "{primitive.color.violet.200}", "$type": "color", "$description": "Soft Agent status foreground." },
+        "success": { "$value": "{primitive.color.green.400}", "$type": "color", "$description": "Ready, confirmed, and settled state." },
+        "warning": { "$value": "{primitive.color.amber.400}", "$type": "color", "$description": "Spending, payment, and reconciliation attention." },
+        "danger": { "$value": "{primitive.color.red.400}", "$type": "color", "$description": "Error and destructive-state foreground." },
+        "danger-strong": { "$value": "{primitive.color.red.700}", "$type": "color", "$description": "Destructive action surface." }
+      },
+      "overlay": {
+        "backdrop": { "$value": "{primitive.color.alpha.backdrop}", "$type": "color", "$description": "Modal backdrop." },
+        "selected-agent": { "$value": "{primitive.color.alpha.violet-22}", "$type": "color", "$description": "Selected Agent option inset ring." },
+        "data-halo": { "$value": "{primitive.color.alpha.cyan-14}", "$type": "color", "$description": "Data-node hover halo." },
+        "grid": { "$value": "{primitive.color.alpha.grid}", "$type": "color", "$description": "DAG dot grid." },
+        "node": { "$value": "{primitive.color.alpha.node}", "$type": "color", "$description": "DAG node surface." }
+      }
+    },
+    "spacing": {
+      "inline-xs": { "$value": "{primitive.spacing.1}", "$type": "dimension", "$description": "Tight inline gap." },
+      "inline-sm": { "$value": "{primitive.spacing.2}", "$type": "dimension", "$description": "Default inline gap." },
+      "inline": { "$value": "{primitive.spacing.3}", "$type": "dimension", "$description": "Comfortable inline gap." },
+      "component-sm": { "$value": "{primitive.spacing.3}", "$type": "dimension", "$description": "Dense component inset." },
+      "component": { "$value": "{primitive.spacing.4}", "$type": "dimension", "$description": "Default component inset." },
+      "component-lg": { "$value": "{primitive.spacing.5}", "$type": "dimension", "$description": "Comfortable component inset." },
+      "section": { "$value": "{primitive.spacing.6}", "$type": "dimension", "$description": "Section separation." },
+      "page-x": { "$value": "{primitive.spacing.8}", "$type": "dimension", "$description": "Creator-console page horizontal inset." },
+      "page-y": { "$value": "{primitive.spacing.7}", "$type": "dimension", "$description": "Creator-console page vertical inset." }
+    },
+    "typography": {
+      "family-interface": { "$value": "{primitive.fontFamily.sans}", "$type": "fontFamily", "$description": "Interface font family." },
+      "family-code": { "$value": "{primitive.fontFamily.mono}", "$type": "fontFamily", "$description": "Technical content font family." },
+      "size-micro": { "$value": "{primitive.fontSize.micro}", "$type": "dimension", "$description": "Dense evidence and metadata text." },
+      "size-caption": { "$value": "{primitive.fontSize.caption}", "$type": "dimension", "$description": "Caption and compact code text." },
+      "size-label": { "$value": "{primitive.fontSize.label}", "$type": "dimension", "$description": "Labels and secondary controls." },
+      "size-body": { "$value": "{primitive.fontSize.body}", "$type": "dimension", "$description": "Dense application body text." },
+      "size-body-lg": { "$value": "{primitive.fontSize.body-lg}", "$type": "dimension", "$description": "Descriptive application body text." },
+      "size-subheading": { "$value": "{primitive.fontSize.subheading}", "$type": "dimension", "$description": "Compact section heading." },
+      "size-heading": { "$value": "{primitive.fontSize.heading}", "$type": "dimension", "$description": "Modal and prominent section heading." },
+      "size-product": { "$value": "{primitive.fontSize.product}", "$type": "dimension", "$description": "Product-shell title." },
+      "size-page": { "$value": "{primitive.fontSize.page}", "$type": "dimension", "$description": "Application page title." },
+      "size-display": { "$value": "{primitive.fontSize.display}", "$type": "dimension", "$description": "Public product display title." },
+      "size-hero-min": { "$value": "{primitive.fontSize.hero-min}", "$type": "dimension", "$description": "Minimum entry hero title size." },
+      "size-hero-max": { "$value": "{primitive.fontSize.hero-max}", "$type": "dimension", "$description": "Maximum entry hero title size." },
+      "weight-normal": { "$value": "{primitive.fontWeight.normal}", "$type": "number", "$description": "Regular interface weight." },
+      "weight-medium": { "$value": "{primitive.fontWeight.medium}", "$type": "number", "$description": "Operational emphasis weight." },
+      "weight-semibold": { "$value": "{primitive.fontWeight.semibold}", "$type": "number", "$description": "Heading and label weight." },
+      "leading-display": { "$value": "{primitive.lineHeight.display}", "$type": "number", "$description": "Display line height." },
+      "leading-tight": { "$value": "{primitive.lineHeight.tight}", "$type": "number", "$description": "Heading line height." },
+      "leading-snug": { "$value": "{primitive.lineHeight.snug}", "$type": "number", "$description": "Dense operational line height." },
+      "leading-normal": { "$value": "{primitive.lineHeight.normal}", "$type": "number", "$description": "Default body line height." },
+      "leading-relaxed": { "$value": "{primitive.lineHeight.relaxed}", "$type": "number", "$description": "Long-form explanatory line height." }
+    },
+    "radius": {
+      "badge": { "$value": "{primitive.radius.sm}", "$type": "dimension", "$description": "Badge and method-chip radius." },
+      "control": { "$value": "{primitive.radius.control}", "$type": "dimension", "$description": "Button, input, tab, and DAG-node radius." },
+      "compact": { "$value": "{primitive.radius.md}", "$type": "dimension", "$description": "Compact panel and icon tile radius." },
+      "panel": { "$value": "{primitive.radius.panel}", "$type": "dimension", "$description": "Default panel radius." },
+      "prominent": { "$value": "{primitive.radius.lg}", "$type": "dimension", "$description": "Modal and prominent container radius." },
+      "round": { "$value": "{primitive.radius.full}", "$type": "dimension", "$description": "Circular and pill radius." }
+    },
+    "borderWidth": {
+      "default": { "$value": "{primitive.borderWidth.default}", "$type": "dimension", "$description": "Default interface border width." },
+      "emphasis": { "$value": "{primitive.borderWidth.emphasis}", "$type": "dimension", "$description": "Focus and semantic emphasis width." }
+    },
+    "motion": {
+      "duration-press": { "$value": "{primitive.duration.instant}", "$type": "duration", "$description": "Pressed-state feedback duration." },
+      "duration-state": { "$value": "{primitive.duration.fast}", "$type": "duration", "$description": "Color, border, and opacity transition duration." },
+      "duration-structure": { "$value": "{primitive.duration.normal}", "$type": "duration", "$description": "Short transform and structural transition duration." },
+      "easing-standard": { "$value": "{primitive.easing.standard}", "$type": "cubicBezier", "$description": "Default transition easing." }
+    },
+    "opacity": {
+      "disabled": { "$value": "{primitive.opacity.disabled}", "$type": "number", "$description": "Disabled-control opacity." }
+    },
+    "size": {
+      "control-default": { "$value": "{primitive.dimension.control-default}", "$type": "dimension", "$description": "Default control height." },
+      "control-icon": { "$value": "{primitive.dimension.control-icon}", "$type": "dimension", "$description": "Square icon-control size." },
+      "control-nav": { "$value": "{primitive.dimension.control-nav}", "$type": "dimension", "$description": "Navigation target height." },
+      "control-primary": { "$value": "{primitive.dimension.control-primary}", "$type": "dimension", "$description": "High-consequence action height." },
+      "sidebar": { "$value": "{primitive.dimension.sidebar}", "$type": "dimension", "$description": "Creator-console sidebar width." },
+      "product-header": { "$value": "{primitive.dimension.product-header}", "$type": "dimension", "$description": "Product-shell header height." },
+      "product-title-row": { "$value": "{primitive.dimension.product-title-row}", "$type": "dimension", "$description": "Product title row height." },
+      "product-tabs": { "$value": "{primitive.dimension.product-tabs}", "$type": "dimension", "$description": "Product tab strip height." },
+      "builder-intent": { "$value": "{primitive.dimension.builder-intent}", "$type": "dimension", "$description": "Builder intent rail width." },
+      "builder-evidence": { "$value": "{primitive.dimension.builder-evidence}", "$type": "dimension", "$description": "Builder evidence rail width." },
+      "builder-trace": { "$value": "{primitive.dimension.builder-trace}", "$type": "dimension", "$description": "Builder execution trace height." },
+      "dag-node-width": { "$value": "{primitive.dimension.dag-node-width}", "$type": "dimension", "$description": "DAG node width." },
+      "dag-node-height": { "$value": "{primitive.dimension.dag-node-height}", "$type": "dimension", "$description": "DAG node height." },
+      "content-max": { "$value": "{primitive.dimension.content-max}", "$type": "dimension", "$description": "Maximum public console width." },
+      "viewport-min": { "$value": "{primitive.dimension.viewport-min}", "$type": "dimension", "$description": "Minimum supported Creator Console viewport." }
+    },
+    "zIndex": {
+      "base": { "$value": "{primitive.zIndex.base}", "$type": "number", "$description": "Base content layer." },
+      "sticky": { "$value": "{primitive.zIndex.sticky}", "$type": "number", "$description": "Persistent navigation layer." },
+      "modal": { "$value": "{primitive.zIndex.modal}", "$type": "number", "$description": "Modal layer." },
+      "gate": { "$value": "{primitive.zIndex.gate}", "$type": "number", "$description": "Unsupported-viewport layer." }
+    },
+    "shadow": {
+      "flat": { "$value": "{primitive.shadow.none}", "$type": "shadow", "$description": "Default operational surface elevation." },
+      "modal": { "$value": "{primitive.shadow.modal}", "$type": "shadow", "$description": "Modal elevation." },
+      "control-highlight": { "$value": "{primitive.shadow.inset-highlight}", "$type": "shadow", "$description": "Filled-control inner highlight." }
+    }
+  },
+  "component": {
+    "focus": {
+      "color": { "$value": "{semantic.color.accent.agent}", "$type": "color", "$description": "Global keyboard focus indicator color." },
+      "width": { "$value": "{semantic.borderWidth.emphasis}", "$type": "dimension", "$description": "Global keyboard focus indicator width." },
+      "offset": { "$value": "{semantic.borderWidth.emphasis}", "$type": "dimension", "$description": "Global keyboard focus indicator offset." }
+    },
+    "button": {
+      "height": { "$value": "{semantic.size.control-default}", "$type": "dimension", "$description": "Default button height." },
+      "height-primary": { "$value": "{semantic.size.control-primary}", "$type": "dimension", "$description": "Build and other high-consequence action height." },
+      "padding-x": { "$value": "{semantic.spacing.component}", "$type": "dimension", "$description": "Default horizontal button padding." },
+      "gap": { "$value": "{semantic.spacing.inline-sm}", "$type": "dimension", "$description": "Button icon-to-label gap." },
+      "radius": { "$value": "{semantic.radius.control}", "$type": "dimension", "$description": "Default button radius." },
+      "foreground": { "$value": "{semantic.color.foreground.control}", "$type": "color", "$description": "Neutral and filled button foreground." },
+      "border": { "$value": "{semantic.color.border.strong}", "$type": "color", "$description": "Neutral button border." },
+      "border-hover": { "$value": "{semantic.color.border.hover}", "$type": "color", "$description": "Hovered neutral button border." },
+      "background-hover": { "$value": "{semantic.color.background.hover}", "$type": "color", "$description": "Hovered neutral button surface." },
+      "primary-background": { "$value": "{semantic.color.accent.agent-strong}", "$type": "color", "$description": "Primary button surface." },
+      "primary-background-hover": { "$value": "{semantic.color.accent.agent-hover}", "$type": "color", "$description": "Primary button hover surface." },
+      "primary-background-active": { "$value": "{semantic.color.accent.agent-active}", "$type": "color", "$description": "Primary button pressed surface." },
+      "primary-border": { "$value": "{semantic.color.border.agent}", "$type": "color", "$description": "Primary button border." },
+      "primary-shadow": { "$value": "{semantic.shadow.control-highlight}", "$type": "shadow", "$description": "Primary button inner highlight." },
+      "disabled-opacity": { "$value": "{semantic.opacity.disabled}", "$type": "number", "$description": "Disabled button opacity." }
+    },
+    "input": {
+      "height": { "$value": "{semantic.size.control-default}", "$type": "dimension", "$description": "Default text-control height." },
+      "background": { "$value": "{semantic.color.background.input}", "$type": "color", "$description": "Input and textarea surface." },
+      "foreground": { "$value": "{semantic.color.foreground.primary}", "$type": "color", "$description": "Input value foreground." },
+      "placeholder": { "$value": "{semantic.color.foreground.secondary}", "$type": "color", "$description": "Input placeholder foreground." },
+      "border": { "$value": "{semantic.color.border.strong}", "$type": "color", "$description": "Input border." },
+      "border-focus": { "$value": "{semantic.color.accent.agent}", "$type": "color", "$description": "Focused input border." },
+      "radius": { "$value": "{semantic.radius.control}", "$type": "dimension", "$description": "Input radius." },
+      "padding-x": { "$value": "{semantic.spacing.component-sm}", "$type": "dimension", "$description": "Input horizontal padding." }
+    },
+    "panel": {
+      "background": { "$value": "{semantic.color.background.panel}", "$type": "color", "$description": "Default panel background." },
+      "border": { "$value": "{semantic.color.border.default}", "$type": "color", "$description": "Default panel border." },
+      "radius": { "$value": "{semantic.radius.panel}", "$type": "dimension", "$description": "Default panel radius." },
+      "shadow": { "$value": "{semantic.shadow.flat}", "$type": "shadow", "$description": "Default panel elevation." }
+    },
+    "sidebar": {
+      "width": { "$value": "{semantic.size.sidebar}", "$type": "dimension", "$description": "Persistent creator-console sidebar width." },
+      "background": { "$value": "{semantic.color.background.sidebar}", "$type": "color", "$description": "Sidebar background." },
+      "item-height": { "$value": "{semantic.size.control-nav}", "$type": "dimension", "$description": "Sidebar item minimum target height." },
+      "item-foreground": { "$value": "{semantic.color.foreground.secondary-strong}", "$type": "color", "$description": "Sidebar navigation label foreground." },
+      "item-background-hover": { "$value": "{semantic.color.background.hover}", "$type": "color", "$description": "Sidebar navigation hover and selected surface." }
+    },
+    "productHeader": {
+      "height": { "$value": "{semantic.size.product-header}", "$type": "dimension", "$description": "Product header height including tabs." },
+      "title-row-height": { "$value": "{semantic.size.product-title-row}", "$type": "dimension", "$description": "Product title row height." },
+      "tabs-height": { "$value": "{semantic.size.product-tabs}", "$type": "dimension", "$description": "Product tab strip height." },
+      "background": { "$value": "{semantic.color.background.canvas}", "$type": "color", "$description": "Product header background." }
+    },
+    "builder": {
+      "intent-width": { "$value": "{semantic.size.builder-intent}", "$type": "dimension", "$description": "Builder intent rail width." },
+      "evidence-width": { "$value": "{semantic.size.builder-evidence}", "$type": "dimension", "$description": "Builder evidence rail width." },
+      "trace-height": { "$value": "{semantic.size.builder-trace}", "$type": "dimension", "$description": "Builder execution trace height." },
+      "rail-background": { "$value": "{semantic.color.background.rail}", "$type": "color", "$description": "Builder side-rail background." },
+      "trace-background": { "$value": "{semantic.color.background.panel-subtle}", "$type": "color", "$description": "Execution trace background." }
+    },
+    "dag": {
+      "node-width": { "$value": "{semantic.size.dag-node-width}", "$type": "dimension", "$description": "DAG node width." },
+      "node-height": { "$value": "{semantic.size.dag-node-height}", "$type": "dimension", "$description": "DAG node height." },
+      "node-radius": { "$value": "{semantic.radius.control}", "$type": "dimension", "$description": "DAG node radius." },
+      "node-background": { "$value": "{semantic.color.overlay.node}", "$type": "color", "$description": "DAG node background." },
+      "node-background-hover": { "$value": "{semantic.color.background.data-hover}", "$type": "color", "$description": "DAG node hover background." },
+      "node-border-data": { "$value": "{semantic.color.accent.data}", "$type": "color", "$description": "Source and transformation node border." },
+      "node-border-agent": { "$value": "{semantic.color.accent.agent}", "$type": "color", "$description": "Agent-authored node border." },
+      "node-halo": { "$value": "{semantic.color.overlay.data-halo}", "$type": "color", "$description": "DAG node hover halo." },
+      "grid": { "$value": "{semantic.color.overlay.grid}", "$type": "color", "$description": "DAG canvas dot-grid color." }
+    },
+    "modal": {
+      "backdrop": { "$value": "{semantic.color.overlay.backdrop}", "$type": "color", "$description": "Modal backdrop." },
+      "background": { "$value": "{semantic.color.background.panel}", "$type": "color", "$description": "Modal content background." },
+      "border": { "$value": "{semantic.color.border.strong}", "$type": "color", "$description": "Modal content border." },
+      "radius": { "$value": "{semantic.radius.prominent}", "$type": "dimension", "$description": "Modal content radius." },
+      "shadow": { "$value": "{semantic.shadow.modal}", "$type": "shadow", "$description": "Modal elevation." }
+    },
+    "status": {
+      "data": { "$value": "{semantic.color.accent.data}", "$type": "color", "$description": "Data-lineage status foreground." },
+      "agent": { "$value": "{semantic.color.accent.agent}", "$type": "color", "$description": "Agent status foreground." },
+      "agent-soft": { "$value": "{semantic.color.accent.agent-soft}", "$type": "color", "$description": "Soft Agent status foreground." },
+      "success": { "$value": "{semantic.color.accent.success}", "$type": "color", "$description": "Confirmed-state foreground." },
+      "warning": { "$value": "{semantic.color.accent.warning}", "$type": "color", "$description": "Spending-attention foreground." },
+      "danger": { "$value": "{semantic.color.accent.danger}", "$type": "color", "$description": "Error-state foreground." }
+    }
+  }
+}

@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node scripts/prepare-sites-build.mjs",
+    "tokens": "node scripts/generate-tokens.mjs",
+    "test:tokens": "node scripts/generate-tokens.mjs --check",
+    "build": "npm run test:tokens && vite build && node scripts/prepare-sites-build.mjs",
     "preview": "vite preview",
     "test:sites": "node --test tests/sites-worker.test.mjs"
   },
