@@ -98,7 +98,7 @@ Vercel and Railway are the demo delivery profile, not permanent product dependen
 
 Project-structure conception and technical selection were marked complete on 2026-09-05. Data-model definition is the current stage and is a gate before application implementation or database migration generation.
 
-Create and review `data-model.md` before implementation. It must map every MVP workflow to explicit domain entities, relationships, ownership, lifecycle states, PostgreSQL fields and constraints, API-facing representations, and durable execution records. It must treat product/DAG versions as reproducible definitions, model job retries and side-effect idempotency, represent money in atomic units with explicit network and asset identity, keep financial categories separate, and reference secrets without storing secret values.
+Create and review [data-model.md](data-model.md) before implementation. It must map every MVP workflow to explicit domain entities, relationships, ownership, lifecycle states, PostgreSQL fields and constraints, API-facing representations, and durable execution records. It must treat product/DAG versions as reproducible definitions, model job retries and side-effect idempotency, represent money in atomic units with explicit network and asset identity, keep financial categories separate, and reference secrets without storing secret values.
 
 Do not infer database fields ad hoc while building endpoints. If implementation reveals a missing concept, update the reviewed data model and record the decision before adding the migration or dependent behavior.
 

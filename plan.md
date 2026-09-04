@@ -71,7 +71,7 @@ Package versions, external API compatibility, wallet control, payment behavior, 
 
 ### 4. Data Model Definition — Current
 
-Define the complete MVP data model before feature implementation. Create `data-model.md` as the reviewed source of truth for:
+Define the complete MVP data model before feature implementation. Review [data-model.md](data-model.md) as the source of truth for:
 
 1. Domain entities, ownership boundaries, identifiers, and lifecycle states.
 2. Relationships, cardinalities, and an entity-relationship diagram.
@@ -83,6 +83,8 @@ Define the complete MVP data model before feature implementation. Create `data-m
 8. Audit timestamps, retention expectations, migration order, and representative records for the primary demo flow.
 
 The phase is complete only when every MVP action has an unambiguous read/write path, monetary values use atomic units with explicit asset/network identity, retryable side effects have idempotency and reconciliation fields, and the domain model maps clearly to PostgreSQL and API contracts. Review the model before generating migrations or implementation scaffolding.
+
+Draft 0.1 was created on 2026-09-05. The phase remains current until the proposed defaults and review checklist are accepted.
 
 ### 5. MVP Implementation
 
@@ -343,6 +345,7 @@ For each substantial AI-assisted contribution, record the following information 
 | 2026-09-05 | DAG execution boundary and hosting costs | Recorded the predefined-operator DAG model in project guidance, architecture, and the implementation plan; researched Render's web, worker, database, and free-tier costs | Human approved Option A and requested a hackathon budget estimate; the stack and hosting provider remain unselected | Cross-checked the confirmed decision and official Render pricing, workspace-plan, database-storage, billing, and free-tier documentation; documentation changes only, with no deployment or purchase |
 | 2026-09-05 | Portable evaluator deployment | Defined Vercel and Railway service roles plus a provider-neutral Docker self-hosting contract | Human selected Vercel plus Railway for temporary evaluator access and required Docker self-hosting without source changes | Compared official Vercel and Railway capabilities and pricing with past ETHGlobal deployment patterns; documentation changes only, with no cloud account, resource, or deployment created |
 | 2026-09-05 | Development sequence and data-model gate | Marked the agreed technical baseline complete and defined the required data-model deliverable, contents, and acceptance gate before implementation | Human declared technical selection complete and added data-model definition as the next planning stage | Cross-checked the new stage against the MVP workflow, DAG execution boundary, financial model, deployment profiles, and existing implementation plan; no schema, migration, or application code created |
+| 2026-09-05 | Data model draft | Drafted `data-model.md` with PostgreSQL entities, fields, constraints, relationships, state machines, transaction boundaries, financial separation, migration order, and a pre-implementation review checklist | Human requested the data model and asked that uncertain decisions be raised for discussion; four proposed defaults remain pending review | Cross-checked the draft against project intent, architecture, and active Graph, Privy, and Hedera sponsor references; performed documentation validation only, with no migration, wallet, payment, or application code created |
 
 This table must be updated when AI materially influences architecture, implementation, testing, or submission content.
 
@@ -386,3 +389,4 @@ The central explanation for judges is:
 | 2026-09-05 | Confirmed dynamic DAG composition from predefined operators, excluding arbitrary generated-code execution from the MVP | Record the user's Option A decision while leaving the stack and hosting choice open |
 | 2026-09-05 | Selected Vercel plus Railway for the evaluator demo and required source-compatible Docker self-hosting | Optimize temporary judge access while preserving deployment portability and avoiding permanent provider coupling |
 | 2026-09-05 | Marked technical selection complete and inserted data-model definition before MVP implementation | Make entities, relationships, constraints, execution state, and financial records explicit before code and migrations are created |
+| 2026-09-05 | Added the first complete data-model draft and left the phase open for human review | Establish an implementation-ready persistence contract while keeping unresolved product defaults explicit |

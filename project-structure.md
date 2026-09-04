@@ -2,7 +2,7 @@
 
 ## Status
 
-This document records the completed project-structure conception and the selected technical/deployment boundaries. Data-model definition is the current pre-implementation stage. Detailed entities, fields, relationships, constraints, indexes, and migration order will be specified in `data-model.md` before application code is created.
+This document records the completed project-structure conception and the selected technical/deployment boundaries. Data-model definition is the current pre-implementation stage. Detailed entities, fields, relationships, constraints, indexes, and migration order are drafted in [data-model.md](data-model.md) for human review before application code is created.
 
 ## Product Model
 

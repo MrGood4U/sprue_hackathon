@@ -24,5 +24,6 @@ Vercel and Railway are temporary delivery targets, not application dependencies.
 - [Product intent and repository rules](agents.md)
 - [Plan, decisions, and AI contribution log](plan.md)
 - [Proposed project structure and financial model](project-structure.md)
+- [Data model draft and pre-implementation review gate](data-model.md)
 
 Participation: Start Fresh. All repository text is written in English; team communication may use Chinese. Preserve meaningful Git history and update the AI contribution record as work progresses. Runnable setup and verified demo evidence will be added with implementation.
