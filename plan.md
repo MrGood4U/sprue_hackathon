@@ -42,6 +42,8 @@ The current product shape is a hosted web platform with two connected surfaces: 
 
 Choose the implementation stack and validate the external dependencies that directly support the core flow. The selected sponsors are The Graph, Bazantic, and Privy. The Graph is the primary indexed-data and source-discovery layer; Bazantic is planned for agent-facing service discovery or consumption; Privy is planned for embedded wallet infrastructure within the hosted product experience. x402 remains the payment protocol for monetized access. Exact sponsor qualification requirements must be verified against official documentation before implementation is finalized.
 
+The Graph's requirements and proposed development gates are recorded in [sponsor/graph.md](sponsor/graph.md). Review them during dependency validation and final submission preparation. Research is complete, but integration checks and final eligibility confirmation remain pending.
+
 ### 4. MVP Implementation
 
 Build the smallest reliable end-to-end product: natural-language planning, Graph-backed data transformation, validated DAG execution, persistent API, conversational editing, x402 publication, and one real paid consumer request.
@@ -243,6 +245,7 @@ For each substantial AI-assisted contribution, record the following information 
 | 2026-09-05 | Project structure | Translated the hosted-web-product direction into control-plane, data-plane, lifecycle, domain-model, and repository-structure proposals | Human specified that Sprue should provide the managed service chain from Agent analysis through hosted API and x402 | Reviewed against the current product direction and recorded in `project-structure.md` |
 | 2026-09-05 | Deployment architecture | Reviewed the hosted structure against Fly.io-style public deployment constraints | Human identified the need for an evaluator-accessible hosted demo | Checked official Fly.io guidance for process groups, persistence, secrets, deployment, and health checks |
 | 2026-09-05 | Sponsor selection | Updated the integration plan to The Graph, Bazantic, and Privy | Human selected the sponsor combination | Roles were mapped to data, agent-service, and embedded-wallet layers; official qualification details remain a technical-selection task |
+| 2026-09-05 | The Graph sponsor research | Summarized official award requirements, reviewed linked technical references, and proposed source-validation and evidence gates in `sponsor/graph.md` | Human supplied the official prize URL and requested a reusable development reference; track selection and final review remain pending | Cross-checked the official ETHGlobal page, Graph documentation, and sponsor-linked skill repository READMEs; no live integration or eligibility certification performed |
 
 This table must be updated when AI materially influences architecture, implementation, testing, or submission content.
 
@@ -277,3 +280,4 @@ The central explanation for judges is:
 | 2026-09-05 | Started project structure conception and documented the hosted platform model | Define the product surfaces, service boundaries, and MVP architecture before technical selection |
 | 2026-09-05 | Added Fly.io-compatible deployment guidance to the project structure | Make the public hosted demo reliable without turning every data product into a separate deployment |
 | 2026-09-05 | Selected The Graph, Bazantic, and Privy as the planned sponsor integrations | Align the technical-selection phase with the team's sponsor strategy |
+| 2026-09-05 | Added The Graph sponsor reference and linked development gates | Separate official requirements from implementation proposals and preserve a source-backed compliance checklist |
