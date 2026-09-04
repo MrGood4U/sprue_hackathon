@@ -6,7 +6,7 @@ Last checked: 2026-09-05
 
 Participation: Start Fresh, confirmed by the user on 2026-09-05.
 
-Status: Selected to replace Bazantic for downstream x402 payments. Award requirements and current official Hedera x402/Blocky402 documentation reviewed. Protocol shape and hosted facilitator support are documented; live integration, creator-wallet compatibility, and final qualification remain unverified.
+Status: Selected to replace Bazantic for downstream x402 payments. Award requirements and current official Hedera x402/Blocky402 documentation reviewed. Hedera testnet HBAR is approved for the initial integration. Live integration, creator-wallet compatibility, and final qualification remain unverified.
 
 This document separates official requirements from Sprue's implementation proposals. The [official prize page](https://ethglobal.com/events/ethonline2026/prizes/hedera) remains authoritative; recheck it before submission. Sponsor selection does not establish eligibility or authorize funded actions.
 
@@ -85,18 +85,18 @@ Sprue's downstream adapter can now target this documented profile without invent
 | Protocol | x402 version `2` |
 | Scheme | Hedera `exact` |
 | Network | Start on `hedera:testnet`; mainnet remains a later explicit environment choice |
-| Asset | HBAR (`0.0.0`, eight decimals) or a verified HTS fungible-token entity ID and decimals |
+| Asset | HBAR (`0.0.0`, eight decimals) for the initial integration |
 | Recipient | Resolved Hedera account ID controlled by the creator; do not publish directly to an unresolved EVM address |
 | Fee payer | Read from Blocky402 `/supported` and include it in `PaymentRequirements.extra.feePayer` |
 | Client authorization | Partially signed Hedera `TransferTransaction`; reusable payload is not persisted |
 | Verification/settlement | Standard facilitator `POST /verify` followed by `POST /settle` |
 | Confirmation evidence | Facilitator transaction reference reconciled through Hedera Mirror Node to result, transaction ID/hash, consensus timestamp, asset, amount, and recipient |
 
-The official scheme allows HBAR or HTS fungible tokens. The MVP asset is still a product decision. HBAR minimizes association complexity; an HTS token may improve stable-denomination UX but requires verified token metadata and account association/receive capability. Do not present either choice as approved until the human team decides it.
+The official scheme also permits HTS fungible tokens, but the human team selected HBAR for the initial integration on 2026-09-05. This avoids token-association requirements in the first spike. HTS remains a future option and is not part of the first implementation or demo promise.
 
 Before implementation, resolve:
 
-1. Choose Hedera testnet for the initial spike and choose HBAR or one verified HTS fungible token, including units and account-association prerequisites.
+1. Configure the initial spike for `hedera:testnet` and HBAR (`0.0.0`), with prices stored and advertised in tinybars.
 2. Validate Privy-backed creator ownership, EVM-address-to-Hedera-account resolution, account completion, receipt, and subsequent access to proceeds. A displayed EVM address alone is not proof. A separate account or custody change requires an explicit decision.
 3. Pin compatible `@x402/core`, `@x402/hedera`, and Blocky402 versions; recheck `/supported`, its fee payer, and the concrete response/error fields. The buyer's working signer does not establish the creator's recipient control.
 4. Validate per-product price/recipient configuration and reconcile the facilitator transaction reference through Mirror Node. No native split or platform-fee mechanism is assumed.
@@ -113,7 +113,8 @@ These are Sprue's proposed acceptance checks, not extra official requirements. D
 |---|---|---|---|
 | [x] | Record sponsor replacement and participation | User selected Hedera and confirmed Start Fresh; see `plan.md` | Planning only |
 | [x] | Confirm the protocol and facilitator documentation profile | Official x402 v2 `exact` fields, hosted Blocky402 endpoints, and a 2026-09-05 read-only `/supported` capability check | Planning only |
-| [ ] | Choose the test asset and validate the creator's recipient/control model | Account-ID mapping, completion, asset association/capability, receipt, and proof of creator access without key export | Sprue product/security |
+| [x] | Choose the initial environment and asset | Human selected Hedera testnet HBAR on 2026-09-05 | Planning only |
+| [ ] | Validate the creator's recipient/control model | Account-ID mapping, completion, HBAR receipt/access capability, and proof of creator access without key export | Sprue product/security |
 | [ ] | Connect the payment adapter to Hedera testnet | Pinned package versions, non-secret configuration, live capability snapshot, and fee payer | H1 |
 | [ ] | Run an independent consumer against a derived-data API | Correlated challenge, authorization, settlement, response, and product version | H1, H2 |
 | [ ] | Exercise unpaid, invalid, duplicate, and uncertain requests | Redacted verify/settle/replay/retry traces; no public bypass or duplicate charge | Sprue safety |
@@ -121,7 +122,7 @@ These are Sprue's proposed acceptance checks, not extra official requirements. D
 | [ ] | Reproduce the demo from a clean checkout | Setup commands, environment names, funding prerequisites, source locations, and bounded access | H3 |
 | [ ] | Prepare submission and recheck eligibility | Public source, recording, and source-to-payment evidence index | H3 |
 
-Suggested first spike: use Hedera testnet and HBAR unless the human team explicitly selects an HTS token; resolve and verify the creator's Hedera account ID; protect one minimal API with x402 v2 `exact`; discover Blocky402's current fee payer; run a separate consumer; reconcile settlement through Mirror Node; then replace the test response with the actual Sprue data product. HBAR is a recommendation for reducing association risk, not an approved product decision. Fixtures are useful during development but are not final live integration evidence. No account, wallet, deployment, paid request, or fee has been created as part of this documentation work.
+Suggested first spike: use the approved Hedera testnet HBAR profile; resolve and verify the creator's Hedera account ID; protect one minimal API with x402 v2 `exact`; discover Blocky402's current fee payer; run a separate consumer; reconcile settlement through Mirror Node; then replace the test response with the actual Sprue data product. Fixtures are useful during development but are not final live integration evidence. No account, wallet, deployment, paid request, or fee has been created as part of this documentation work.
 
 ## Maintenance
 

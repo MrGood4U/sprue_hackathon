@@ -2,11 +2,11 @@
 
 ## Status
 
-Version: Draft 1.3
+Version: 1.3
 
 Date: 2026-09-05
 
-Stage: Version 1.1 is the approved MVP baseline. Draft 1.2 added The Graph source and dual-access refinements. Draft 1.3 adds Hedera x402 v2 `exact` requirements, account/asset receive capability, facilitator-capability evidence, and normalized settlement reconciliation from current official documentation. The combined draft requires human review before source, credential, wallet-capability, publication, or payment migrations. External integration and implementation validation remain open.
+Stage: Approved MVP implementation baseline. Version 1.3 includes Draft 1.2's The Graph source and dual-access refinements plus Draft 1.3's Hedera x402 v2 `exact`, account/asset capability, facilitator-capability, and normalized settlement-reconciliation refinements. The human team approved the combined model and selected Hedera testnet with HBAR for the initial downstream integration on 2026-09-05. External integration and implementation validation remain open.
 
 This document is the source of truth for Sprue's MVP domain model, PostgreSQL persistence model, lifecycle rules, financial separation, and runtime records. It translates the product and architecture decisions in [agents.md](agents.md), [plan.md](plan.md), and [project-structure.md](project-structure.md) into an implementation-ready model.
 
@@ -24,6 +24,7 @@ The model describes intended behavior. It is not evidence that an external walle
 - The intended Privy control pattern is a user-owned wallet with a Sprue-controlled additional signer restricted by a provider policy. Sprue may hold the additional signer's authorization key in a secret manager, but never the wallet private key. Live enforcement remains an integration gate.
 - Graph purchases use a Base or Base Sepolia payment path and remain separate from Hedera API-sale proceeds.
 - A product can remain private or be published behind Sprue's x402 gate, using x402 v2's Hedera `exact` scheme and Hedera settlement through Blocky402.
+- The initial downstream integration and default demo path use `hedera:testnet` with HBAR (`0.0.0`, eight decimals). HTS remains modeled but is deferred until explicitly selected later.
 - The creator controls the intended sales recipient. Privy-to-Hedera compatibility remains unverified and must be represented as a verification state.
 - A Sprue service fee is disabled unless explicit terms and a working settlement mechanism are approved.
 - The evaluator deployment uses Vercel plus Railway; the same application must run through Docker Compose without source changes.
@@ -39,6 +40,18 @@ The human team confirmed these defaults on 2026-09-05.
 4. **Conversation retention:** retain user-visible Agent messages and build traces for the product's lifetime. Never persist hidden chain-of-thought. Support content redaction while preserving hashes and audit metadata when deletion is required.
 
 The existing fee decision is not reopened here: the default fee remains zero/disabled.
+
+## Confirmed Hedera MVP Integration Profile
+
+The human team approved this initial implementation profile on 2026-09-05:
+
+- network: `hedera:testnet`;
+- asset: HBAR, entity ID `0.0.0`, eight decimals, amounts stored in tinybars;
+- protocol: x402 version `2`, Hedera `exact` scheme;
+- facilitator: Blocky402, with the fee payer discovered from `/supported`;
+- recipient: a resolved, complete, creator-controlled Hedera account ID with demonstrated HBAR receipt and later access.
+
+HTS fungible-token support remains in the domain model for later use, but no HTS token, association flow, or stable-denomination promise belongs to the first integration. HBAR selection does not resolve Privy-to-Hedera account control; that remains a live validation gate.
 
 ## Modeling Conventions
 
@@ -366,6 +379,7 @@ Constraints and indexes:
 - Unique `(network_id, standard, asset_identifier)`.
 - Asset metadata is pinned for financial records and changed only through an audited migration or administration action.
 - For Hedera x402, HBAR is `(standard = 'native', asset_identifier = '0.0.0', asset_type = 'fungible', decimals = 8)`; an HTS payment asset is a fungible token entity ID such as `0.0.1234` with verified decimals.
+- Seed `hedera:testnet` HBAR as the initial enabled downstream payment asset. Leave HTS assets unseeded or disabled until explicitly selected and validated.
 
 ### 3. Wallets, Delegation, and Budget
 
@@ -870,6 +884,7 @@ Constraints and indexes:
 - An active x402 revision requires network, fungible asset, positive price, protocol version, scheme, positive timeout, Blocky402 configuration, a current matching facilitator capability, and a verified receiving address with an active matching asset capability.
 - The asset must belong to the selected network.
 - The MVP Hedera profile pins x402 version `2`, scheme `exact`, network `hedera:testnet` or `hedera:mainnet`, and a resolved Hedera account ID for `payTo`. The request-time fee payer comes from the facilitator capability and is pinned on the payment intent.
+- The initial active profile further restricts this to `hedera:testnet` and HBAR. Supporting fields for Hedera mainnet and HTS do not enable them automatically.
 - A fee-enabled revision requires explicit accepted terms; the terms remain immutable.
 - Only `deployments.active_publication_version_id` determines the active revision.
 
@@ -1652,7 +1667,7 @@ User + Workspace
   -> AccountWallet
       -> Base wallet address (verified spending capability)
       -> Hedera account ID and mapped address representations (unverified until integration spike)
-      -> WalletAssetCapability for the selected HBAR/HTS payment asset
+      -> WalletAssetCapability for Hedera testnet HBAR
   -> WalletPolicy snapshot + WalletSignerGrant + SpendingPolicy
   -> AgentSession + AgentMessages
   -> validated Graph SourceSnapshot (deployment + schema)
@@ -1689,14 +1704,15 @@ User + Workspace
 - [x] Human confirmed that each Graph source may use either the customer's existing Graph API key/subscription or creator-wallet x402 pay-per-query access on 2026-09-05.
 - [x] Documentation review confirms that every P0 user action maps to explicit inserts, updates, or reads.
 - [x] Official Graph documentation confirms distinct logical Subgraph, gateway Deployment, manifest IPFS, schema, `_meta`, GraphQL-error, pagination, API-key, and per-query x402 concepts can be represented without credentials or payment authorization material.
-- [ ] Human reviews Draft 1.3, including Draft 1.2's Graph refinements and Draft 1.3's Hedera account/asset capability, x402 requirement, and settlement-evidence model, before affected migrations.
+- [x] Human approved version 1.3, including Draft 1.2's Graph refinements and Draft 1.3's Hedera account/asset capability, x402 requirement, and settlement-evidence model, on 2026-09-05.
+- [x] Human selected `hedera:testnet` and HBAR (`0.0.0`) for the initial downstream integration and default demo path on 2026-09-05.
 - [ ] The initial live Graph source and actual x402 payment responses fit the documented source, request, HTTP-attempt, and payment fields.
 - [ ] A live customer-supplied Graph API key validates, rotates, revokes, and executes through its selected source without persistence leakage, wallet expense records, or automatic x402 fallback.
 - [x] Official Privy documentation confirms that wallet, owner, additional-signer/key-quorum, policy, provider reference, request-expiry, and idempotency identifiers can be stored without wallet or authorization private-key material.
 - [ ] A live Privy user-owned wallet, policy-bound signer grant, revocation, policy-drift check, permitted action, and rejected action fit the documented fields and transitions.
 - [x] Current official Hedera documentation confirms x402 v2 `exact`, `hedera:testnet`/`hedera:mainnet`, HBAR entity ID `0.0.0`, HTS fungible-token IDs, facilitator fee-payer requirements, account-ID recipients, and Mirror Node transaction evidence can be represented without wallet private keys or reusable payment payloads.
 - [x] Current official Hedera documentation lists Blocky402's hosted testnet/mainnet facilitator URLs and standard `/supported`, `/verify`, and `/settle` endpoints; both live `/supported` responses advertised their corresponding Hedera network on 2026-09-05.
-- [ ] A live creator recipient resolves to a complete creator-controlled Hedera account ID and demonstrates receive/access capability for the selected HBAR or HTS asset.
+- [ ] A live creator recipient resolves to a complete creator-controlled Hedera account ID and demonstrates HBAR receive/access capability.
 - [ ] A live Blocky402 payment confirms that its concrete response fields and transaction reference reconcile to the documented `payment_attempts` and `payment_settlements` records without duplicate settlement.
 - [ ] The selected live Graph payment flow exposes sufficient references to connect challenge, reservation, payment, paid retry, query result, and settlement.
 - [ ] The DAG JSON schema and operator configuration schemas are versioned and testable.
@@ -1714,7 +1730,7 @@ The following remain integration gates. The model deliberately represents uncert
 - Exact identifier formats and response/request IDs returned by the selected live Graph MCP, gateway deployment route, and x402 client versions.
 - Exact Graph x402 signing method and typed-data shape, the matching Privy policy rules, and live owner/signer/policy response values.
 - Whether the intended Privy-backed creator can control a Hedera recipient and access proceeds.
-- Which Hedera environment and fungible HBAR/HTS asset the MVP will use, and whether the intended recipient needs manual token association.
+- Whether the intended Privy-backed creator account resolves to a complete, controllable Hedera account ID that can receive and later access HBAR.
 - The concrete Blocky402 response field names, error/replay behavior, and transaction-reference reconciliation observed in the pinned implementation version.
 - Whether platform-fee settlement is native, requires a second transfer, or should remain disabled.
 
@@ -1729,4 +1745,4 @@ After human approval, changes to this model require:
 3. Tests for affected transitions, constraints, and derived views.
 4. An AI contribution and project change-log entry in [plan.md](plan.md) when AI materially influenced the change.
 
-The human team approved version 1.1 as the MVP implementation baseline on 2026-09-05. Draft 1.2 recorded evidence-driven Graph source, customer credential, and per-query x402 refinements. Draft 1.3 adds evidence-driven Hedera x402 requirements, recipient/asset capabilities, and settlement reconciliation. The combined draft requires human review before affected migrations are generated. Other open checklist items remain implementation and external-integration validation gates.
+The human team approved version 1.3 as the MVP implementation baseline on 2026-09-05, including Draft 1.2's Graph source/customer-credential/per-query x402 refinements and Draft 1.3's Hedera x402/recipient-capability/settlement refinements. Source, credential, wallet-capability, publication, and payment migrations may now be designed from this baseline. The initial downstream profile is Hedera testnet with HBAR; other open checklist items remain implementation and external-integration validation gates.

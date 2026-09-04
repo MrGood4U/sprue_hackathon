@@ -152,8 +152,8 @@ A signed authorization alone is not our proof of a completed paid data request. 
 ## Pending Technical Decisions
 
 - Can the provider policy be owned or jointly controlled so that Sprue cannot unilaterally weaken the user's approved signer scope?
-- Which exact networks, assets, x402 versions, and signing methods work for the upstream Graph endpoint? The downstream protocol profile is Hedera x402 v2 `exact`, but the selected asset, pinned package versions, and Privy interoperability still need validation.
-- Can the intended Privy-backed creator control a usable Hedera recipient, receive the selected asset, and subsequently access proceeds? Do not equate this with an external buyer's ability to sign a payment.
+- Which exact networks, assets, x402 versions, and signing methods work for the upstream Graph endpoint? The initial downstream protocol profile is Hedera testnet HBAR with x402 v2 `exact`; pinned package versions and Privy interoperability still need validation.
+- Can the intended Privy-backed creator control a usable Hedera recipient, receive HBAR, and subsequently access proceeds? Do not equate this with an external buyer's ability to sign a payment.
 - Do Blocky402's pinned live response fields reconcile cleanly through Hedera Mirror Node to the configured recipient, exact payment, and Sprue API delivery under failure and replay conditions?
 - Does the chosen settlement path support an authorized platform fee? Its rate, basis, rounding, recipient, payout timing, and refunds must be decided before charging.
 - Which exact Graph x402 wallet method and EIP-712 shape must the Privy policy cover, and can retries or alternate signing paths bypass it?

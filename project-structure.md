@@ -2,7 +2,7 @@
 
 ## Status
 
-This document records the completed project-structure conception and the selected technical/deployment boundaries. The version 1.1 decisions in [data-model.md](data-model.md), including the Privy wallet and payment refinements, are approved as the implementation baseline. Draft 1.3 combines Graph source/access refinements with Hedera x402, recipient/asset capability, and settlement-evidence refinements that require human review before affected migrations. MVP implementation is the current stage.
+This document records the completed project-structure conception and the selected technical/deployment boundaries. [Data-model version 1.3](data-model.md), including the Graph source/access, Privy wallet, and Hedera payment/settlement refinements, is approved as the implementation baseline. The initial downstream integration uses Hedera testnet HBAR through Blocky402. MVP implementation is the current stage.
 
 ## Product Model
 
@@ -47,7 +47,7 @@ The selected sponsor integrations are The Graph, Hedera, and Privy. The user rep
 
 ### Hedera and Blocky402: Optional Paid API Access
 
-Sprue enables an x402 payment gate on its own hosted endpoint when the creator opts into paid access. Hedera is the settlement network; Blocky402 is the facilitator for payment verification and settlement. The documented downstream profile is x402 version 2 with Hedera's `exact` scheme, HBAR or an HTS fungible token, a resolved Hedera account ID recipient, and a fee payer discovered from Blocky402's `/supported` capability. Creating, refreshing, hosting, and privately using an API must not depend on that publication step. Blocky402 is not an API host, publishing dashboard, or marketplace. Sprue implements product pricing, recipient configuration, request gating, and payment-to-response correlation behind an adapter.
+Sprue enables an x402 payment gate on its own hosted endpoint when the creator opts into paid access. Hedera is the settlement network; Blocky402 is the facilitator for payment verification and settlement. The initial downstream profile is x402 version 2 with Hedera's `exact` scheme, `hedera:testnet`, HBAR (`0.0.0`), a resolved Hedera account ID recipient, and a fee payer discovered from Blocky402's `/supported` capability. HTS remains modeled but deferred. Creating, refreshing, hosting, and privately using an API must not depend on that publication step. Blocky402 is not an API host, publishing dashboard, or marketplace. Sprue implements product pricing, recipient configuration, request gating, and payment-to-response correlation behind an adapter.
 
 The intended product role is:
 
@@ -61,7 +61,7 @@ Sprue Data Product
     -> creator revenue and any agreed Sprue fee
 ```
 
-See [the Hedera reference](sponsor/Hedera.md) for official award rules, the documented protocol profile, and proposed integration gates. The target is a real paid data service with a working consumer, not a Recipe. Exact package versions, the MVP payment asset, Privy-to-Hedera account mapping, creator access to receipts, live failure/replay behavior, and service-fee settlement remain unverified.
+See [the Hedera reference](sponsor/Hedera.md) for official award rules, the documented protocol profile, and proposed integration gates. The target is a real paid data service with a working consumer, not a Recipe. The MVP payment asset is HBAR; exact package versions, Privy-to-Hedera account mapping, creator access to receipts, live failure/replay behavior, and service-fee settlement remain unverified.
 
 ### Privy: Creator Account Wallet Layer
 
@@ -525,7 +525,7 @@ The first implementation should not require:
 - DAG operator subset, execution library, and persistence schema.
 - Scheduler and cache implementation.
 - Exact Railway service sizing, evaluator availability window, Docker image layout, and operational runbook.
-- Exact `@x402` package versions and the MVP HBAR/HTS asset; Hedera x402 v2 `exact`, Blocky402, and testnet-first validation are selected.
+- Exact `@x402` package versions; Hedera testnet, HBAR, x402 v2 `exact`, and Blocky402 are selected for the initial downstream integration.
 - Creator-wallet delegation, funding, budget enforcement, and Graph payment compatibility.
 - Privy-to-Hedera account/recipient mapping, creator ownership and access to proceeds, and buyer signer support. Do not infer compatibility from EVM support alone.
 - Live Blocky402 response fields, replay/failure/retry behavior, Mirror Node reconciliation, and whether the path supports the intended revenue/fee allocation; fee terms are not yet selected.
