@@ -28,6 +28,14 @@ Sprue should prefer existing The Graph subgraphs as sources. It should generate 
 
 The transformation layer may support a focused set of composable operations such as Source, Filter, Map, Join, GroupBy, Window, Aggregate, Score, and Output. The frontend DAG and backend execution model should share a simple, validated representation.
 
+## Confirmed DAG Execution Boundary
+
+On 2026-09-05, the user selected Option A: the Agent dynamically selects, configures, and connects predefined, developer-implemented operators. Different requests can produce different DAGs; this is not a single fixed pipeline. The exact operator subset remains limited to the MVP's demonstrated needs.
+
+The Agent produces a structured specification, not arbitrary executable JavaScript or Python. Validate operator allowlists, configuration, input/output compatibility, acyclicity, permissions, and resource budgets before execution. Generated Graph query configuration must also be validated and bounded. Unsupported transformations must be reported explicitly, not implemented through an unrestricted code-execution fallback.
+
+Keep the versioned execution definition separate from visual layout. A background job queue schedules work; the DAG runtime executes node dependencies and records progress. This decision does not select a frontend framework, queue library, database vendor, or hosting provider.
+
 ## Hackathon MVP
 
 The MVP is complete when a user can:

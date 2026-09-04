@@ -327,13 +327,22 @@ The data plane executes and serves the product.
 
 ### DAG Runtime
 
-Execute a focused set of validated operations such as:
+The user confirmed Option A on 2026-09-05: the Agent dynamically composes predefined, developer-implemented operators. Candidate operator types include:
 
 ```text
-Source -> Filter -> Map -> Join -> GroupBy -> Window -> Aggregate -> Score -> Output
+Source, Filter, Map, Join, GroupBy, Window, Aggregate, Score, Output
 ```
 
-The MVP should implement only the node types needed for one convincing product flow.
+This list is an operator catalog, not a required sequence. Different requests may use different supported nodes and connections. Implement only the subset needed for one convincing MVP product flow.
+
+- Accept a versioned execution definition containing node types, validated configuration, typed inputs/outputs, and dependency edges; keep visual positions separate.
+- Reject unsupported operators, incompatible connections, cycles, invalid configuration, or requests outside permission and resource budgets before execution.
+- Execute implemented handlers in dependency order and record per-node progress, results, and failures against the pinned product version.
+- Do not execute arbitrary Agent-generated JavaScript or Python. Generated Graph query configuration must also pass validation and query/data-volume limits.
+- Report unsupported transformations explicitly instead of adding unrestricted code execution as a fallback.
+- Keep the job queue separate from the DAG executor. A queue retry does not guarantee exactly-once payment or other business side effects; reconcile paid work before retrying it.
+
+Refresh timing and materialization remain separate product policies. This execution boundary does not select a framework, queue library, database vendor, or deployment platform.
 
 ### Scheduler, Materializer, and Cache
 

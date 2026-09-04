@@ -136,6 +136,14 @@ The demonstration must show creator funding, a real Graph purchase authorized th
 - Broad multi-tenant support.
 - Production-grade abuse prevention and enterprise access control.
 
+## Confirmed DAG Execution Model
+
+On 2026-09-05, the user approved Option A: dynamically compose predefined, developer-implemented operators into a DAG. The Agent selects nodes, parameters, and connections from a validated registry instead of generating arbitrary executable JavaScript or Python. The graph remains request-specific rather than a fixed pipeline.
+
+The MVP must validate operator support, configuration, input/output compatibility, cycles, permissions, and resource budgets. Unsupported intent should produce an explicit limitation or a supported alternative, not an unrestricted code-execution fallback. Validate and bound generated Graph query configuration separately.
+
+Store a versioned execution definition separately from UI layout and pin each run to a definition version. Queue scheduling, DAG execution, and result refresh/materialization are separate responsibilities. The exact operator subset, implementation stack, execution libraries, and hosting provider remain open decisions.
+
 ## Architecture Plan
 
 ### Frontend
@@ -192,11 +200,11 @@ The frontend edits the graph; the backend validates, compiles, runs, and persist
 
 ### Phase 2: Build the Deterministic Runtime
 
-1. Define the Data Product Spec and supported node types.
-2. Implement validation for node configuration and graph connectivity.
-3. Implement a deterministic execution path for one representative product.
-4. Add product persistence and a stable API route.
-5. Add tests for spec validation and transformation results.
+1. Define the versioned Data Product Spec and a registry of predefined, developer-implemented operators.
+2. Validate supported operators, node configuration, typed connections, acyclicity, permissions, and resource budgets.
+3. Implement dependency-aware execution for one representative product without arbitrary generated-code execution.
+4. Persist product versions and per-node run status, and expose a stable API route.
+5. Test supported compositions, invalid graphs, transformation results, and retry behavior; reconcile payment side effects before retrying paid work.
 
 ### Phase 3: Add the Builder Agent
 
@@ -278,6 +286,7 @@ For each substantial AI-assisted contribution, record the following information 
 | 2026-09-05 | Participation and Privy research | Recorded Start Fresh, updated Graph/Bazantic applicability, and drafted `sponsor/privy.md` with wallet-flow and control evidence gates | Human confirmed Start Fresh and supplied the official Privy prize URL; integration choices and final review remain pending | Checked the Privy prize page and official x402/policy documentation; the linked quickstart could not be retrieved; no wallets, credentials, or paid actions were used |
 | 2026-09-05 | Creator-wallet payment model | Corrected sponsor roles, scope, money flows, and evidence plans around the creator account wallet | Human specified wallet top-ups, Sprue-managed Graph purchases, optional Bazantic publication, creator revenue, and possible sales-based service fees | Checked official Graph x402 and Privy wallet documentation; product intent is confirmed, but provider interoperability and fee settlement remain untested; no funds moved |
 | 2026-09-05 | Hedera sponsor replacement | Drafted `sponsor/Hedera.md`, replaced active Bazantic/Recipe work with Sprue-hosted x402 gating and Hedera/Blocky402 settlement, and updated financial and evidence boundaries | Human selected Hedera for the x402 step and requested the reference and replacement; wallet compatibility, fee terms, and implementation choices remain pending | Checked official ETHGlobal Hedera requirements, Blocky402, Graph payment, and Privy x402 documentation; validated documentation consistency; no wallets, paid calls, or deployed integrations were created |
+| 2026-09-05 | DAG execution boundary and hosting costs | Recorded the predefined-operator DAG model in project guidance, architecture, and the implementation plan; researched Render's web, worker, database, and free-tier costs | Human approved Option A and requested a hackathon budget estimate; the stack and hosting provider remain unselected | Cross-checked the confirmed decision and official Render pricing, workspace-plan, database-storage, billing, and free-tier documentation; documentation changes only, with no deployment or purchase |
 
 This table must be updated when AI materially influences architecture, implementation, testing, or submission content.
 
@@ -318,3 +327,4 @@ The central explanation for judges is:
 | 2026-09-05 | Added the Privy sponsor reference and research record | Distinguish wallet creation from functional payment/control evidence and flag interoperability work |
 | 2026-09-05 | Replaced the buyer-first wallet proposal with the confirmed creator-account model | Make Graph payment automation core, Bazantic publication optional, and revenue/fee accounting explicit |
 | 2026-09-05 | Replaced Bazantic with Hedera and Blocky402 in the active x402 plan; retained superseded research and earlier logs | Follow the user's sponsor decision, remove Recipe deliverables, and expose recipient compatibility and separate-network accounting gates without claiming implementation |
+| 2026-09-05 | Confirmed dynamic DAG composition from predefined operators, excluding arbitrary generated-code execution from the MVP | Record the user's Option A decision while leaving the stack and hosting choice open |
