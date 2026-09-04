@@ -17,7 +17,7 @@ Creator account wallet funding and bounded spending authorization
     -> Data Product Spec and transformation DAG
     -> Sprue-managed Graph payment, validation, and execution
     -> hosted data API
-    -> optional Bazantic x402 publication
+    -> optional Sprue-hosted x402 access with Hedera/Blocky402 settlement
     -> creator revenue and any disclosed platform fee
 ```
 
@@ -34,7 +34,7 @@ For a public hackathon demo, the first hosted target should be one shared Sprue 
 
 ## Sponsor Integration Strategy
 
-The selected sponsor integrations are:
+The selected sponsor integrations are The Graph, Hedera, and Privy. The user replaced Bazantic with Hedera on 2026-09-05. Bazantic and Recipe work are no longer active implementation requirements.
 
 ### The Graph: Onchain Data Foundation
 
@@ -44,48 +44,54 @@ The selected sponsor integrations are:
 - Reuse existing subgraphs whenever they satisfy the data requirement.
 - Generate a new subgraph only when the required facts are not already indexed and the hackathon scope allows it.
 
-### Bazantic: Optional x402 Publication Layer
+### Hedera and Blocky402: Optional Paid API Access
 
-Bazantic is used when a creator chooses to publish an already-hosted API for paid x402 access. Creating, refreshing, hosting, and privately using an API must not depend on that publication step. MCP/Recipes support the published service's agent usability and award evidence; they do not replace Sprue's builder or runtime. Provisioning, recipient configuration, and possible fee splitting require validation.
+Sprue enables an x402 payment gate on its own hosted endpoint when the creator opts into paid access. Hedera is the settlement network; Blocky402 is the facilitator for payment verification and settlement. Creating, refreshing, hosting, and privately using an API must not depend on that publication step. Blocky402 is not assumed to provide an API hosting service, a publishing dashboard, or marketplace discovery. Sprue implements product pricing, recipient configuration, request gating, and payment-to-response correlation behind an adapter.
 
 The intended product role is:
 
 ```text
 Sprue Data Product
     -> working private hosted API
-    -> creator opts into Bazantic publication
-    -> external x402 buyer pays
+    -> creator enables the Sprue x402 payment gate
+    -> external buyer authorizes a Hedera payment
+    -> Blocky402 verifies and settles the payment
+    -> Sprue returns the paid API response
     -> creator revenue and any agreed Sprue fee
 ```
 
+See [the Hedera reference](sponsor/Hedera.md) for official award rules and proposed integration gates. The target is a real paid data service with a working consumer, not a Recipe. SDK versions, payment asset, account mapping, creator access to receipts, and service-fee settlement remain unverified.
+
 ### Privy: Creator Account Wallet Layer
 
-Each creator account needs a Privy-backed wallet for top-ups, authorized Graph spending, and receipts from published APIs. Sprue executes upstream purchases on the creator's behalf; external buyers are not required to use Privy. Start with an account-level wallet and per-product accounting rather than one wallet for every product.
+Each creator account needs a Privy-backed wallet for top-ups and authorized Graph spending. Creator-controlled receipts from published APIs remain the intended product model, but mapping the Privy wallet to a usable Hedera receiving account is a validation gate. Sprue executes upstream purchases on the creator's behalf; external buyers are not required to use Privy. Keep account-level ownership and per-product accounting rather than creating a wallet for every product. Do not assume a shared account identity means one network balance or one compatible signer.
 
 Bounded automatic Graph payments are core scope. The proposed authorization design keeps the creator as owner and gives Sprue a revocable, policy-limited signer; exact ownership and policy configuration must be validated. General-purpose autonomous treasury management remains outside the MVP.
 
 ### x402: Payment Protocol
 
-x402 has two distinct proposed uses: upstream Graph data purchases and downstream sales through Bazantic. These are separate requests, payment obligations, and accounting records; Bazantic is not required on the upstream path.
+x402 has two distinct uses in the plan: upstream Graph data purchases and downstream API sales settled on Hedera through Blocky402. These are separate requests, payment obligations, adapters, and accounting records. Blocky402 is not required on the upstream Graph path. Each adapter must validate its actual network, payment asset, scheme, and signing method independently.
 
 ## Account Wallet and Money Flows
 
-The user confirmed this product model on 2026-09-05. Provider-specific settlement remains unverified.
+The user confirmed the creator-wallet model and subsequently selected Hedera for downstream x402 on 2026-09-05. Provider-specific interoperability remains unverified.
 
 ```text
-Creator top-up -> creator account wallet
-                     |
-                     +-> Sprue-authorized Graph purchases -> build/refresh data
+Creator top-up -> Privy-backed creator wallet on Base / Base Sepolia
+                     -> authorized Graph purchases -> build/refresh data
 
-External buyer -> optional Bazantic publication -> API sale proceeds
+External buyer -> Sprue x402 gate -> Blocky402 -> Hedera API sale
                      |
-                     +-> creator revenue
-                     +-> Sprue service fee, only if enabled and disclosed
+                     +-> validated creator-controlled Hedera recipient
+                     +-> Sprue service fee, only if enabled and validated
 ```
 
-The branches represent economic allocation, not a claim that Bazantic supports an atomic split. A single creator account wallet is the intended funding/receipt identity; any separate settlement address must be justified during integration.
+The branches represent economic allocation, not a claim that Blocky402 supports an atomic split. The creator account remains the intended ownership identity. Validate network-specific account references and control of proceeds; any separate account or settlement address must be justified explicitly. Never silently change to platform custody or export a user key to fit a sample integration.
+
+The [Graph payment documentation](https://thegraph.com/docs/en/subgraphs/tooling/x402-payments/) specifies USDC on Base or Base Sepolia. Downstream settlement follows the selected Hedera path. Keep asset/network balances separate: API revenue does not automatically refill the Graph budget. No bridge, conversion, or cross-chain treasury automation is included in the MVP. This distinction concerns payment networks, not the chain whose data a product analyzes.
 
 - Top-ups remain creator funds, not Sprue sales. Keep upstream Graph costs separate from downstream revenue.
+- Record network, asset identifier, units, and recipient on balances and payments; never sum unlike balances into an immediately spendable budget.
 - Record gross sale amount, provider/network deductions, creator proceeds, and any platform fee independently. Account-level balances and per-product profitability are different views.
 - No fee rate or nonzero default is selected. Confirm its basis, rounding, minimums, recipient, timing, and refund handling before enabling collection; do not silently charge top-ups or data purchases.
 - Evaluate native splitting versus an explicitly authorized later settlement step. An accounting entry alone is not evidence that a fee or creator payout settled.
@@ -241,7 +247,7 @@ Fly App: sprue
 │   ├── Creator Console
 │   ├── Control API
 │   ├── Hosted Product API
-│   └── publication adapter and authenticated origin access
+│   └── x402 payment gate and Blocky402 adapter
 └── worker
     ├── product builds
     ├── validation runs
@@ -250,6 +256,8 @@ Fly App: sprue
 ```
 
 Only the `web` process should receive public HTTP traffic. The `worker` process should not be exposed as a public service. Keeping long-running builds and refresh jobs out of the request process protects the public API from timeouts and makes the boundary compatible with Fly process groups.
+
+The Hedera decision changes the payment adapter, not the shared hosting model. The proposed API remains an HTTP service on the web runtime; Blocky402 handles settlement on the network. No separate application server is provisioned for each product, and no Bazantic-hosted proxy is assumed.
 
 For the smallest MVP, the control API and Hosted Product API may run in the same `web` process. The logical boundary should still remain visible in the code so that the worker can be separated without redesigning the product model.
 
@@ -344,9 +352,10 @@ The MVP should implement only the node types needed for one convincing product f
 
 ### Publication and Payment Adapters
 
-- Advertise the payment requirement for monetized products.
-- Verify or delegate payment settlement through the selected facilitator/network.
-- Use Bazantic for opted-in publication, with authenticated origin access and no duplicate independent charge behind the gateway.
+- Have Sprue advertise each monetized product's Hedera payment requirement, including price, asset, and validated creator recipient.
+- Use the Blocky402 adapter for downstream payment verification and settlement; do not assume its Hedera signing scheme is interchangeable with Graph's EVM scheme.
+- Enable the gate through Sprue's publish action. Reject unpaid or invalid public access without exposing the underlying result; keep explicitly authorized private access separate.
+- Prevent duplicate independent charges across middleware and runtime. Persist request/settlement correlation and reconcile uncertain outcomes before retrying.
 - Record upstream expenses separately from downstream sales, creator proceeds, and any enabled service-fee settlement.
 - Return the data response only after the payment requirement is satisfied.
 
@@ -355,18 +364,18 @@ The MVP should implement only the node types needed for one convincing product f
 The initial domain model should include these logical objects:
 
 - `Workspace`: customer or project boundary.
-- `AccountWallet`: creator account's funding/spending/receipt identity, owner, network, and delegated authorization references.
+- `AccountWallet`: creator's logical wallet identity, ownership, network-specific account/address references, and delegated authorization scopes. Funding and receipt roles must be validated separately.
 - `SpendingPolicy`: approved Graph purchase limits, allowed destinations, revocation state, and budget reservations.
 - `DataProduct`: durable product identity and current status.
 - `DataProductVersion`: immutable or auditable specification revision.
 - `SourceReference`: The Graph source, schema, and network metadata.
 - `TransformationGraph`: validated nodes and edges.
 - `Deployment`: runtime and endpoint status for a version.
-- `MonetizationPolicy`: opt-in publication, x402 price, creator recipient, and any accepted service-fee terms/version.
+- `MonetizationPolicy`: opt-in access, x402 price, Hedera network/asset, Blocky402 configuration reference, validated creator recipient, and any accepted service-fee terms/version.
 - `BuildRun`: execution state, logs, trace, and validation results.
 - `UsageEvent`: request, cost, freshness, and resource information.
-- `PaymentEvent`: upstream or downstream payment identity, status, and settlement reference.
-- `WalletLedgerEntry`: funding, Graph expense, gross API sale, creator proceeds, provider charge, or platform fee linked to account/product/payment identifiers.
+- `PaymentEvent`: upstream or downstream payment identity, network, asset, amount, payer/recipient, status, request correlation, and settlement reference.
+- `WalletLedgerEntry`: network/asset-specific funding, Graph expense, gross API sale, creator proceeds, provider charge, or platform fee linked to account/product/payment identifiers. A ledger entry is not a cross-chain transfer.
 
 ## Main User Flows
 
@@ -381,20 +390,21 @@ Open Creator Console
     -> Sprue pays Graph within the approved budget
     -> observe build trace
     -> inspect live result and API
-    -> keep using the private API or opt into Bazantic publication and disclosed fee terms
+    -> keep using the private API or configure Hedera paid access and disclosed fee terms
+    -> validate creator recipient control before enabling the public payment gate
 ```
 
 ### Consumer Request Flow
 
 ```text
-Authorized private user requests origin -> runtime returns data under its access policy
+Authorized private user requests API -> runtime returns data under its access policy
 
-External buyer requests Bazantic-published endpoint
-    -> gateway presents the x402 payment requirement
-    -> buyer completes payment with a compatible wallet/client
-    -> selected payment infrastructure verifies the request
-    -> authenticated Sprue origin returns the product response
-    -> payment and creator revenue are reconciled
+External buyer requests the Sprue-hosted paid endpoint
+    -> Sprue presents the Hedera x402 payment requirement
+    -> buyer retries with authorization from a compatible Hedera client
+    -> Sprue uses Blocky402 for verification and settlement
+    -> Sprue returns the product response after the payment gate succeeds
+    -> Hedera settlement and creator receipt are reconciled
     -> any enabled service fee is allocated/settled by the validated mechanism
 ```
 
@@ -448,7 +458,8 @@ The first implementation should include:
 - one funded creator account wallet with bounded, Sprue-managed Graph payments;
 - fixed, validated transformation node types;
 - one stable product endpoint;
-- one real x402-gated request from a consumer agent;
+- one real x402-gated request from a separate consumer agent/client, settled on Hedera through Blocky402;
+- validated creator control of the Hedera recipient and separate network/asset balances for Graph expenses and sales;
 - enough persistence to show product state, version, build trace, funding, Graph expenses, sales, and any enabled service-fee settlement.
 
 The first implementation should not require:
@@ -458,6 +469,7 @@ The first implementation should not require:
 - a public Builder Agent with unlimited execution;
 - a full marketplace;
 - general-purpose autonomous treasury management beyond bounded data purchases;
+- automatic bridging or conversion between Hedera revenue and Base Graph-spending funds;
 - production-grade multi-region infrastructure;
 - broad support for arbitrary user code.
 
@@ -480,7 +492,8 @@ The first implementation should not require:
 - DAG execution model and persistence layer.
 - Scheduler and cache implementation.
 - Hosting provider and deployment model.
-- x402 network, facilitator, and settlement configuration.
+- Exact test/mainnet environment, supported Hedera payment asset, SDK versions, and Blocky402 settlement configuration; the downstream network family and facilitator are selected.
 - Creator-wallet delegation, funding, budget enforcement, and Graph payment compatibility.
-- Bazantic recipient mapping and whether it supports the intended revenue/fee settlement; fee terms are not yet selected.
+- Privy-to-Hedera account/recipient mapping, creator ownership and access to proceeds, and buyer signer support. Do not infer compatibility from EVM support alone.
+- Blocky402 settlement evidence, failure/retry behavior, and whether the path supports the intended revenue/fee allocation; fee terms are not yet selected.
 - Authentication, workspace isolation, and demo quotas.

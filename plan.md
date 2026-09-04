@@ -8,7 +8,7 @@ All repository records are written in English. Team communication may use Chines
 
 ## Confirmed Participation
 
-The user confirmed Start Fresh on 2026-09-05. This resolves the participation-category question, not the audit of development provenance or individual sponsor eligibility. The Graph's AI From Scratch award is the candidate AI target; its Continuity award and Bazantic's Continuity-only agent-usability award are excluded from the current plan. Final award selection and integration evidence remain pending.
+The user confirmed Start Fresh on 2026-09-05. This resolves the participation-category question, not the audit of development provenance or individual sponsor eligibility. The Graph's AI From Scratch award and Hedera's AI & Agentic Payments award are the primary candidate targets for their respective integrations. Continuity-only awards are excluded. Final award submissions and integration evidence remain pending.
 
 ## Product Goal
 
@@ -44,19 +44,21 @@ The current product shape is a hosted web platform with two connected surfaces: 
 
 ### 3. Technical Selection, Including Sponsors
 
-Choose the implementation stack and validate the external dependencies that directly support the core flow. The Graph supplies data purchased by Sprue on the creator's behalf. Privy provides the creator account wallet for funding, delegated Graph payments, and API revenue. Bazantic provides optional x402 publication of an already-hosted API. Validate the upstream payment path and downstream settlement independently; sponsor qualification still requires evidence.
+Choose the implementation stack and validate the external dependencies that directly support the core flow. The selected sponsors are The Graph, Hedera, and Privy. The Graph supplies data purchased by Sprue on the creator's behalf. Privy provides the creator account wallet for funding and delegated Graph payments; the intended creator-controlled Hedera receipt path still needs validation. Sprue implements optional x402 access for its hosted APIs, using Blocky402 to verify and settle downstream payments on Hedera. Validate the upstream payment path and downstream settlement independently; sponsor qualification still requires evidence.
 
 The Graph's requirements and proposed development gates are recorded in [sponsor/graph.md](sponsor/graph.md). Review them during dependency validation and final submission preparation. Research is complete, but integration checks and final eligibility confirmation remain pending.
 
-Bazantic's award conditions, proposed publication boundary, Recipe evidence gates, and unresolved technical questions are recorded in [sponsor/bazantic.md](sponsor/bazantic.md). Evaluate the sponsor-API workflow as a candidate fit; do not assume eligibility, automated provisioning, or wallet compatibility from the prize description alone.
+The user selected Hedera to replace Bazantic for the x402 step on 2026-09-05. [sponsor/Hedera.md](sponsor/Hedera.md) records award conditions, the Blocky402 boundary, proposed evidence gates, and compatibility risks. Bazantic integration and Recipe work are removed from the active scope; [its reference](sponsor/bazantic.md) and earlier contribution records remain historical, not an implementation backlog.
 
 Privy's conditions, wallet-action evidence gates, and x402/control references are recorded in [sponsor/privy.md](sponsor/privy.md). The user has clarified that the core wallet belongs to the creator account, not primarily an external buyer. Funding, bounded upstream data purchases, and downstream income are the intended workflow; final award selection and technical validation remain pending.
 
 The creator tops up the account wallet and grants limited spending authority; Sprue handles individual Graph purchases without requiring manual payment for every query. Optional API publication may include a disclosed platform fee deducted from sales revenue. The fee rate, calculation basis, collection method, and settlement timing are open decisions, not authorization to charge. See [the financial model](project-structure.md#account-wallet-and-money-flows).
 
+The current payment plan spans two networks: Graph spending on Base or Base Sepolia and API-sale settlement on Hedera. Keep network/asset balances and authorization scopes separate. Do not assume revenue replenishes the Graph budget, add automatic bridging, or substitute a platform-custodial recipient without an explicit decision. Prefer test environments for the first bounded spike; confirm the exact assets and account prerequisites before any funded action.
+
 ### 4. MVP Implementation
 
-Build the smallest reliable end-to-end product: creator-wallet funding and bounded Graph purchases, natural-language planning, validated data transformation, persistent API, conversational editing, optional Bazantic publication, and a real paid consumer request with revenue reconciliation and any enabled fee.
+Build the smallest reliable end-to-end product: creator-wallet funding and bounded Graph purchases, natural-language planning, validated data transformation, persistent API, conversational editing, optional Hedera x402 access through Blocky402, and a real paid consumer request with revenue reconciliation and any enabled fee.
 
 ### 5. Project Refinement
 
@@ -87,13 +89,13 @@ Creator account wallet funding and spending authorization
     -> Sprue-paid Graph data retrieval and live-data validation
     -> persistent API endpoint
     -> conversational modification
-    -> optional Bazantic x402 publication (exercised in the demo)
-    -> real consumer payment
+    -> optional Hedera x402 access (exercised in the demo)
+    -> real consumer payment settled through Blocky402
     -> paid data response and creator revenue
     -> disclosed service-fee allocation, if enabled
 ```
 
-The demonstration must show creator funding, a real Graph purchase authorized through the creator wallet, and a separate downstream paid API request. The API must also work in its private hosted mode without Bazantic publication. Simulated UI states must not replace these integrations; any enabled service fee must reconcile to real settlement evidence.
+The demonstration must show creator funding, a real Graph purchase authorized through the creator wallet, and a separate downstream paid API request settled on Hedera through Blocky402. The API must also work in its authenticated private mode without paid publication. Simulated UI states must not replace these integrations; any enabled service fee must reconcile to real settlement evidence. A successful consumer payment does not by itself prove the creator can control or access the receiving account's funds.
 
 ## Scope Priorities
 
@@ -110,7 +112,8 @@ The demonstration must show creator funding, a real Graph purchase authorized th
 - Live or freshly queried Graph data.
 - Persistent product configuration and API endpoint.
 - Conversational editing of an existing product definition.
-- x402-gated endpoint with a real paid request.
+- Sprue-hosted x402 payment gate using Blocky402 for Hedera settlement, exercised by a separate consumer agent/client.
+- Validated creator-controlled Hedera receipt configuration, with network/asset-specific balances distinct from Graph spending funds.
 - Creator revenue tracking and an explicit service-fee policy/ledger if a fee is enabled; no fee rate is assumed.
 - Build trace showing source, transformation, validation, and deployment status.
 
@@ -129,7 +132,8 @@ The demonstration must show creator funding, a real Graph purchase authorized th
 - Separate per-product wallets and general-purpose autonomous treasury management.
 - Marketplace discovery.
 - Automatic pricing optimization.
-- Broad multi-chain and multi-tenant support.
+- Additional payment networks beyond the required Base/Graph and Hedera sales paths; automatic cross-chain bridging or conversion.
+- Broad multi-tenant support.
 - Production-grade abuse prevention and enterprise access control.
 
 ## Architecture Plan
@@ -141,7 +145,7 @@ The demonstration must show creator funding, a real Graph purchase authorized th
 - Build trace and status timeline.
 - API preview, schema, refresh policy, and monetization controls.
 - Revenue and request status for the demo product.
-- Account top-up, available budget, Graph expenses, gross API sales, net proceeds, and disclosed platform fees.
+- Account top-up, available Graph budget, and Hedera sales/proceeds shown by network and asset, with any disclosed platform fees. Do not present an aggregate value as a shared spendable balance.
 
 ### Backend
 
@@ -151,7 +155,7 @@ The demonstration must show creator funding, a real Graph purchase authorized th
 - Transformation runtime.
 - Product registry and persistent configuration.
 - API gateway for `/products/{id}` endpoints.
-- Upstream payment and optional Bazantic publication adapters with payment verification.
+- Separate upstream Graph payment and downstream Hedera x402 adapters; Sprue owns pricing and endpoint gating, and Blocky402 handles downstream verification/settlement.
 - Creator-wallet authorization, upstream payment orchestration, and funding/expense/revenue reconciliation.
 - Optional scheduler, cache, and materialized-result store.
 
@@ -181,9 +185,10 @@ The frontend edits the graph; the backend validates, compiles, runs, and persist
 
 1. Validate a bounded Graph query and its live source coverage.
 2. Validate creator-wallet funding and a Privy-authorized payment to the selected Graph gateway; test permission and balance failures.
-3. Publish a test hosted API through Bazantic and verify a separate consumer's `402 -> payment -> 200` flow and creator receipt.
-4. Investigate revenue allocation and fee collection; approve fee terms before enabling any charge.
-5. Record credentials, networks, facilitators, payment evidence, and deployment assumptions without committing secrets.
+3. Validate Hedera account/recipient mapping, supported payment asset, creator control of receipts, and buyer signing separately. Do not infer Privy compatibility from generic EVM support or export user keys to adapt a sample.
+4. Protect a test Sprue-hosted API with x402 and Blocky402; verify a separate consumer's `402 -> payment -> 200` flow on Hedera, correlated with settlement and creator receipt.
+5. Investigate revenue allocation and fee collection; approve fee terms before enabling any charge. Keep upstream funding and downstream income separate; no automatic bridge is planned.
+6. Record credential names, networks, facilitators, payment evidence, and deployment assumptions without committing secrets. Any custody-model change needs a human decision before implementation.
 
 ### Phase 2: Build the Deterministic Runtime
 
@@ -210,11 +215,11 @@ The frontend edits the graph; the backend validates, compiles, runs, and persist
 
 ### Phase 5: Add Monetization and Demo Hardening
 
-1. Add a publish action that enables x402 for the selected product.
-2. Run a real consumer-agent paid request.
+1. Add a publish action that configures the selected product's Sprue-hosted x402 gate, Hedera price/recipient, and Blocky402 integration.
+2. Run a real consumer-agent paid request and correlate the returned data with Hedera settlement evidence.
 3. Show Graph expenses, gross API sales, creator proceeds, and any enabled platform fee as distinct records in the workspace.
 4. Add caching, rate limits, and bounded demo budgets.
-5. Record a short, reliable end-to-end demo and verify the public repository history.
+5. Record a reliable 2-4-minute end-to-end demo covering both sponsor paths; this proposed duration also fits Hedera's five-minute ceiling. Verify the public repository history and final award-specific evidence.
 
 ## Validation Strategy
 
@@ -224,7 +229,9 @@ The frontend edits the graph; the backend validates, compiles, runs, and persist
 - Show source-to-output lineage for representative results.
 - Reproduce at least one result from the displayed specification and raw source data.
 - Test the x402 endpoint from a separate consumer path.
-- Verify that a creator can build and privately use an API without Bazantic publication.
+- Verify that a creator can build and privately use an API without Hedera paid publication; private access remains authenticated and must not create a public unpaid bypass.
+- Test Blocky402 integration with unpaid/invalid requests, confirmed settlement, duplicate retries, and payment-success/data-delivery-failure reconciliation.
+- Verify creator control of the Hedera recipient and distinguish its balance from Base Graph-spending funds; a display-only account mapping is insufficient evidence.
 - Test delegated Graph spending limits, revocation, concurrent budget reservations, and payment retry reconciliation.
 - Reconcile deposits, upstream expenses, sales, creator proceeds, and any platform fee; never count deposits as earned revenue.
 - Keep a manual fallback demo path if an external service is temporarily unavailable, while clearly labeling it as a fallback.
@@ -270,6 +277,7 @@ For each substantial AI-assisted contribution, record the following information 
 | 2026-09-05 | Bazantic sponsor research | Drafted `sponsor/bazantic.md` with award-specific conditions, proposed Recipe checks, and publication integration unknowns | Human supplied the Bazantic prize URL for the sponsor-reference workflow; award selection and review remain pending | Read the complete Bazantic section of the official event prize listing after the individual page could not be retrieved; no account, gateway, Recipe, or payment integration was created |
 | 2026-09-05 | Participation and Privy research | Recorded Start Fresh, updated Graph/Bazantic applicability, and drafted `sponsor/privy.md` with wallet-flow and control evidence gates | Human confirmed Start Fresh and supplied the official Privy prize URL; integration choices and final review remain pending | Checked the Privy prize page and official x402/policy documentation; the linked quickstart could not be retrieved; no wallets, credentials, or paid actions were used |
 | 2026-09-05 | Creator-wallet payment model | Corrected sponsor roles, scope, money flows, and evidence plans around the creator account wallet | Human specified wallet top-ups, Sprue-managed Graph purchases, optional Bazantic publication, creator revenue, and possible sales-based service fees | Checked official Graph x402 and Privy wallet documentation; product intent is confirmed, but provider interoperability and fee settlement remain untested; no funds moved |
+| 2026-09-05 | Hedera sponsor replacement | Drafted `sponsor/Hedera.md`, replaced active Bazantic/Recipe work with Sprue-hosted x402 gating and Hedera/Blocky402 settlement, and updated financial and evidence boundaries | Human selected Hedera for the x402 step and requested the reference and replacement; wallet compatibility, fee terms, and implementation choices remain pending | Checked official ETHGlobal Hedera requirements, Blocky402, Graph payment, and Privy x402 documentation; validated documentation consistency; no wallets, paid calls, or deployed integrations were created |
 
 This table must be updated when AI materially influences architecture, implementation, testing, or submission content.
 
@@ -309,3 +317,4 @@ The central explanation for judges is:
 | 2026-09-05 | Confirmed Start Fresh and excluded Continuity-only targets | Apply the user's participation category without claiming completed eligibility checks |
 | 2026-09-05 | Added the Privy sponsor reference and research record | Distinguish wallet creation from functional payment/control evidence and flag interoperability work |
 | 2026-09-05 | Replaced the buyer-first wallet proposal with the confirmed creator-account model | Make Graph payment automation core, Bazantic publication optional, and revenue/fee accounting explicit |
+| 2026-09-05 | Replaced Bazantic with Hedera and Blocky402 in the active x402 plan; retained superseded research and earlier logs | Follow the user's sponsor decision, remove Recipe deliverables, and expose recipient compatibility and separate-network accounting gates without claiming implementation |

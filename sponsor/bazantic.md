@@ -1,10 +1,14 @@
-# Bazantic: Sponsor Reference
+# Bazantic: Superseded Sponsor Research
+
+Archived decision: On 2026-09-05, the user replaced Bazantic with Hedera and Blocky402 for Sprue's downstream x402 step. The active reference is [Hedera](Hedera.md). No Bazantic integration, Recipe, or award submission is planned.
+
+All proposals, pending decisions, and checklists below describe the superseded design. They are retained for hackathon history, not as current implementation instructions. Do not resume this work without a new user decision.
 
 Event: ETHOnline 2026
 
 Last checked: 2026-09-05
 
-Status: Prize research complete; technical integration and eligibility not yet verified.
+Status: Superseded; prize research retained, with no technical integration or eligibility verification performed.
 
 Participation: Start Fresh, confirmed by the user on 2026-09-05. Award A is not applicable; its rules remain below for reference, not as planned work.
 
@@ -33,7 +37,7 @@ Mandatory gates:
 
 Judging emphasis: repeatable improvement for A; meaningful service interdependence for B; reusable, newly enabled capability for C.
 
-## Recommended Sprue Direction
+## Historical Sprue Direction
 
 The following is our assessment, not a final award selection or additional sponsor requirements.
 
@@ -47,7 +51,7 @@ For our evidence design, removing either input should make the requested result 
 
 Do not add an unrelated data provider merely to pursue C. Confirm the proposed service's eligibility and usefulness before expanding the existing MVP.
 
-## Proposed Integration Boundary
+## Historical Integration Boundary
 
 Keep this behind a replaceable publication adapter until a live integration spike succeeds:
 
@@ -69,7 +73,7 @@ This is a design proposal, not a verified request protocol. Sprue's existing x40
 
 Our MVP chooses x402. Do not broaden it to another payment protocol unless there is a concrete product need and a validated integration path.
 
-## Development Gates and Evidence
+## Historical Development Gates and Evidence
 
 The checks below are Sprue's proposed implementation and submission controls. Only participation-category confirmation is complete; A-specific work is not applicable, and other checks remain pending. Store sanitized evidence in a future `docs/evidence/bazantic/` directory.
 
@@ -100,7 +104,7 @@ This is our proposed authoring template:
 
 The A evaluation is not planned under Start Fresh. Its methodology can still inform optional internal testing: choose the rubric before observing results, preserve unsuccessful trials, and report uncontrolled service drift rather than attributing every change to the Recipe.
 
-## Technical Unknowns to Resolve
+## Historical Technical Unknowns
 
 The prize listing does not establish these implementation details:
 
@@ -119,4 +123,4 @@ Start with one bounded, manually configured integration spike if that is the sup
 
 ## Maintenance
 
-Use this reference when changing publication, consumer-agent behavior, or the demo script. Check [The Graph reference](graph.md) separately; meeting one sponsor's gates does not certify another's. Keep material AI-assisted work recorded in [plan.md](../plan.md), and update completion status only when evidence exists.
+Retain this document as historical research. Use [Hedera](Hedera.md), [The Graph](graph.md), and [Privy](privy.md) for current implementation. Record future sponsor decisions in [plan.md](../plan.md); do not reinterpret the historical checklists as active work.

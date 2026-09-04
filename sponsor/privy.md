@@ -34,13 +34,13 @@ Neither award is labeled Continuity-only on this page. Event-wide rules still ap
 
 The user confirmed the creator-account wallet model on 2026-09-05. The product role below supersedes the earlier buyer-first proposal; award selection and provider interoperability remain unverified.
 
-The creator has a Privy-backed account wallet, tops it up, and grants Sprue limited authority to pay Graph data costs. Sprue handles purchases during builds and refreshes, without the creator manually paying each query. The same account wallet is the intended recipient identity for optional API sales; exact recipient/settlement configuration must be validated. External API buyers are not required to use Privy.
+The creator has a Privy-backed account wallet, tops it up, and grants Sprue limited authority to pay Graph data costs. Sprue handles purchases during builds and refreshes, without the creator manually paying each query. Following the user's Hedera selection, the creator account remains the intended ownership identity for optional API-sale receipts, but a usable Privy-backed Hedera recipient must be validated. Shared ownership does not establish shared network balances or signer compatibility. External API buyers are not required to use Privy.
 
 Do not treat login, wallet creation, a displayed balance, or passive receipt of revenue alone as our completed integration evidence. Show the wallet action and its outcome as part of the user's task.
 
 Evaluate the upstream data-purchase flow for award B. For award A, demonstrate the same workflow in a credible business/workspace context with an enforced Privy control, including a permitted and rejected operation. Bounded delegated spending is now core product work; separate product wallets and general-purpose treasury automation are not required.
 
-If the creator enables paid publication through Bazantic, account for creator revenue and any disclosed Sprue service fee on sales. No fee rate, collection mechanism, or native split capability is assumed. Do not confuse creator deposits, upstream Graph expenses, gross API sales, net proceeds, and platform income.
+If the creator enables Sprue-hosted paid access with Hedera/Blocky402 settlement, account for creator revenue and any disclosed Sprue service fee on sales. No fee rate, collection mechanism, or native split capability is assumed. Do not confuse creator deposits, upstream Graph expenses, gross API sales, net proceeds, and platform income. Track them by network and asset; no automatic conversion or bridge is planned.
 
 Do not assume one recording qualifies for both awards. Choose after the integration spike and check entry rules.
 
@@ -57,6 +57,8 @@ An important EVM detail: x402 authorization uses typed-data signing. A rule cove
 Pin and test compatible SDK versions before adopting example code. Do not hard-code a header format, network, token, signature mode, or facilitator merely because one documentation example uses it.
 
 For the upstream integration, validate against [The Graph's paid-query endpoint](https://thegraph.com/docs/en/subgraphs/tooling/x402-payments/). Using documented components on both sides is not an end-to-end compatibility test. Prefer constrained remote wallet authorization over exporting the creator's private key.
+
+For downstream sales, [Blocky402](https://blocky402.com/) documents a Hedera-specific client signer. This is not proof that Privy's x402 client supports it. Validate receiving-account ownership, actual receipt, and the creator's ability to access proceeds independently of buyer signing. Do not export user keys or substitute platform custody to make an example run; any additional account or change to the ownership model requires an explicit decision. See [Hedera's integration gates](Hedera.md).
 
 ### Wallet Controls
 
@@ -82,13 +84,14 @@ Creator funds the account wallet
     -> Graph supplies data for the hosted API
     -> creator sees expenses, budget, and API freshness
 
-If the creator opts into Bazantic publication:
-External buyer pays for API access
-    -> creator receives sales proceeds
+If the creator opts into Hedera paid access:
+External buyer uses a compatible client to pay for the Sprue API
+    -> Blocky402 settles the payment on Hedera
+    -> validated creator-controlled recipient receives sales proceeds
     -> any accepted Sprue service fee is allocated and settled
 ```
 
-This does not assign settlement to Privy or assume that Bazantic itself is the facilitator. Establish those responsibilities during technical selection.
+Blocky402 is the selected downstream facilitator; Privy remains the wallet/authorization layer. The Graph payment path must be validated separately. A single account view must not present Hedera receipts as Base funds available for upstream purchases.
 
 The creator is a buyer of upstream Graph data and a potential seller of downstream API access. These two roles share the creator account's financial view, but their transactions and permissions must be tracked separately. The external API buyer is a different actor and can use any supported payment client.
 
@@ -101,6 +104,7 @@ These are our proposed acceptance checks, not additional sponsor rules. All tech
 | [ ] | Select the award and define its user task | Human decision and a short explanation of why Privy is necessary | P1-P3 |
 | [ ] | Establish and fund the creator account wallet | Redacted creation/use record, public address, deposit, and authorization model | P1 |
 | [ ] | Complete Sprue-managed Graph purchasing | Upstream request, wallet authorization, payment outcome, returned facts, and expense linkage | P2 or P3 |
+| [ ] | Validate intended creator control of Hedera revenue | Account/address mapping, receiving-asset prerequisites, actual receipt, and creator access to proceeds without exporting keys | Sprue product/security |
 | [ ] | Reconcile optional API revenue and any enabled service fee | Downstream payment, accepted fee terms, creator proceeds, platform allocation, and settlement references | Sprue product requirement |
 | [ ] | If pursuing A, test the enforced restriction | Policy/signer configuration, one permitted action, and one rejected request | P2 |
 | [ ] | Verify availability and dependencies of the chosen feature | Documentation, account prerequisites, and any sponsor clarification | P3, P4 |
@@ -112,8 +116,9 @@ A signed authorization alone is not our proof of a completed paid data request. 
 ## Pending Technical Decisions
 
 - Which exact account-wallet ownership, delegated signing, budget, and revocation configuration will implement the confirmed creator role?
-- Which chain, token, x402 version, signature mode, and facilitator work for the upstream Graph endpoint and downstream Bazantic publication, respectively?
-- Does Bazantic support the intended recipient configuration and expose enough evidence to reconcile payment and API delivery?
+- Which exact networks, assets, x402 versions, and signing methods work for the upstream Graph endpoint and downstream Hedera/Blocky402 path, respectively?
+- Can the intended Privy-backed creator control a usable Hedera recipient, receive the selected asset, and subsequently access proceeds? Do not equate this with an external buyer's ability to sign a payment.
+- Does Blocky402 expose enough settlement evidence to reconcile the configured recipient, payment, and Sprue API delivery?
 - Does the chosen settlement path support an authorized platform fee? Its rate, basis, rounding, recipient, payout timing, and refunds must be decided before charging.
 - Which exact wallet method must a control cover, and can retries or alternate signing paths bypass it?
 - How will the demo wallet be funded, bounded, and isolated from production assets? Confirm acceptable demo networks with the sponsor; SDK testnet support alone is not event approval.
@@ -126,4 +131,4 @@ Never commit app secrets, authorization private keys, wallet recovery material, 
 
 ## Maintenance
 
-Consult this file before changing wallet or payment behavior. Validate [Bazantic](bazantic.md) interoperability and [The Graph](graph.md) requirements independently. Keep planning and AI contributions in [plan.md](../plan.md); update completion status only when evidence exists.
+Consult this file before changing wallet or payment behavior. Validate [Hedera and Blocky402](Hedera.md) interoperability and [The Graph](graph.md) requirements independently. Keep planning and AI contributions in [plan.md](../plan.md); update completion status only when evidence exists.

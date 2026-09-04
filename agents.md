@@ -37,7 +37,7 @@ The MVP is complete when a user can:
 3. See Sprue pay for Graph data from that wallet and run the transformation pipeline against live data.
 4. Access the result through a persistent API endpoint.
 5. Modify the product conversationally and see the definition/output update.
-6. Optionally publish the product through Bazantic's x402 gateway, receive revenue in the creator's account wallet, and inspect any disclosed Sprue service-fee allocation. The demo must exercise a real paid consumer request.
+6. Optionally enable x402 access on the hosted API, settle API sales on Hedera through Blocky402, and inspect creator receipts and any disclosed Sprue service-fee allocation. The demo must exercise a real paid consumer request. Validate the creator's Hedera recipient setup before claiming the Privy wallet supports this path.
 
 The primary demo story is:
 
@@ -66,13 +66,19 @@ Sprue is a web application with:
 - account-wallet funding, Graph spending, and remaining authorized budget;
 - publication, x402 payment, and revenue status.
 
-The selected sponsor integrations are The Graph, Bazantic, and Privy. The Graph is the upstream data provider that Sprue pays on the creator's behalf. Privy provides the creator account wallet for top-ups, delegated data spending, and API revenue. Bazantic is the optional x402 publication layer for an already-hosted API; it is not required to build or privately use that API. External buyers need a compatible payment client, not necessarily a Privy wallet.
+The selected sponsor integrations are The Graph, Hedera, and Privy. The user selected Hedera to replace Bazantic on 2026-09-05. The Graph supplies upstream data purchased by Sprue on the creator's behalf. Privy provides the creator account wallet and bounded Graph-spending authorization. Hedera is the downstream settlement network, with Blocky402 as facilitator. Sprue owns the hosted API and its optional x402 payment gate; Blocky402 is not assumed to provide a hosted API publishing dashboard or marketplace. External buyers need a compatible Hedera payment client, not necessarily a Privy wallet.
+
+Bazantic integration and Recipe deliverables are no longer in the active plan. Its research is retained only as historical context. Building, refreshing, hosting, and privately using an API must not require downstream paid publication.
 
 ## Account Wallet and Revenue Model
 
 The user confirmed this model on 2026-09-05: the creator funds an account wallet; Sprue handles Graph purchases within the creator's authorized budget. If the creator opts into x402 publication, API sales produce creator revenue, with a Sprue service fee deducted from those sales if enabled and disclosed. Top-ups are user funds, not platform revenue.
 
-The fee rate, calculation basis, recipient configuration, and settlement timing remain undecided. Do not assume Bazantic provides native revenue splitting or that one wallet library proves end-to-end compatibility. Keep funding, upstream expenses, gross sales, creator proceeds, and platform fees separately auditable. Do not move funds or enable a fee without the relevant user authorization.
+The creator's account remains the intended funding and revenue identity. Graph's documented x402 path uses USDC on Base or Base Sepolia; API sales will settle separately on Hedera. Track balances, recipients, and settlement evidence by network and asset. Hedera revenue is not automatically available for Graph spending. Automatic bridging or conversion is outside the MVP unless separately approved.
+
+Privy-to-Hedera recipient control and signer compatibility are validation gates, not established capabilities. Test receipt, ownership, and subsequent access to proceeds separately from an external buyer's payment. Do not export the creator's private key or silently replace user-controlled receipt with platform custody to satisfy an SDK example. Any additional network account requires an explicit, validated ownership model.
+
+The fee rate, calculation basis, recipient configuration, and settlement timing remain undecided. Do not assume Blocky402 provides native revenue splitting or that one wallet library proves end-to-end compatibility. Keep funding, upstream expenses, gross sales, creator proceeds, and platform fees separately auditable. Do not move funds or enable a fee without the relevant user authorization.
 
 ## Hackathon Participation
 
@@ -80,7 +86,7 @@ The user confirmed Start Fresh participation on 2026-09-05. Do not plan Continui
 
 ## Sponsor References
 
-Before implementing or changing a sponsor integration, consult the corresponding reference in `sponsor/`: [The Graph](sponsor/graph.md), [Bazantic](sponsor/bazantic.md), and [Privy](sponsor/privy.md). These distinguish official qualification rules from proposed Sprue acceptance checks. Keep evidence-based completion status and recheck official sources before submission.
+Before implementing or changing a sponsor integration, consult the corresponding active reference in `sponsor/`: [The Graph](sponsor/graph.md), [Hedera](sponsor/Hedera.md), and [Privy](sponsor/privy.md). These distinguish official qualification rules from proposed Sprue acceptance checks. Keep evidence-based completion status and recheck official sources before submission. [Bazantic](sponsor/bazantic.md) is superseded and must not drive current implementation.
 
 ## Repository Language Rule
 

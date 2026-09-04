@@ -43,7 +43,7 @@ Prioritize the AI From Scratch award for the confirmed Start Fresh category. Sti
 
 Preserve Sprue's existing promise: a creator defines a metric, receives an inspectable specification and DAG, and operates a persistent derived-data API. The differentiating work is source-aware compilation, deterministic execution, conversational revision, and product operation.
 
-Keep composability as a conditional stretch target. An internal Sprue DAG is not automatically composition of Graph products, and adding Bazantic or Privy should not be counted as another Graph product. Prefer a small, demonstrable shared-schema integration over expanding the runtime merely to chase another award.
+Keep composability as a conditional stretch target. An internal Sprue DAG is not automatically composition of Graph products, and adding Hedera or Privy should not be counted as another Graph product. Prefer a small, demonstrable shared-schema integration over expanding the runtime merely to chase another award.
 
 ### Technical References and Implications
 
@@ -54,6 +54,8 @@ Keep composability as a conditional stretch target. An internal Sprue DAG is not
 - [Substreams skills](https://github.com/streamingfast/substreams-skills): Guidance for streaming modules, sinks, testing, and deployment. Evaluate only if event-level coverage or refresh requirements justify the additional integration.
 
 Other sponsor-linked resources, listed for later investigation rather than verified compatibility: [Agent0](https://thegraph.com/docs/en/subgraphs/existing-subgraphs/agent0/), [chain modules](https://github.com/streamingfast/substreams-chain-modules), and [EVM primitives](https://github.com/pinax-network/substreams-evm).
+
+The downstream monetization plan now uses [Hedera and Blocky402](Hedera.md). That does not change the upstream Graph payment endpoint. Keep network/asset funding and settlement records separate; Hedera API revenue must not be counted as immediately available Base query budget. No automatic bridging is included in the current MVP.
 
 ## Development Gates and Evidence
 
