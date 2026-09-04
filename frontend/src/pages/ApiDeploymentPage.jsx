@@ -13,6 +13,7 @@ import { Button, IconButton } from "../components/ui/Button.jsx";
 import { Field } from "../components/ui/Field.jsx";
 import { Status } from "../components/ui/Status.jsx";
 import { product } from "../data/demoProduct.js";
+import { useI18n } from "../i18n/I18nProvider.jsx";
 
 const mockResponse = {
   data: [
@@ -22,6 +23,7 @@ const mockResponse = {
 };
 
 export function ApiDeploymentPage({ navigate }) {
+  const { t } = useI18n();
   const [response, setResponse] = useState(null);
   const [copied, setCopied] = useState(false);
 
@@ -38,49 +40,49 @@ export function ApiDeploymentPage({ navigate }) {
 
   return (
     <div className="product-page">
-      <ProductHeader active="API" navigate={navigate} buildStatus="Endpoint ready" />
+      <ProductHeader active="api" navigate={navigate} buildStatus={t("api.endpointReady")} />
       <main className="product-content">
         <div className="content-heading">
           <div>
-            <span className="eyebrow">Hosted data API</span>
-            <h1>Deploy once, query a stable contract</h1>
-            <p>The generated endpoint serves materialized results without rerunning the full pipeline.</p>
+            <span className="eyebrow">{t("api.eyebrow")}</span>
+            <h1>{t("api.title")}</h1>
+            <p>{t("api.description")}</p>
           </div>
-          <Button variant="primary" icon={RocketLaunch}>Deploy v1</Button>
+          <Button variant="primary" icon={RocketLaunch}>{t("api.deploy")}</Button>
         </div>
 
         <section className="endpoint-strip">
           <span className="method">GET</span>
           <code>{product.endpoint}</code>
-          <IconButton label="Copy endpoint" onClick={copyEndpoint}>
+          <IconButton label={t("api.copyEndpoint")} onClick={copyEndpoint}>
             {copied ? <Check size={18} className="green-text" /> : <Copy size={18} />}
           </IconButton>
-          <Status>Healthy</Status>
+          <Status>{t("api.healthy")}</Status>
         </section>
 
         <div className="api-grid">
           <section className="panel api-contract">
-            <div className="panel-title"><FileCode size={19} /><h3>API contract</h3><Status tone="violet">v1</Status></div>
-            <div className="contract-row"><span>Authentication</span><strong>x402 payment</strong></div>
-            <div className="contract-row"><span>Response</span><strong>application/json</strong></div>
-            <div className="contract-row"><span>Cache</span><strong>5 minutes</strong></div>
-            <div className="contract-row"><span>Rate limit</span><strong>120 req / min</strong></div>
+            <div className="panel-title"><FileCode size={19} /><h3>{t("api.contract")}</h3><Status tone="violet">v1</Status></div>
+            <div className="contract-row"><span>{t("api.authentication")}</span><strong>{t("api.x402Payment")}</strong></div>
+            <div className="contract-row"><span>{t("api.response")}</span><strong>application/json</strong></div>
+            <div className="contract-row"><span>{t("api.cache")}</span><strong>{t("api.fiveMinutes")}</strong></div>
+            <div className="contract-row"><span>{t("api.rateLimit")}</span><strong>{t("api.requestsPerMinute")}</strong></div>
             <div className="code-tabs"><button className="active">cURL</button><button>JavaScript</button><button>Python</button></div>
             <pre className="code-block">curl --request GET \{"\n"}  --url {product.endpoint} \{"\n"}  --header 'accept: application/json'</pre>
           </section>
 
           <section className="panel request-tester">
-            <div className="panel-title"><TerminalWindow size={19} /><h3>Request tester</h3><span className="mock-chip">Mock response</span></div>
-            <Field label="Query parameter: limit"><input defaultValue="10" /></Field>
+            <div className="panel-title"><TerminalWindow size={19} /><h3>{t("api.requestTester")}</h3><span className="mock-chip">{t("common.mockResponse")}</span></div>
+            <Field label={t("api.limit")}><input defaultValue="10" /></Field>
             <Button variant="primary" icon={Play} onClick={runTest} disabled={response === "loading"}>
-              {response === "loading" ? "Sending…" : "Send test request"}
+              {t(response === "loading" ? "api.sending" : "api.sendTest")}
             </Button>
             <div className="response-box">
-              {!response && <div className="empty-response"><TerminalWindow size={26} /><span>Run a request to inspect the response.</span></div>}
+              {!response && <div className="empty-response"><TerminalWindow size={26} /><span>{t("api.runToInspect")}</span></div>}
               {response === "loading" && <div className="loading-lines"><span /><span /><span /></div>}
               {response === "success" && (
                 <>
-                  <div className="response-head"><Status>200 OK</Status><span>142 ms · cached</span></div>
+                  <div className="response-head"><Status>200 OK</Status><span>{t("api.cachedTiming")}</span></div>
                   <pre>{JSON.stringify(mockResponse, null, 2)}</pre>
                 </>
               )}
@@ -90,14 +92,14 @@ export function ApiDeploymentPage({ navigate }) {
 
         <section className="panel deployment-table">
           <div className="panel-toolbar">
-            <div><h2>Deployment evidence</h2><p>Runtime and artifact provenance for the current endpoint.</p></div>
-            <Button icon={ArrowSquareOut}>Open logs</Button>
+            <div><h2>{t("api.deploymentEvidence")}</h2><p>{t("api.deploymentEvidenceDetail")}</p></div>
+            <Button icon={ArrowSquareOut}>{t("api.openLogs")}</Button>
           </div>
           <div className="evidence-grid">
-            <div><span>Artifact digest</span><code>sha256:7f2c…a9d1</code></div>
-            <div><span>Region</span><strong>us-east</strong></div>
-            <div><span>Last deployed</span><strong>Sep 5, 10:24 UTC</strong></div>
-            <div><span>Source version</span><strong>v1 · immutable</strong></div>
+            <div><span>{t("api.artifactDigest")}</span><code>sha256:7f2c…a9d1</code></div>
+            <div><span>{t("api.region")}</span><strong>us-east</strong></div>
+            <div><span>{t("api.lastDeployed")}</span><strong>{t("api.lastDeployedValue")}</strong></div>
+            <div><span>{t("api.sourceVersion")}</span><strong>{t("api.immutable")}</strong></div>
           </div>
         </section>
       </main>

@@ -8,7 +8,8 @@
     "tokens": "node scripts/generate-tokens.mjs",
     "test:tokens": "node scripts/generate-tokens.mjs --check",
     "test:structure": "node --test tests/source-structure.test.mjs",
-    "build": "npm run test:structure && npm run test:tokens && vite build && node scripts/prepare-sites-build.mjs",
+    "test:i18n": "node --test tests/localization.test.mjs",
+    "build": "npm run test:structure && npm run test:i18n && npm run test:tokens && vite build && node scripts/prepare-sites-build.mjs",
     "preview": "vite preview",
     "test:sites": "node --test tests/sites-worker.test.mjs"
   },

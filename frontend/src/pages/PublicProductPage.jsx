@@ -13,8 +13,10 @@ import {
 import { Button } from "../components/ui/Button.jsx";
 import { Status } from "../components/ui/Status.jsx";
 import { product } from "../data/demoProduct.js";
+import { LanguageSwitcher } from "../components/navigation/LanguageSwitcher.jsx";
+import { useI18n } from "../i18n/I18nProvider.jsx";
 
-const stages = ["Request data", "Read payment terms", "Settle on Hedera", "Receive response"];
+const stageKeys = ["public.stage.request", "public.stage.terms", "public.stage.settle", "public.stage.response"];
 const paidResponse = {
   payment: {
     network: "hedera:testnet",
@@ -28,13 +30,14 @@ const paidResponse = {
   ],
 };
 
-function progressMessage(stage) {
-  if (stage === 1) return ["HTTP 402 received", "Price: 0.20 HBAR · Network: Hedera testnet"];
-  if (stage === 2) return ["Terms accepted", "Verifying bounded payment requirement"];
-  return ["Settlement confirmed", "Transaction 0.0.7392014@1788556321.441"];
+function progressMessage(stage, t) {
+  if (stage === 1) return [t("public.progress.402"), t("public.progress.402Detail")];
+  if (stage === 2) return [t("public.progress.accepted"), t("public.progress.acceptedDetail")];
+  return [t("public.progress.confirmed"), t("public.progress.confirmedDetail")];
 }
 
 export function PublicProductPage({ navigate }) {
+  const { t } = useI18n();
   const [stage, setStage] = useState(0);
 
   const run = () => {
@@ -44,68 +47,71 @@ export function PublicProductPage({ navigate }) {
     window.setTimeout(() => setStage(4), 2100);
   };
 
-  const [progressTitle, progressDetail] = progressMessage(stage);
+  const [progressTitle, progressDetail] = progressMessage(stage, t);
 
   return (
     <main className="public-page">
       <header className="public-nav">
         <button className="brand" onClick={() => navigate("/")}>Sprue</button>
-        <span className="hosted-badge"><CheckCircle size={16} weight="fill" />Hosted data product</span>
-        <Button onClick={() => navigate("/app")}>Creator console</Button>
+        <span className="hosted-badge"><CheckCircle size={16} weight="fill" />{t("public.hostedProduct")}</span>
+        <div className="public-nav-actions">
+          <LanguageSwitcher />
+          <Button onClick={() => navigate("/app")}>{t("public.creatorConsole")}</Button>
+        </div>
       </header>
 
       <section className="public-hero">
         <div>
-          <span className="eyebrow">ONCHAIN DATA API · BASE</span>
+          <span className="eyebrow">{t("public.eyebrow")}</span>
           <h1>{product.name}</h1>
-          <p>30-day DEX retention metrics, filtered to repeat wallets and grouped by protocol.</p>
+          <p>{t("product.description")}</p>
           <div className="public-meta">
-            <Status>The Graph verified</Status>
-            <Status tone="violet">Updated 8 min ago</Status>
-            <Status tone="amber">0.20 HBAR / request</Status>
+            <Status>{t("public.graphVerified")}</Status>
+            <Status tone="violet">{t("public.updated")}</Status>
+            <Status tone="amber">{t("public.price")}</Status>
           </div>
         </div>
         <div className="publisher-card">
-          <span>Published by</span>
+          <span>{t("public.publishedBy")}</span>
           <strong>0x71F2…9C84</strong>
-          <small>Revenue settles to Hedera account 0.0.7392014</small>
+          <small>{t("public.revenueDestination")}</small>
         </div>
       </section>
 
       <section className="consumer-console">
         <div className="request-pane">
           <div className="console-head">
-            <div><TerminalWindow size={19} /><strong>Consumer request</strong></div>
-            <span className="mock-chip">Safe simulation</span>
+            <div><TerminalWindow size={19} /><strong>{t("public.consumerRequest")}</strong></div>
+            <span className="mock-chip">{t("common.safeSimulation")}</span>
           </div>
           <label className="endpoint-line"><span>GET</span><code>{product.endpoint}</code></label>
           <div className="consumer-actions">
             <Button variant="primary" icon={Play} onClick={run} disabled={stage > 0 && stage < 4}>
-              {stage > 0 && stage < 4 ? "Running x402 flow…" : stage === 4 ? "Run again" : "Request paid data"}
+              {t(stage > 0 && stage < 4 ? "public.running" : stage === 4 ? "public.runAgain" : "public.requestPaidData")}
             </Button>
-            <Button icon={Copy}>Copy cURL</Button>
+            <Button icon={Copy}>{t("public.copyCurl")}</Button>
           </div>
           <div className="flow-timeline">
-            {stages.map((label, index) => (
-              <div className={stage > index ? "complete" : stage === index + 1 ? "active" : ""} key={label}>
+            {stageKeys.map((labelKey, index) => (
+              <div className={stage > index ? "complete" : stage === index + 1 ? "active" : ""} key={labelKey}>
                 <span>{stage > index ? <Check size={14} weight="bold" /> : index + 1}</span>
-                <strong>{label}</strong>
+                <strong>{t(labelKey)}</strong>
               </div>
             ))}
           </div>
           <div className="inline-notice">
             <WarningCircle size={18} />
-            <span>No HBAR is transferred. This is a judge-facing simulation of the intended x402 flow.</span>
+            <span>{t("public.simulationNotice")}</span>
           </div>
         </div>
 
         <div className="response-pane">
           <div className="console-head">
-            <div><BracketsCurly size={19} /><strong>Response</strong></div>
-            {stage === 4 ? <Status>200 OK</Status> : stage > 0 ? <Status tone="amber">Processing</Status> : <span>Awaiting request</span>}
+            <div><BracketsCurly size={19} /><strong>{t("public.response")}</strong></div>
+            {stage === 4 ? <Status>200 OK</Status> : stage > 0 ? <Status tone="amber">{t("common.processing")}</Status> : <span>{t("common.awaitingRequest")}</span>}
           </div>
           {stage === 0 && (
-            <div className="empty-response tall"><Code size={34} /><span>Run the request to reveal payment evidence and data.</span></div>
+            <div className="empty-response tall"><Code size={34} /><span>{t("public.runToReveal")}</span></div>
           )}
           {stage > 0 && stage < 4 && (
             <div className="payment-progress">
@@ -119,10 +125,10 @@ export function PublicProductPage({ navigate }) {
       </section>
 
       <section className="public-details">
-        <div><span>Schema</span><strong>5 typed fields</strong></div>
-        <div><span>Freshness</span><strong>5 minute cache</strong></div>
-        <div><span>Provenance</span><strong>base-dex@v1.4.2</strong></div>
-        <div><span>Settlement</span><strong>Hedera x402</strong></div>
+        <div><span>{t("public.schema")}</span><strong>{t("public.schemaValue")}</strong></div>
+        <div><span>{t("public.freshness")}</span><strong>{t("public.freshnessValue")}</strong></div>
+        <div><span>{t("public.provenance")}</span><strong>base-dex@v1.4.2</strong></div>
+        <div><span>{t("public.settlement")}</span><strong>Hedera x402</strong></div>
       </section>
     </main>
   );

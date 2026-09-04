@@ -21,7 +21,7 @@ Vercel and Railway are temporary delivery targets, not application dependencies.
 
 ## Interactive Design Prototype
 
-The self-contained React prototype under [`frontend/`](frontend/) covers Entry, Dashboard, Wallet and Access, Product Builder, API and Deployment, Monetization and Revenue, and the Public Consumer Demo. It uses English mock data and simulates the core state transitions without calling real services or moving funds. Each route-level page now lives in its own file, with shared UI, navigation, product-shell, and Builder feature components separated by responsibility.
+The self-contained React prototype under [`frontend/`](frontend/) covers Entry, Dashboard, Wallet and Access, Product Builder, API and Deployment, Monetization and Revenue, and the Public Consumer Demo. It supports English and Simplified Chinese UI copy, persists the user's locale choice in the browser, and simulates the core state transitions without calling real services or moving funds. Each route-level page now lives in its own file, with shared UI, navigation, product-shell, Builder feature components, and locale catalogs separated by responsibility.
 
 ```bash
 cd frontend

@@ -15,6 +15,7 @@ import { BuildReadiness } from "../features/builder/BuildReadiness.jsx";
 import { DagCanvas } from "../features/builder/DagCanvas.jsx";
 import { ExecutionTrace } from "../features/builder/ExecutionTrace.jsx";
 import { dagNodes, product } from "../data/demoProduct.js";
+import { useI18n } from "../i18n/I18nProvider.jsx";
 
 function modalDetail(modal) {
   if (modal === "dag") {
@@ -34,6 +35,7 @@ access: x402`;
 }
 
 export function ProductBuilderPage({ navigate }) {
+  const { locale, t } = useI18n();
   const [buildState, setBuildState] = useState("idle");
   const [modal, setModal] = useState(null);
 
@@ -45,24 +47,24 @@ export function ProductBuilderPage({ navigate }) {
   return (
     <div className="product-page">
       <ProductHeader
-        active="Build"
+        active="build"
         navigate={navigate}
-        buildStatus={buildState === "complete" ? "Build complete" : "Ready to build"}
+        buildStatus={t(buildState === "complete" ? "builder.buildComplete" : "builder.readyToBuild")}
       />
 
       <div className="builder-layout">
         <aside className="intent-panel">
-          <span className="section-label">Intent</span>
-          <p className="intent-copy">{product.intent}</p>
+          <span className="section-label">{t("builder.intent")}</span>
+          <p className="intent-copy">{t(product.intentKey)}</p>
           <button className="text-link" onClick={() => setModal("intent")}>
-            <FileText size={15} />Edit
+            <FileText size={15} />{t("builder.edit")}
           </button>
           <div className="agent-summary">
-            <div className="summary-title"><Sparkle size={19} className="violet-text" /><span>Agent summary</span></div>
-            <div className="summary-item"><CheckCircle size={18} className="green-text" /><span><strong>Plan is valid</strong><small>DAG is executable and all checks passed.</small></span></div>
-            <div className="summary-item"><ListBullets size={18} className="violet-text" /><span><strong>Nodes</strong><small>6 nodes, 5 edges</small></span></div>
-            <div className="summary-item"><ShieldCheck size={18} className="cyan-text" /><span><strong>Deterministic</strong><small>Pinned sources, fixed window, stable ordering.</small></span></div>
-            <div className="summary-item"><CurrencyDollar size={18} className="violet-text" /><span><strong>Estimated cost</strong><small>≤ 0.05 USDC per request (bounded)</small></span></div>
+            <div className="summary-title"><Sparkle size={19} className="violet-text" /><span>{t("builder.agentSummary")}</span></div>
+            <div className="summary-item"><CheckCircle size={18} className="green-text" /><span><strong>{t("builder.planValid")}</strong><small>{t("builder.planValidDetail")}</small></span></div>
+            <div className="summary-item"><ListBullets size={18} className="violet-text" /><span><strong>{t("builder.nodes")}</strong><small>{t("builder.nodesDetail")}</small></span></div>
+            <div className="summary-item"><ShieldCheck size={18} className="cyan-text" /><span><strong>{t("builder.deterministic")}</strong><small>{t("builder.deterministicDetail")}</small></span></div>
+            <div className="summary-item"><CurrencyDollar size={18} className="violet-text" /><span><strong>{t("builder.estimatedCost")}</strong><small>{t("builder.estimatedCostDetail")}</small></span></div>
           </div>
         </aside>
 
@@ -79,31 +81,31 @@ export function ProductBuilderPage({ navigate }) {
 
       {modal === "intent" && (
         <Modal
-          title="Edit product intent"
-          eyebrow="Natural-language input"
+          title={t("builder.editIntentTitle")}
+          eyebrow={t("builder.naturalLanguageInput")}
           onClose={() => setModal(null)}
           footer={
             <>
-              <Button onClick={() => setModal(null)}>Cancel</Button>
-              <Button variant="primary" icon={Sparkle} onClick={() => setModal(null)}>Regenerate draft</Button>
+              <Button onClick={() => setModal(null)}>{t("common.cancel")}</Button>
+              <Button variant="primary" icon={Sparkle} onClick={() => setModal(null)}>{t("builder.regenerateDraft")}</Button>
             </>
           }
         >
-          <Field label="Intent"><textarea defaultValue={product.intent} rows={6} /></Field>
+          <Field label={t("builder.intent")}><textarea key={locale} defaultValue={t(product.intentKey)} rows={6} /></Field>
           <div className="inline-notice">
             <Sparkle size={18} />
-            <span>The agent will propose a new DAG; changes are never executed automatically.</span>
+            <span>{t("builder.regenerateNotice")}</span>
           </div>
         </Modal>
       )}
 
       {modal && modal !== "intent" && (
         <Modal
-          title={modal === "spec" ? "Version v1 specification" : modal === "dag" ? "Structured DAG" : modal}
-          eyebrow="Read-only prototype detail"
+          title={modal === "spec" ? t("builder.specTitle") : modal === "dag" ? t("builder.structuredDag") : t(dagNodes.find((node) => node.title === modal)?.titleKey ?? "builder.structuredDag")}
+          eyebrow={t("builder.readOnlyDetail")}
           width="640px"
           onClose={() => setModal(null)}
-          footer={<Button variant="primary" onClick={() => setModal(null)}>Done</Button>}
+          footer={<Button variant="primary" onClick={() => setModal(null)}>{t("common.done")}</Button>}
         >
           <pre className="code-block">{modalDetail(modal)}</pre>
         </Modal>

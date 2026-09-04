@@ -1,13 +1,16 @@
 import { ArrowLeft, CaretDown, CheckCircle } from "@phosphor-icons/react";
 import { product, productSlug } from "../../data/demoProduct.js";
+import { useI18n } from "../../i18n/I18nProvider.jsx";
 
 const tabs = [
-  ["Build", `/app/products/${productSlug}/build`],
-  ["API", `/app/products/${productSlug}/api`],
-  ["Monetize", `/app/products/${productSlug}/monetize`],
+  ["build", "productHeader.build", `/app/products/${productSlug}/build`],
+  ["api", "productHeader.api", `/app/products/${productSlug}/api`],
+  ["monetize", "productHeader.monetize", `/app/products/${productSlug}/monetize`],
 ];
 
-export function ProductHeader({ active, navigate, buildStatus = "Ready to build" }) {
+export function ProductHeader({ active, navigate, buildStatus }) {
+  const { t } = useI18n();
+
   return (
     <header className="product-header">
       <div className="product-title-row">
@@ -16,18 +19,18 @@ export function ProductHeader({ active, navigate, buildStatus = "Ready to build"
           <span>{product.name}</span>
         </button>
         <div className="product-head-actions">
-          <button className="version-select">v1 proposed <CaretDown size={15} /></button>
-          <span className="ready-pill"><CheckCircle size={18} weight="fill" />{buildStatus}</span>
+          <button className="version-select">{t("productHeader.version")} <CaretDown size={15} /></button>
+          <span className="ready-pill"><CheckCircle size={18} weight="fill" />{buildStatus ?? t("productHeader.readyToBuild")}</span>
         </div>
       </div>
-      <nav className="product-tabs" aria-label="Product sections">
-        {tabs.map(([label, target]) => (
+      <nav className="product-tabs" aria-label={t("productHeader.sections")}>
+        {tabs.map(([id, labelKey, target]) => (
           <button
-            key={label}
-            className={active === label ? "active" : ""}
+            key={id}
+            className={active === id ? "active" : ""}
             onClick={() => navigate(target)}
           >
-            {label}
+            {t(labelKey)}
           </button>
         ))}
       </nav>

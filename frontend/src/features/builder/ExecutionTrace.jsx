@@ -1,54 +1,59 @@
 import { ArrowRight, ArrowsClockwise, Graph } from "@phosphor-icons/react";
 import { Button } from "../../components/ui/Button.jsx";
 import { Status } from "../../components/ui/Status.jsx";
+import { useI18n } from "../../i18n/I18nProvider.jsx";
 
-function traceSteps(buildState) {
+function traceSteps(buildState, t) {
+  const complete = buildState !== "idle";
+  const transformed = buildState === "complete";
+
   return [
-    ["Planning", "Complete", "Plan generated and validated"],
+    [t("trace.planning"), true, t("trace.planDetail")],
     [
-      "Source",
-      buildState === "idle" ? "Pending" : "Complete",
-      buildState === "idle" ? "Awaiting build to fetch data" : "Snapshot pinned",
+      t("trace.source"),
+      complete,
+      complete ? t("trace.snapshotPinned") : t("trace.awaitingFetch"),
     ],
     [
-      "Transform",
-      buildState === "complete" ? "Complete" : "Pending",
-      buildState === "complete" ? "4 transforms complete" : "Awaiting source data",
+      t("trace.transform"),
+      transformed,
+      transformed ? t("trace.transformsComplete") : t("trace.awaitingSource"),
     ],
     [
-      "Materialize",
-      buildState === "complete" ? "Complete" : "Pending",
-      buildState === "complete" ? "Endpoint is ready" : "Awaiting transform",
+      t("trace.materialize"),
+      transformed,
+      transformed ? t("trace.endpointReady") : t("trace.awaitingTransform"),
     ],
   ];
 }
 
 export function ExecutionTrace({ buildState, onBuild, onOpenDag, onOpenSpec }) {
+  const { t } = useI18n();
   const buildLabel = buildState === "building"
-    ? "Building…"
+    ? t("trace.building")
     : buildState === "complete"
-      ? "Build complete"
-      : "Build version";
+      ? t("trace.buildComplete")
+      : t("trace.buildVersion");
 
   return (
     <div className="execution-panel">
-      <span className="section-label">Execution trace (preview)</span>
+      <span className="section-label">{t("trace.title")}</span>
       <div className="trace-row">
-        {traceSteps(buildState).map(([name, state, note], index) => (
-          <div className={`trace-step ${state === "Complete" ? "trace-complete" : ""}`} key={name}>
+        {traceSteps(buildState, t).map(([name, isComplete, note], index) => (
+          <div className={`trace-step ${isComplete ? "trace-complete" : ""}`} key={name}>
             <span className="step-index">{index + 1}</span>
             <div>
               <strong>{name}</strong>
-              <Status tone={state === "Complete" ? "green" : "amber"}>{state}</Status>
+              <Status tone={isComplete ? "green" : "amber"}>{t(isComplete ? "trace.complete" : "trace.pending")}</Status>
               <small>{note}</small>
             </div>
           </div>
         ))}
       </div>
       <div className="trace-actions">
-        <Button icon={Graph} onClick={onOpenDag}>Structured DAG</Button>
+        <Button icon={Graph} onClick={onOpenDag}>{t("builder.structuredDag")}</Button>
         <div>
-          <Button onClick={onOpenSpec}>Review spec</Button>
+          <Button onClick={onOpenSpec}>{t("trace.reviewSpec")}</Button>
           <Button
             variant="primary"
             icon={buildState === "building" ? ArrowsClockwise : ArrowRight}

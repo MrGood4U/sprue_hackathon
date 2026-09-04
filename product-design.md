@@ -534,6 +534,15 @@ The target is WCAG 2.2 AA for the implemented MVP path.
 - Charts, if added, have a table or text summary and do not rely on color alone.
 - Authentication permits paste and password-manager/provider flows without a cognitive puzzle.
 
+## Localization Baseline
+
+- The initial UI locales are English (`en`) and Simplified Chinese (`zh-CN`), with English as the complete fallback catalog.
+- The first visit follows the browser language when supported. A visible language selector is available on the entry page, creator sidebar, and public product page.
+- A user override is stored locally and applies across routes without changing route URLs or product identifiers.
+- Locale changes update the document `lang`, title, description, visible labels, accessible names, alerts, workflow text, and mock-state copy without a reload.
+- Provider names, addresses, hashes, API fields, source identifiers, code samples, network symbols, and other technical identifiers remain unchanged when translation could alter their meaning.
+- New user-facing copy must be added to all locale catalogs instead of being embedded in route or feature components.
+
 ## Selected Visual Direction: Evidence-First Console
 
 The human team selected the third visual exploration on 2026-09-05. The direction treats Sprue as a precise browser-based data compiler rather than a crypto trading dashboard or native desktop application.

@@ -18,115 +18,117 @@ import { Button, IconButton } from "../components/ui/Button.jsx";
 import { Field } from "../components/ui/Field.jsx";
 import { Modal } from "../components/ui/Modal.jsx";
 import { Status } from "../components/ui/Status.jsx";
+import { useI18n } from "../i18n/I18nProvider.jsx";
 
 export function WalletAccessPage() {
+  const { t } = useI18n();
   const [modal, setModal] = useState(null);
   const [mode, setMode] = useState("x402");
 
   return (
     <div className="page">
       <AppHeader
-        title="Wallet & Access"
-        subtitle="Separate identity, credentials, and bounded machine spending."
-        actions={<Button icon={Plus} onClick={() => setModal("credential")}>Add credential</Button>}
+        title={t("wallet.title")}
+        subtitle={t("wallet.subtitle")}
+        actions={<Button icon={Plus} onClick={() => setModal("credential")}>{t("wallet.addCredential")}</Button>}
       />
 
       <div className="wallet-grid">
         <section className="panel wallet-hero">
-          <div className="panel-kicker"><Wallet size={18} /> PRIVY EMBEDDED WALLET</div>
+          <div className="panel-kicker"><Wallet size={18} /> {t("wallet.embeddedWallet")}</div>
           <div className="wallet-address-row">
-            <div><span>Creator wallet</span><strong>0x71F2…9C84</strong></div>
-            <IconButton label="Copy wallet address"><Copy size={18} /></IconButton>
+            <div><span>{t("wallet.creatorWallet")}</span><strong>0x71F2…9C84</strong></div>
+            <IconButton label={t("wallet.copyAddress")}><Copy size={18} /></IconButton>
           </div>
-          <div className="wallet-balance"><span>Available Graph spend</span><strong>3.12 USDC</strong></div>
+          <div className="wallet-balance"><span>{t("wallet.availableSpend")}</span><strong>3.12 USDC</strong></div>
           <div className="wallet-actions">
-            <Button variant="primary" icon={CreditCard} onClick={() => setModal("fund")}>Fund wallet</Button>
-            <Button icon={ArrowSquareOut}>View wallet</Button>
+            <Button variant="primary" icon={CreditCard} onClick={() => setModal("fund")}>{t("wallet.fund")}</Button>
+            <Button icon={ArrowSquareOut}>{t("wallet.view")}</Button>
           </div>
           <div className="security-line">
             <LockKey size={17} />
-            <span>Sprue submits bounded delegated actions. The user remains the wallet owner.</span>
+            <span>{t("wallet.securityDetail")}</span>
           </div>
         </section>
 
         <section className="panel policy-card">
-          <div className="panel-title"><ShieldCheck size={19} /><h3>Graph spend authority</h3><Status>Active</Status></div>
+          <div className="panel-title"><ShieldCheck size={19} /><h3>{t("wallet.spendAuthority")}</h3><Status>{t("common.active")}</Status></div>
           <dl className="detail-list">
-            <div><dt>Per request</dt><dd>0.05 USDC</dd></div>
-            <div><dt>Daily ceiling</dt><dd>5.00 USDC</dd></div>
-            <div><dt>Allowed payee</dt><dd>The Graph x402</dd></div>
-            <div><dt>Expires</dt><dd>Sep 12, 2026</dd></div>
+            <div><dt>{t("wallet.perRequest")}</dt><dd>0.05 USDC</dd></div>
+            <div><dt>{t("wallet.dailyCeiling")}</dt><dd>5.00 USDC</dd></div>
+            <div><dt>{t("wallet.allowedPayee")}</dt><dd>The Graph x402</dd></div>
+            <div><dt>{t("wallet.expires")}</dt><dd>{t("wallet.expiryDate")}</dd></div>
           </dl>
-          <Button icon={SlidersHorizontal} onClick={() => setModal("policy")}>Edit policy</Button>
+          <Button icon={SlidersHorizontal} onClick={() => setModal("policy")}>{t("wallet.editPolicy")}</Button>
         </section>
       </div>
 
       <section className="panel access-panel">
         <div className="panel-toolbar">
-          <div><h2>Graph access</h2><p>Choose an existing subscription key or pay per request through x402.</p></div>
-          <Status>Configured</Status>
+          <div><h2>{t("wallet.graphAccess")}</h2><p>{t("wallet.graphAccessDetail")}</p></div>
+          <Status>{t("common.configured")}</Status>
         </div>
-        <div className="segmented" role="group" aria-label="Graph access mode">
+        <div className="segmented" role="group" aria-label={t("wallet.accessMode")}>
           <button className={mode === "api" ? "active" : ""} onClick={() => setMode("api")}>
-            <Key size={18} /><span><strong>API key</strong><small>Use an existing Graph subscription</small></span>
+            <Key size={18} /><span><strong>{t("wallet.apiKey")}</strong><small>{t("wallet.apiKeyDetail")}</small></span>
           </button>
           <button className={mode === "x402" ? "active" : ""} onClick={() => setMode("x402")}>
-            <CurrencyDollar size={18} /><span><strong>x402 per request</strong><small>Pay from the bounded Privy wallet</small></span>
+            <CurrencyDollar size={18} /><span><strong>{t("wallet.x402")}</strong><small>{t("wallet.x402Detail")}</small></span>
           </button>
         </div>
         <div className="access-detail">
           {mode === "x402" ? (
-            <><Status tone="amber">Cost protected</Status><p>Sprue may pay The Graph up to <strong>0.05 USDC</strong> for an allowed request. Every authorization and settlement is retained as evidence.</p></>
+            <><Status tone="amber">{t("wallet.costProtected")}</Status><p>{t("wallet.costProtectedDetail")}</p></>
           ) : (
-            <><Status tone="violet">Credential vault</Status><p>Requests use the encrypted credential <strong>graph-production-01</strong>. The key value is never returned to the browser.</p></>
+            <><Status tone="violet">{t("wallet.credentialVault")}</Status><p>{t("wallet.credentialVaultDetail")}</p></>
           )}
         </div>
       </section>
 
       <section className="panel">
-        <div className="panel-toolbar"><div><h2>Credentials</h2><p>Encrypted references available to this workspace.</p></div></div>
+        <div className="panel-toolbar"><div><h2>{t("wallet.credentials")}</h2><p>{t("wallet.credentialsDetail")}</p></div></div>
         <div className="credential-row">
           <span className="credential-icon"><Key size={19} /></span>
-          <span><strong>graph-production-01</strong><small>The Graph · API key · Added Sep 5</small></span>
-          <Status tone="violet">Vaulted</Status>
-          <IconButton label="Credential actions"><DotsThree size={21} /></IconButton>
+          <span><strong>graph-production-01</strong><small>{t("wallet.credentialMeta")}</small></span>
+          <Status tone="violet">{t("wallet.vaulted")}</Status>
+          <IconButton label={t("wallet.credentialActions")}><DotsThree size={21} /></IconButton>
         </div>
       </section>
 
       {modal === "credential" && (
         <Modal
-          title="Add Graph credential"
-          eyebrow="Encrypted reference"
+          title={t("wallet.addCredentialTitle")}
+          eyebrow={t("wallet.encryptedReference")}
           onClose={() => setModal(null)}
-          footer={<><Button onClick={() => setModal(null)}>Cancel</Button><Button variant="primary" onClick={() => setModal(null)}>Save reference</Button></>}
+          footer={<><Button onClick={() => setModal(null)}>{t("common.cancel")}</Button><Button variant="primary" onClick={() => setModal(null)}>{t("wallet.saveReference")}</Button></>}
         >
-          <Field label="Credential name"><input defaultValue="graph-production-02" /></Field>
-          <Field label="API key" hint="Prototype only. Do not paste a real secret."><input type="password" placeholder="Never enter real credentials" /></Field>
+          <Field label={t("wallet.credentialName")}><input defaultValue="graph-production-02" /></Field>
+          <Field label={t("wallet.apiKey")} hint={t("wallet.secretHint")}><input type="password" placeholder={t("wallet.secretPlaceholder")} /></Field>
         </Modal>
       )}
       {modal === "fund" && (
         <Modal
-          title="Fund creator wallet"
-          eyebrow="Prototype simulation"
+          title={t("wallet.fundTitle")}
+          eyebrow={t("wallet.prototypeSimulation")}
           onClose={() => setModal(null)}
-          footer={<><Button onClick={() => setModal(null)}>Cancel</Button><Button variant="primary" onClick={() => setModal(null)}>Simulate deposit</Button></>}
+          footer={<><Button onClick={() => setModal(null)}>{t("common.cancel")}</Button><Button variant="primary" onClick={() => setModal(null)}>{t("wallet.simulateDeposit")}</Button></>}
         >
           <div className="big-number">10.00 <span>USDC</span></div>
-          <div className="inline-notice"><WarningCircle size={18} /><span>No deposit or transaction will occur in this prototype.</span></div>
+          <div className="inline-notice"><WarningCircle size={18} /><span>{t("wallet.noDeposit")}</span></div>
         </Modal>
       )}
       {modal === "policy" && (
         <Modal
-          title="Edit Graph spend policy"
-          eyebrow="Bounded delegation"
+          title={t("wallet.editPolicyTitle")}
+          eyebrow={t("wallet.boundedDelegation")}
           onClose={() => setModal(null)}
-          footer={<><Button onClick={() => setModal(null)}>Cancel</Button><Button variant="primary" onClick={() => setModal(null)}>Save mock policy</Button></>}
+          footer={<><Button onClick={() => setModal(null)}>{t("common.cancel")}</Button><Button variant="primary" onClick={() => setModal(null)}>{t("wallet.savePolicy")}</Button></>}
         >
           <div className="field-grid">
-            <Field label="Per request"><input defaultValue="0.05 USDC" /></Field>
-            <Field label="Daily ceiling"><input defaultValue="5.00 USDC" /></Field>
+            <Field label={t("wallet.perRequest")}><input defaultValue="0.05 USDC" /></Field>
+            <Field label={t("wallet.dailyCeiling")}><input defaultValue="5.00 USDC" /></Field>
           </div>
-          <Field label="Allowed payee"><input defaultValue="The Graph x402" /></Field>
+          <Field label={t("wallet.allowedPayee")}><input defaultValue="The Graph x402" /></Field>
         </Modal>
       )}
     </div>

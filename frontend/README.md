@@ -9,6 +9,7 @@ npm install
 npm run dev
 npm run build
 npm run test:structure
+npm run test:i18n
 npm run test:tokens
 npm run test:sites
 ```
@@ -28,6 +29,7 @@ src/
 │   └── product/            # Components shared by product routes
 ├── features/
 │   └── builder/            # Builder-specific DAG, readiness, and execution-trace components
+├── i18n/                   # Locale provider and one message catalog per supported locale
 ├── data/                   # Clearly labeled prototype fixtures only
 ├── design-tokens.json      # Machine-readable token source
 ├── tokens.css              # Generated token output
@@ -69,6 +71,9 @@ Do not create frontend adapters for Graph payments, private wallet signing mater
 - Product behavior belongs in a named `features/` folder. Avoid catch-all files such as `components/common.jsx` or `utils/helpers.js`.
 - Mock records belong in `data/` and must remain visibly labeled as prototype data.
 - Network calls belong in `services/`; pages must not scatter raw `fetch` calls or provider SDK calls through JSX.
+- User-facing copy belongs in `i18n/messages/`; components reference stable message keys through `useI18n()`.
+- English is the fallback locale and Simplified Chinese is available as `zh-CN`. Locale selection is browser-detected, user-overridable, and persisted locally.
+- Keep locale catalogs structurally aligned and run `npm run test:i18n` after changing copy or translation keys.
 - Keep server state separate from temporary presentation state. Durable build, deployment, and payment status must come from the backend after integration.
 - Prefer focused files over multi-page modules. A route file should normally remain below roughly 200 lines; extract named feature components when its main workflow becomes difficult to scan.
 - Keep unit tests next to the module they verify. Keep route-spanning and browser tests under `tests/`.

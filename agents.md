@@ -96,7 +96,7 @@ Vercel and Railway are the demo delivery profile, not permanent product dependen
 
 ## Current Planning Stage
 
-Project-structure conception, technical selection, and data-model definition were marked complete on 2026-09-05. Product and interface design is the current stage. Page architecture and interactions were approved, the Evidence-First Console direction was selected, and a seven-page interactive prototype was created on 2026-09-05. A formal three-layer design-token Draft 0.1 is applied to the prototype but remains subject to human approval. Final token and prototype review and the capped demo-consumer boundary remain before MVP implementation.
+Project-structure conception, technical selection, and data-model definition were marked complete on 2026-09-05. Product and interface design is the current stage. Page architecture and interactions were approved, the Evidence-First Console direction was selected, and a seven-page interactive prototype was created on 2026-09-05. The prototype now supports English and Simplified Chinese through centralized locale catalogs, browser-language detection, a persistent user override, and document-language synchronization. A formal three-layer design-token Draft 0.1 is applied to the prototype but remains subject to human approval. Final token and prototype review and the capped demo-consumer boundary remain before MVP implementation.
 
 Use approved [data-model.md](data-model.md) version 1.3 as the implementation baseline. It combines evidence-driven Graph source/access refinements with Hedera account/asset capability, x402 v2 requirement, facilitator capability, and normalized settlement-evidence refinements. The affected migrations may now be designed, while live provider checks remain required. The model maps MVP workflows to explicit domain entities, relationships, ownership, lifecycle states, PostgreSQL fields and constraints, API-facing representations, and durable execution records. It treats product/DAG versions as reproducible definitions, models job retries and side-effect idempotency, represents money in atomic units with explicit network and asset identity, keeps financial categories separate, and references secrets without storing secret values.
 
@@ -137,5 +137,7 @@ Before implementing or changing a sponsor integration, consult the corresponding
 ## Repository Language Rule
 
 All text records in this repository must be written in English. This includes source comments, documentation, README files, commit messages, issue or task notes, and other project artifacts.
+
+Runtime localization resources may represent non-English UI copy through escaped Unicode literals so the source record remains English/ASCII while the browser renders the requested language.
 
 Assistant-to-user communication may be in Chinese. This communication rule does not change the English-only rule for repository content.

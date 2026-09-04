@@ -10,45 +10,50 @@ import {
 import { Button } from "../components/ui/Button.jsx";
 import { Status } from "../components/ui/Status.jsx";
 import { productSlug } from "../data/demoProduct.js";
+import { LanguageSwitcher } from "../components/navigation/LanguageSwitcher.jsx";
+import { useI18n } from "../i18n/I18nProvider.jsx";
 
 const proofSteps = [
-  [Sparkle, "Intent", "Agent proposes a bounded plan"],
-  [Graph, "DAG", "Every transform stays inspectable"],
-  [Database, "The Graph", "Source and spend evidence are pinned"],
-  [TerminalWindow, "Hosted API", "A stable response contract"],
-  [Coins, "Hedera x402", "Payment and revenue split recorded"],
+  [Sparkle, "entry.proof.intent.title", "entry.proof.intent.detail"],
+  [Graph, "entry.proof.dag.title", "entry.proof.dag.detail"],
+  [Database, "entry.proof.graph.title", "entry.proof.graph.detail"],
+  [TerminalWindow, "entry.proof.api.title", "entry.proof.api.detail"],
+  [Coins, "entry.proof.payment.title", "entry.proof.payment.detail"],
 ];
 
 export function EntryPage({ navigate }) {
+  const { t } = useI18n();
+
   return (
     <main className="entry-page">
       <header className="entry-nav">
         <button className="brand" onClick={() => navigate("/")}>Sprue</button>
         <div>
-          <button className="text-link" onClick={() => navigate(`/p/${productSlug}`)}>View consumer demo</button>
-          <Button onClick={() => navigate("/app")}>Open prototype</Button>
+          <button className="text-link" onClick={() => navigate(`/p/${productSlug}`)}>{t("entry.consumerDemo")}</button>
+          <LanguageSwitcher />
+          <Button onClick={() => navigate("/app")}>{t("entry.openPrototype")}</Button>
         </div>
       </header>
 
       <section className="entry-hero">
         <div className="entry-copy">
-          <Status tone="violet">ETHGlobal prototype</Status>
-          <h1>From a data question to a paid API.</h1>
-          <p>Sprue turns natural language into a reviewable data DAG, sources verified data from The Graph, and publishes hosted APIs with optional Hedera x402 payments.</p>
+          <Status tone="violet">{t("entry.prototypeBadge")}</Status>
+          <h1>{t("entry.title")}</h1>
+          <p>{t("entry.description")}</p>
           <div className="entry-actions">
-            <Button variant="primary" icon={ArrowRight} onClick={() => navigate("/app")}>Enter demo workspace</Button>
-            <Button icon={Eye} onClick={() => navigate(`/p/${productSlug}`)}>Try the paid API flow</Button>
+            <Button variant="primary" icon={ArrowRight} onClick={() => navigate("/app")}>{t("entry.enterWorkspace")}</Button>
+            <Button icon={Eye} onClick={() => navigate(`/p/${productSlug}`)}>{t("entry.tryPaidFlow")}</Button>
           </div>
-          <span className="entry-disclaimer">Interactive prototype · No real wallet, payment, or data fetch</span>
+          <span className="entry-disclaimer">{t("entry.disclaimer")}</span>
         </div>
 
         <div className="entry-proof">
-          <span className="section-label">One traceable chain</span>
-          {proofSteps.map(([Icon, title, description], index) => (
-            <div className="proof-step" key={title}>
+          <span className="section-label">{t("entry.traceableChain")}</span>
+          {proofSteps.map(([Icon, titleKey, descriptionKey], index) => (
+            <div className="proof-step" key={titleKey}>
               <span>{index + 1}</span>
               <Icon size={22} />
-              <div><strong>{title}</strong><small>{description}</small></div>
+              <div><strong>{t(titleKey)}</strong><small>{t(descriptionKey)}</small></div>
               {index < proofSteps.length - 1 && <ArrowRight size={17} />}
             </div>
           ))}
