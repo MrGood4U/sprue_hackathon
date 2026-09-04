@@ -28,8 +28,8 @@ The project will follow this high-level sequence:
 Brainstorming (complete)
     -> project structure conception (complete)
     -> technical selection, including sponsor integrations (complete)
-    -> data model definition (current)
-    -> MVP implementation
+    -> data model definition (complete)
+    -> MVP implementation (current)
     -> project refinement
 ```
 
@@ -69,7 +69,7 @@ The user marked technical selection complete on 2026-09-05. The implementation b
 
 Package versions, external API compatibility, wallet control, payment behavior, and sponsor evidence still require implementation-time validation. Changing a baseline technology requires an explicit plan update.
 
-### 4. Data Model Definition — Current
+### 4. Data Model Definition — Complete
 
 Define the complete MVP data model before feature implementation. Review [data-model.md](data-model.md) as the source of truth for:
 
@@ -84,9 +84,9 @@ Define the complete MVP data model before feature implementation. Review [data-m
 
 The phase is complete only when every MVP action has an unambiguous read/write path, monetary values use atomic units with explicit asset/network identity, retryable side effects have idempotency and reconciliation fields, and the domain model maps clearly to PostgreSQL and API contracts. Review the model before generating migrations or implementation scaffolding.
 
-Draft 0.1 was created on 2026-09-05. The phase remains current until the proposed defaults and review checklist are accepted.
+Version 1.0 was approved on 2026-09-05. The human team accepted materialized-result serving, owner-only MVP authorization with future-ready membership records, bounded PostgreSQL JSON artifacts, and retention of user-visible Agent records without hidden chain-of-thought. Remaining provider compatibility and implementation checks are tracked as validation gates, not as unresolved product defaults.
 
-### 5. MVP Implementation
+### 5. MVP Implementation — Current
 
 Build the smallest reliable end-to-end product: creator-wallet funding and bounded Graph purchases, natural-language planning, validated data transformation, persistent API, conversational editing, optional Hedera x402 access through Blocky402, and a real paid consumer request with revenue reconciliation and any enabled fee.
 
@@ -241,7 +241,7 @@ The frontend edits the graph; the backend validates, compiles, runs, and persist
 
 ## Implementation Sequence
 
-Begin this sequence only after `data-model.md` satisfies the Data Model Definition acceptance gate and receives human review. External dependency spikes that do not create application schema may be prepared earlier, but application entities, migrations, repositories, and API persistence must follow the reviewed model.
+The approved [data model](data-model.md) is the baseline for this sequence. Application entities, migrations, repositories, and API persistence must follow it; implementation evidence may require an explicit model revision through its change-control process.
 
 ### Phase 1: Validate External Dependencies
 
@@ -345,7 +345,8 @@ For each substantial AI-assisted contribution, record the following information 
 | 2026-09-05 | DAG execution boundary and hosting costs | Recorded the predefined-operator DAG model in project guidance, architecture, and the implementation plan; researched Render's web, worker, database, and free-tier costs | Human approved Option A and requested a hackathon budget estimate; the stack and hosting provider remain unselected | Cross-checked the confirmed decision and official Render pricing, workspace-plan, database-storage, billing, and free-tier documentation; documentation changes only, with no deployment or purchase |
 | 2026-09-05 | Portable evaluator deployment | Defined Vercel and Railway service roles plus a provider-neutral Docker self-hosting contract | Human selected Vercel plus Railway for temporary evaluator access and required Docker self-hosting without source changes | Compared official Vercel and Railway capabilities and pricing with past ETHGlobal deployment patterns; documentation changes only, with no cloud account, resource, or deployment created |
 | 2026-09-05 | Development sequence and data-model gate | Marked the agreed technical baseline complete and defined the required data-model deliverable, contents, and acceptance gate before implementation | Human declared technical selection complete and added data-model definition as the next planning stage | Cross-checked the new stage against the MVP workflow, DAG execution boundary, financial model, deployment profiles, and existing implementation plan; no schema, migration, or application code created |
-| 2026-09-05 | Data model draft | Drafted `data-model.md` with PostgreSQL entities, fields, constraints, relationships, state machines, transaction boundaries, financial separation, migration order, and a pre-implementation review checklist | Human requested the data model and asked that uncertain decisions be raised for discussion; four proposed defaults remain pending review | Cross-checked the draft against project intent, architecture, and active Graph, Privy, and Hedera sponsor references; performed documentation validation only, with no migration, wallet, payment, or application code created |
+| 2026-09-05 | Data model draft | Drafted `data-model.md` with PostgreSQL entities, fields, constraints, relationships, state machines, transaction boundaries, financial separation, migration order, and a pre-implementation review checklist | Human requested the data model and asked that uncertain decisions be raised for discussion; at draft time, four proposed defaults remained pending review | Cross-checked the draft against project intent, architecture, and active Graph, Privy, and Hedera sponsor references; performed documentation validation only, with no migration, wallet, payment, or application code created |
+| 2026-09-05 | Data model approval | Converted the reviewed draft into the version 1.0 MVP implementation baseline and synchronized the current project stage | Human approved all four defaults, including future-ready workspace membership records with only a single-owner flow implemented in the MVP | Confirmed the decisions are represented consistently in `data-model.md`, `agents.md`, `plan.md`, `project-structure.md`, and `README.md`; external compatibility and implementation checks remain open |
 
 This table must be updated when AI materially influences architecture, implementation, testing, or submission content.
 
@@ -390,3 +391,4 @@ The central explanation for judges is:
 | 2026-09-05 | Selected Vercel plus Railway for the evaluator demo and required source-compatible Docker self-hosting | Optimize temporary judge access while preserving deployment portability and avoiding permanent provider coupling |
 | 2026-09-05 | Marked technical selection complete and inserted data-model definition before MVP implementation | Make entities, relationships, constraints, execution state, and financial records explicit before code and migrations are created |
 | 2026-09-05 | Added the first complete data-model draft and left the phase open for human review | Establish an implementation-ready persistence contract while keeping unresolved product defaults explicit |
+| 2026-09-05 | Approved data model version 1.0 and moved the project into MVP implementation | Record the four confirmed defaults while preserving external integration and implementation checks as open validation gates |

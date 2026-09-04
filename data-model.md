@@ -2,11 +2,11 @@
 
 ## Status
 
-Version: Draft 0.1
+Version: 1.0
 
 Date: 2026-09-05
 
-Stage: Human review required before migrations or application persistence code.
+Stage: Approved as the MVP implementation baseline. External integration and implementation validation remain open.
 
 This document is the source of truth for Sprue's MVP domain model, PostgreSQL persistence model, lifecycle rules, financial separation, and runtime records. It translates the product and architecture decisions in [agents.md](agents.md), [plan.md](plan.md), and [project-structure.md](project-structure.md) into an implementation-ready model.
 
@@ -26,12 +26,12 @@ The model describes intended behavior. It is not evidence that an external walle
 - The evaluator deployment uses Vercel plus Railway; the same application must run through Docker Compose without source changes.
 - PostgreSQL is the source of truth. Service and container filesystems are ephemeral.
 
-## Proposed Defaults Requiring Human Confirmation
+## Confirmed MVP Defaults
 
-These defaults let the model proceed without pretending that product decisions are final.
+The human team confirmed these defaults on 2026-09-05.
 
 1. **MVP serving mode:** return the latest successful materialization. An API request does not run a fresh paid Graph query. A future `live` mode is modeled but disabled.
-2. **Workspace scope:** model workspace membership and roles now, but expose only the owner flow in the MVP interface.
+2. **Workspace scope:** model workspace membership and roles now, but implement only a single-owner flow in the MVP. Invitations, role-management UI, and non-owner authorization flows are deferred.
 3. **Artifact storage:** store bounded JSON artifacts in PostgreSQL up to 5 MiB per artifact. Keep an object-storage adapter in the schema for later use.
 4. **Conversation retention:** retain user-visible Agent messages and build traces for the product's lifetime. Never persist hidden chain-of-thought. Support content redaction while preserving hashes and audit metadata when deletion is required.
 
@@ -1308,10 +1308,10 @@ User + Workspace
       -> PaymentAllocations + FinancialLedgerEntries + UsageEvents
 ```
 
-## Pre-Implementation Review Checklist
+## Implementation Readiness and Validation Checklist
 
-- [ ] Human confirms or changes the four proposed defaults.
-- [ ] Every P0 user action maps to explicit inserts, updates, or reads.
+- [x] Human confirmed the four MVP defaults on 2026-09-05.
+- [x] Documentation review confirms that every P0 user action maps to explicit inserts, updates, or reads.
 - [ ] The initial Graph source and actual x402 payment responses fit the provider-reference fields.
 - [ ] Privy policy identifiers and scope data can be stored without key material.
 - [ ] Hedera account/address forms and selected asset metadata fit `networks`, `assets`, and `wallet_addresses`.
@@ -1346,4 +1346,4 @@ After human approval, changes to this model require:
 3. Tests for affected transitions, constraints, and derived views.
 4. An AI contribution and project change-log entry in [plan.md](plan.md) when AI materially influenced the change.
 
-Do not mark this phase complete until the review checklist is accepted and unresolved product defaults are decided.
+The human team approved this model as the MVP implementation baseline on 2026-09-05. Open checklist items are implementation and external-integration validation gates; they do not reopen the data-model definition phase unless evidence requires a model change.

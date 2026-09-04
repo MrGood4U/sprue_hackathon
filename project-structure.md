@@ -2,7 +2,7 @@
 
 ## Status
 
-This document records the completed project-structure conception and the selected technical/deployment boundaries. Data-model definition is the current pre-implementation stage. Detailed entities, fields, relationships, constraints, indexes, and migration order are drafted in [data-model.md](data-model.md) for human review before application code is created.
+This document records the completed project-structure conception and the selected technical/deployment boundaries. Data-model definition is complete, and MVP implementation is the current stage. Detailed entities, fields, relationships, constraints, indexes, and migration order are approved in [data-model.md](data-model.md) as the implementation baseline.
 
 ## Product Model
 
@@ -440,7 +440,7 @@ Creator asks to change a definition
 
 ## Planned Repository Structure
 
-The following structure reflects the selected application boundaries and may be refined during data-model definition and implementation:
+The following structure reflects the selected application boundaries and may be refined during implementation:
 
 ```text
 /

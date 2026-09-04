@@ -96,9 +96,11 @@ Vercel and Railway are the demo delivery profile, not permanent product dependen
 
 ## Current Planning Stage
 
-Project-structure conception and technical selection were marked complete on 2026-09-05. Data-model definition is the current stage and is a gate before application implementation or database migration generation.
+Project-structure conception, technical selection, and data-model definition were marked complete on 2026-09-05. MVP implementation is the current stage.
 
-Create and review [data-model.md](data-model.md) before implementation. It must map every MVP workflow to explicit domain entities, relationships, ownership, lifecycle states, PostgreSQL fields and constraints, API-facing representations, and durable execution records. It must treat product/DAG versions as reproducible definitions, model job retries and side-effect idempotency, represent money in atomic units with explicit network and asset identity, keep financial categories separate, and reference secrets without storing secret values.
+Use the approved [data-model.md](data-model.md) version 1.0 as the implementation baseline. It maps MVP workflows to explicit domain entities, relationships, ownership, lifecycle states, PostgreSQL fields and constraints, API-facing representations, and durable execution records. It treats product/DAG versions as reproducible definitions, models job retries and side-effect idempotency, represents money in atomic units with explicit network and asset identity, keeps financial categories separate, and references secrets without storing secret values.
+
+The data model includes workspace membership and roles for forward compatibility, but the MVP implements only one active owner per workspace. Do not build invitations, role-management UI, or non-owner authorization flows unless the scope is explicitly expanded.
 
 Do not infer database fields ad hoc while building endpoints. If implementation reveals a missing concept, update the reviewed data model and record the decision before adding the migration or dependent behavior.
 
