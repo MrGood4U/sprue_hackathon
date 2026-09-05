@@ -7,15 +7,13 @@ import "./builder.css";
 
 export function DagCanvas({ draft, onSelectNode }) {
   const { t } = useI18n();
-  const [primitive, setPrimitive] = useState(false);
   const [expanded, setExpanded] = useState(null);
-  const graph = projectGraph(draft.specification.dag, primitive ? [] : draft.groups);
+  const graph = projectGraph(draft.specification.dag, draft.groups);
   const positions = new Map(graph.nodes.map((node) => [node.id, node]));
   return (
     <main className="dag-canvas" aria-label={t("dag.workflowLabel")}>
       <div className="dag-toolbar">
         <span className="section-label">{t("dag.sampleLabel")}</span>
-        <button className="text-link" aria-pressed={primitive} onClick={() => setPrimitive(!primitive)}>{t(primitive ? "dag.showSemantic" : "dag.showPrimitive")}</button>
       </div>
       <div className="dag-scroll" tabIndex={0} aria-label={t("dag.workflowLabel")}>
         <div className="dag-stage" style={{ width: graph.width, height: graph.height }}>
@@ -44,7 +42,7 @@ export function DagCanvas({ draft, onSelectNode }) {
           })}
         </div>
       </div>
-      {!primitive && draft.groups.map((group) => (
+      {draft.groups.map((group) => (
         <section className="dag-expansion" key={group.id} id={`${group.id}-details`} hidden={expanded !== group.id}>
           <h3>{t(group.labelKey)}</h3>
           <p>{t("dag.expansionNotice")}</p>

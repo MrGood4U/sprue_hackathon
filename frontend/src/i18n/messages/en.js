@@ -381,8 +381,6 @@ export const en = {
   "builder.expectedResult": "Expected fixture output",
   "builder.oracleNotice": "Reviewed fixture expectation, not executed output. Sample interval ends at 2026-08-31 00:00 UTC.",
   "dag.sampleLabel": "Backend demo workflow",
-  "dag.showSemantic": "Semantic overview",
-  "dag.showPrimitive": "Show primitive DAG",
   "dag.templateVersion": "Template v{{version}} - expand",
   "dag.expansionNotice": "Read-only primitive expansion. Select a node to inspect its exact configuration; revise the intent in Agent when needed.",
   "dag.inspectSource": "Inspect source configuration",
