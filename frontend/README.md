@@ -34,7 +34,8 @@ src/
 │   ├── navigation/         # Navigation components
 │   └── product/            # Components shared by product routes
 ├── features/
-│   ├── builder/            # DAG, readiness, execution trace, and build-run hook
+│   ├── builder/            # Readiness, execution trace, and build-run hook
+│   ├── workflow-editor/    # Editable DAG canvas, palette, inspector, and editor state
 │   ├── deployment/         # API request-test hook
 │   ├── consumer/           # Consumer request-flow hook
 │   └── runtime/            # Backend demo projection provider and connection boundary
@@ -117,6 +118,6 @@ The evidence files under `evidence/` document the approved visual comparison. Th
 
 ## Semantic Builder Sample
 
-The maintained Agent Planner consumes the backend demo runtime's intent, source selection, proposal trace, and cross-chain summary. A completed plan links to the maintained Builder, which consumes the eleven-node DAG, two display groups and computed output. `features/builder/graphView.js` projects backend edges and topological positions; it is not the backend validator. `DagCanvas.jsx` owns semantic/primitive views and keyboard disclosures, `TemplateParameters.jsx` owns constrained inputs, and `BuilderInspector.jsx` displays exact read-only node/spec/schema JSON. Route state remains in `AgentPage.jsx` and `ProductBuilderPage.jsx`.
+The maintained Agent Planner consumes the backend demo runtime's intent, source selection, proposal trace, and cross-chain summary. A completed plan links to the maintained Builder, which consumes the canonical DAG, template metadata, and computed output. `features/builder/graphView.js` remains a display projection and is not the backend validator. The editable workflow surface belongs to `features/workflow-editor/`; it owns canvas tools, palette insertion, typed connections, working-draft state, and schema-driven configuration. `features/builder/TemplateParameters.jsx` owns constrained legacy sample inputs and `BuilderInspector.jsx` displays exact JSON for inspection. Route state remains in `AgentPage.jsx` and `ProductBuilderPage.jsx`.
 
 Build and request actions call the backend demo runtime; no browser timer or local business-data generator is used. The server response is explicitly marked as demo data and is not live provider/payment evidence. Run `npm run test:builder`, `npm run test:services` and the full build for changes here.

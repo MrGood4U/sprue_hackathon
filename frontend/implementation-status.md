@@ -1,12 +1,14 @@
 # Frontend Implementation Status
 
-Updated on 2026-09-06 after the Builder layout was simplified around the DAG and evidence inspector.
+Updated on 2026-09-06 after the editable Builder workflow slice was completed.
 
 ## Current Baseline
 
 The existing eight route-level pages are the product frontend and will be developed in place. Shared UI, navigation, tokens, localization, and page ownership carry forward. The frontend now loads its evaluator workspace projection, Agent trace, DAG, product metadata, API response, wallet display state and consumer action result from the backend demo runtime. Agent planning and DAG review are separate product views under one product header. Live backend integration and the complete durable MVP remain unfinished.
 
 Implemented browser behavior includes route navigation, English/Simplified Chinese selection with a local preference, page composition, dialogs, Graph access-mode selection, backend-provided DAG inspection, and backend action flows. `services/index.js` selects the backend demo client. Build and request flows run through feature hooks with cancellation and duplicate-submission protection; no product page imports browser fixture records.
+
+The Builder now includes the first editable workflow slice under `src/features/workflow-editor/`. It supports a select tool, a hand tool, node dragging, typed connections, node deletion, undo/redo, zoom and fit-to-view, operator and template insertion, operator-specific configuration forms, client-side structural validation, and a side-by-side node inspector. The current draft is projected back into the existing Builder evidence and Structured DAG views; disconnected or invalid output paths clear the derived schema and preview instead of presenting the old result as current. This is an in-memory working draft only: the backend durable version command and revision-conflict handling are not connected yet.
 
 Application metadata, entry-page actions, and project instructions identify Sprue as a product. The demo workspace and simulated financial operations remain labeled with their actual behavior.
 
@@ -20,12 +22,12 @@ Deployment infrastructure now includes public API-origin validation, a read-only
 | Dashboard | Backend-generated product projection, metrics, activity, sponsor proof, and a dialog that opens its plan | Product list/create APIs, search/filter behavior, durable activity and usage, creator loading/empty/error states |
 | Wallet and Access | Sample balances and authorization, local access-mode selection, dialogs without durable writes | Wallet identity/funding, credential storage, validated grants, budgets, recipient capability, balance and policy refresh |
 | Agent Planner | Backend-generated intent, source summary, proposal facts, six-stage planning trace, and three-state action composer with a focused existing-plan state plus confirmation dialogs | Durable Agent sessions/messages, live provider discovery, streaming trace, proposal history, and unsupported-intent recovery |
-| Builder | Backend-generated cross-chain proposal, semantic Union/Join DAG with expandable template details, actual-edge layout, collapsible right-side evidence inspection, compact two-action bar, and bounded backend build action | Bounded structured editing, immutable provenance/versions, real run state and evidence |
+| Builder | Backend-generated cross-chain proposal rendered in an editable semantic DAG; operator/template palette; select/hand tools; typed connections; node configuration inspector; undo/redo; structural validation; current-draft schema/preview projection; collapsible evidence inspector; compact two-action bar; bounded backend build action | Durable structured-edit command, immutable provenance/versions, revision conflicts, server validation, real run state and evidence |
 | API and Deployment | Backend-generated endpoint, copied endpoint text, and backend action response | Reviewed request parameters, private access, real output, deployment and logs, functional code-example tabs |
 | Monetization and Revenue | Backend-generated publication state and price/split projection; publication button remains a demo action | Validated price and confirmed fee policy, creator recipient checks, durable publication state, payment gate, revenue reconciliation |
 | Public product | Backend-generated product metadata and a backend consumer action response; no browser payment is performed | Slug-based product loading, real payment requirements, authorized buyer client, receipts and uncertain-payment recovery |
 
-Some secondary controls still have no implemented action, including wallet viewing, deployment logs and navigation collapse. The Builder now provides functional source-configuration and full-schema inspection; live Explorer evidence is not available. New-product planning is not connected, and local template edits do not create or save versions. Demo publication does not publish an endpoint, and fee terms are not yet agreed. These are concrete implementation tasks, not evidence of completed functionality.
+Some secondary controls still have no implemented action, including wallet viewing, deployment logs and navigation collapse. The Builder editor is functional for the bounded in-memory slice, but it cannot yet save a durable version, discover new live sources, execute a changed DAG, or show live Explorer evidence. New-product planning is not connected. Demo publication does not publish an endpoint, and fee terms are not yet agreed. These are concrete implementation tasks, not evidence of completed functionality.
 
 ## Implementation Order
 
@@ -45,6 +47,10 @@ The approved large-screen browser scope and English/Simplified Chinese localizat
 The frontend/backend demo transition now exercises the approved cross-chain scope: two server-side source inputs are mapped to a canonical Swap shape, the mock Agent returns an eleven-node proposal with explicit Union and Join, and the backend runtime returns one cross-chain wallet row. This is a fixture-backed evaluator path, not live Graph/Privy/Hedera evidence. Durable compilation provenance and backend schemas remain H1/H2; a live source profile remains H3.
 
 The backend test suite and frontend build passed after adding the demo HTTP boundary and client tests. The existing Sites packaging adapter passed unchanged. No provider requests, wallet actions, payments, migrations or cloud deployment were performed.
+
+### Editable Workflow Slice, 2026-09-06
+
+The workflow editor was rebuilt as a feature-owned React Flow surface with a versioned operator catalog and predefined insertion templates. Pure tests cover canonical DAG round-tripping without canvas coordinates, template namespacing and undo, cycle rejection, and invalid-output projection. Browser verification at a 1440-pixel viewport covered palette rendering, node selection, operator configuration, side-by-side inspector layout, and the evidence-panel boundary. The React Flow base stylesheet and a minimum zoom below the library default were required so the full DAG remains visible when the node inspector is open.
 
 ### Earlier Frontend Transition
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft 1.11, updated on 2026-09-06. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. Token review remains follow-up work; real backend, identity, wallet, and payment integrations are still pending.
+Draft 1.12, updated on 2026-09-06. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. Token review remains follow-up work; real backend, identity, wallet, and payment integrations are still pending.
 
 This document defines the MVP information architecture, page inventory, interactions, state behavior, desktop layout behavior, accessibility requirements, and screen-to-domain contracts. The decisions are recorded in [Confirmed Design Decisions](#confirmed-design-decisions).
 
@@ -318,7 +318,7 @@ Each step exposes a localized status and a concise evidence description. The pro
 
 **Desktop layout:**
 
-- Center: visual semantic DAG with expandable template details and structured controls, using the full space left of the evidence inspector.
+- Center: editable semantic DAG with expandable template details and structured controls, using the full space left of the evidence inspector.
 - Right: selected-node/source details, validation, and output schema; the evidence inspector can collapse into a narrow restore rail when more canvas space is needed.
 - Bottom action bar: `Structured DAG` and `Run backend build`, aligned to the right edge of the DAG canvas rather than the evidence inspector.
 
@@ -329,6 +329,7 @@ The DAG is the primary surface on this page. Full specifications, schemas, and s
 - Seven allowlisted runtime types: Source, Filter, Map, Aggregate, Union, Join, and Output. GroupBy is aggregate configuration; a source window and derived score are configuration/expressions, not separate MVP operators.
 - Directed edges with typed input/output ports and stable node IDs.
 - Bounded node and parameter edits with inline validation.
+- Reviewed templates can insert complete, editable node subgraphs; template origin is explanatory metadata rather than an editing lock.
 - Structured DAG outline that provides a keyboard and single-pointer alternative to canvas connections.
 - Validation summary for cycles, incompatible ports, unsupported configuration, missing sources, and resource bounds.
 - Layout state stored separately from execution semantics.
@@ -340,6 +341,7 @@ The MVP has no arbitrary JavaScript/Python editor and no unrestricted custom-cod
 - Product name, lifecycle status, proposed/selected version, and dirty-change indicator.
 - A clear `Back to Agent` path for intent revision and regeneration.
 - Semantic diff between parent and proposed version.
+- Save replaces the current validated working draft; active, deployed, or published versions remain unchanged until explicit promotion.
 - Build confirmation summarizes version, source access modes, selected credentials/policies, configured maximum spend, refresh behavior, and known blockers.
 - Durable build progress remains available through run details; the Builder page does not show a simulated progress trace.
 - Output preview shows a bounded row sample, output schema, row count, freshness, provenance, and downloadable JSON only when allowed.
@@ -702,3 +704,4 @@ Remaining review and integration work:
 | 2026-09-06 | Recorded Draft 1.9 by removing the Builder's duplicate left rail and simulated bottom progress trace while retaining the right evidence inspector and three build actions | Builder hierarchy simplified around the DAG and evidence |
 | 2026-09-06 | Recorded Draft 1.10 by adding a reversible collapse control and narrow restore rail to the Builder evidence inspector | Canvas space can expand without losing access to readiness evidence |
 | 2026-09-06 | Recorded Draft 1.11 by removing the Builder's top-level primitive-DAG mode switch while retaining expandable template details | The canvas keeps one focused semantic workflow and removes a low-value mode toggle |
+| 2026-09-06 | Recorded Draft 1.12 by making the Builder an editable workflow surface with a reviewed template/operator palette and live derived evidence | Workflow creation and refinement share one working draft without mutating active versions |

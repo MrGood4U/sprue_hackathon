@@ -2,7 +2,7 @@ import { BracketsCurly, CaretLeft, CaretRight, Database } from "@phosphor-icons/
 import { IconButton } from "../../components/ui/Button.jsx";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
 
-export function BuildReadiness({ draft, onInspect, collapsed, onToggle }) {
+export function BuildReadiness({ draft, validation = [], onInspect, collapsed, onToggle }) {
   const { t } = useI18n();
   const sourceNode = draft.specification.dag.nodes.find((node) => node.type === "source");
   const outputFields = draft.specification.outputSchema.fields ?? [];
@@ -26,11 +26,11 @@ export function BuildReadiness({ draft, onInspect, collapsed, onToggle }) {
       <div className="readiness-block">
         <div className="readiness-title"><Database size={22} className="violet-text" /><strong>{t("dag.sampleLabel")}</strong></div>
         <p>{t("builder.sampleNotice")}</p>
-        <button className="text-link" onClick={() => onInspect(sourceNode?.id)}>{t("dag.inspectSource")}</button>
+        {sourceNode && <button className="text-link" onClick={() => onInspect(sourceNode.id)}>{t("dag.inspectSource")}</button>}
       </div>
       <div className="readiness-block">
         <div className="readiness-title"><BracketsCurly size={22} className="violet-text" /><strong>{t("readiness.outputSchema")}</strong></div>
-        <pre className="schema-preview">{outputFields.map((field) => `${field.name.padEnd(22, " ")}${field.type}`).join("\n")}</pre>
+        <pre className="schema-preview">{outputFields.length ? outputFields.map((field) => `${field.name.padEnd(22, " ")}${field.type}`).join("\n") : t("readiness.noOutputFields")}</pre>
         <button className="text-link" onClick={() => onInspect("schema")}>{t("readiness.viewFullSchema")}</button>
       </div>
       <div className="readiness-block">
@@ -38,6 +38,7 @@ export function BuildReadiness({ draft, onInspect, collapsed, onToggle }) {
         <pre className="schema-preview">{JSON.stringify(draft.referenceResult, null, 2)}</pre>
         <p>{t("builder.oracleNotice")}</p>
       </div>
+      {validation.length > 0 && <div className="readiness-validation" role="status">{t("readiness.validationError", { count: validation.length })}</div>}
     </aside>
   );
 }

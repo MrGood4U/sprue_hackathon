@@ -1,12 +1,12 @@
 # Semantic Template Contract
 
-Draft 0.2, 2026-09-05. The human approved a small MVP operator scope and this design/frontend alignment work. H2 compilation-provenance persistence is approved in data-model 1.5. Exact executable schemas (H1) and a live source, methodology and operating profile (H3) still need review. These are proposed backend contracts; the frontend demonstrates expansion with synthetic data only.
+Draft 0.3, 2026-09-06. The human approved a small MVP operator scope and the editable Builder workflow. H2 compilation-provenance persistence is approved in data-model 1.5. Exact executable schemas (H1) and a live source, methodology and operating profile (H3) still need review. Templates are developer-owned insertion recipes; after insertion, their nodes are editable working-draft nodes. These are proposed backend contracts; live provider evidence remains pending.
 
 ## 1. One Execution Definition
 
 A semantic template is a developer-owned, versioned compiler recipe, not a runtime operator. The MVP registry contains `source`, `filter`, `map`, `aggregate`, `union`, `join`, and `output`. Grouping is aggregate configuration, a source interval is window configuration, and a derived score is a bounded map expression.
 
-The first presentation reads `Source -> Wallet Activity -> Repeat Activity -> Output`. Expanding the two semantic cards reveals seven primitive nodes. Source and Output remain visible; expansion changes neither the execution definition nor its hash. A worker executes only the fully expanded, validated primitive DAG and never interprets a template label or downloads a recipe at runtime.
+The first presentation reads `Source -> Wallet Activity -> Repeat Activity -> Output`. A template palette can insert the corresponding primitive nodes and edges as one editable working-draft subgraph. Source and Output remain visible; template origin is explanatory metadata and does not constrain edits. A worker executes only the fully expanded, validated primitive DAG and never interprets a template label or downloads a recipe at runtime.
 
 Standalone Window/GroupBy/Score, token-price enrichment, true cohort retention, flow analysis, and arbitrary code are deferred. Reusing indexed subgraph facts does not authorize assumptions about their granularity, units, population or completeness. Templates may feed or consume explicit Union/Join nodes, but do not hide multi-source composition inside a semantic template.
 
@@ -56,7 +56,9 @@ This sidecar explains compilation but is not a second editable execution definit
 
 ## 4. Editing and Persistence Gate
 
-The initial semantic UI allows parameter edits and read-only expansion, not bidirectional editing of generated internals. Editing parameters creates a new proposed spec and visible semantic diff; accepting/building/deploying remain separate human actions. Existing active versions stay unchanged. If provenance cannot be reproduced, display primitives and block template editing with an explanation.
+Templates are developer-owned insertion recipes, not locked runtime objects. Inserting a template copies its versioned nodes and edges into the working draft with namespaced IDs and records template origin separately. The creator may move, delete, reconnect, and reconfigure the inserted nodes within the operator and resource rules. The origin is marked `customized` when the copied structure no longer matches the recipe; execution uses the edited primitive DAG, not the template label.
+
+Editing creates a new working-draft state and visible semantic diff. Saving replaces the current working draft after server validation; accepting/building/deploying remain separate human actions. Existing active, deployed, and published versions stay unchanged until explicit promotion. If provenance cannot be reproduced, retain the edited primitive DAG and mark the template origin unavailable or customized; do not block ordinary primitive editing merely because the original recipe changed.
 
 The frontend stores only a local, explicitly synthetic draft with separate `specification` and display-template metadata. It neither persists a product version nor claims to hash/validate a live source. Navigating away resets the sample, and API/consumer pages continue to show the labeled default fixture until backend integration exists.
 
@@ -68,5 +70,5 @@ Do not put template provenance or synthetic group IDs into `product_version_layo
 2. Implement developer-owned pure templates and operator registry, then `templates.read` and `templates.expand` wrappers. Validate output through the existing DAG compiler.
 3. Test deterministic expansion, stable IDs across parameter edits, unsupported versions/fields, type/unit mismatch, disconnected/overlapping groups, cycles after grouping, expansion budget overflow, stale hashes and absent provenance.
 4. Run actual runtime golden tests for the full expanded DAG: same-day events, independent protocol populations, one-day denominator, threshold changes, empty input, UTC boundaries, large counts and rounding. The reference fixture expects alpha = 2/1/0.500000 and beta = 1/0/0.000000 at threshold 2; threshold 3 yields zero repeats for both.
-5. Connect the frontend to validated provenance and real NodeRun/artifact IDs. Test keyboard disclosure, individual-node inspection and stale proposal behavior. Locale/layout changes must not change execution semantics.
+5. Connect the frontend to validated provenance and real NodeRun/artifact IDs. Test template insertion, customized-origin behavior, keyboard disclosure, individual-node inspection and stale working-draft behavior. Locale/layout changes must not change execution semantics.
 6. Validate the chosen live Graph source and independent metric result before claiming sponsor evidence. None of these steps enables downstream x402 automatically.
