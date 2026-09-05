@@ -109,7 +109,7 @@ export function WalletAccessPage() {
       {modal === "fund" && (
         <Modal
           title={t("wallet.fundTitle")}
-          eyebrow={t("wallet.prototypeSimulation")}
+          eyebrow={t("wallet.demoFunding")}
           onClose={() => setModal(null)}
           footer={<><Button onClick={() => setModal(null)}>{t("common.cancel")}</Button><Button variant="primary" onClick={() => setModal(null)}>{t("wallet.simulateDeposit")}</Button></>}
         >

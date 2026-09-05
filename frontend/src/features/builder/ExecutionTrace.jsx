@@ -4,7 +4,7 @@ import { Status } from "../../components/ui/Status.jsx";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
 
 function traceSteps(buildState, t) {
-  const complete = buildState !== "idle";
+  const complete = buildState === "building" || buildState === "complete";
   const transformed = buildState === "complete";
 
   return [

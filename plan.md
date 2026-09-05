@@ -29,8 +29,8 @@ Brainstorming (complete)
     -> project structure conception (complete)
     -> technical selection, including sponsor integrations (complete)
     -> data model definition (complete)
-    -> product and interface design (current: prototype review)
-    -> MVP implementation
+    -> product and interface design (frontend baseline accepted; review follow-ups remain)
+    -> MVP implementation (current: frontend development)
     -> project refinement
 ```
 
@@ -87,7 +87,7 @@ The phase is complete only when every MVP action has an unambiguous read/write p
 
 Version 1.3 was approved on 2026-09-05. It combines the previously approved defaults and Privy control model with current official Graph and Hedera refinements: dual Graph access, immutable source identity/provenance, per-query records, Hedera account-ID/address resolution, per-asset receive/access capability, x402 v2 `exact` requirements, Blocky402 capability snapshots, and normalized network settlement evidence. The human team also selected Hedera testnet HBAR (`0.0.0`) for the initial downstream integration and default demo path. Affected migrations may now be designed from this baseline. Remaining live provider compatibility and implementation checks are tracked as validation gates.
 
-### 5. Product and Interface Design — Current
+### 5. Product and Interface Design — Frontend Baseline Accepted
 
 Define the evaluator-facing Creator Console before application implementation. This phase determines how many pages the MVP needs, what responsibility each page owns, and which interaction elements and UI states are required to complete the primary creator and consumer-demo journeys.
 
@@ -102,9 +102,11 @@ The phase will produce `product-design.md` covering:
 7. The data-model entities and backend/API contracts consumed by every important screen and action.
 8. MVP-versus-deferred boundaries so design breadth does not expand implementation scope.
 
-The human team approved the seven-page information architecture, interaction specification, capped demo-consumer direction, and large-screen browser scope on 2026-09-05. The product is a web application, not a Windows or macOS native client. Mobile and tablet-specific layouts are deferred; the structured DAG editor remains a browser-based keyboard and single-pointer alternative. The human team then selected the third visual exploration, Evidence-First Console. A seven-page interactive prototype records the selected hierarchy and mock interactions in `frontend/`; visual QA passed at the 1440-pixel target and the 1024-pixel minimum was checked. Route pages, application composition, shared components, Builder feature components, and mock data now have explicit file owners instead of sharing one multi-page module. A formal three-layer design-token Draft 0.1 defines the dark MVP palette, meaningful accent roles, typography, spacing, component states, layout contracts, accessibility checks, and generated CSS workflow. Human approval of DT1-DT4, final prototype review, and the capped demo-consumer security/funding boundary remain before this phase is complete.
+The human team approved the seven-page information architecture, interaction specification, capped demo-consumer direction, and large-screen browser scope on 2026-09-05. The product is a web application, not a Windows or macOS native client. Mobile and tablet-specific layouts are deferred; the structured DAG editor remains a browser-based keyboard and single-pointer alternative. The human team then selected the third visual exploration, Evidence-First Console. A seven-page interactive prototype records the selected hierarchy and mock interactions in `frontend/`; visual QA passed at the 1440-pixel target and the 1024-pixel minimum was checked. Route pages, application composition, shared components, Builder feature components, and mock data now have explicit file owners instead of sharing one multi-page module. A formal three-layer design-token Draft 0.1 defines the dark MVP palette, meaningful accent roles, typography, spacing, component states, layout contracts, accessibility checks, and generated CSS workflow. On 2026-09-05 the human team promoted the existing code to the maintained product frontend and authorized frontend implementation to proceed. DT1-DT4 remain review follow-ups, and the capped demo-consumer security/funding boundary remains a gate for live payments.
 
-### 6. MVP Implementation
+### 6. MVP Implementation — Current
+
+Continue developing the existing seven-page frontend directly. The initial data source is explicitly a demo service adapter; maintain feature hooks and service contracts so backend integration can replace it incrementally. Current frontend gaps and their implementation order are recorded in [frontend/implementation-status.md](frontend/implementation-status.md).
 
 Build the smallest reliable end-to-end product: creator-wallet funding and bounded Graph purchases, natural-language planning, validated data transformation, persistent API, conversational editing, optional Hedera x402 access through Blocky402, and a real paid consumer request with revenue reconciliation and any enabled fee.
 
@@ -260,7 +262,7 @@ The frontend edits the graph; the backend validates, compiles, runs, and persist
 
 ## Implementation Sequence
 
-This sequence begins after the product and interface design stage is approved. Approved [data-model.md](data-model.md) version 1.3 is its persistence baseline. Source, provider-credential, wallet-capability, publication, and payment migrations may then be designed; implementation evidence may still require an explicit model revision through the same change-control process.
+Frontend implementation is authorized using the accepted page architecture and selected visual direction. The existing frontend is the application baseline; remaining design reviews continue alongside it. Approved [data-model.md](data-model.md) version 1.3 is its persistence baseline. Source, provider-credential, wallet-capability, publication, and payment migrations may then be designed; implementation evidence may still require an explicit model revision through the same change-control process.
 
 ### Phase 1: Validate External Dependencies
 
@@ -381,6 +383,8 @@ For each substantial AI-assisted contribution, record the following information 
 | 2026-09-05 | Frontend and backend repository boundaries | Moved the runnable browser prototype into `frontend/`, created the `backend/` ownership boundary, split all seven route pages into separate files, extracted shared components and Builder features, and documented production-oriented file allocation rules | Human requested root frontend/backend folders and explicitly rejected multi-page source files in both future frontend code and the prototype | Rebuilt the frontend, reran source-structure, token, and Sites packaging checks, and rendered the refactored Dashboard, Wallet, Builder, and public product routes in the Codex in-app browser; no backend runtime, provider integration, wallet action, payment, or deployment was created |
 | 2026-09-05 | English and Chinese frontend localization | Added a centralized React locale provider, complete English and Simplified Chinese message catalogs, browser-language detection, persistent user selection, accessible language controls, localized prototype copy, and catalog validation | Human requested initial English and Chinese localization support | Applied focused React context and language-control accessibility guidance, validated catalog parity and message references, rebuilt the frontend, and exercised locale switching across creator and public routes; no translation service, account data, backend write, or external provider action was used |
 
+| 2026-09-05 | Maintained product frontend | Promoted the existing seven-page application, updated product naming and guidance, isolated sample services and fixtures behind feature hooks, added cancellation and duplicate-submission guards, and documented integration gaps | Human requested that the existing code be treated as the real product frontend rather than a disposable prototype | Production build, page ownership, locale parity, tokens, four demo-service tests, and four Sites packaging tests passed; browser checks covered all seven page families, English/Chinese switching and reload persistence, sample build/API/consumer flows, and navigation during a running request. UI/UX guidance informed loading-state and current-step corrections. No real account, payment, provider request, or deployment was created |
+
 This table must be updated when AI materially influences architecture, implementation, testing, or submission content.
 
 ## Risk Controls
@@ -438,3 +442,4 @@ The central explanation for judges is:
 | 2026-09-05 | Proposed design-token Draft 0.1 and applied it to the prototype | Convert the selected visual direction into a governed three-layer source of truth with accessibility, component, layout, and generation contracts before production UI implementation |
 | 2026-09-05 | Reorganized the repository around root `frontend/` and `backend/` boundaries and split the prototype by route and feature | Keep page ownership explicit, prevent multi-page modules, and establish deployable frontend/API/worker boundaries before MVP implementation |
 | 2026-09-05 | Added English and Simplified Chinese localization to the frontend prototype | Make evaluator-facing UI language selectable and persistent while keeping copy centralized, accessible, and ready for additional locales |
+| 2026-09-05 | Promoted the existing application to the maintained product frontend and started frontend implementation | Follow the human direction, retain page ownership and localization, isolate demo workflows, and track incomplete behavior explicitly without claiming live integration |

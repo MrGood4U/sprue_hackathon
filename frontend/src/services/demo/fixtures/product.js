@@ -1,3 +1,4 @@
+// Sample records for the demo workspace; these are not backend integration evidence.
 export const productSlug = "base-dex-stickiness";
 
 export const product = {

@@ -2,7 +2,7 @@
 
 Describe it. Shape it. Sell it.
 
-Sprue is a hosted web product that turns natural-language onchain data logic into persistent, reusable, and optionally monetizable APIs. It is a browser application, not a Windows or macOS native client. Product structure, technical selection, and data-model version 1.3 are approved. Product and interface design is the current stage: page architecture and interactions are approved, the Evidence-First Console direction is selected, a three-layer design-token draft is applied, and a seven-page interactive prototype is ready for review. The initial downstream payment profile is Hedera testnet with HBAR through Blocky402. No runnable MVP or live payment integration exists yet.
+Sprue is a hosted web product that turns natural-language onchain data logic into persistent, reusable, and optionally monetizable APIs. It is a browser application, not a Windows or macOS native client. Product structure, technical selection, and data-model version 1.3 are approved. Frontend implementation is the current stage. The seven-page application in `frontend/` is the maintained product frontend, using the selected Evidence-First Console design and English/Simplified Chinese localization. It currently runs against demo data while backend integration proceeds. The initial downstream payment profile is Hedera testnet with HBAR through Blocky402. No runnable MVP or live payment integration exists yet.
 
 ## Selected Sponsors
 
@@ -19,14 +19,14 @@ Official documentation establishes the Hedera x402 wire profile and Blocky402's 
 
 Vercel and Railway are temporary delivery targets, not application dependencies. Deployment portability, explicit migrations, health checks, server-side secrets, and non-ephemeral source-of-truth persistence are required. No live deployment exists yet.
 
-## Interactive Design Prototype
+## Product Frontend
 
-The self-contained React prototype under [`frontend/`](frontend/) covers Entry, Dashboard, Wallet and Access, Product Builder, API and Deployment, Monetization and Revenue, and the Public Consumer Demo. It supports English and Simplified Chinese UI copy, persists the user's locale choice in the browser, and simulates the core state transitions without calling real services or moving funds. Each route-level page now lives in its own file, with shared UI, navigation, product-shell, Builder feature components, and locale catalogs separated by responsibility.
+The React application under [`frontend/`](frontend/) covers Entry, Dashboard, Wallet and Access, Product Builder, API and Deployment, Monetization and Revenue, and the Public Consumer Demo. It supports English and Simplified Chinese UI copy, persists the user's locale choice in the browser, and uses a demo service adapter for sample workflows. Each route-level page lives in its own file, with shared UI, navigation, feature hooks, services, and locale catalogs separated by responsibility. Continue implementing this frontend directly; remaining integration and interaction work is tracked in [`frontend/implementation-status.md`](frontend/implementation-status.md).
 
 ```bash
 cd frontend
 npm install
-npm run dev
+npm run dev -- --port 4173
 ```
 
 Open `http://127.0.0.1:4173`. Use a browser window at least 1024 CSS pixels wide; 1440 by 1024 is the primary judge-demo target. Build and packaging checks are available through `npm run build` and `npm run test:sites`.
@@ -39,10 +39,10 @@ Open `http://127.0.0.1:4173`. Use a browser window at least 1024 CSS pixels wide
 - [Approved MVP data model version 1.3 and validation gates](data-model.md)
 - [Approved page architecture and interaction design](product-design.md)
 - [Proposed Evidence-First Console design tokens](design-tokens.md)
-- [Prototype design QA and visual evidence](design-qa.md)
+- [Historical design QA and visual evidence](design-qa.md)
 - [Frontend structure and file-ownership plan](frontend/README.md)
 - [Backend boundary and source-layout plan](backend/README.md)
 
-Product-design Draft 1.2 records seven page families, route ownership, per-page interactions, UI states, large-screen web behavior, accessibility, screen-to-data contracts, the selected visual direction, formal token proposal, and the interactive prototype. Design-token decisions DT1-DT4 and final human prototype review remain before MVP implementation.
+Product-design Draft 1.3 records the maintained frontend, seven page families, route ownership, interactions, accessibility, and screen-to-data contracts. Token review remains follow-up work; the capped consumer's funding boundary and real provider compatibility remain integration gates.
 
 Participation: Start Fresh. All repository text is written in English; team communication may use Chinese. Preserve meaningful Git history and update the AI contribution record as work progresses. Runnable setup and verified demo evidence will be added with implementation.

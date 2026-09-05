@@ -7,7 +7,7 @@ import {
   Funnel,
   UserCircle,
 } from "@phosphor-icons/react";
-import { dagNodes } from "../../data/demoProduct.js";
+import { dagNodes } from "../../services/demo/fixtures/product.js";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
 
 const iconByName = {

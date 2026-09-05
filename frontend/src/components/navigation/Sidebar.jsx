@@ -64,7 +64,7 @@ export function Sidebar({ path, navigate }) {
         </button>
       </nav>
       <LanguageSwitcher />
-      <div className="prototype-stamp">{t("sidebar.prototypeStamp")}</div>
+      <div className="workspace-status">{t("sidebar.workspaceStatus")}</div>
     </aside>
   );
 }

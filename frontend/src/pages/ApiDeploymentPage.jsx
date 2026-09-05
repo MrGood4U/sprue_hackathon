@@ -12,25 +12,14 @@ import { ProductHeader } from "../components/product/ProductHeader.jsx";
 import { Button, IconButton } from "../components/ui/Button.jsx";
 import { Field } from "../components/ui/Field.jsx";
 import { Status } from "../components/ui/Status.jsx";
-import { product } from "../data/demoProduct.js";
+import { product } from "../services/demo/fixtures/product.js";
 import { useI18n } from "../i18n/I18nProvider.jsx";
-
-const mockResponse = {
-  data: [
-    { protocol: "Aerodrome", stickiness_score: 0.684, unique_wallets: 4821 },
-    { protocol: "Uniswap", stickiness_score: 0.591, unique_wallets: 3194 },
-  ],
-};
+import { useRequestTest } from "../features/deployment/useRequestTest.js";
 
 export function ApiDeploymentPage({ navigate }) {
   const { t } = useI18n();
-  const [response, setResponse] = useState(null);
+  const { response, result, runTest } = useRequestTest();
   const [copied, setCopied] = useState(false);
-
-  const runTest = () => {
-    setResponse("loading");
-    window.setTimeout(() => setResponse("success"), 800);
-  };
 
   const copyEndpoint = async () => {
     await navigator.clipboard?.writeText(product.endpoint);
@@ -80,10 +69,11 @@ export function ApiDeploymentPage({ navigate }) {
             <div className="response-box">
               {!response && <div className="empty-response"><TerminalWindow size={26} /><span>{t("api.runToInspect")}</span></div>}
               {response === "loading" && <div className="loading-lines"><span /><span /><span /></div>}
+              {response === "error" && <p className="inline-notice" role="alert">{t("common.operationFailed")}</p>}
               {response === "success" && (
                 <>
                   <div className="response-head"><Status>200 OK</Status><span>{t("api.cachedTiming")}</span></div>
-                  <pre>{JSON.stringify(mockResponse, null, 2)}</pre>
+                  <pre>{JSON.stringify(result, null, 2)}</pre>
                 </>
               )}
             </div>

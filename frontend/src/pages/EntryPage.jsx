@@ -9,7 +9,7 @@ import {
 } from "@phosphor-icons/react";
 import { Button } from "../components/ui/Button.jsx";
 import { Status } from "../components/ui/Status.jsx";
-import { productSlug } from "../data/demoProduct.js";
+import { productSlug } from "../services/demo/fixtures/product.js";
 import { LanguageSwitcher } from "../components/navigation/LanguageSwitcher.jsx";
 import { useI18n } from "../i18n/I18nProvider.jsx";
 
@@ -31,13 +31,13 @@ export function EntryPage({ navigate }) {
         <div>
           <button className="text-link" onClick={() => navigate(`/p/${productSlug}`)}>{t("entry.consumerDemo")}</button>
           <LanguageSwitcher />
-          <Button onClick={() => navigate("/app")}>{t("entry.openPrototype")}</Button>
+          <Button onClick={() => navigate("/app")}>{t("entry.openConsole")}</Button>
         </div>
       </header>
 
       <section className="entry-hero">
         <div className="entry-copy">
-          <Status tone="violet">{t("entry.prototypeBadge")}</Status>
+          <Status tone="violet">{t("entry.productBadge")}</Status>
           <h1>{t("entry.title")}</h1>
           <p>{t("entry.description")}</p>
           <div className="entry-actions">

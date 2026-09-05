@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft 1.2, updated on 2026-09-05 with a formal three-layer design-token proposal applied to the selected Evidence-First Console prototype. The human team approved D1, D2, and D4, revised D3 to target large-screen web browsers, and selected the third visual exploration. Human approval of the token proposal and final prototype review remain pending; MVP application implementation has not started.
+Draft 1.3, updated on 2026-09-05. The user promoted the existing seven-page application to the maintained Sprue frontend and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. Token review remains follow-up work; real backend, identity, wallet, and payment integrations are still pending.
 
 This document defines the MVP information architecture, page inventory, interactions, state behavior, desktop layout behavior, accessibility requirements, and screen-to-domain contracts. The decisions are recorded in [Confirmed Design Decisions](#confirmed-design-decisions).
 
@@ -556,9 +556,9 @@ The human team selected the third visual exploration on 2026-09-05. The directio
 - Motion is short, interruptible, and state-explanatory; `prefers-reduced-motion` is respected.
 - Operational text uses flat, high-contrast surfaces rather than glass or ambient animation.
 
-The interactive prototype is in [`frontend/`](frontend/). It includes all seven page families and realistic mock transitions for planning, building, API testing, x402 publication, and a judge-safe consumer request. Route pages, shared components, Builder features, application composition, and mock data are separated into focused files. It performs no real authentication, data query, wallet action, payment, deployment, or persistence.
+The maintained product frontend is in [`frontend/`](frontend/). It includes all seven page families, shared components, locale catalogs, and feature hooks. Demo fixtures and async services are isolated under `src/services/demo/`; the current workspace remains a sample-data environment until backend integration. Continue implementing this source directly. [Frontend implementation status](frontend/implementation-status.md) records the remaining behavior and service gaps.
 
-The formal token proposal is in [`design-tokens.md`](design-tokens.md). It defines primitive, semantic, and component layers; meaningful color roles; typography and spacing scales; state behavior; accessibility checks; layout contracts; and the JSON-to-CSS generation workflow. The prototype consumes the generated CSS, but the proposal remains subject to human approval.
+The formal token proposal is in [`design-tokens.md`](design-tokens.md). It defines primitive, semantic, and component layers; meaningful color roles; typography and spacing scales; state behavior; accessibility checks; layout contracts; and the JSON-to-CSS generation workflow. The product frontend consumes the generated CSS; DT1-DT4 remain follow-up review items.
 
 ## Screen-to-Backend Contract Summary
 
@@ -660,12 +660,12 @@ The structured list/form DAG editor remains P0 as a desktop keyboard and single-
 
 ## Approval Gate
 
-The page-architecture and interaction gate is complete. The visual direction is selected, a formal token proposal is applied, and the representative web prototype is ready for human review. The broader Product and Interface Design stage remains current until the tokens, prototype, and capped demo-consumer boundary are approved.
+The page architecture, selected visual direction, and existing source are the baseline for continued frontend implementation. The user promoted the frontend on 2026-09-05. This promotion establishes code ownership and development stage; it does not establish live provider or payment compatibility.
 
-Before the design stage is complete:
+Remaining review and integration work:
 
-- Review and approve DT1-DT4 in [`design-tokens.md`](design-tokens.md) and the seven-page interactive prototype.
-- Treat the prototype as a browser-based design reference, not production application architecture or a native desktop-client requirement.
+- Review DT1-DT4 in [`design-tokens.md`](design-tokens.md) while frontend development proceeds.
+- Maintain the existing `frontend/` application directly, with one file per page and explicit feature/service ownership.
 - Preserve the validated 1440-pixel target and 1024-pixel minimum layouts during MVP implementation.
 - Preserve every approved P0 journey, blocker, recovery path, data-model mapping, confirmation, and idempotent state behavior in the visual design.
 - Document the capped demo consumer's security and funding boundary before implementing its paid action.
@@ -678,3 +678,4 @@ Before the design stage is complete:
 | 2026-09-05 | Approved version 1.0 with D1, D2, and D4 accepted; revised D3 to a large-screen browser Creator Console and retained structured DAG controls for keyboard/single-pointer access rather than mobile support | Page architecture and interactions approved; visual system pending |
 | 2026-09-05 | Added version 1.1 with the selected Evidence-First Console direction, explicit browser-only product boundary, design tokens, and a seven-page interactive prototype | Prototype ready for human review; MVP implementation has not started |
 | 2026-09-05 | Proposed Draft 1.2 with a documented primitive-to-semantic-to-component token system, generated CSS contract, accessibility checks, and prototype adoption | Token decisions DT1-DT4 and final prototype review await human approval |
+| 2026-09-05 | Recorded Draft 1.3 with the existing application promoted to the maintained product frontend, feature/service boundaries, and an implementation-gap register | Frontend implementation authorized; token review and live-integration gates remain open |

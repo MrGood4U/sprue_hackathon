@@ -1,26 +1,29 @@
 # Sprue Frontend
 
-This directory contains the browser-based Creator Console, public consumer page, design prototype, frontend build, and frontend deployment adapter. It is the only frontend application; the current UI remains mock-backed until MVP integration work begins.
+This directory is the maintained Sprue product frontend: the Creator Console, public consumer page, localization, design tokens, build, and deployment adapter. The user promoted this source to the product frontend on 2026-09-05. Continue implementation here.
+
+The currently available workspace uses demo data and local demo services. Authentication, durable product operations, live Graph queries, wallets, and payments remain pending. See [implementation-status.md](implementation-status.md) for concrete gaps and their implementation order.
 
 ## Current Commands
 
 ```bash
 npm install
-npm run dev
+npm run dev -- --port 4173
 npm run build
 npm run test:structure
 npm run test:i18n
+npm run test:services
 npm run test:tokens
 npm run test:sites
 ```
 
-The Vite development server uses port `4173` by default. The minimum supported Creator Console width is 1024 CSS pixels, with 1440 pixels as the primary judge-demo target.
+The development command above selects port `4173`; use the address printed by Vite if that port is already occupied. The minimum supported Creator Console width is 1024 CSS pixels, with 1440 pixels as the primary judge-demo target.
 
 ## Source Layout
 
 ```text
 src/
-├── app/                    # Application composition, route resolution, and future providers
+├── app/                    # Application composition and route resolution
 ├── pages/                  # One route-level page component per file
 ├── components/
 │   ├── ui/                 # Reusable visual primitives with no product workflow ownership
@@ -28,18 +31,23 @@ src/
 │   ├── navigation/         # Navigation components
 │   └── product/            # Components shared by product routes
 ├── features/
-│   └── builder/            # Builder-specific DAG, readiness, and execution-trace components
+│   ├── builder/            # DAG, readiness, execution trace, and build-run hook
+│   ├── deployment/         # API request-test hook
+│   └── consumer/           # Consumer request-flow hook
 ├── i18n/                   # Locale provider and one message catalog per supported locale
-├── data/                   # Clearly labeled prototype fixtures only
+├── hooks/                  # Shared async view lifecycle
+├── services/
+│   ├── index.js            # Selected frontend service implementation
+│   └── demo/               # Demo workflows and isolated sample fixtures
 ├── design-tokens.json      # Machine-readable token source
 ├── tokens.css              # Generated token output
-├── styles.css              # Prototype-wide CSS pending feature-level style extraction
+├── styles.css              # Application CSS pending feature-level style extraction
 └── main.jsx                # Browser entry point only
 ```
 
-## Planned Production Boundaries
+## Integration Boundaries
 
-As real integrations replace mock behavior, add code by responsibility rather than by generic file type:
+As real services replace the demo adapter, extend these boundaries by responsibility:
 
 ```text
 src/
@@ -69,8 +77,10 @@ Do not create frontend adapters for Graph payments, private wallet signing mater
 - Every route-level page has one file under `pages/`. A page composes features and coordinates page-local UI state.
 - A reusable element moves to `components/` only when at least two page or feature owners need the same contract.
 - Product behavior belongs in a named `features/` folder. Avoid catch-all files such as `components/common.jsx` or `utils/helpers.js`.
-- Mock records belong in `data/` and must remain visibly labeled as prototype data.
-- Network calls belong in `services/`; pages must not scatter raw `fetch` calls or provider SDK calls through JSX.
+- Sample records belong in `services/demo/fixtures/`. Demo workspace and financial actions must stay identifiable as sample data.
+- Async workflows belong in feature hooks; network/provider operations belong in `services/`. Pages must not implement simulated progress timers, raw `fetch` calls, or provider SDK calls in JSX.
+- The selected service interface in `services/index.js` currently points to the demo adapter. It is a frontend seam, not an approved HTTP or payment contract. Add backend clients only after reviewing those contracts.
+- Cancel view-owned work on unmount and prevent repeated submission while a task is active.
 - User-facing copy belongs in `i18n/messages/`; components reference stable message keys through `useI18n()`.
 - English is the fallback locale and Simplified Chinese is available as `zh-CN`. Locale selection is browser-detected, user-overridable, and persisted locally.
 - Keep locale catalogs structurally aligned and run `npm run test:i18n` after changing copy or translation keys.

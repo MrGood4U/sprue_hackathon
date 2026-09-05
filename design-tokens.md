@@ -2,9 +2,9 @@
 
 ## Status
 
-Draft 0.1, proposed on 2026-09-05 for human review. This document formalizes the selected Evidence-First Console direction. It does not approve the visual system or complete the broader Product and Interface Design stage.
+Draft 0.1, proposed on 2026-09-05 for human review. This document formalizes the selected Evidence-First Console direction. DT1-DT4 remain open review items alongside the authorized frontend implementation.
 
-The machine-readable source is [`frontend/src/design-tokens.json`](frontend/src/design-tokens.json). [`frontend/src/tokens.css`](frontend/src/tokens.css) is generated from that source and is consumed by the interactive prototype.
+The machine-readable source is [`frontend/src/design-tokens.json`](frontend/src/design-tokens.json). [`frontend/src/tokens.css`](frontend/src/tokens.css) is generated from that source and is consumed by the maintained product frontend.
 
 ## Objective
 

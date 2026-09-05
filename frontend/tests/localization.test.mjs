@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { glob } from "node:fs/promises";
 import test from "node:test";
-import { dagNodes, product } from "../src/data/demoProduct.js";
+import { dagNodes, product } from "../src/services/demo/fixtures/product.js";
 import { en } from "../src/i18n/messages/en.js";
 import { zhCN } from "../src/i18n/messages/zh-CN.js";
 

@@ -466,7 +466,7 @@ The human team selected explicit root frontend and backend directories on 2026-0
 │   ├── src/pages/          # One route-level page per file
 │   ├── src/components/     # Reusable UI and layout contracts
 │   ├── src/features/       # Product workflow components grouped by feature
-│   ├── src/services/       # Typed backend and browser-provider clients
+│   ├── src/services/       # Selected service adapter, demo fixtures, and future typed API clients
 │   └── tests/              # Frontend packaging and future browser tests
 ├── backend/                # One backend codebase with separate API and worker entry points
 │   ├── src/http/           # Control API and hosted product endpoints
@@ -485,6 +485,8 @@ The human team selected explicit root frontend and backend directories on 2026-0
 ```
 
 During the hackathon, logical backend modules remain in one codebase and may share one Railway image. The API and worker use separate commands and process lifecycles from that codebase. The boundaries above are for ownership, testing, and future evolution, not a requirement to build a distributed system.
+
+The application under `frontend/` is the maintained product frontend as of 2026-09-05. Continue implementation in that source, with current integration gaps tracked in `frontend/implementation-status.md`. The selected service interface currently uses a demo adapter; real backend clients will replace it as reviewed contracts become available.
 
 The frontend route entry point must not contain page implementations. Each route-level page owns one file under `frontend/src/pages/`; shared layout and presentation contracts belong under `components/`, while workflow-specific elements belong under a named `features/` folder. See [`frontend/README.md`](frontend/README.md) for the complete allocation rules and [`backend/README.md`](backend/README.md) for backend ownership.
 

@@ -16,7 +16,7 @@ import { Button, IconButton } from "../components/ui/Button.jsx";
 import { Field } from "../components/ui/Field.jsx";
 import { Modal } from "../components/ui/Modal.jsx";
 import { Status } from "../components/ui/Status.jsx";
-import { product, productSlug } from "../data/demoProduct.js";
+import { product, productSlug } from "../services/demo/fixtures/product.js";
 import { useI18n } from "../i18n/I18nProvider.jsx";
 
 function Metric({ label, value, note, tone }) {

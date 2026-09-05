@@ -14,8 +14,9 @@ import { Modal } from "../components/ui/Modal.jsx";
 import { BuildReadiness } from "../features/builder/BuildReadiness.jsx";
 import { DagCanvas } from "../features/builder/DagCanvas.jsx";
 import { ExecutionTrace } from "../features/builder/ExecutionTrace.jsx";
-import { dagNodes, product } from "../data/demoProduct.js";
+import { dagNodes, product } from "../services/demo/fixtures/product.js";
 import { useI18n } from "../i18n/I18nProvider.jsx";
+import { useBuildRun } from "../features/builder/useBuildRun.js";
 
 function modalDetail(modal) {
   if (modal === "dag") {
@@ -36,20 +37,15 @@ access: x402`;
 
 export function ProductBuilderPage({ navigate }) {
   const { locale, t } = useI18n();
-  const [buildState, setBuildState] = useState("idle");
+  const { buildState, startBuild } = useBuildRun();
   const [modal, setModal] = useState(null);
-
-  const startBuild = () => {
-    setBuildState("building");
-    window.setTimeout(() => setBuildState("complete"), 1500);
-  };
 
   return (
     <div className="product-page">
       <ProductHeader
         active="build"
         navigate={navigate}
-        buildStatus={t(buildState === "complete" ? "builder.buildComplete" : "builder.readyToBuild")}
+        buildStatus={t(buildState === "failed" ? "common.operationFailed" : buildState === "building" ? "trace.building" : buildState === "complete" ? "builder.buildComplete" : "builder.readyToBuild")}
       />
 
       <div className="builder-layout">
@@ -78,6 +74,7 @@ export function ProductBuilderPage({ navigate }) {
         onOpenDag={() => setModal("dag")}
         onOpenSpec={() => setModal("spec")}
       />
+      {buildState === "failed" && <p className="inline-notice" role="alert">{t("common.operationFailed")}</p>}
 
       {modal === "intent" && (
         <Modal

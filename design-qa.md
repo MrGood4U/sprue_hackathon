@@ -1,4 +1,6 @@
-# Sprue Prototype Design QA
+# Sprue Historical Prototype Design QA
+
+This report records the original visual and interaction checks on 2026-09-05. The user subsequently promoted the source to the maintained product frontend. These captures remain historical design evidence; current integration status is tracked in [frontend/implementation-status.md](frontend/implementation-status.md).
 
 ## Comparison Target
 
@@ -70,8 +72,8 @@ No actionable P0, P1, or P2 differences remain. Residual P3 differences are the 
 
 ## Implementation Checklist
 
-- Preserve the selected token roles and screen hierarchy when production components replace prototype components.
-- Keep prototype-only mock labels until each corresponding integration is demonstrably live.
+- Preserve the selected token roles and screen hierarchy while extending the maintained frontend.
+- Identify the current demo workspace and sample financial operations until the corresponding services are live.
 - Re-run browser and design QA after production data, loading, and error states replace fixtures.
 
 final result: passed

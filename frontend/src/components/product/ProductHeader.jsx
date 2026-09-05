@@ -1,5 +1,5 @@
 import { ArrowLeft, CaretDown, CheckCircle } from "@phosphor-icons/react";
-import { product, productSlug } from "../../data/demoProduct.js";
+import { product, productSlug } from "../../services/demo/fixtures/product.js";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
 
 const tabs = [
@@ -20,7 +20,7 @@ export function ProductHeader({ active, navigate, buildStatus }) {
         </button>
         <div className="product-head-actions">
           <button className="version-select">{t("productHeader.version")} <CaretDown size={15} /></button>
-          <span className="ready-pill"><CheckCircle size={18} weight="fill" />{buildStatus ?? t("productHeader.readyToBuild")}</span>
+          <span className="ready-pill" role="status"><CheckCircle size={18} weight="fill" />{buildStatus ?? t("productHeader.readyToBuild")}</span>
         </div>
       </div>
       <nav className="product-tabs" aria-label={t("productHeader.sections")}>
