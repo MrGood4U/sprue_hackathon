@@ -6,7 +6,7 @@ Draft 0.2. This is a preparation/acceptance plan; unchecked items are not implem
 
 | Milestone | Deliverables | Exit test |
 |---|---|---|
-| I0. Review contracts | H1-H3 decisions below, relevant API M1/M3 refinements, concrete scope and non-billable metadata capabilities | No unresolved ownership, persistence or hidden-spend assumptions in the first slice |
+| I0. Review contracts | Open H1/H3 decisions below, approved H2 and API M1/M3 records, concrete scope and non-billable metadata capabilities | No unresolved ownership, persistence or hidden-spend assumptions in the first slice |
 | I1. Build compiler kit | Versioned operator/expression schemas, registry, typed query builder/validator, DAG validator and five operator implementations | Golden fixtures pass without an LLM, network, wallet or database |
 | I2. Build tool kit | Thin scripts, stage-aware dispatcher, context redaction, time/size limits, deterministic tool schemas | Valid/invalid calls and forbidden capability tests pass in isolation |
 | I3. Add safe planning | Bounded model adapter, phase controller, clarification flow, durable checkpoints, proposal/diff persistence and polling | Real or stub model can propose distinct valid DAGs; crash/retry cannot reset limits |
@@ -63,7 +63,7 @@ No paid tests run by default in CI or a developer replay. Live tests require a s
 
 ## 4. What to Record
 
-Record model/provider and prompt/tool/registry/runtime versions, sanitized input and visible decisions, source identity/schema/coverage evidence, query/spec hashes, validation outcomes, stage durations, model/tool usage, fixture/live classification, and linked run/output/payment evidence where applicable. The versioned H2 schemas must define the durable fields before code uses them.
+Record model/provider and prompt/tool/registry/runtime versions, sanitized input and visible decisions, source identity/schema/coverage evidence, query/spec hashes, validation outcomes, stage durations, model/tool usage, fixture/live classification, and linked run/output/payment evidence where applicable. Data-model 1.4 defines the approved H2 durable fields; exact H1 payload validation and service-level enforcement remain required.
 
 For planner evaluation, report valid-spec rate, semantic golden-case pass rate, clarification/unsupported accuracy, source-ID/field hallucinations, forbidden-tool rejection, token/call/latency bounds, and unsafe side-effect count. Deterministic validation/security/golden tests must all pass before enablement; unsafe side effects must be zero. Do not promise 100% general language understanding from a small evaluation set.
 
@@ -76,13 +76,13 @@ Development records and commits stay English. User-visible runtime replies may f
 | Gate | Proposed decision / unresolved detail | Recommendation |
 |---|---|---|
 | H1. Executable language | Five-type scope confirmed; exact typed expression, source-query and template schemas, interval and numeric/null semantics still pending | Implement GroupBy/window/score through config/expressions; review versioned schemas before backend implementation; examples are aligned but not schema approval |
-| H2. Durable orchestration | Extend API gate M1 to include reserved model/tool capacity, stable tool call outcomes/checkpoints, frozen run context and initialization, logical source-page recovery across node attempts, and immutable template compilation provenance | Design versioned records/constraints under data-model change control before claiming restart-safe limits or side-effect recovery; artifacts/messages are not an unvalidated JSON escape hatch |
+| H2. Durable orchestration | Approved on 2026-09-05: model 1.4 defines commands/outbox, planning checkpoints/calls, run/source contexts, cross-attempt page identity and compilation_records | Initial SQL structure and isolated tests exist; implement and test controller recovery, native multi-connection races, exact payload schemas and side-effect reconciliation before claiming restart safety |
 | H3. First live case and operating profile | Concrete real subgraph/field methodology, repeat-day metric definition, acceptable coverage checks, initial numerical limits and model-cost budget | Treat the worked example and caps as proposals; validate one real source and approve a bounded demo profile before live execution |
 
-API model gate M3 still governs validation/build/activation transitions. M2 and E2 concern downstream anonymous buyers and are not needed for offline compiler work; E1 gates live wallet control. None of these prior gates is implicitly approved by the harness documentation.
+M1-M3 and H2 persistence directions were explicitly approved; model 1.4 now governs the records and validation/build/activation transitions. E2 concerns downstream hosted buyer authority; E1 gates live wallet control. Neither is approved by the persistence work.
 
-This draft introduces no model table/status, migration, wallet action, script implementation or automatic new-subgraph creation. The next safe implementation step is the reviewed offline compiler/tool kit, followed by bounded metadata discovery and Agent wiring.
+The separate database foundation implements approved persistence, but this harness draft introduces no runtime script, wallet action or automatic new-subgraph creation. The next safe implementation step is the reviewed offline compiler/tool kit, followed by bounded metadata discovery and Agent wiring.
 
 ## Frontend Alignment Evidence Boundary
 
-The frontend has a local five-type-scope/seven-node illustration, semantic disclosure, explicit edge projection, parameter recompilation and an independent fixed fixture oracle. Its tests cover sample structure and graph display, not an implemented backend compiler, actual runtime execution, natural-language understanding or live Graph data. Offline backend golden tests and H1-H3 remain required.
+The frontend has a local five-type-scope/seven-node illustration, semantic disclosure, explicit edge projection, parameter recompilation and an independent fixed fixture oracle. Its tests cover sample structure and graph display, not an implemented backend compiler, actual runtime execution, natural-language understanding or live Graph data. Offline backend golden tests, H1/H3 decisions and implemented H2 recovery remain required.

@@ -2,7 +2,7 @@
 
 Describe it. Shape it. Sell it.
 
-Sprue is a hosted web product that turns natural-language onchain data logic into persistent, reusable, and optionally monetizable APIs. It is a browser application, not a Windows or macOS native client. Product structure, technical selection, and data-model version 1.3 are approved. Frontend implementation is the current stage. The seven-page application in `frontend/` is the maintained product frontend, using the selected Evidence-First Console design and English/Simplified Chinese localization. It currently runs against demo data while backend integration proceeds. The initial downstream payment profile is Hedera testnet with HBAR through Blocky402. No runnable MVP or live payment integration exists yet.
+Sprue is a hosted web product that turns natural-language onchain data logic into persistent, reusable, and optionally monetizable APIs. It is a browser application, not a Windows or macOS native client. Product structure, technical selection, and data-model version 1.4 are approved. MVP implementation now includes the maintained frontend and initial backend database foundation. The seven-page application in `frontend/` is the maintained product frontend, using the selected Evidence-First Console design and English/Simplified Chinese localization. It currently runs against demo data while backend integration proceeds. The initial downstream payment profile is Hedera testnet with HBAR through Blocky402. No runnable MVP or live payment integration exists yet.
 
 ## Selected Sponsors
 
@@ -31,12 +31,16 @@ npm run dev -- --port 4173
 
 Open `http://127.0.0.1:4173`. Use a browser window at least 1024 CSS pixels wide; 1440 by 1024 is the primary judge-demo target. Build and packaging checks are available through `npm run build` and `npm run test:sites`.
 
+## Database Foundation
+
+The backend now has 51 domain tables, 15 ordered SQL migrations, typed Drizzle query mappings, explicit reference seeds and isolated tests. Read [backend/database.md](backend/database.md) for local PostgreSQL setup, commands, schema authority and remaining verification. Database structure is implemented; API/worker and live integrations are not. Native PostgreSQL 17/Docker/Railway and multi-connection behavior remain unverified.
+
 ## Project Records
 
 - [Product intent and repository rules](agents.md)
 - [Plan, decisions, and AI contribution log](plan.md)
 - [Proposed project structure and financial model](project-structure.md)
-- [Approved MVP data model version 1.3 and validation gates](data-model.md)
+- [Approved MVP data model version 1.4 and validation gates](data-model.md)
 - [Proposed frontend/backend API contract and review gates](api-contract.md)
 - [Proposed Agent harness workflow, tools, operators, and constraints](backend/harness/README.md)
 - [Approved page architecture and interaction design](product-design.md)

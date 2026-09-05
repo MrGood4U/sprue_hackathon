@@ -44,14 +44,14 @@ Effective limits are the minimum of platform profile, authenticated workspace al
 | Automatic semantic repairs | At most 2 within the above model/tool/time limits | Return unsupported/needs_input result with remaining failures |
 | External read retries | At most 2 attempts total per logical metadata call, within shared budgets | Same call identity; backoff and then dependency error |
 
-Model-provider fees use a separate platform cost allowance configured for the chosen model. Token caps alone do not define a currency budget. Reserve against configured maximum input/output charges before dispatch and record observed usage when available; an uncertain provider response does not refund its reservation automatically. H2 must define this metering/recovery, and initial model choice/pricing remains a deployment configuration decision. These costs are not fabricated Graph expenses in the creator wallet ledger.
+Model-provider fees use a separate platform cost allowance configured for the chosen model. Token caps alone do not define a currency budget. Reserve against configured maximum input/output charges before dispatch and record observed usage when available; an uncertain provider response does not refund its reservation automatically. Data-model 1.4 defines approved H2 planning_checkpoints/planning_calls for this metering/recovery; controller enforcement remains unimplemented, and initial model choice/pricing remains a deployment configuration decision. These costs are not fabricated Graph expenses in the creator wallet ledger.
 
 ### Compilation and Execution Profile
 
 | Resource | Initial proposed ceiling / rule |
 |---|---|
 | Accepted spec | 1 MiB JSON; unknown fields rejected |
-| Graph schema | 5 MiB stored maximum from data-model 1.3; smaller slices for the model |
+| Graph schema | 5 MiB stored maximum from data-model 1.4; smaller slices for the model |
 | Query | 16 KiB document, depth 6, 64 expanded selected fields, one business root collection plus allowed provenance |
 | Source pagination | Default 500, maximum 1,000 rows/page; cursor strategy must be supported by inspected schema |
 | Graph | Count expanded primitive nodes and edges, not semantic cards: 12 nodes, 24 edges; exactly one output; first operator profile supports one source, with multi-source joins deferred |

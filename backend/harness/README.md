@@ -2,9 +2,9 @@
 
 ## Status
 
-Draft 0.2, 2026-09-05. This directory contains the proposed harness design, not an implemented Agent, executable scripts, or verified provider integrations. The human requested a step-by-step design and an inventory of tools to prepare before implementation.
+Draft 0.3, 2026-09-05. This directory contains the proposed harness design, not an implemented Agent, executable scripts, or verified provider integrations. The human requested a step-by-step design and an inventory of tools to prepare before implementation.
 
-Read the approved [data model 1.3](../../data-model.md), proposed [API contract](../../api-contract.md), [backend ownership](../README.md), and active [Graph reference](../../sponsor/graph.md) alongside this design. Existing model/API review gates remain open. This draft does not approve new database fields, Graph purchases, wallet authority, subgraph deployment, or API publication.
+Read the approved [data model 1.4](../../data-model.md), proposed [API contract](../../api-contract.md), [backend ownership](../README.md), and active [Graph reference](../../sponsor/graph.md) alongside this design. M1-M3 and H2 persistence directions were approved and incorporated into model 1.4. The [database foundation](../database.md) implements their tables, not the harness/controller. H1, H3 and E1/E2 remain open. No Graph purchase, wallet authority, subgraph deployment or API publication is enabled.
 
 ## What the Harness Does
 
@@ -53,7 +53,7 @@ An API-key build still consumes provider quota and requires explicit execution. 
 
 ## Proposed File Ownership
 
-Only the Markdown files listed above exist in this change. The following are future implementation locations, not runnable paths yet:
+This directory remains design-only; the database implementation lives in backend/src/db and backend/migrations. The following are future implementation locations, not runnable paths yet:
 
 ```text
 backend/harness/
@@ -84,4 +84,4 @@ Scripts import these domain implementations; they do not contain a second compil
 
 First prove a deterministic, fixture-backed `intent requirements -> inspected schema -> static query -> operator DAG -> expected output` path without any model or network dependency. Then add bounded metadata discovery and the planner around it. Finally connect authorized live Graph execution. This order makes incorrect reasoning distinguishable from incorrect data processing.
 
-The human approved the five-type MVP scope and semantic-template/frontend alignment on 2026-09-05. Exact configuration/numeric schemas, durable provenance, the live source/methodology and numerical operating limits remain review items. The local frontend demonstrates expansion only; no backend script or runtime is implemented. [Verification](verification.md#review-gates) identifies the decisions needed before implementing dependent behavior.
+The human approved the five-type MVP scope and semantic-template/frontend alignment on 2026-09-05. Exact configuration/numeric schemas (H1), the live source/methodology and numerical operating limits (H3) remain review items. H2 durable provenance/recovery directions are approved and mapped to model 1.4; restart-safe runtime behavior still requires implementation. The local frontend demonstrates expansion only; no harness script or runtime is implemented. [Verification](verification.md#review-gates) identifies the decisions needed before implementing dependent behavior.

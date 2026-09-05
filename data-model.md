@@ -2,11 +2,11 @@
 
 ## Status
 
-Version: 1.3
+Version: 1.4
 
 Date: 2026-09-05
 
-Stage: Approved MVP implementation baseline. Version 1.3 includes Draft 1.2's The Graph source and dual-access refinements plus Draft 1.3's Hedera x402 v2 `exact`, account/asset capability, facilitator-capability, and normalized settlement-reconciliation refinements. The human team approved the combined model and selected Hedera testnet with HBAR for the initial downstream integration on 2026-09-05. External integration and implementation validation remain open.
+Stage: Approved MVP design baseline. Version 1.4 incorporates the user-approved durable command, anonymous recovery, lifecycle, checkpoint and compilation-provenance directions into the initial persistence specification. Version 1.3 included Draft 1.2's The Graph source and dual-access refinements plus Draft 1.3's Hedera x402 v2 `exact`, account/asset capability, facilitator-capability, and normalized settlement-reconciliation refinements. The human team approved the combined model and selected Hedera testnet with HBAR for the initial downstream integration on 2026-09-05. External integration and implementation validation remain open.
 
 This document is the source of truth for Sprue's MVP domain model, PostgreSQL persistence model, lifecycle rules, financial separation, and runtime records. It translates the product and architecture decisions in [agents.md](agents.md), [plan.md](plan.md), and [project-structure.md](project-structure.md) into an implementation-ready model.
 
@@ -1052,7 +1052,7 @@ Constraints and indexes:
 |---|---|---:|---|
 | `data_product_version_id` | `uuid` | no | Primary key and FK to `data_product_versions` |
 | `layout_schema_version` | `integer` | no | UI layout schema version |
-| `layout_json` | `jsonb` | no | Node positions, viewport, groups, and display state only |
+| `layout_json` | `jsonb` | no | Actual DAG node positions and viewport only; no semantic group IDs or compilation metadata |
 | `updated_by_user_id` | `uuid` | no | Last editor |
 | `updated_at` | `timestamptz` | no | Last layout change |
 | `lock_version` | `integer` | no | Optimistic concurrency |
@@ -1316,7 +1316,7 @@ One logical bounded GraphQL operation, including one pagination page. Under x402
 | `execution_run_id` | `uuid` | no | FK to `execution_runs` |
 | `node_run_id` | `uuid` | no | FK to `node_runs` |
 | `source_snapshot_id` | `uuid` | no | FK to the immutable `source_snapshots` row |
-| `request_no` | `integer` | no | Monotonic within source node attempt |
+| `request_no` | `integer` | no | Monotonic within the logical run/source node, across attempts |
 | `access_mode` | `text` | no | `customer_api_key` or `x402` |
 | `provider_credential_id` | `uuid` | yes | FK to selected `provider_credentials` row |
 | `spending_policy_id` | `uuid` | yes | FK to selected `spending_policies` row |
@@ -1342,10 +1342,13 @@ One logical bounded GraphQL operation, including one pagination page. Under x402
 | `requested_at` | `timestamptz` | yes | Provider call time |
 | `completed_at` | `timestamptz` | yes | Terminal time |
 | `error_code` | `text` | yes | Stable failure code |
+| `node_id` | `text` | no | Stable source node ID across node attempts |
+| `request_kind` | `text` | no | `block_probe`, `data_page`, `completion_check` |
+| `logical_request_key` | `text` | no | Immutable deterministic key for the logical run/node/query/cursor/context operation |
 
 Constraints and indexes:
 
-- Unique `(node_run_id, request_no)`.
+- Unique `(execution_run_id, node_id, request_no)` and `(execution_run_id, node_id, logical_request_key)`. node_run_id records the first initiating attempt; each source_http_attempts.node_run_id identifies its actual retry attempt. Reuse the logical row across attempts; never use a new node_run_id to create another charge.
 - Index `(source_snapshot_id, status)`, `(provider_credential_id, requested_at)`, `(payment_intent_id)`, and `(execution_run_id, node_run_id)`.
 - The source snapshot must belong to the same workspace and match the pinned source entry in the product specification.
 - `customer_api_key` requires the selected active same-workspace credential plus its current secret version/fingerprint, and forbids a spending policy, budget reservation, or Graph payment intent.
@@ -1375,6 +1378,7 @@ Physical HTTP attempts for a logical source request. This separates Graph's init
 | `sent_at` | `timestamptz` | no | Attempt start |
 | `completed_at` | `timestamptz` | yes | Response or terminal uncertainty time |
 | `error_code` | `text` | yes | Stable transport/provider error code |
+| `node_run_id` | `uuid` | no | FK to the current `node_runs` attempt; logical source request remains unchanged |
 
 Constraints and indexes:
 
@@ -1472,11 +1476,15 @@ One logical consumer operation. It pins the product, publication, and materializ
 | `started_at` | `timestamptz` | no | First attempt time |
 | `completed_at` | `timestamptz` | yes | Terminal time |
 | `error_code` | `text` | yes | Stable failure code |
+| `recovery_capability_hash` | `text` | yes | Unique keyed hash of a 32-byte caller-generated request capability; never raw capability |
+| `recovery_hash_key_version` | `text` | yes | Hash-key version needed for verification |
+| `recovery_expires_at` | `timestamptz` | yes | Immutable disclosed expiry; no default duration |
+| `recovery_revoked_at` | `timestamptz` | yes | Revocation time when applicable |
 
 Constraints and indexes:
 
 - Unique `(deployment_id, correlation_id)`.
-- Optional unique `(deployment_id, api_credential_id, idempotency_key)` when an idempotency key is present.
+- Separate partial unique indexes cover API credentials and authenticated caller IDs when an idempotency key is present. Anonymous x402 requires a capability hash, hash-key version, disclosed expiry and non-null idempotency key. The capability hash is globally unique; the same capability cannot be rebound to another request. Hash-key rotation must check retained key versions before accepting a capability, and missing verification keys fail closed. No 24-hour recovery default is enabled by this migration.
 - Pinned version, publication, and materialization must belong to the deployment's product.
 - Materialized mode requires a ready materialization before charging.
 - Private access requires an authorized user or active API credential.
@@ -1697,18 +1705,199 @@ Constraints and indexes:
 - Reversal entries match the original network, asset, and amount and never mutate the original row.
 - Queries must choose one accounting view; summing cash movements and economic allocations together is invalid.
 
+### 10. Durable Commands, Recovery and Compilation (Version 1.4)
+
+The human approved items 1-5 (M1, M2, M3 and the H2 persistence direction) on 2026-09-05. These concrete tables implement that direction without approving H1 numeric/operator rules, H3 operating limits, E1 provider compatibility, E2 hosted buyer authority, fees, or live actions. Migrations use explicit fields and constraints; application-level checks remain listed in [backend/database.md](backend/database.md).
+
+#### `control_commands`
+
+| Column | Type | Null | Rules and purpose |
+|---|---|---:|---|
+| `id` | `uuid` | no | Primary key |
+| `actor_user_id` | `uuid` | no | FK to `users`; authenticated initiating actor |
+| `workspace_id` | `uuid` | yes | FK to `workspaces`; null only for bootstrap before workspace creation |
+| `operation` | `text` | no | Registered operation name; scoped target is covered by request fingerprint |
+| `idempotency_key` | `text` | no | Non-secret caller key, 16-128 printable ASCII characters |
+| `request_fingerprint` | `text` | no | Server-keyed request/target/precondition fingerprint; never raw input |
+| `fingerprint_key_version` | `text` | no | Non-secret server hash-key version retained for replay |
+| `status` | `text` | no | `queued`, `running`, `blocked`, `succeeded`, `failed`, `cancelled` |
+| `cancellation` | `text` | no | `not_supported`, `available`, `requested`, `completed` |
+| `dispatch_required` | `boolean` | no | Explicitly true for asynchronous dispatch; no default authorizes work |
+| `subject_type` | `text` | yes | Allowlisted resource type, paired with subject_id; resolved by command service |
+| `subject_id` | `uuid` | yes | Polymorphic subject reference; paired type/id, same-workspace validation is mandatory |
+| `trace_stream_id` | `uuid` | yes | FK to `trace_streams` when a domain subject exists |
+| `error_code` | `text` | yes | Sanitized machine code; no raw provider response |
+| `created_at` | `timestamptz` | no | Creation time |
+| `updated_at` | `timestamptz` | no | State update time |
+| `finished_at` | `timestamptz` | yes | Required exactly for terminal states |
+
+Constraints and indexes:
+
+Unique NULLS NOT DISTINCT (actor_user_id, workspace_id, operation, idempotency_key). Identity and fingerprint fields are immutable. A dispatched command has exactly one durable command_dispatches row, committed with acceptance; the same row may be retried by an at-least-once relay. Subject ownership and all response DTOs remain command-service checks. Completed commands cannot be reset or deleted.
+
+#### `command_dispatches`
+
+| Column | Type | Null | Rules and purpose |
+|---|---|---:|---|
+| `control_command_id` | `uuid` | no | Primary key and FK to `control_commands` |
+| `queue_name` | `text` | no | Registered queue, not a user-chosen executable |
+| `deduplication_key` | `text` | no | Stable outbox/worker deduplication identity |
+| `status` | `text` | no | `pending`, `dispatched`, `failed` |
+| `attempt_count` | `integer` | no | Non-negative delivery attempts; default 0 |
+| `queue_job_id` | `text` | yes | Observed pg-boss job reference, not a new logical command |
+| `next_attempt_at` | `timestamptz` | yes | Next permitted relay attempt |
+| `last_error_code` | `text` | yes | Sanitized relay error |
+| `created_at` | `timestamptz` | no | Creation time |
+| `updated_at` | `timestamptz` | no | Delivery state update |
+
+Constraints and indexes:
+
+Unique deduplication_key. The command must require dispatch. Queue payload is only the command ID; the worker reloads trusted state. A relay crash can resend the same identity, but cannot create a new domain operation. pg-boss still owns its own leasing tables; no queue integration is implemented by this table.
+
+#### `planning_checkpoints`
+
+| Column | Type | Null | Rules and purpose |
+|---|---|---:|---|
+| `control_command_id` | `uuid` | no | Primary key and FK to `control_commands` |
+| `agent_session_id` | `uuid` | no | FK to `agent_sessions`; immutable session binding |
+| `parent_version_id` | `uuid` | yes | FK to `data_product_versions` for an edit |
+| `phase` | `text` | no | `P1`, `P2`, `P3`, `P4`, `P5`, `P6`, `P7` |
+| `revision_no` | `integer` | no | Non-negative optimistic checkpoint revision; default 0 |
+| `registry_hash` | `text` | no | Pinned registry identity |
+| `prompt_version` | `text` | no | Pinned prompt pack |
+| `compiler_version` | `text` | no | Pinned compiler identity |
+| `model_call_limit` | `integer` | no | Non-negative explicit profile value; no numeric default |
+| `tool_call_limit` | `integer` | no | Non-negative explicit profile value; no numeric default |
+| `repair_limit` | `integer` | no | Non-negative explicit profile value |
+| `repairs_used` | `integer` | no | Non-negative monotonic count; default 0 |
+| `input_token_limit` | `bigint` | no | Non-negative explicit reservation ceiling |
+| `output_token_limit` | `bigint` | no | Non-negative explicit reservation ceiling |
+| `cost_limit_atomic` | `numeric(78,0)` | no | Non-negative platform model-cost ceiling, separate from creator Graph funds |
+| `cost_unit` | `text` | no | MVP `usd_micro`; one unit is 0.000001 USD, not a crypto asset |
+| `deadline_at` | `timestamptz` | no | Fixed logical planning deadline; retries cannot extend it |
+| `created_at` | `timestamptz` | no | Creation time |
+| `updated_at` | `timestamptz` | no | Checkpoint update |
+
+Constraints and indexes:
+
+An immutable command/session/parent/registry/limit/deadline binding and a mutable phase/revision/repair count. Lock this row before reserving model/tool calls. Per-command usage is derived from planning_calls, not resettable process counters. Workspace/global admission and aggregate cost ceilings remain application profile checks under H3; this migration does not claim a deployed planner or cost limiter.
+
+#### `planning_calls`
+
+| Column | Type | Null | Rules and purpose |
+|---|---|---:|---|
+| `id` | `uuid` | no | Primary key |
+| `control_command_id` | `uuid` | no | FK to `planning_checkpoints.control_command_id` |
+| `logical_call_key` | `text` | no | Stable controller-generated tool/model call identity |
+| `attempt_no` | `integer` | no | Positive attempt number; retries remain charged attempts |
+| `call_kind` | `text` | no | `model`, `tool` |
+| `call_name` | `text` | no | Pinned model or allowlisted tool name |
+| `call_version` | `text` | no | Provider/model or tool version |
+| `request_fingerprint` | `text` | no | Keyed digest of normalized input; no prompt secrets |
+| `status` | `text` | no | `reserved`, `dispatched`, `succeeded`, `failed`, `uncertain`, `cancelled` |
+| `reserved_input_tokens` | `bigint` | no | Non-negative tokens reserved before dispatch |
+| `reserved_output_tokens` | `bigint` | no | Non-negative tokens reserved before dispatch |
+| `reserved_cost_atomic` | `numeric(78,0)` | no | Non-negative reservation in checkpoint cost_unit |
+| `observed_input_tokens` | `bigint` | yes | Non-negative observed use; null means unknown |
+| `observed_output_tokens` | `bigint` | yes | Non-negative observed use; null means unknown |
+| `observed_cost_atomic` | `numeric(78,0)` | yes | Non-negative observed use; null means unknown |
+| `result_message_id` | `uuid` | yes | FK to sanitized `agent_messages`; same session |
+| `error_code` | `text` | yes | Stable redacted failure code |
+| `reserved_at` | `timestamptz` | no | Reservation time |
+| `dispatched_at` | `timestamptz` | yes | Set before the external call |
+| `finished_at` | `timestamptz` | yes | Final observation time, if definitive |
+
+Constraints and indexes:
+
+Unique (control_command_id, logical_call_key, attempt_no). Every attempt consumes a call slot. Observed counters cannot decrease or be cleared; actual overruns are retained and block further dispatch, not rejected as missing evidence. Reservation values are immutable and remain counted conservatively even after failure or unknown provider response; observed usage can never weaken the reserved safety bound. A single checkpoint row lock serializes insertion. No raw model reasoning, signed payload, secret or arbitrary checkpoint JSON is stored. Model quote/pricing and numerical limits remain H3.
+
+#### `execution_run_contexts`
+
+| Column | Type | Null | Rules and purpose |
+|---|---|---:|---|
+| `execution_run_id` | `uuid` | no | Primary key and FK to `execution_runs` |
+| `context_schema_version` | `integer` | no | MVP 1 |
+| `anchor_at` | `timestamptz` | no | Exactly the logical run queued_at, not the retry time |
+| `spec_hash` | `text` | no | Exactly the run and immutable version hash |
+| `registry_hash` | `text` | no | Exactly execution_runs.operator_registry_hash |
+| `runtime_version` | `text` | no | Exactly the pinned run runtime |
+| `created_at` | `timestamptz` | no | Singleton context creation |
+
+Constraints and indexes:
+
+Immutable singleton, initialized under the logical run lock. Per-source initialization may remain pending while an accounted block probe runs; common anchor and semantics are already fixed. The context cannot be replaced by a new retry.
+
+#### `run_source_contexts`
+
+| Column | Type | Null | Rules and purpose |
+|---|---|---:|---|
+| `execution_run_id` | `uuid` | no | FK to `execution_run_contexts.execution_run_id` |
+| `node_id` | `text` | no | Source node ID from pinned DAG |
+| `source_key` | `text` | no | Source key in pinned version |
+| `source_snapshot_id` | `uuid` | no | FK to `source_snapshots` matching that source |
+| `status` | `text` | no | `initializing`, `frozen` |
+| `query_hash` | `text` | no | Pinned normalized data-page query identity |
+| `window_start` | `timestamptz` | yes | Frozen interval start; null only if the source has no interval |
+| `window_end` | `timestamptz` | yes | Exclusive end; paired with start |
+| `requested_block_ref` | `text` | yes | Pinned block; required before frozen status |
+| `bindings_schema_version` | `integer` | no | MVP 1 |
+| `base_variables_json` | `jsonb` | no | Typed non-secret common query bindings; excludes per-page cursor |
+| `created_at` | `timestamptz` | no | Creation time |
+| `frozen_at` | `timestamptz` | yes | Required for frozen status |
+
+Constraints and indexes:
+
+Primary key (execution_run_id, node_id). Source/query/window identity is immutable from insertion. Only block completion and initializing -> frozen are allowed; a frozen context cannot change. Bounded block probes may precede freezing, but require durable source_request identities. Data pages require a frozen matching block before dispatch; provider results still need live validation.
+
+#### `compilation_records`
+
+| Column | Type | Null | Rules and purpose |
+|---|---|---:|---|
+| `id` | `uuid` | no | Primary key |
+| `workspace_id` | `uuid` | no | FK to `workspaces` |
+| `proposal_message_id` | `uuid` | yes | FK to `agent_messages` for a proposal-owned record |
+| `data_product_version_id` | `uuid` | yes | FK to `data_product_versions` for an accepted version record |
+| `proposal_compilation_id` | `uuid` | yes | FK to prior `compilation_records` when accepting proposal provenance |
+| `schema_version` | `integer` | no | MVP 1 |
+| `compiler_version` | `text` | no | Pinned developer compiler |
+| `template_catalog_hash` | `text` | no | Pinned catalog content hash |
+| `expanded_spec_hash` | `text` | no | Hash of the fully expanded canonical spec |
+| `provenance_json` | `jsonb` | no | Versioned CompilationProvenance as specified in semantic-templates.md; schemaVersion 1 |
+| `content_hash` | `text` | no | Hash of canonical provenance document |
+| `created_at` | `timestamptz` | no | Creation time |
+
+Constraints and indexes:
+
+Exactly one of proposal_message_id/data_product_version_id; each target has at most one record. All fields are immutable. Acceptance copies validated provenance into a new version-owned record, optionally referencing the proposal record; it never reassigns the original. Version spec hash and provenance hash links must agree. The compiler validates exact template expansion, parameters, disjoint node mapping and catalog compatibility before persistence; this is not a second runtime or a layout field.
+
+#### `api_payment_proofs`
+
+| Column | Type | Null | Rules and purpose |
+|---|---|---:|---|
+| `authorization_hash` | `text` | no | Primary key; hash of accepted proof, never reusable payload |
+| `api_access_request_id` | `uuid` | no | FK to `api_access_requests` |
+| `payment_intent_id` | `uuid` | no | FK to `payment_intents`; same request and api_sale obligation |
+| `created_at` | `timestamptz` | no | First verified logical binding |
+
+Constraints and indexes:
+
+Immutable proof-to-logical-request binding. A sale intent is unique across api_access_requests. A Graph purchase and budget reservation are each unique across source_requests, and a consumed purchase is unique across budget_reservations; logical obligations cannot be reused for additional requests. The same proof can be observed by multiple HTTP attempts of its own request, but cannot bind to another request/payment. Persist only after cryptographic verification by the reviewed payment adapter; a database row does not prove verification.
+
 ## Lifecycle State Machines
 
 ### Product Version
 
 ```text
-proposed -> validating -> invalid
-                      -> building -> ready -> retired
+proposed -> validating -> proposed (validated_at + passed summary)
+                      -> invalid -> validating
+proposed (validated) -> building -> ready -> retired
+                               -> proposed (failed/cancelled first build)
 ```
 
 - `invalid` and failed builds do not change deployment pointers.
 - Conversational edits create a new version row with `parent_version_id`.
-- A ready version is not live until deployment activation succeeds.
+- A ready version is not live until explicit deployment activation succeeds. Ready versions remain ready during failed refreshes; run status carries the failure. Validation and Build are separate commands; terminal runs cannot be silently reset.
+- Queued runs may be cancelled before dispatch; blocked runs may resume with their original identity. A normal build cannot update deployment pointers.
 
 ### Execution Run
 
@@ -1783,7 +1972,7 @@ In one database transaction:
 
 1. Validate the product version and its source snapshots.
 2. Insert the execution run with a stable logical idempotency key.
-3. Enqueue the pg-boss job in the same PostgreSQL transaction where supported.
+3. Insert the required command_dispatches outbox row in the same transaction as the run and control command. Relay the stable command ID to pg-boss after commit; workers deduplicate and reconcile domain side effects. This initial migration does not implement the relay.
 
 Do not reserve an invented Graph price when the actual x402 requirement has not been received.
 
@@ -1808,14 +1997,11 @@ After the initial source HTTP attempt returns `402`, validate the complete requi
 
 After commit, the worker creates a provider attempt with its own request fingerprint, reconciliation reference, authorization expiry, and provider idempotency key, obtains the bounded signature, and records the payment-bearing source HTTP attempt. Privy's idempotency window is finite, so expiration is never treated as proof that a transaction did not execute. The worker consumes the reservation whenever settlement is confirmed, even if Graph data delivery later fails, and releases it only on a definite non-payment failure.
 
-### Publish a Successful Materialization
+### Finish a Build, Activate, or Refresh
 
-In one database transaction:
+A successful Build transaction commits its artifact, ready materialization, run outcome and version readiness only. It does not update deployment pointers. A separate creator-authorized activation transaction checks expected lock_version, ready matching version/materialization and source/access readiness, then changes the active pointers together. A scheduled refresh may update only active_materialization_id, with a compare-and-swap proving the deployment still serves the same version. Failed/cancelled work preserves all previous pointers.
 
-1. Confirm the run succeeded and the artifact passes schema/resource validation.
-2. Insert the immutable materialization.
-3. Atomically update the deployment's active version and materialization pointers using `lock_version`.
-4. Preserve the previous pointers if the transaction fails.
+Accepting a proposal serializes on the session/proposal and product, validates its expected hash, inserts the immutable version/source projections and version-owned compilation record, and appends the acceptance decision under the same command transaction. A repeated acceptance returns the original result.
 
 ### Serve an x402 Request
 
@@ -1887,24 +2073,25 @@ Do not cache a derived balance as authoritative unless the cache records its sou
 - Archive products and revoke credentials before deleting user-visible content.
 - Record evidence references as sanitized repository paths or immutable external references, never local machine paths containing secrets.
 
+### Durable Recovery Transactions
+
+- Reserve model/tool capacity under a planning_checkpoints row lock before dispatch. Every planning_calls attempt retains its immutable reservation. Uncertain observations do not free it; workspace/global admission still requires the application limiter.
+- Initialize one execution_run_contexts row from the run's queued_at, then initialize each run_source_contexts row. Account for any block probe as a stable source request, freeze its resolved block before data-page dispatch, and reuse the same records after a crash.
+- Verify request-access capability before recovering an anonymous request. Insert proof binding under its unique authorization hash and reconcile the matching payment before serving. Retry delivery uses the same pinned materialization and does not insert another sale.
+- Retain recovery-bound materializations/artifacts at least through recovery_expires_at, regardless of their serving freshness. Expiry/revocation never authorizes automatic replacement payment. Browser authority restoration and actual recovery duration remain E2/operator-profile decisions.
+
 ## Migration Order
 
-The initial migration series should preserve dependency clarity rather than create one giant migration:
+The initial series is implemented in backend/migrations, not one monolithic file:
 
-1. PostgreSQL extensions and common validation helpers.
-2. `users`, `workspaces`, and `workspace_members`.
-3. `networks` and `assets`, followed by verified seed data.
-4. `account_wallets`, `wallet_addresses`, `wallet_asset_capabilities`, `wallet_policies`, `wallet_signer_grants`, `spending_policies`, and `wallet_balance_snapshots`.
-5. `provider_credentials`, `source_snapshots`, `agent_sessions`, `agent_messages`, `data_products`, `data_product_versions`, `data_product_version_sources`, and `product_version_layouts`; add the deferred Agent-session product FK after both tables exist.
-6. `deployments`, `publication_versions`, `api_credentials`, and `refresh_schedules`; add active-pointer FKs after target tables exist.
-7. `execution_runs` and `run_attempts`.
-8. `budget_reservations` and `payment_intents`, followed by the deferred consumed-payment FK.
-9. `payment_attempts`, `payment_settlements`, and `payment_allocations`.
-10. `artifacts`, `node_runs`, `node_run_artifacts`, `source_requests`, `source_http_attempts`, and `materializations`; add deployment materialization pointers afterward.
-11. `trace_streams`, `trace_events`, `api_access_requests`, `api_http_attempts`, and `usage_events`.
-12. `financial_ledger_entries`, derived views, immutable-field protections, and final cross-table validation triggers where justified.
+1. 0001-0009 create identity, network, wallet, product, deployment, execution, evidence, payment and recovery tables respectively. PostgreSQL's built-in gen_random_uuid requires no extension.
+2. 0010 adds foreign keys after all cyclic targets exist.
+3. 0011 adds unique/partial indexes and scalar/JSON-envelope checks.
+4. 0012 adds scoped ownership and immutable-history protections.
+5. 0013-0014 define and register lineage, lifecycle, planner-reservation and recovery-retention guards.
+6. 0015 adds network/asset/payment consistency and evidence bindings.
 
-Every migration must have a rollback or forward-fix strategy. Seed scripts contain only public network/asset metadata and demo-safe records.
+Each migration runs transactionally with a checksummed journal. Failure rolls back only that unapplied migration; committed history is preserved and later changes use forward fixes. Explicit seeds contain only public network identities and HBAR metadata, never wallets, funds, credentials or unapproved limits. See [database.md](backend/database.md) for commands, schema authority, retention, test evidence and unimplemented service invariants.
 
 ## Representative MVP Record Flow
 
@@ -1964,7 +2151,7 @@ User + Workspace
 - [ ] The DAG JSON schema and operator configuration schemas are versioned and testable.
 - [ ] All statuses have explicit transition tests, including uncertain payment and revoked authorization paths.
 - [ ] The 5 MiB inline artifact proposal is tested against the representative DEX result.
-- [ ] Drizzle can represent required constraints; reviewed SQL migrations cover constraints it cannot express directly.
+- [x] All 51 tables and 699 columns match Drizzle query mappings and model 1.4 in isolated SQL tests; SQL migrations own foreign keys, checks, indexes and triggers that are intentionally not duplicated in Drizzle metadata.
 - [ ] Indexes are checked against expected creator dashboard, worker polling, API, and reconciliation queries.
 - [ ] Migration and fixture plans run identically on Railway PostgreSQL and Docker PostgreSQL.
 - [ ] No table or JSON document provides a place for raw secrets or hidden model reasoning.
@@ -1984,9 +2171,7 @@ Provider-specific metadata that proves necessary should first be added to valida
 
 ## Change Control
 
-The proposed [frontend/backend API contract](api-contract.md#6-review-gates-and-data-model-gaps) identifies review items M1-M3 for command idempotency, anonymous request recovery authorization, and validation/build/deployment transitions. These are not yet approved changes to this version 1.3 model; no corresponding fields, tables, or transition changes are introduced by the interface draft.
-
-The proposed [harness design](backend/harness/verification.md#review-gates) additionally details H1 operator/configuration schemas and H2 planning-budget checkpoints, frozen run context and cross-attempt source-request recovery. Review their schemas, uniqueness and lifecycle invariants before implementing them in JSONB or relational records. The harness documents do not introduce approved fields or changes to this baseline. The five-type MVP scope is confirmed. A proposed [CompilationProvenance sidecar](backend/harness/semantic-templates.md#3-deterministic-expansion-and-provenance) must separately define immutable ownership, uniqueness, hashes, acceptance transaction and retention under H1/H2 before persistence. Template metadata must not become a second executable spec, an unvalidated JSONB field or synthetic node IDs inside product_version_layouts.
+On 2026-09-05 the human approved items 1-5: M1 durable commands, M2 anonymous request recovery, M3 lifecycle clarification, and H2 durable planning/run recovery plus immutable compilation provenance. Version 1.4 records their persistence implementation above. The HTTP contract remains a draft for endpoint implementation, and H1 exact executable schemas, H3 live methodology/limits, E1/E2 provider and buyer capabilities, and fee policy remain open. No runtime, funds movement or deployed provider capability is approved merely by creating these tables.
 
 After human approval, changes to this model require:
 
@@ -1995,4 +2180,4 @@ After human approval, changes to this model require:
 3. Tests for affected transitions, constraints, and derived views.
 4. An AI contribution and project change-log entry in [plan.md](plan.md) when AI materially influenced the change.
 
-The human team approved version 1.3 as the MVP implementation baseline on 2026-09-05, including Draft 1.2's Graph source/customer-credential/per-query x402 refinements and Draft 1.3's Hedera x402/recipient-capability/settlement refinements. Source, credential, wallet-capability, publication, and payment migrations may now be designed from this baseline. The initial downstream profile is Hedera testnet with HBAR; other open checklist items remain implementation and external-integration validation gates.
+The human team approved the version 1.3 baseline and subsequently the version 1.4 persistence directions on 2026-09-05. This retains Draft 1.2's Graph source/customer-credential/per-query x402 refinements and Draft 1.3's Hedera x402/recipient-capability/settlement refinements. The initial migrations and typed schema now implement this baseline; see backend/database.md for tested structural guards and remaining service/native-database verification. The initial downstream profile is Hedera testnet with HBAR; other open checklist items remain implementation and external-integration validation gates.

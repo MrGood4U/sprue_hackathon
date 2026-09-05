@@ -38,7 +38,7 @@ Each entry contains configSchema, inputPorts, outputPorts, inferOutputSchema, va
 
 The registry hash covers versioned definitions and implementation identity. Executions pin runtimeVersion and registryHash; a worker missing the pinned version returns RUNTIME_VERSION_UNAVAILABLE instead of substituting its newest operator. Compiler output may be cached by specHash/registryHash but is not an independent editable source of truth.
 
-[Semantic templates](semantic-templates.md) provide Wallet Activity and Repeat Activity as compile-time expansions into these operators, not extra runtime types. The expanded primitive spec remains the only execution definition; template provenance is separately reviewed under H1/H2.
+[Semantic templates](semantic-templates.md) provide Wallet Activity and Repeat Activity as compile-time expansions into these operators, not extra runtime types. The expanded primitive spec remains the only execution definition; template provenance is persisted separately under approved H2/model 1.4; its exact executable validation remains H1.
 
 ## 3. Types and Expression Language
 
@@ -151,4 +151,4 @@ With no input rows, this grouped metric returns an empty array, not invented zer
 
 Reject unknown types/versions/config fields, duplicate IDs, cycles, disconnected/dead nodes, missing inputs, invalid ports, unreachable output, extra output nodes, unsatisfied field/unit constraints, unbounded expressions, unsupported source semantics, resource excess and inconsistent output schemas. Every accepted node must reach the single output. The first runtime supports DAGs, not loops or recursive feedback edges.
 
-The data-model example uses abbreviated query/config fields for illustration; it is not a complete executable operator schema. This document proposes those missing details under H1, without silently rewriting model 1.3. The canonical illustration and frontend fixture now show the same seven-node denominator-safe composition. This corrects examples only, not schema approval or a shipped runtime; after H1 approval, publish complete schemas and reject older incompatible shapes explicitly.
+The data-model example uses abbreviated query/config fields for illustration; it is not a complete executable operator schema. This document proposes those missing details under H1, without silently approving executable schemas through model 1.4. The canonical illustration and frontend fixture now show the same seven-node denominator-safe composition. This corrects examples only, not schema approval or a shipped runtime; after H1 approval, publish complete schemas and reject older incompatible shapes explicitly.

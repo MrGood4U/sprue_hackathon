@@ -1,6 +1,6 @@
 # Deployment, Private API, and Publication APIs
 
-Draft 0.1. Read the [shared contract](../../api-contract.md) and [Builder contracts](products-builder.md). `W` expands to `/api/v1/workspaces/{workspaceId}`. All operations require the active creator owner; mutations require Idempotency-Key. Asynchronous guarantees and build/activation separation depend on M1/M3.
+Draft 0.1. Read the [shared contract](../../api-contract.md) and [Builder contracts](products-builder.md). `W` expands to `/api/v1/workspaces/{workspaceId}`. All operations require the active creator owner; mutations require Idempotency-Key. M1/M3 directions are approved in model 1.4; asynchronous guarantees, explicit activation and refresh compare-and-swap still require service implementation.
 
 ## 1. Deployment Lifecycle
 

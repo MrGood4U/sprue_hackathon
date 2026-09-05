@@ -6,7 +6,7 @@ Draft 0.2. See the [overview](README.md), [tools](tools.md), and [constraints](c
 
 | Step | Input | Work and responsible component | Output / exit condition |
 |---|---|---|---|
-| P0. Admit | Authenticated message, session, optional product/parent version and access selections | Controller verifies ownership, parent, message size, command deduplication, and platform planning allowance; redacts secrets before any model call | Trusted context and durable planning command, or typed rejection; M1/H2 persistence gates apply |
+| P0. Admit | Authenticated message, session, optional product/parent version and access selections | Controller verifies ownership, parent, message size, command deduplication, and platform planning allowance; redacts secrets before any model call | Trusted context and durable planning command, or typed rejection; approved M1/H2 records apply; controller remains unimplemented |
 | P1. Specify meaning | Sanitized intent and relevant conversation decisions | Model extracts required facts, dimensions, metric definition, time boundaries, units, null/error policy, and refresh intent; deterministic schema checks the result | SemanticPlan, or a small clarification; ambiguous denominator/time/access choice is not guessed |
 | P2. Find sources | Required facts and user network/protocol scope | Model calls bounded source discovery through the Graph metadata adapter | Ranked candidates with provider evidence; no raw data query or invented source IDs |
 | P3. Verify source fit | Candidate handles and required fields/period | Inspect real schema/identity, resolve immutable deployment, check types and mapping; distinguish schema support from observed historical coverage | SourceBinding and CoverageReport; unavailable facts cause needs_input/unsupported, not a fabricated query |
@@ -73,7 +73,7 @@ At each phase the model may submit a bounded structured candidate to the control
 
 The canonical spec must encode all executable semantics, including interval calculation, selected fields, unit conversions, null policy, aggregation definitions, ordering, and output schema. Do not leave essential behavior only in a chat summary or SemanticPlan. [Operator design](operators.md) proposes the required configuration schemas for review H1.
 
-P5 may use `templates.read` and `templates.expand` with pinned versions and typed bindings. Validate their expanded nodes, edges and budgets through the same compiler. Retain a separately validated compilation-provenance sidecar under H1/H2; never put semantic template nodes into the runtime DAG. Parameter edits create new proposals and show window/threshold/population diffs; accepted and active versions remain untouched. See [semantic templates](semantic-templates.md).
+P5 may use `templates.read` and `templates.expand` with pinned versions and typed bindings. Validate their expanded nodes, edges and budgets through the same compiler. Retain a separately validated compilation-provenance sidecar in approved H2 compilation_records, with exact validation under H1; never put semantic template nodes into the runtime DAG. Parameter edits create new proposals and show window/threshold/population diffs; accepted and active versions remain untouched. See [semantic templates](semantic-templates.md).
 
 ### P6-P7: Verification and Honest Presentation
 
@@ -99,25 +99,25 @@ A planning command can succeed by returning a useful clarification or unsupporte
 
 Accepted scheduled refreshes use the already authorized schedule/version and current budgets, not a new LLM decision on every tick. They need not ask the creator every time, but must stop on revoked authority, changed policy, unavailable source, or exhausted budget. The planner cannot create or resume that authorization by writing prose.
 
-A failed build does not trigger an automatic new paid build to "repair" its query. Show the failure and propose a new version if semantic changes are necessary. Payment uncertainty must be reconciled first. A successful build and deployment activation remain separate under API model gate M3.
+A failed build does not trigger an automatic new paid build to "repair" its query. Show the failure and propose a new version if semantic changes are necessary. Payment uncertainty must be reconciled first. A successful build and deployment activation remain separate under the approved M3/model 1.4 lifecycle.
 
 ## 3. Persistence and Recovery Mapping
 
-| Harness record | Proposed home | Boundary |
+| Harness record | Approved persistence home (model 1.4) | Boundary |
 |---|---|---|
 | Visible input, clarification, proposal, tool summary | agent_messages.content_text/content_json | Versioned allowlisted variants; no raw model reasoning or secrets |
-| Planning progress, call reservations, tool idempotency/outcome | M1 command/checkpoint refinement, review H2 | No new harness_jobs table or free-form checkpoint blob assumed |
+| Planning progress, call reservations, tool idempotency/outcome | control_commands, command_dispatches, planning_checkpoints, planning_calls | Explicit bounded records; sanitized result references to agent_messages |
 | Source identity and schema | source_snapshots | Immutable validated facts, workspace-owned |
-| Accepted specification and semantic lineage | Canonical spec plus validated proposal/evidence references | Every runtime semantic must be in the accepted spec; H1 shapes reviewed first |
-| Live execution parameters | artifacts with artifact_kind evidence, proposed RunContext schema | Same run; singleton creation under run lock; no new artifact kind; review H2 before use |
+| Accepted specification and semantic lineage | data_product_versions, data_product_version_sources, compilation_records | Every runtime semantic stays in the canonical spec; provenance is immutable and separate; exact H1 validation remains required |
+| Live execution parameters | execution_run_contexts and run_source_contexts | Common immutable queued-time anchor; source initialization freezes block before data pages; no generic artifact/checkpoint blob |
 | Run, attempt, node, page, payment, output | Existing execution/source/artifact/payment entities | Preserve distinct logical work and physical attempts |
 | Build explanation | trace_streams and trace_events | Reproducible summaries, source references and validation facts, not hidden reasoning |
 
 RunContext must include schemaVersion, runId, specHash, registryHash, interval per source, resolved block per source, query/variable hashes, runtime/adapter versions, and provenance references. It is frozen once before the first related data side effect; unknown block metadata must be resolved through an authorized, metered source operation when needed. No provider request can bypass source accounting by being called a "metadata probe."
 
-Use queued_at as the proposed stable run time anchor, not the current retry time. If source resolution itself requires paid metadata queries, persist a partial initialization checkpoint and reconcile those requests before finishing the immutable RunContext. H2 must define this initialization and uniqueness; do not make payment before its recovery identity is durable.
+Use queued_at as the approved stable run time anchor, not the current retry time. If source resolution itself requires paid metadata queries, persist a partial initialization checkpoint and reconcile those requests before finishing the immutable RunContext. Model 1.4 defines this initialization and uniqueness; do not make payment before its recovery identity is durable.
 
-On restart, reload trusted command state and committed tool results. Never reset model/tool/spend counters or re-run uncertain actions blindly. Completed retained source/node artifacts may be reused only for the same run, matching spec/context/input hashes and authorized lineage. A new node attempt cannot create a second purchase merely because its node_run_id changed; H2 covers the cross-attempt request mapping.
+On restart, reload trusted command state and committed tool results. Never reset model/tool/spend counters or re-run uncertain actions blindly. Completed retained source/node artifacts may be reused only for the same run, matching spec/context/input hashes and authorized lineage. A new node attempt cannot create a second purchase merely because its node_run_id changed; Model 1.4 binds source_requests to logical run/node/page identity and source_http_attempts to the physical node attempt.
 
 ## 4. Frontend and HTTP Integration
 

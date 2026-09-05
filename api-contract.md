@@ -2,9 +2,9 @@
 
 ## Status and Authority
 
-Draft 0.1, authored on 2026-09-05 for human review. This is a proposed HTTP contract, not a description of implemented endpoints. The frontend currently uses demo services; the backend has not been implemented.
+Draft 0.2, authored on 2026-09-05 for human review. This is a proposed HTTP contract, not a description of implemented endpoints. The frontend currently uses demo services; the database foundation exists, but API/worker services have not been implemented.
 
-Inputs: [data model 1.3](data-model.md), [product design 1.3](product-design.md), [current frontend ownership](frontend/README.md), and [implementation status](frontend/implementation-status.md). Database invariants take precedence over fixture behavior. This draft does not approve a migration, provider capability, fee, funded operation, or deployment.
+Inputs: [data model 1.4](data-model.md), [product design 1.3](product-design.md), [current frontend ownership](frontend/README.md), and [implementation status](frontend/implementation-status.md). Database invariants take precedence over fixture behavior. M1-M3 persistence/lifecycle directions were approved on 2026-09-05 and now map to data-model 1.4 and the initial database foundation. Endpoints remain unimplemented; this draft does not establish provider capability or authorize a fee, funded operation, or deployment.
 
 The specification uses resource-oriented JSON APIs, durable asynchronous commands, and resumable trace reads. HTTP transport is shared by Railway and Docker deployments. No browser calls the database, Graph payment adapter, private Privy signer, or Blocky402 settlement endpoint directly.
 
@@ -121,7 +121,7 @@ Error response:
 
 All POST commands and state-changing PATCH/PUT operations require a random `Idempotency-Key` (UUID recommended, 16-128 printable ASCII characters). Explicit exceptions are read-only validation/preflight POSTs, which are labeled in their operation table. No normal GET starts a build, creates a wallet, pays Graph, or publishes an endpoint. Hosted data GETs are separately documented payment operations.
 
-Scope command deduplication to verified actor, workspace when applicable, operation name, and key. Persist a keyed fingerprint of the normalized target, body, and preconditions. A matching retry returns the original durable command/resource identity; a different payload returns 409. Authenticate before deduplication, including replay. A concurrent duplicate never starts a second worker job. Ordinary keys are retained for at least the product's audit lifetime in MVP; an expired record is an explicit `IDEMPOTENCY_KEY_EXPIRED` conflict, not permission to execute again. This generic guarantee requires model gate M1 below; run/payment keys alone do not cover every endpoint.
+Scope command deduplication to verified actor, workspace when applicable, operation name, and key. Persist a keyed fingerprint of the normalized target, body, and preconditions. A matching retry returns the original durable command/resource identity; a different payload returns 409. Authenticate before deduplication, including replay. A concurrent duplicate never starts a second worker job. Ordinary keys are retained for at least the product's audit lifetime in MVP; an expired record is an explicit `IDEMPOTENCY_KEY_EXPIRED` conflict, not permission to execute again. This generic guarantee requires the approved M1 records plus a tested command service; run/payment keys alone do not cover every endpoint.
 
 Redacted fingerprints must still distinguish secret rotations: use a server-keyed fingerprint of sensitive input, never store the input itself. Do not persist raw one-time API credentials in an idempotency response cache. Lost credential responses are recovered by revoking the identified key and issuing a new key under a new logical command; the old raw value is never shown again.
 
@@ -179,7 +179,7 @@ SSE IDs are `streamId:sequenceNo`; emit only committed events, accept reconnects
 
 ## 6. Review Gates and Data-Model Gaps
 
-The following are proposals, not amendments to approved model 1.3. Do not implement dependent guarantees using process memory or unreviewed JSON fields. After review, revise data-model.md and its migration/transition plan first.
+M1-M3 directions below were approved on 2026-09-05 and incorporated into data-model 1.4. M1 maps to control_commands/command_dispatches; M2 maps to request recovery fields and api_payment_proofs; M3 maps to clarified lifecycle and transaction boundaries. SQL structure and representative guards exist; HTTP semantics and services still need implementation. E1/E2 remain unresolved. Do not replace durable records with process memory or unreviewed JSON fields.
 
 | Gate | Finding | Recommended resolution | Affected interfaces |
 |---|---|---|---|
@@ -197,7 +197,7 @@ Default fee remains disabled. UI sample price, 5% fee, five-minute cadence, API 
 
 ## 7. Verification and Implementation Handoff
 
-Before implementation, approve the contract and resolve M1-M3. E1/E2 gate only the corresponding live provider/buyer capabilities, not non-paid product development. Add OpenAPI and validated runtime/TypeScript schemas from the reviewed contract, then generate or implement typed frontend clients. This Markdown draft is intentionally not advertised as an executable OpenAPI specification.
+Before endpoint implementation, review the DTO/runtime schemas and implement the approved M1-M3 service transactions against data-model 1.4. E1/E2 gate only the corresponding live provider/buyer capabilities, not non-paid product development. Add OpenAPI and validated runtime/TypeScript schemas from the reviewed contract, then generate or implement typed frontend clients. This Markdown draft is intentionally not advertised as an executable OpenAPI specification.
 
 The endpoint catalog maps the complete designed UI; it is not a requirement to implement every convenience read before the first vertical slice. Use this order:
 
@@ -210,4 +210,4 @@ Convenience read endpoints may initially compose existing read models internally
 
 Acceptance tests must include cross-workspace object access, unknown fields, stale If-Match, concurrent duplicate commands, queue-crash recovery, trace reconnect, immutable version edits, no build-triggered activation, refresh/activation races, secret redaction, credential rotation with no x402 fallback, string-safe monetary arithmetic, revoked/drifted authority, separate network totals, pinned 402 retries, replay rejection, facilitator uncertainty, and payment-confirmed/delivery-failed recovery without a second charge. Test both Vercel/Railway and Docker networking; do not rely on a Vercel serverless request lasting for an entire build.
 
-This documentation change creates no runtime endpoints or migrations. Current provider references were checked only for authentication and x402 wire conventions; live interoperability is still unverified.
+This contract creates no runtime endpoints; its approved M1-M3 persistence is implemented separately in backend/migrations. Current provider references were checked only for authentication and x402 wire conventions; live interoperability is still unverified.

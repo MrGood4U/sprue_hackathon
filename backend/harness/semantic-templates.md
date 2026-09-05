@@ -1,6 +1,6 @@
 # Semantic Template Contract
 
-Draft 0.1, 2026-09-05. The human approved a small MVP operator scope and this design/frontend alignment work. Exact executable schemas (H1), durable compilation provenance (H2), and a live source, methodology and operating profile (H3) still need review. These are proposed backend contracts; the frontend demonstrates expansion with synthetic data only.
+Draft 0.1, 2026-09-05. The human approved a small MVP operator scope and this design/frontend alignment work. H2 compilation-provenance persistence is approved in data-model 1.4. Exact executable schemas (H1) and a live source, methodology and operating profile (H3) still need review. These are proposed backend contracts; the frontend demonstrates expansion with synthetic data only.
 
 ## 1. One Execution Definition
 
@@ -60,7 +60,7 @@ The initial semantic UI allows parameter edits and read-only expansion, not bidi
 
 The frontend stores only a local, explicitly synthetic draft with separate `specification` and display-template metadata. It neither persists a product version nor claims to hash/validate a live source. Navigating away resets the sample, and API/consumer pages continue to show the labeled default fixture until backend integration exists.
 
-Do not put template provenance or synthetic group IDs into `product_version_layouts`: the approved layout contains actual DAG node IDs only. Before backend persistence, H1/H2 must specify an immutable, schema-validated provenance record, its version/proposal ownership, uniqueness, content hashing, acceptance transaction and retention. Also review optional read projections for the proposal, VersionDetail and registry. No new column, JSONB field, HTTP mutation or migration is approved by this document.
+Do not put template provenance or synthetic group IDs into `product_version_layouts`: the approved layout contains actual DAG node IDs only. The approved H2 mapping uses immutable compilation_records, owned by either a proposal message or accepted version, with unique ownership and content/spec hash links. Acceptance copies provenance into a new version-owned row; it never reassigns a proposal record. The database checks envelope links, not deterministic expansion or canonical hashing. H1 must still define exact instance/config schemas and validation, and optional proposal/VersionDetail/registry read projections need contract review. No new HTTP mutation is introduced.
 
 ## 5. Verification and Implementation Order
 

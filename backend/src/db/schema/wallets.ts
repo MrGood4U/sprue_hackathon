@@ -1,0 +1,142 @@
+// Database-first column mapping. SQL migrations own foreign keys, indexes and triggers.
+// Never use schema push to replace the reviewed migrations.
+import { pgTable, uuid, text, integer, smallint, bigint, numeric, timestamp, boolean, jsonb, primaryKey } from "drizzle-orm/pg-core";
+
+export const account_wallets = pgTable("account_wallets", {
+  id: uuid("id").notNull().primaryKey().defaultRandom(),
+  workspace_id: uuid("workspace_id").notNull(),
+  owner_user_id: uuid("owner_user_id").notNull(),
+  provider: text("provider").notNull(),
+  provider_wallet_id: text("provider_wallet_id").notNull(),
+  provider_external_id: text("provider_external_id"),
+  provider_chain_type: text("provider_chain_type").notNull(),
+  provider_entity_id: text("provider_entity_id"),
+  provider_owner_id: text("provider_owner_id"),
+  provider_owner_type: text("provider_owner_type").notNull(),
+  label: text("label"),
+  control_model: text("control_model").notNull(),
+  status: text("status").notNull(),
+  archived_at: timestamp("archived_at", { withTimezone: true, mode: "date" }),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+});
+
+export const wallet_addresses = pgTable("wallet_addresses", {
+  id: uuid("id").notNull().primaryKey().defaultRandom(),
+  account_wallet_id: uuid("account_wallet_id").notNull(),
+  network_id: uuid("network_id").notNull(),
+  address_kind: text("address_kind").notNull(),
+  address: text("address").notNull(),
+  normalized_address: text("normalized_address").notNull(),
+  network_account_ref: text("network_account_ref"),
+  identity_status: text("identity_status").notNull(),
+  identity_evidence_ref: text("identity_evidence_ref"),
+  account_completion_status: text("account_completion_status").notNull(),
+  can_spend: boolean("can_spend").notNull().default(false),
+  can_receive: boolean("can_receive").notNull().default(false),
+  control_status: text("control_status").notNull(),
+  control_evidence_ref: text("control_evidence_ref"),
+  verified_at: timestamp("verified_at", { withTimezone: true, mode: "date" }),
+  status: text("status").notNull(),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+});
+
+export const wallet_asset_capabilities = pgTable("wallet_asset_capabilities", {
+  id: uuid("id").notNull().primaryKey().defaultRandom(),
+  wallet_address_id: uuid("wallet_address_id").notNull(),
+  asset_id: uuid("asset_id").notNull(),
+  association_status: text("association_status").notNull(),
+  can_receive: boolean("can_receive").notNull(),
+  can_spend: boolean("can_spend").notNull(),
+  receiver_signature_required: boolean("receiver_signature_required"),
+  evidence_source: text("evidence_source").notNull(),
+  evidence_ref: text("evidence_ref"),
+  evidence_hash: text("evidence_hash"),
+  status: text("status").notNull(),
+  observed_at: timestamp("observed_at", { withTimezone: true, mode: "date" }).notNull(),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+});
+
+export const wallet_policies = pgTable("wallet_policies", {
+  id: uuid("id").notNull().primaryKey().defaultRandom(),
+  workspace_id: uuid("workspace_id").notNull(),
+  provider: text("provider").notNull(),
+  provider_policy_id: text("provider_policy_id").notNull(),
+  revision_no: integer("revision_no").notNull(),
+  provider_owner_id: text("provider_owner_id"),
+  owner_control_model: text("owner_control_model").notNull(),
+  provider_chain_type: text("provider_chain_type").notNull(),
+  policy_version: text("policy_version").notNull(),
+  name: text("name").notNull(),
+  definition_json: jsonb("definition_json").notNull(),
+  definition_hash: text("definition_hash").notNull(),
+  status: text("status").notNull(),
+  observed_at: timestamp("observed_at", { withTimezone: true, mode: "date" }).notNull(),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+});
+
+export const wallet_signer_grants = pgTable("wallet_signer_grants", {
+  id: uuid("id").notNull().primaryKey().defaultRandom(),
+  workspace_id: uuid("workspace_id").notNull(),
+  account_wallet_id: uuid("account_wallet_id").notNull(),
+  provider: text("provider").notNull(),
+  provider_signer_id: text("provider_signer_id").notNull(),
+  provider_signer_type: text("provider_signer_type").notNull(),
+  wallet_policy_id: uuid("wallet_policy_id").notNull(),
+  signer_secret_ref: text("signer_secret_ref"),
+  signer_public_key_fingerprint: text("signer_public_key_fingerprint"),
+  granted_by_user_id: uuid("granted_by_user_id").notNull(),
+  consent_evidence_ref: text("consent_evidence_ref"),
+  status: text("status").notNull(),
+  valid_from: timestamp("valid_from", { withTimezone: true, mode: "date" }),
+  valid_until: timestamp("valid_until", { withTimezone: true, mode: "date" }),
+  granted_at: timestamp("granted_at", { withTimezone: true, mode: "date" }),
+  revoked_at: timestamp("revoked_at", { withTimezone: true, mode: "date" }),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+});
+
+export const spending_policies = pgTable("spending_policies", {
+  id: uuid("id").notNull().primaryKey().defaultRandom(),
+  workspace_id: uuid("workspace_id").notNull(),
+  wallet_signer_grant_id: uuid("wallet_signer_grant_id").notNull(),
+  network_id: uuid("network_id").notNull(),
+  asset_id: uuid("asset_id").notNull(),
+  purpose: text("purpose").notNull(),
+  allowed_destinations_json: jsonb("allowed_destinations_json").notNull(),
+  max_per_request_atomic: numeric("max_per_request_atomic", { precision: 78, scale: 0 }).notNull(),
+  max_per_period_atomic: numeric("max_per_period_atomic", { precision: 78, scale: 0 }).notNull(),
+  period_kind: text("period_kind").notNull(),
+  period_starts_at: timestamp("period_starts_at", { withTimezone: true, mode: "date" }).notNull(),
+  period_ends_at: timestamp("period_ends_at", { withTimezone: true, mode: "date" }).notNull(),
+  max_total_atomic: numeric("max_total_atomic", { precision: 78, scale: 0 }),
+  status: text("status").notNull(),
+  created_by_user_id: uuid("created_by_user_id").notNull(),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  lock_version: integer("lock_version").notNull().default(0),
+});
+
+export const budget_reservations = pgTable("budget_reservations", {
+  id: uuid("id").notNull().primaryKey().defaultRandom(),
+  spending_policy_id: uuid("spending_policy_id").notNull(),
+  execution_run_id: uuid("execution_run_id").notNull(),
+  node_id: text("node_id"),
+  idempotency_key: text("idempotency_key").notNull(),
+  amount_atomic: numeric("amount_atomic", { precision: 78, scale: 0 }).notNull(),
+  status: text("status").notNull(),
+  expires_at: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
+  consumed_payment_intent_id: uuid("consumed_payment_intent_id"),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+});
+
+export const wallet_balance_snapshots = pgTable("wallet_balance_snapshots", {
+  id: uuid("id").notNull().primaryKey().defaultRandom(),
+  wallet_address_id: uuid("wallet_address_id").notNull(),
+  asset_id: uuid("asset_id").notNull(),
+  balance_atomic: numeric("balance_atomic", { precision: 78, scale: 0 }).notNull(),
+  block_or_consensus_ref: text("block_or_consensus_ref"),
+  provider: text("provider").notNull(),
+  observed_at: timestamp("observed_at", { withTimezone: true, mode: "date" }).notNull(),
+});
