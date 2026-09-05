@@ -1,6 +1,6 @@
 # Identity, Wallet, and Graph Access APIs
 
-Draft 0.2. Read the [shared contract](../../api-contract.md) first. All paths below include `/api/v1`. `w` means workspaceId; IDs are UUIDs unless explicitly provider identifiers. Except app-config, every operation requires the verified creator. Workspace operations additionally require the active owner. Command operations use approved M1/model 1.4 records and still require service implementation; provider control operations also depend on E1.
+Draft 0.2. Read the [shared contract](../../api-contract.md) first. All paths below include `/api/v1`. `w` means workspaceId; IDs are UUIDs unless explicitly provider identifiers. Except app-config, every operation requires the verified creator. Workspace operations additionally require the active owner. Command operations use approved M1/model 1.5 records and still require service implementation; provider control operations also depend on E1.
 
 ## 1. Entry and Bootstrap
 
@@ -32,7 +32,7 @@ Draft 0.2. Read the [shared contract](../../api-contract.md) first. All paths be
 | POST | `/api/v1/workspaces/{w}/wallets/{walletId}/refresh-balances` | `{assetIds: Id[]}`; 1-10 configured same-network assets | 202 `CommandAccepted` | Append wallet_balance_snapshots; never transfers funds |
 | GET | `/api/v1/workspaces/{w}/wallets/{walletId}/funding-instructions` | `assetId` | 200 `FundingInstructions` | Derive supported funding address/network/asset; no top-up creation |
 
-The browser creates a user-owned wallet only through an approved Privy user flow; synchronization is not permission to create a service-owned replacement. Server reads must check owner configuration, not just entity association or a client-supplied address. Unknown/unowned provider resources return a non-disclosing 404. Initial creation of a product requires a wallet reference under model 1.4, but API-key mode does not require a funded wallet or signer grant.
+The browser creates a user-owned wallet only through an approved Privy user flow; synchronization is not permission to create a service-owned replacement. Server reads must check owner configuration, not just entity association or a client-supplied address. Unknown/unowned provider resources return a non-disclosing 404. Initial creation of a product requires a wallet reference under model 1.5, but API-key mode does not require a funded wallet or signer grant.
 
 `Wallet = {id, provider, providerWalletId, providerChainType, label: string | null, controlModel, status, addresses: WalletAddress[], updatedAt}`. Status/controlModel enums match account_wallets; show safe provider-owner verification facts without exposing server signer references.
 

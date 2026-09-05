@@ -1,14 +1,14 @@
 # Semantic Template Contract
 
-Draft 0.1, 2026-09-05. The human approved a small MVP operator scope and this design/frontend alignment work. H2 compilation-provenance persistence is approved in data-model 1.4. Exact executable schemas (H1) and a live source, methodology and operating profile (H3) still need review. These are proposed backend contracts; the frontend demonstrates expansion with synthetic data only.
+Draft 0.2, 2026-09-05. The human approved a small MVP operator scope and this design/frontend alignment work. H2 compilation-provenance persistence is approved in data-model 1.5. Exact executable schemas (H1) and a live source, methodology and operating profile (H3) still need review. These are proposed backend contracts; the frontend demonstrates expansion with synthetic data only.
 
 ## 1. One Execution Definition
 
-A semantic template is a developer-owned, versioned compiler recipe, not a runtime operator. The MVP registry contains only `source`, `filter`, `map`, `aggregate`, and `output`. Grouping is aggregate configuration, a source interval is window configuration, and a derived score is a bounded map expression.
+A semantic template is a developer-owned, versioned compiler recipe, not a runtime operator. The MVP registry contains `source`, `filter`, `map`, `aggregate`, `union`, `join`, and `output`. Grouping is aggregate configuration, a source interval is window configuration, and a derived score is a bounded map expression.
 
 The first presentation reads `Source -> Wallet Activity -> Repeat Activity -> Output`. Expanding the two semantic cards reveals seven primitive nodes. Source and Output remain visible; expansion changes neither the execution definition nor its hash. A worker executes only the fully expanded, validated primitive DAG and never interprets a template label or downloads a recipe at runtime.
 
-Join, Union, standalone Window/GroupBy/Score, token-price enrichment, true cohort retention, flow analysis, and arbitrary code are deferred. Reusing indexed subgraph facts does not authorize assumptions about their granularity, units, population or completeness.
+Standalone Window/GroupBy/Score, token-price enrichment, true cohort retention, flow analysis, and arbitrary code are deferred. Reusing indexed subgraph facts does not authorize assumptions about their granularity, units, population or completeness. Templates may feed or consume explicit Union/Join nodes, but do not hide multi-source composition inside a semantic template.
 
 ## 2. Initial Templates
 

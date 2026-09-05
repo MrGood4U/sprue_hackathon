@@ -1,6 +1,6 @@
 # Database Foundation
 
-Status: initial persistence implementation for data-model 1.4, 2026-09-05.
+Status: initial persistence implementation for data-model 1.5, 2026-09-05.
 
 The human approved M1, M2, M3 and the two H2 persistence directions (planning/run recovery and semantic compilation provenance). This foundation contains 51 domain tables and 699 columns, 15 ordered SQL migrations, typed Drizzle query mappings, a migration journal, public reference seeds and offline tests. It is not an API, queue relay, Agent, payment system or deployed database.
 

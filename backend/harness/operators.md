@@ -1,6 +1,6 @@
 # Query and Operator Contract
 
-Draft 0.2. This proposes the exact bounded language behind "turn intent into operators." It is not a shipped registry. Review H1 before implementing configuration schemas; preserve the approved [canonical spec envelope](../../data-model.md#canonical-data-product-specification).
+Draft 0.3. This proposes the exact bounded language behind "turn intent into operators." It is not a shipped registry. Review H1 before implementing configuration schemas; preserve the approved [canonical spec envelope](../../data-model.md#canonical-data-product-specification).
 
 ## 1. Compilation Layers
 
@@ -16,7 +16,7 @@ Display names such as "Group by Protocol" are not operator identifiers. The same
 
 ## 2. Confirmed MVP Scope and Proposed Configuration
 
-The human approved these five operator types on 2026-09-05; their exact configuration and numeric/null schemas remain H1 review work. Each has operatorVersion `1` once implemented. Source is the only network-capable operator; its I/O is performed by the trusted Graph adapter, not an expression evaluator.
+The human approved these seven operator types on 2026-09-05; their exact configuration and numeric/null schemas remain H1 review work. Each has operatorVersion `1` once implemented. Source is the only network-capable operator; its I/O is performed by the trusted Graph adapter, not an expression evaluator.
 
 | Type | Ports | Proposed configuration | Semantics and constraints |
 |---|---|---|---|
@@ -24,23 +24,25 @@ The human approved these five operator types on 2026-09-05; their exact configur
 | `filter` | rows -> rows | `{predicate: Expression}` | Keep rows for which a typed Boolean expression is true; null is not silently truthy; no schema change |
 | `map` | rows -> rows | `{fields: Record<string, Expression>}` | Explicit projection/derivation; output contains only named fields; fields read original input, not earlier sibling assignments |
 | `aggregate` | rows -> rows | `{groupBy: string[], measures: Record<string, Measure>}` | Group on typed keys; count_rows, count_distinct, sum, min and max over declared fields; explicit memory limits |
+| `union` | rows[] -> rows | Proposed `{inputs: string[], sourceDiscriminator?: string}` | Append rows from multiple inputs only after schema-compatible normalization; preserve source lineage when the product semantics require it; reject incompatible fields and unbounded input fan-in |
+| `join` | left rows + right rows -> rows | Proposed `{keys: JoinKey[], type: inner-or-left, cardinality, collisionPolicy, nullPolicy}` | Match two inputs on explicit typed keys; reject implicit many-to-many fan-out, missing keys and unbounded output estimates; exact key/cardinality semantics remain H1 |
 | `output` | rows input; final rows output | `{orderBy: [{field, direction}], nullPolicy: reject_unexpected}` | Validate exact outputSchema, stable total ordering, row/byte bounds; pass final artifact to materializer, not API publication |
 
 The diagram uses `rows -> rows` as port notation, not an arrow field in serialized edges. Canonical edges still use fromNode/fromPort/toNode/toPort. Source/port schema inference must prove each downstream field reference exists and has a compatible type.
 
-GroupBy is initially aggregate configuration, a rolling interval is source window configuration, and Score is a map expression. No separate window/group/score node is required merely because the frontend has a similarly named fixture card. Separate join, sort/top-k, arbitrary window functions, external HTTP enrichment and custom-code operators are deferred; register them only after semantics, bounds, tests and human scope review.
+GroupBy is initially aggregate configuration, a rolling interval is source window configuration, and Score is a map expression. No separate window/group/score node is required merely because the frontend has a similarly named fixture card. Union and Join are now explicit MVP operators for multiple existing Subgraph results. Sort/top-k, arbitrary window functions, external HTTP enrichment and custom-code operators remain deferred; register them only after semantics, bounds, tests and human scope review.
 
 Output sorting is for deterministic serving, not an undeclared top-k operation. A requested ranking/top-N transformation remains unsupported until explicitly modeled; transport preview/limit does not change the metric. No silent truncation converts an incomplete aggregate into a successful final output.
 
 ### Registry Implementation Contract
 
-The confirmed existing-Subgraph boundary applies to every operator. A source queries an already available deployment; no operator or compilation target may create or deploy a Subgraph or Subgraph Composition. Prefer supported source-query filters/projections and existing derived fields only after verifying equivalent semantics. Do not invent query capabilities, silently rewrite accepted versions, or add unnecessary transforms; source and output validation remain required. The initial single-source profile and five-type allowlist are unchanged.
+The confirmed existing-Subgraph boundary applies to every operator. A source queries an already available deployment; no operator or compilation target may create or deploy a Subgraph or Subgraph Composition. Prefer supported source-query filters/projections and existing derived fields only after verifying equivalent semantics. Do not invent query capabilities, silently rewrite accepted versions, or add unnecessary transforms; source and output validation remain required. The runtime supports multiple explicit source entries and the seven-type allowlist, while the source adapter remains responsible for one pinned query per source node.
 
 Each entry contains configSchema, inputPorts, outputPorts, inferOutputSchema, validateSemantics, estimateResources, and execute, plus type/version and determinism guarantees. Functions are developer-owned code resolved by a frozen registry, never names dynamically imported from a user path. Changes to semantics require a new operatorVersion; do not keep version 1 while changing rounding, null behavior or aggregation meaning.
 
 The registry hash covers versioned definitions and implementation identity. Executions pin runtimeVersion and registryHash; a worker missing the pinned version returns RUNTIME_VERSION_UNAVAILABLE instead of substituting its newest operator. Compiler output may be cached by specHash/registryHash but is not an independent editable source of truth.
 
-[Semantic templates](semantic-templates.md) provide Wallet Activity and Repeat Activity as compile-time expansions into these operators, not extra runtime types. The expanded primitive spec remains the only execution definition; template provenance is persisted separately under approved H2/model 1.4; its exact executable validation remains H1.
+[Semantic templates](semantic-templates.md) provide Wallet Activity and Repeat Activity as compile-time expansions into these operators, not extra runtime types. The expanded primitive spec remains the only execution definition; template provenance is persisted separately under approved H2/model 1.5; its exact executable validation remains H1.
 
 ## 3. Types and Expression Language
 
@@ -153,4 +155,4 @@ With no input rows, this grouped metric returns an empty array, not invented zer
 
 Reject unknown types/versions/config fields, duplicate IDs, cycles, disconnected/dead nodes, missing inputs, invalid ports, unreachable output, extra output nodes, unsatisfied field/unit constraints, unbounded expressions, unsupported source semantics, resource excess and inconsistent output schemas. Every accepted node must reach the single output. The first runtime supports DAGs, not loops or recursive feedback edges.
 
-The data-model example uses abbreviated query/config fields for illustration; it is not a complete executable operator schema. This document proposes those missing details under H1, without silently approving executable schemas through model 1.4. The canonical illustration and frontend fixture now show the same seven-node denominator-safe composition. This corrects examples only, not schema approval or a shipped runtime; after H1 approval, publish complete schemas and reject older incompatible shapes explicitly.
+The data-model example uses abbreviated query/config fields for illustration; it is not a complete executable operator schema. This document proposes those missing details under H1, without silently approving executable schemas through model 1.5. The canonical illustration and frontend fixture now show the same seven-node denominator-safe composition. This corrects examples only, not schema approval or a shipped runtime; after H1 approval, publish complete schemas and reject older incompatible shapes explicitly.

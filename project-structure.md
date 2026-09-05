@@ -2,7 +2,7 @@
 
 ## Status
 
-This document records the completed project-structure conception and selected technical/deployment boundaries. [Data-model version 1.4](data-model.md) is the approved implementation baseline, with Hedera testnet HBAR through Blocky402 as the initial downstream profile. The seven-page application under `frontend/` is now the maintained product frontend. The initial database foundation is implemented (see [database.md](backend/database.md)); API/standby-worker scaffolding is implemented, while business/provider integration remains pending, and [api-contract.md](api-contract.md) Draft 0.3 defines the proposed HTTP boundary and model review gates. Frontend/backend ownership, the Evidence-First Console direction, and the browser-only product boundary remain in force.
+This document records the completed project-structure conception and selected technical/deployment boundaries. [Data-model version 1.5](data-model.md) is the approved implementation baseline, with Hedera testnet HBAR through Blocky402 as the initial downstream profile. The seven-page application under `frontend/` is now the maintained product frontend. The initial database foundation is implemented (see [database.md](backend/database.md)); API/standby-worker scaffolding is implemented, while business/provider integration remains pending, and [api-contract.md](api-contract.md) Draft 0.3 defines the proposed HTTP boundary and model review gates. Frontend/backend ownership, the Evidence-First Console direction, and the browser-only product boundary remain in force.
 
 ## Product Model
 
@@ -45,7 +45,7 @@ The selected sponsor integrations are The Graph, Hedera, and Privy. The user rep
 - Report missing facts and search limits when no suitable existing source is found; propose a requirement revision or inspect another existing source supplied by the creator.
 - Do not create, generate, deploy, or maintain new Subgraphs or Subgraph Composition. New indexing/ingestion and automatic compilation into a new upstream index are outside the product boundary, not future fallback tasks.
 
-The user confirmed this boundary on 2026-09-05; see [agents.md](agents.md#confirmed-existing-subgraph-boundary). Apply only necessary supported Sprue transformations after retrieval. Sprue still builds, refreshes, and deploys its own data products and hosted APIs. The first runtime remains single-source; multi-source/cross-chain execution, Union, and Join require separate scope approval.
+The user confirmed this boundary on 2026-09-05; see [agents.md](agents.md#confirmed-existing-subgraph-boundary). Apply only necessary supported Sprue transformations after retrieval. Sprue still builds, refreshes, and deploys its own data products and hosted APIs. On 2026-09-05, the user expanded the runtime to allow multiple existing Subgraph sources combined through explicit Union/Join operators. This is downstream Sprue composition, not new Subgraph or Subgraph Composition creation.
 
 ### Hedera and Blocky402: Optional Paid API Access
 
@@ -355,7 +355,7 @@ The user confirmed Option A on 2026-09-05: the Agent dynamically composes predef
 Source, Filter, Map, Aggregate, Output
 ```
 
-This list is an operator catalog, not a required sequence. Different requests may use different supported nodes and connections. A DAG need not use every type. GroupBy is aggregate configuration; time windows and derived scores are bounded config/expressions. Join, Union and advanced semantic analytics are deferred. Wallet Activity and Repeat Activity compile into primitives under [semantic-templates.md](backend/harness/semantic-templates.md); their display groups never create a second runtime.
+This list is an operator catalog, not a required sequence. Different requests may use different supported nodes and connections. A DAG need not use every type. GroupBy is aggregate configuration; time windows and derived scores are bounded config/expressions. Union and Join are now in the MVP for explicit multi-Subgraph composition; advanced semantic analytics remain deferred. Wallet Activity and Repeat Activity compile into primitives under [semantic-templates.md](backend/harness/semantic-templates.md); their display groups never create a second runtime.
 
 - Accept a versioned execution definition containing node types, validated configuration, typed inputs/outputs, and dependency edges; keep visual positions separate.
 - Reject unsupported operators, incompatible connections, cycles, invalid configuration, or requests outside permission and resource budgets before execution.

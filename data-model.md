@@ -2,11 +2,11 @@
 
 ## Status
 
-Version: 1.4
+Version: 1.5
 
 Date: 2026-09-05
 
-Stage: Approved MVP design baseline. Version 1.4 incorporates the user-approved durable command, anonymous recovery, lifecycle, checkpoint and compilation-provenance directions into the initial persistence specification. Version 1.3 included Draft 1.2's The Graph source and dual-access refinements plus Draft 1.3's Hedera x402 v2 `exact`, account/asset capability, facilitator-capability, and normalized settlement-reconciliation refinements. The human team approved the combined model and selected Hedera testnet with HBAR for the initial downstream integration on 2026-09-05. External integration and implementation validation remain open.
+Stage: Approved MVP design baseline. Version 1.5 incorporates the user's multi-Subgraph composition decision: a product version may reference multiple existing source snapshots and combine their normalized results through explicit Union/Join DAG operators. Version 1.4 incorporated the user-approved durable command, anonymous recovery, lifecycle, checkpoint and compilation-provenance directions into the initial persistence specification. Version 1.3 included Draft 1.2's The Graph source and dual-access refinements plus Draft 1.3's Hedera x402 v2 `exact`, account/asset capability, facilitator-capability, and normalized settlement-reconciliation refinements. The human team approved the combined model and selected Hedera testnet with HBAR for the initial downstream integration on 2026-09-05. External integration and implementation validation remain open.
 
 This document is the source of truth for Sprue's MVP domain model, PostgreSQL persistence model, lifecycle rules, financial separation, and runtime records. It translates the product and architecture decisions in [agents.md](agents.md), [plan.md](plan.md), and [project-structure.md](project-structure.md) into an implementation-ready model.
 
@@ -15,7 +15,7 @@ The model describes intended behavior. It is not evidence that an external walle
 ## Confirmed Inputs
 
 - A creator uses natural language to define a persistent Graph-backed data product.
-- The user confirmed an existing-Subgraph-only boundary on 2026-09-05. Source snapshots describe externally existing sources, not indexes created by Sprue. Sprue does not create or deploy new Subgraphs or Subgraph Composition; product deployments refer to hosted Sprue APIs. This scope clarification changes no version 1.4 fields, migrations, or approved single-source runtime limits.
+- The user confirmed an existing-Subgraph-only boundary on 2026-09-05. Source snapshots describe externally existing sources, not indexes created by Sprue. Sprue does not create or deploy new Subgraphs or Subgraph Composition; product deployments refer to hosted Sprue APIs. A product version may now reference multiple validated source snapshots and combine their results through explicit Union/Join operators. This scope change requires no new relational fields or migration at the planning stage because source projections, source requests and multi-input node artifacts are already modeled; exact JSON/operator schemas remain an H1 implementation gate.
 - The Agent dynamically composes predefined, developer-implemented DAG operators. It does not generate arbitrary executable JavaScript or Python for the MVP.
 - Product definitions and execution layouts are separate.
 - Product edits create auditable versions; an unsuccessful edit must not replace the last working version.
@@ -39,6 +39,7 @@ The human team confirmed these defaults on 2026-09-05.
 2. **Workspace scope:** model workspace membership and roles now, but implement only a single-owner flow in the MVP. Invitations, role-management UI, and non-owner authorization flows are deferred.
 3. **Artifact storage:** store bounded JSON artifacts in PostgreSQL up to 5 MiB per artifact. Keep an object-storage adapter in the schema for later use.
 4. **Conversation retention:** retain user-visible Agent messages and build traces for the product's lifetime. Never persist hidden chain-of-thought. Support content redaction while preserving hashes and audit metadata when deletion is required.
+5. **Multi-source composition:** a product version may select multiple existing Graph Subgraphs. Each source has its own immutable snapshot, access mode, query, pagination and per-source provenance; Union/Join must be explicit DAG nodes with bounded intermediate/output state. The runtime must not claim one atomic cross-chain block across different source networks.
 
 The existing fee decision is not reopened here: the default fee remains zero/disabled.
 
@@ -521,6 +522,7 @@ Rules:
 - Node IDs are unique within a version and remain stable in run records.
 - Node types and versions come from the registered operator allowlist.
 - Source entries reference an immutable validated snapshot and keep Subgraph ID, gateway Deployment ID, and manifest IPFS CID distinct. Published versions use a deployment target rather than silently following the current Subgraph version.
+- A version may contain multiple source entries, and each source node must reference exactly one entry by source ID.
 - Source nodes pin a static bounded query document, runtime variable bindings, block-consistency policy, and cursor pagination strategy. The adapter must not interpolate unvalidated values or silently broaden the query.
 - `access.mode` is an explicit creator choice per source: `customer_api_key` uses the creator's existing Graph account/subscription, while `x402` pays per query from the creator wallet.
 - Exactly one access reference is selected. `customer_api_key` requires `providerCredentialId` and no spending policy; `x402` requires `spendingPolicyId` and no provider credential.
@@ -529,6 +531,9 @@ Rules:
 - Sprue never silently falls back from a failed/revoked customer API key to x402 because that would create an unapproved wallet expense.
 - The execution definition has no viewport coordinates or UI-only styling.
 - The validator rejects cycles, incompatible ports, unsupported configuration, missing sources, and policies outside platform limits.
+- `union` accepts multiple compatible row inputs only after explicit normalization; it preserves a source discriminator or equivalent lineage field when the output semantics require origin.
+- `join` accepts explicit left/right inputs, key mappings, join type/cardinality and null/collision policy. It rejects implicit many-to-many fan-out, missing keys and unbounded output estimates.
+- Each source retains its own block/time provenance. A multi-source result may use a common time interval, but it must not be represented as a single cross-chain atomic snapshot.
 - A version pins the meaning of time windows, inclusion/exclusion rules, missing-data behavior, and output schema.
 
 ## Table Catalog
@@ -1706,7 +1711,7 @@ Constraints and indexes:
 - Reversal entries match the original network, asset, and amount and never mutate the original row.
 - Queries must choose one accounting view; summing cash movements and economic allocations together is invalid.
 
-### 10. Durable Commands, Recovery and Compilation (Version 1.4)
+### 10. Durable Commands, Recovery and Compilation (Version 1.5)
 
 The human approved items 1-5 (M1, M2, M3 and the H2 persistence direction) on 2026-09-05. These concrete tables implement that direction without approving H1 numeric/operator rules, H3 operating limits, E1 provider compatibility, E2 hosted buyer authority, fees, or live actions. Migrations use explicit fields and constraints; application-level checks remain listed in [backend/database.md](backend/database.md).
 
@@ -2152,7 +2157,7 @@ User + Workspace
 - [ ] The DAG JSON schema and operator configuration schemas are versioned and testable.
 - [ ] All statuses have explicit transition tests, including uncertain payment and revoked authorization paths.
 - [ ] The 5 MiB inline artifact proposal is tested against the representative DEX result.
-- [x] All 51 tables and 699 columns match Drizzle query mappings and model 1.4 in isolated SQL tests; SQL migrations own foreign keys, checks, indexes and triggers that are intentionally not duplicated in Drizzle metadata.
+- [x] All 51 tables and 699 columns match Drizzle query mappings and model 1.5 in isolated SQL tests; SQL migrations own foreign keys, checks, indexes and triggers that are intentionally not duplicated in Drizzle metadata.
 - [ ] Indexes are checked against expected creator dashboard, worker polling, API, and reconciliation queries.
 - [ ] Migration and fixture plans run identically on Railway PostgreSQL and Docker PostgreSQL.
 - [ ] No table or JSON document provides a place for raw secrets or hidden model reasoning.
@@ -2172,7 +2177,7 @@ Provider-specific metadata that proves necessary should first be added to valida
 
 ## Change Control
 
-On 2026-09-05 the human approved items 1-5: M1 durable commands, M2 anonymous request recovery, M3 lifecycle clarification, and H2 durable planning/run recovery plus immutable compilation provenance. Version 1.4 records their persistence implementation above. The HTTP contract remains a draft for endpoint implementation, and H1 exact executable schemas, H3 live methodology/limits, E1/E2 provider and buyer capabilities, and fee policy remain open. No runtime, funds movement or deployed provider capability is approved merely by creating these tables.
+On 2026-09-05 the human approved items 1-5: M1 durable commands, M2 anonymous request recovery, M3 lifecycle clarification, and H2 durable planning/run recovery plus immutable compilation provenance. Version 1.5 records their persistence implementation above together with the multi-Subgraph composition boundary. The HTTP contract remains a draft for endpoint implementation, and H1 exact executable schemas, H3 live methodology/limits, E1/E2 provider and buyer capabilities, and fee policy remain open. No runtime, funds movement or deployed provider capability is approved merely by creating these tables.
 
 After human approval, changes to this model require:
 
@@ -2181,4 +2186,4 @@ After human approval, changes to this model require:
 3. Tests for affected transitions, constraints, and derived views.
 4. An AI contribution and project change-log entry in [plan.md](plan.md) when AI materially influenced the change.
 
-The human team approved the version 1.3 baseline and subsequently the version 1.4 persistence directions on 2026-09-05. This retains Draft 1.2's Graph source/customer-credential/per-query x402 refinements and Draft 1.3's Hedera x402/recipient-capability/settlement refinements. The initial migrations and typed schema now implement this baseline; see backend/database.md for tested structural guards and remaining service/native-database verification. The initial downstream profile is Hedera testnet with HBAR; other open checklist items remain implementation and external-integration validation gates.
+The human team approved the version 1.3 baseline, the version 1.4 persistence directions, and the version 1.5 multi-Subgraph composition boundary on 2026-09-05. This retains Draft 1.2's Graph source/customer-credential/per-query x402 refinements and Draft 1.3's Hedera x402/recipient-capability/settlement refinements. The initial migrations and typed schema now implement the persistence baseline; see backend/database.md for tested structural guards and remaining service/native-database verification. The initial downstream profile is Hedera testnet with HBAR; Union/Join schemas and all other open checklist items remain implementation and external-integration validation gates.

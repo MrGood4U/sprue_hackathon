@@ -1,13 +1,13 @@
 # Harness Verification and Delivery Plan
 
-Draft 0.2. This is a preparation/acceptance plan; unchecked items are not implemented. The design links the human's natural-language-to-operator workflow to reusable, bounded tools rather than a general coding Agent.
+Draft 0.3. This is a preparation/acceptance plan; unchecked items are not implemented. The design links the human's natural-language-to-operator workflow to reusable, bounded tools rather than a general coding Agent.
 
 ## 1. Implementation Order
 
 | Milestone | Deliverables | Exit test |
 |---|---|---|
 | I0. Review contracts | Open H1/H3 decisions below, approved H2 and API M1/M3 records, concrete scope and non-billable metadata capabilities | No unresolved ownership, persistence or hidden-spend assumptions in the first slice |
-| I1. Build compiler kit | Versioned operator/expression schemas, registry, typed query builder/validator, DAG validator and five operator implementations | Golden fixtures pass without an LLM, network, wallet or database |
+| I1. Build compiler kit | Versioned operator/expression schemas, registry, typed query builder/validator, DAG validator and seven operator implementations | Golden fixtures pass without an LLM, network, wallet or database |
 | I2. Build tool kit | Thin scripts, stage-aware dispatcher, context redaction, time/size limits, deterministic tool schemas | Valid/invalid calls and forbidden capability tests pass in isolation |
 | I3. Add safe planning | Bounded model adapter, phase controller, clarification flow, durable checkpoints, proposal/diff persistence and polling | Real or stub model can propose distinct valid DAGs; crash/retry cannot reset limits |
 | I4. Validate live source | Real inspected Graph deployment, approved source access, pinned query/pagination/block and manually checked output | Bounded API-key path works without a wallet expense; source coverage is evidenced |
@@ -35,6 +35,8 @@ Fixtures include a manifest with case ID/version, purpose, synthetic/captured pr
 | Large integer and decimal rounding | Exact string-safe values; overflow and zero-denominator behavior match declared schema |
 | Missing required event granularity | Coverage failure when only protocol daily totals are available |
 | Existing source already supplies the required derived fields | Verify methodology/granularity and use a supported query without redundant transformations; retain source/output validation and lineage |
+| Two-source Union | Normalize two existing source results into the same typed row schema, union them with explicit source lineage, and preserve each source's snapshot/provenance | Valid result with compatible schemas; incompatible fields, hidden coercion or unbounded fan-in fail |
+| Cross-source Join | Join two existing source results on an explicit typed key with declared cardinality, null and collision behavior | Valid bounded result; missing keys, implicit many-to-many fan-out or cross-workspace references fail |
 | Bounded discovery finds no suitable source | Report missing facts and search limits; offer requirement revision or another existing source for validation, without claiming exhaustive absence or starting ingestion |
 | Cheaper but incompatible source | Reject semantic/coverage mismatch; unknown cost or coverage is not zero cost or proven completeness |
 | Conversational edit | Changed window/threshold produces a new spec hash/version and visible diff; prior active version stays unchanged |
@@ -48,12 +50,12 @@ The complete golden pipeline begins with deterministic structured requirements a
 | Ownership | Foreign workspace snapshot, parent version, artifact, session or policy; forged context; inaccessible evidence must not leak |
 | Capability | Unknown tool/version; tool allowed in wrong stage; model requests build/pay/deploy, shell, filesystem, SQL, URL fetch or raw signer access |
 | Upstream creation boundary | Requests to create/deploy/maintain Subgraphs or Subgraph Composition stay unsupported, including source-gap, repair, worker, or script fallbacks; Sprue API deployment remains a separate authorized action |
-| Runtime scope | Multi-source/cross-chain requests cannot bypass the single-source profile through hidden adapter merging, new operators, or upstream Composition generation |
+| Runtime scope | Multi-source/cross-chain requests use explicit source nodes plus Union/Join; hidden adapter merging, undeclared sources, and upstream Composition generation remain forbidden |
 | Injection | User/SDL/schema-description/error text instructs secret upload, policy changes or tool escalation; treat it as data and preserve denied authority |
 | Model output | Malformed JSON, unknown fields, invented IDs, fabricated tool result, oversized output, invalid operator/config, unsupported expression |
 | Query | Wrong field/type, mutation, alias/fragment depth bypass, unbounded nesting, invalid cursor, oversized query and decompression bomb |
 | Templates | Deterministic expansion, pinned versions, stable IDs across parameter changes, primitive equivalence, disjoint connected mappings, stale spec/provenance hashes, unavailable catalog, parameter bounds and expanded resource accounting |
-| DAG | Cycle, dead node, duplicate IDs, invalid ports, type/null/unit mismatch, multiple outputs, excessive nodes or distinct/group state |
+| DAG | Cycle, dead node, duplicate IDs, invalid ports, type/null/unit mismatch, invalid Union schema, invalid Join key/cardinality/collision policy, multiple outputs, excessive nodes or distinct/group state |
 | Egress | Unapproved host, redirect, loopback/private address, DNS rebinding, URL credentials and arbitrary MCP registration |
 | Cost limits | Repeated sessions, six-model-call exhaustion, retry/repair accounting, unknown metadata billing, counter reservation before dispatch, crash after external call |
 | Replay/deduplication | Duplicate command, changed body under same key, duplicate proposal acceptance, race between accept/discard, expired evidence and mismatched registry |
@@ -68,7 +70,7 @@ No paid tests run by default in CI or a developer replay. Live tests require a s
 
 ## 4. What to Record
 
-Record model/provider and prompt/tool/registry/runtime versions, sanitized input and visible decisions, source identity/schema/coverage evidence, query/spec hashes, validation outcomes, stage durations, model/tool usage, fixture/live classification, and linked run/output/payment evidence where applicable. Data-model 1.4 defines the approved H2 durable fields; exact H1 payload validation and service-level enforcement remain required.
+Record model/provider and prompt/tool/registry/runtime versions, sanitized input and visible decisions, source identity/schema/coverage evidence, query/spec hashes, validation outcomes, stage durations, model/tool usage, fixture/live classification, and linked run/output/payment evidence where applicable. Data-model 1.5 defines the approved H2 durable fields; exact H1 payload validation and service-level enforcement remain required.
 
 For planner evaluation, report valid-spec rate, semantic golden-case pass rate, clarification/unsupported accuracy, source-ID/field hallucinations, forbidden-tool rejection, token/call/latency bounds, and unsafe side-effect count. Deterministic validation/security/golden tests must all pass before enablement; unsafe side effects must be zero. Do not promise 100% general language understanding from a small evaluation set.
 
@@ -80,14 +82,14 @@ Development records and commits stay English. User-visible runtime replies may f
 
 | Gate | Proposed decision / unresolved detail | Recommendation |
 |---|---|---|
-| H1. Executable language | Five-type scope confirmed; exact typed expression, source-query and template schemas, interval and numeric/null semantics still pending | Implement GroupBy/window/score through config/expressions; review versioned schemas before backend implementation; examples are aligned but not schema approval |
-| H2. Durable orchestration | Approved on 2026-09-05: model 1.4 defines commands/outbox, planning checkpoints/calls, run/source contexts, cross-attempt page identity and compilation_records | Initial SQL structure and isolated tests exist; implement and test controller recovery, native multi-connection races, exact payload schemas and side-effect reconciliation before claiming restart safety |
+| H1. Executable language | Seven-type scope confirmed; exact typed expression, source-query, Union and Join schemas, interval and numeric/null semantics still pending | Review schema compatibility, key/cardinality/null/collision behavior and per-source provenance before backend implementation; examples are not schema approval |
+| H2. Durable orchestration | Approved on 2026-09-05: model 1.5 defines commands/outbox, planning checkpoints/calls, run/source contexts, cross-attempt page identity and compilation_records | Initial SQL structure and isolated tests exist; implement and test controller recovery, native multi-connection races, exact payload schemas and side-effect reconciliation before claiming restart safety |
 | H3. First live case and operating profile | Concrete real subgraph/field methodology, repeat-day metric definition, acceptable coverage checks, initial numerical limits and model-cost budget | Treat the worked example and caps as proposals; validate one real source and approve a bounded demo profile before live execution |
 
-M1-M3 and H2 persistence directions were explicitly approved; model 1.4 now governs the records and validation/build/activation transitions. E2 concerns downstream hosted buyer authority; E1 gates live wallet control. Neither is approved by the persistence work.
+M1-M3 and H2 persistence directions were explicitly approved; model 1.5 now governs the records and validation/build/activation transitions. E2 concerns downstream hosted buyer authority; E1 gates live wallet control. Neither is approved by the persistence work.
 
-The separate database foundation implements approved persistence, but this harness draft introduces no runtime script or wallet action. New Subgraph/Subgraph Composition creation, deployment, and maintenance are excluded by the confirmed product boundary, not deferred implementation gates. The cases above are acceptance requirements, not implemented tests. The next safe implementation step is the reviewed offline compiler/tool kit, followed by bounded metadata discovery and Agent wiring.
+The separate database foundation implements approved persistence, including multiple source projections and multi-input artifact bindings, but this harness draft introduces no runtime script or wallet action. New Subgraph/Subgraph Composition creation, deployment, and maintenance are excluded by the confirmed product boundary, not deferred implementation gates. The cases above are acceptance requirements, not implemented tests. The next safe implementation step is the reviewed offline compiler/tool kit, followed by bounded multi-source metadata discovery and Agent wiring.
 
 ## Frontend Alignment Evidence Boundary
 
-The frontend has a local five-type-scope/seven-node illustration, semantic disclosure, explicit edge projection, parameter recompilation and an independent fixed fixture oracle. Its tests cover sample structure and graph display, not an implemented backend compiler, actual runtime execution, natural-language understanding or live Graph data. Offline backend golden tests, H1/H3 decisions and implemented H2 recovery remain required.
+The frontend currently has a legacy five-type-scope/seven-node illustration, semantic disclosure, explicit edge projection, parameter recompilation and an independent fixed fixture oracle. Its tests cover sample structure and graph display, not the newly approved Union/Join surface, an implemented backend compiler, actual runtime execution, natural-language understanding or live Graph data. The frontend DAG surface and fixture need a separate alignment pass before claiming multi-source UI support. Offline backend golden tests, H1/H3 decisions and implemented H2 recovery remain required.

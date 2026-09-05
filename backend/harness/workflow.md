@@ -75,7 +75,7 @@ The compiler resolves candidate handles to authorized sourceSnapshotId values an
 
 The source compiler emits only validated GraphQL queries and typed variable bindings. The operator compiler emits `{id, type, operatorVersion, config}` nodes and explicit fromNode/fromPort/toNode/toPort edges. Preserve the schemaVersion 2 envelope in data-model.md; labels, layout, and localized explanations are separate.
 
-Reuse inspected query capabilities and existing derived fields when they preserve the requested granularity, population, time interval, units, and null behavior. Do not add redundant downstream processing or require every operator type in a plan. This does not permit upstream Subgraph schema/mapping generation, new source deployment, arbitrary GraphQL aggregations, or bypassing source/output validation. The first runtime still supports one source; an unsupported multi-source composition returns a limitation rather than hidden merging inside a query or source adapter.
+Reuse inspected query capabilities and existing derived fields when they preserve the requested granularity, population, time interval, units, and null behavior. Do not add redundant downstream processing or require every operator type in a plan. This does not permit upstream Subgraph schema/mapping generation, new source deployment, arbitrary GraphQL aggregations, or bypassing source/output validation. A multi-source proposal must represent each source as an explicit source entry/node, then use an explicit Union or Join node; the adapter must never hide cross-source merging. Each source query keeps its own pinned deployment, block/provenance and access accounting.
 
 At each phase the model may submit a bounded structured candidate to the controller. The controller validates its envelope, records it under the proposed checkpoint schema, and assigns a scoped proposalRef/requirementsRef before validation tools use it. This creates neither an accepted product version nor authority. Models cannot invent references to material that was never admitted, and repairs create distinct candidate revisions rather than changing an already accepted spec.
 
@@ -107,11 +107,11 @@ A planning command can succeed by returning a useful clarification or unsupporte
 
 Accepted scheduled refreshes use the already authorized schedule/version and current budgets, not a new LLM decision on every tick. They need not ask the creator every time, but must stop on revoked authority, changed policy, unavailable source, or exhausted budget. The planner cannot create or resume that authorization by writing prose.
 
-A failed build does not trigger an automatic new paid build to "repair" its query. Show the failure and propose a new version if semantic changes are necessary. Payment uncertainty must be reconciled first. A successful build and deployment activation remain separate under the approved M3/model 1.4 lifecycle.
+A failed build does not trigger an automatic new paid build to "repair" its query. Show the failure and propose a new version if semantic changes are necessary. Payment uncertainty must be reconciled first. A successful build and deployment activation remain separate under the approved M3/model 1.5 lifecycle.
 
 ## 3. Persistence and Recovery Mapping
 
-| Harness record | Approved persistence home (model 1.4) | Boundary |
+| Harness record | Approved persistence home (model 1.5) | Boundary |
 |---|---|---|
 | Visible input, clarification, proposal, tool summary | agent_messages.content_text/content_json | Versioned allowlisted variants; no raw model reasoning or secrets |
 | Planning progress, call reservations, tool idempotency/outcome | control_commands, command_dispatches, planning_checkpoints, planning_calls | Explicit bounded records; sanitized result references to agent_messages |
@@ -123,9 +123,9 @@ A failed build does not trigger an automatic new paid build to "repair" its quer
 
 RunContext must include schemaVersion, runId, specHash, registryHash, interval per source, resolved block per source, query/variable hashes, runtime/adapter versions, and provenance references. It is frozen once before the first related data side effect; unknown block metadata must be resolved through an authorized, metered source operation when needed. No provider request can bypass source accounting by being called a "metadata probe."
 
-Use queued_at as the approved stable run time anchor, not the current retry time. If source resolution itself requires paid metadata queries, persist a partial initialization checkpoint and reconcile those requests before finishing the immutable RunContext. Model 1.4 defines this initialization and uniqueness; do not make payment before its recovery identity is durable.
+Use queued_at as the approved stable run time anchor, not the current retry time. If source resolution itself requires paid metadata queries, persist a partial initialization checkpoint and reconcile those requests before finishing the immutable RunContext. Model 1.5 defines this initialization and uniqueness; do not make payment before its recovery identity is durable.
 
-On restart, reload trusted command state and committed tool results. Never reset model/tool/spend counters or re-run uncertain actions blindly. Completed retained source/node artifacts may be reused only for the same run, matching spec/context/input hashes and authorized lineage. A new node attempt cannot create a second purchase merely because its node_run_id changed; Model 1.4 binds source_requests to logical run/node/page identity and source_http_attempts to the physical node attempt.
+On restart, reload trusted command state and committed tool results. Never reset model/tool/spend counters or re-run uncertain actions blindly. Completed retained source/node artifacts may be reused only for the same run, matching spec/context/input hashes and authorized lineage. A new node attempt cannot create a second purchase merely because its node_run_id changed; Model 1.5 binds source_requests to logical run/node/page identity and source_http_attempts to the physical node attempt.
 
 ## 4. Frontend and HTTP Integration
 

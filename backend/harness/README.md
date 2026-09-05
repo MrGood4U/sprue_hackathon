@@ -4,7 +4,7 @@
 
 Draft 0.4, 2026-09-05. This directory contains the proposed harness design, not an implemented Agent, executable scripts, or verified provider integrations. The human requested a step-by-step design and an inventory of tools to prepare before implementation.
 
-Read the approved [data model 1.4](../../data-model.md), proposed [API contract](../../api-contract.md), [backend ownership](../README.md), and active [Graph reference](../../sponsor/graph.md) alongside this design. M1-M3 and H2 persistence directions were approved and incorporated into model 1.4. The [database foundation](../database.md) implements their tables, not the harness/controller. H1, H3 and E1/E2 remain open. No Graph purchase, wallet authority, subgraph deployment or API publication is enabled.
+Read the approved [data model 1.5](../../data-model.md), proposed [API contract](../../api-contract.md), [backend ownership](../README.md), and active [Graph reference](../../sponsor/graph.md) alongside this design. M1-M3 and H2 persistence directions were approved and incorporated into model 1.5; multi-source composition is the 1.5 scope extension. The [database foundation](../database.md) implements their tables, not the harness/controller. H1, H3 and E1/E2 remain open. No Graph purchase, wallet authority, subgraph deployment or API publication is enabled.
 
 ## What the Harness Does
 
@@ -26,7 +26,7 @@ Human natural language
   -> separate HUMAN deployment/publication actions
 ```
 
-"Operators" means machine-readable, versioned nodes such as source, map, filter, aggregate, and output, not decorative canvas symbols or generated executable code. Source discovery and semantic planning may iterate; accepted versions and execution do not silently change.
+"Operators" means machine-readable, versioned nodes such as source, map, filter, aggregate, union, join, and output, not decorative canvas symbols or generated executable code. Source discovery and semantic planning may iterate; accepted versions and execution do not silently change.
 
 The user confirmed the [existing-Subgraph-only boundary](../../agents.md#confirmed-existing-subgraph-boundary) on 2026-09-05. The source stage selects among existing Subgraphs using semantic fit, granularity, coverage, freshness, and evidenced query costs within bounded discovery. Unknown coverage or cost stays explicit. A source gap requests requirement revision or another existing source for validation, not a new ingestion path.
 
@@ -45,7 +45,7 @@ The first, second and fourth ports may delegate to reviewed Graph MCP operations
 
 Keep these ports behind the Graph module so the upper harness does not depend on MCP tool names, remote URLs or a particular SDK. A direct Graph API adapter may replace the MCP adapter without changing the planner or DAG runtime. Query execution is a data-plane operation, not an unrestricted planner tool: live sample or build requests require the selected Graph access mode, approved budget, bounded query plan and applicable creator authorization. A provider-neutral `executeGraphQL` port must never imply permission to spend.
 
-Creating, generating, deploying, or maintaining new Subgraphs or Subgraph Composition is outside Sprue's product scope, not a future fallback. Reuse supported capabilities of the inspected source query when semantics match, then apply only necessary Sprue transformations. This is query planning over existing indexes, not automatic compilation into a new upstream index. The first runtime remains single-source with five operator types; multi-source/cross-chain execution, Union, and Join are not approved by this clarification. Sprue product/API Build, Deploy, refresh, and optional paid publication remain distinct, authorized operations.
+Creating, generating, deploying, or maintaining new Subgraphs or Subgraph Composition is outside Sprue's product scope, not a future fallback. Reuse supported capabilities of each inspected source query when semantics match, then apply only necessary Sprue transformations. This is query planning over existing indexes, not automatic compilation into a new upstream index. The first runtime now supports multiple existing source entries with explicit Union and Join nodes, subject to source-level provenance, access, consistency and resource limits. Sprue product/API Build, Deploy, refresh, and optional paid publication remain distinct, authorized operations.
 
 ## Reading Order
 
@@ -101,4 +101,4 @@ Scripts import these domain implementations; they do not contain a second compil
 
 First prove a deterministic, fixture-backed `intent requirements -> inspected schema -> static query -> operator DAG -> expected output` path without any model or network dependency. Then add bounded metadata discovery and the planner around it. Finally connect authorized live Graph execution. This order makes incorrect reasoning distinguishable from incorrect data processing.
 
-The human approved the five-type MVP scope and semantic-template/frontend alignment on 2026-09-05. Exact configuration/numeric schemas (H1), the live source/methodology and numerical operating limits (H3) remain review items. H2 durable provenance/recovery directions are approved and mapped to model 1.4; restart-safe runtime behavior still requires implementation. The local frontend demonstrates expansion only; no harness script or runtime is implemented. [Verification](verification.md#review-gates) identifies the decisions needed before implementing dependent behavior.
+The human approved the seven-type MVP scope (Source, Filter, Map, Aggregate, Union, Join, Output) and semantic-template/frontend alignment on 2026-09-05. Exact configuration/numeric schemas, Union compatibility rules and Join cardinality/null/collision semantics (H1), the live source/methodology and numerical operating limits (H3) remain review items. H2 durable provenance/recovery directions are approved and mapped to model 1.5; restart-safe runtime behavior still requires implementation. The local frontend demonstrates the earlier five-type expansion only; no harness script or runtime is implemented. [Verification](verification.md#review-gates) identifies the decisions needed before implementing dependent behavior.

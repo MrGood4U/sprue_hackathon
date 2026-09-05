@@ -45,7 +45,7 @@ Preserve Sprue's existing promise: a creator defines a metric, receives an inspe
 
 Product-boundary update, 2026-09-05: the user confirmed that Sprue only discovers, selects, inspects, and queries existing Subgraphs, with necessary supported transformations in Sprue. It does not create, deploy, or maintain new Subgraphs or Subgraph Composition, including as a future optimization or source-gap fallback. Select sources by semantic fit, granularity, coverage, freshness, and evidenced query costs; report unknowns explicitly. This changes Sprue's plan, not the official award requirements above, and does not establish new eligibility or live capability.
 
-Keep composability as a conditional stretch target using existing sources only. An internal Sprue DAG is not automatically composition of Graph products, and adding Hedera or Privy should not be counted as another Graph product. Evaluate meaningful existing standardized-schema reuse without planning new index creation. The first runtime remains single-source; multi-source/cross-chain execution and Union/Join require separate scope approval.
+The user approved multi-source composability as an MVP direction on 2026-09-05, using existing sources only. An internal Sprue DAG is not automatically composition of Graph products, and adding Hedera or Privy should not be counted as another Graph product. Evaluate meaningful existing standardized-schema reuse and cross-chain pipeline reuse without planning new index creation. Sprue must show each source, query, schema/provenance and explicit Union/Join step so the composition is auditable and not hidden inside an adapter.
 
 ### Technical References and Implications
 

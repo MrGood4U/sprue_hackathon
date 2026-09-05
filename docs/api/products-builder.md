@@ -17,7 +17,7 @@ name is 1-120 trimmed characters; description at most 2000; originalIntent is 1-
 
 `ProductSummary = {id, slug, name, description: string | null, status, updatedAt, latestVersion: VersionSummary | null, activeDeployment: DeploymentSummary | null, latestRun: RunSummary | null, nextAction: string | null}`. nextAction is a frontend routing hint (`open_builder`, `resolve_access`, `build`, `deploy`, `inspect_run`, or null), not authorization. `ProductDetail` adds `{workspaceId, accountWalletId, originalIntent, createdAt, lockVersion}`. No field named simply version may conflate draft and active versions.
 
-`VersionSummary = {id, versionNo, parentVersionId: Id | null, specHash, status, validatedAt: Timestamp | null, readyAt: Timestamp | null, createdAt}`. Version statuses remain proposed/validating/invalid/building/ready/retired; successful non-paid validation awaiting explicit Build follows approved M3/model 1.4.
+`VersionSummary = {id, versionNo, parentVersionId: Id | null, specHash, status, validatedAt: Timestamp | null, readyAt: Timestamp | null, createdAt}`. Version statuses remain proposed/validating/invalid/building/ready/retired; successful non-paid validation awaiting explicit Build follows approved M3/model 1.5.
 
 `DeploymentSummary = {id, environment, status, endpointSlug, endpointUrl: string | null, activeVersionId: Id | null, activeMaterializationId: Id | null, activePublicationVersionId: Id | null, accessMode: private | api_key | x402 | null, sourceFreshnessAt: Timestamp | null}`. Values come from one consistent active-pointer read.
 
@@ -49,7 +49,7 @@ Archiving/restoring products, slug renaming, invitations, and account administra
 
 DataProductSpec is exactly [canonical spec schemaVersion 2](../../data-model.md#canonical-data-product-specification), validated against the actual operator registry. A model-generated object is untrusted input. Source discovery/inspection during planning must use only a bounded non-paid adapter; if unavailable without charge or credentials, return a blocker/clarification, not an automatic Graph purchase.
 
-The proposed [harness workflow](../../backend/harness/workflow.md) and [tool catalog](../../backend/harness/tools.md) specify the internal implementation boundary for planning and operator compilation. They add no arbitrary browser tool-execution endpoint; their exact H1-H3 schemas and limits remain under review alongside this API draft. The five-type scope is confirmed; semantic templates are compile-time authoring aids, not runtime types or arbitrary browser tools.
+The proposed [harness workflow](../../backend/harness/workflow.md) and [tool catalog](../../backend/harness/tools.md) specify the internal implementation boundary for planning and operator compilation. They add no arbitrary browser tool-execution endpoint; their exact H1-H3 schemas and limits remain under review alongside this API draft. The seven-type scope includes explicit Union/Join composition; semantic templates are compile-time authoring aids, not runtime types or arbitrary browser tools.
 
 `AcceptVersionInput` is a tagged union:
 
@@ -95,7 +95,7 @@ Discarding an unaccepted local edit is client-only. The discard endpoint appends
 
 ### Proposed Semantic Template Read Projections
 
-Follow [semantic-templates.md](../../backend/harness/semantic-templates.md). The initial executable registry is source/filter/map/aggregate/output; grouping/window/score do not require independent types. Before backend integration, review an optional template catalog and CompilationProvenance read projection for Proposal/VersionDetail. H2/model 1.4 already maps immutable ownership, hashes and acceptance copies to compilation_records; H1 exact payload/size validation and DTO exposure remain review work. These fields are not silently added to the DTOs above or to canonical specification/layout JSON. No new HTTP mutation endpoint is introduced here.
+Follow [semantic-templates.md](../../backend/harness/semantic-templates.md). The initial executable registry is source/filter/map/aggregate/union/join/output; grouping/window/score do not require independent types. Before backend integration, review an optional template catalog and CompilationProvenance read projection for Proposal/VersionDetail. H2/model 1.5 already maps immutable ownership, hashes and acceptance copies to compilation_records; H1 exact payload/size validation and DTO exposure remain review work. These fields are not silently added to the DTOs above or to canonical specification/layout JSON. No new HTTP mutation endpoint is introduced here.
 
 A template-parameter edit follows the existing proposal/new-version workflow. Runtime execution always uses the expanded primitive spec. Display collapse state is client-only; synthetic semantic group IDs are not layout node IDs. Missing/stale provenance shows the primitive graph and blocks template editing rather than guessing a group. The current frontend only recompiles a local synthetic draft and is not an implementation of these APIs.
 
@@ -132,7 +132,7 @@ Actions are backend-computed hints rechecked by the command handler. Unknown dur
 
 ## 5. Execution Safety and UI Corrections
 
-- Build/preview may purchase Graph data only within explicit x402 authority. They do not deploy or activate paid access. A successful build creates ready output; deployment requires a separate confirmation. Approved M3/model 1.4 records this separation; services must enforce it.
+- Build/preview may purchase Graph data only within explicit x402 authority. They do not deploy or activate paid access. A successful build creates ready output; deployment requires a separate confirmation. Approved M3/model 1.5 records this separation; services must enforce it.
 - Serialize active initial build/preview commands for one version; return OPERATION_IN_PROGRESS with its authorized run reference for a different concurrent command. Ready versions remain ready while refresh operations run; individual run status carries their progress/failure. A failed validation marks invalid, whereas a failed runtime attempt preserves validation evidence and follows M3's approved retryable transition.
 - A view cancellation aborts polling only. Run cancellation is cooperative: stop launching new nodes/requests, reconcile any already submitted side effect, preserve confirmed expenses, and release reservations only on definite non-payment. Show requested cancellation separately until it is safe to mark cancelled.
 - Failed or blocked work never replaces prior deployment pointers. An API-key failure does not invoke the wallet branch. Graph HTTP 200 with disallowed GraphQL/indexing errors is still a failed data operation.

@@ -4,7 +4,7 @@
 
 Draft 0.3, authored on 2026-09-05 for human review. This is the target HTTP contract, not a claim that every endpoint is implemented. The frontend still uses demo services. The database and API/standby-worker framework exist; see [backend/framework.md](backend/framework.md) for the exact implemented and reserved boundary.
 
-Inputs: [data model 1.4](data-model.md), [product design 1.3](product-design.md), [current frontend ownership](frontend/README.md), and [implementation status](frontend/implementation-status.md). Database invariants take precedence over fixture behavior. M1-M3 persistence/lifecycle directions were approved on 2026-09-05 and now map to data-model 1.4 and the initial database foundation. Only process probes, public app configuration and verifier-gated identity reads are implemented; other domain routes remain reserved and return 503 without side effects; this draft does not establish provider capability or authorize a fee, funded operation, or deployment.
+Inputs: [data model 1.5](data-model.md), [product design 1.3](product-design.md), [current frontend ownership](frontend/README.md), and [implementation status](frontend/implementation-status.md). Database invariants take precedence over fixture behavior. M1-M3 persistence/lifecycle directions were approved on 2026-09-05 and now map to data-model 1.5 and the initial database foundation. Only process probes, public app configuration and verifier-gated identity reads are implemented; other domain routes remain reserved and return 503 without side effects; this draft does not establish provider capability or authorize a fee, funded operation, or deployment.
 
 The specification uses resource-oriented JSON APIs, durable asynchronous commands, and resumable trace reads. HTTP transport is shared by Railway and Docker deployments. No browser calls the database, Graph payment adapter, private Privy signer, or Blocky402 settlement endpoint directly.
 
@@ -182,7 +182,7 @@ SSE IDs are `streamId:sequenceNo`; emit only committed events, accept reconnects
 
 ## 6. Review Gates and Data-Model Gaps
 
-M1-M3 directions below were approved on 2026-09-05 and incorporated into data-model 1.4. M1 maps to control_commands/command_dispatches; M2 maps to request recovery fields and api_payment_proofs; M3 maps to clarified lifecycle and transaction boundaries. SQL structure and representative guards exist; HTTP semantics and services still need implementation. E1/E2 remain unresolved. Do not replace durable records with process memory or unreviewed JSON fields.
+M1-M3 directions below were approved on 2026-09-05 and incorporated into data-model 1.5. M1 maps to control_commands/command_dispatches; M2 maps to request recovery fields and api_payment_proofs; M3 maps to clarified lifecycle and transaction boundaries. SQL structure and representative guards exist; HTTP semantics and services still need implementation. E1/E2 remain unresolved. Do not replace durable records with process memory or unreviewed JSON fields.
 
 | Gate | Finding | Recommended resolution | Affected interfaces |
 |---|---|---|---|
@@ -200,7 +200,7 @@ Default fee remains disabled. UI sample price, 5% fee, five-minute cadence, API 
 
 ## 7. Verification and Implementation Handoff
 
-Before endpoint implementation, review the DTO/runtime schemas and implement the approved M1-M3 service transactions against data-model 1.4. E1/E2 gate only the corresponding live provider/buyer capabilities, not non-paid product development. The generated [framework OpenAPI](backend/openapi.json) now covers route reservations and implemented transport/identity schemas only. Add reviewed business request/response schemas with each handler before generating complete frontend clients. Reserved operations intentionally declare no successful business response.
+Before endpoint implementation, review the DTO/runtime schemas and implement the approved M1-M3 service transactions against data-model 1.5. E1/E2 gate only the corresponding live provider/buyer capabilities, not non-paid product development. The generated [framework OpenAPI](backend/openapi.json) now covers route reservations and implemented transport/identity schemas only. Add reviewed business request/response schemas with each handler before generating complete frontend clients. Reserved operations intentionally declare no successful business response.
 
 The endpoint catalog maps the complete designed UI; it is not a requirement to implement every convenience read before the first vertical slice. Use this order:
 

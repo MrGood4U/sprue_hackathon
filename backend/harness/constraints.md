@@ -1,6 +1,6 @@
 # Harness Constraints and Enforcement
 
-Draft 0.2. These are proposed engineering controls, not sponsor rules or implemented protections. The approved DAG, wallet, privacy and deployment boundaries remain mandatory. Numerical defaults below require review H3 and load/cost testing.
+Draft 0.3. These are proposed engineering controls, not sponsor rules or implemented protections. The approved DAG, wallet, privacy and deployment boundaries remain mandatory. Numerical defaults below require review H3 and load/cost testing.
 
 ## 1. Authority Must Be Enforced Outside the Prompt
 
@@ -20,7 +20,7 @@ Draft 0.2. These are proposed engineering controls, not sponsor rules or impleme
 
 Do not expose terminal execution, shell strings, filesystem browsing/writes, SQL execution, package installation, arbitrary code evaluation, dynamic imports, generic HTTP requests, arbitrary MCP servers, wallet signing, grant/policy modification, funding, bridging, subgraph deployment, service deployment, publication, or fee-setting as planner tools.
 
-The product-wide existing-Subgraph boundary also excludes creating, generating, deploying, or maintaining new Subgraphs or Subgraph Composition through workers, adapters, or developer-script fallbacks. Upstream creation is not unlocked by a source gap, a natural-language request, or a Build/Deploy approval. Those approvals concern Sprue's own data product/API. Report missing facts and bounded-search limits; any revised requirement or other existing source must be reviewed and validated. Keep the initial single-source profile unchanged; no hidden multi-source merging or new runtime operator is authorized.
+The product-wide existing-Subgraph boundary also excludes creating, generating, deploying, or maintaining new Subgraphs or Subgraph Composition through workers, adapters, or developer-script fallbacks. Upstream creation is not unlocked by a source gap, a natural-language request, or a Build/Deploy approval. Those approvals concern Sprue's own data product/API. Report missing facts and bounded-search limits; any revised requirement or other existing source must be reviewed and validated. Multi-source composition is authorized only when represented by explicit source nodes and Union/Join operators; hidden adapter merging remains forbidden.
 
 Operator expressions must remain the finite typed AST described in [operators.md](operators.md). A field called formula, script, callback or code cannot evade this boundary. No recursive Agent delegation, self-installed tool, unbounded self-repair, self-modified prompt policy or model-controlled budget increase is supported.
 
@@ -46,17 +46,17 @@ Effective limits are the minimum of platform profile, authenticated workspace al
 | Automatic semantic repairs | At most 2 within the above model/tool/time limits | Return unsupported/needs_input result with remaining failures |
 | External read retries | At most 2 attempts total per logical metadata call, within shared budgets | Same call identity; backoff and then dependency error |
 
-Model-provider fees use a separate platform cost allowance configured for the chosen model. Token caps alone do not define a currency budget. Reserve against configured maximum input/output charges before dispatch and record observed usage when available; an uncertain provider response does not refund its reservation automatically. Data-model 1.4 defines approved H2 planning_checkpoints/planning_calls for this metering/recovery; controller enforcement remains unimplemented, and initial model choice/pricing remains a deployment configuration decision. These costs are not fabricated Graph expenses in the creator wallet ledger.
+Model-provider fees use a separate platform cost allowance configured for the chosen model. Token caps alone do not define a currency budget. Reserve against configured maximum input/output charges before dispatch and record observed usage when available; an uncertain provider response does not refund its reservation automatically. Data-model 1.5 defines approved H2 planning_checkpoints/planning_calls for this metering/recovery; controller enforcement remains unimplemented, and initial model choice/pricing remains a deployment configuration decision. These costs are not fabricated Graph expenses in the creator wallet ledger.
 
 ### Compilation and Execution Profile
 
 | Resource | Initial proposed ceiling / rule |
 |---|---|
 | Accepted spec | 1 MiB JSON; unknown fields rejected |
-| Graph schema | 5 MiB stored maximum from data-model 1.4; smaller slices for the model |
+| Graph schema | 5 MiB stored maximum from data-model 1.5; smaller slices for the model |
 | Query | 16 KiB document, depth 6, 64 expanded selected fields, one business root collection plus allowed provenance |
 | Source pagination | Default 500, maximum 1,000 rows/page; cursor strategy must be supported by inspected schema |
-| Graph | Count expanded primitive nodes and edges, not semantic cards: 12 nodes, 24 edges; exactly one output; first operator profile supports one source, with multi-source joins deferred |
+| Graph | Count expanded primitive nodes and edges, not semantic cards: 12 nodes, 24 edges; exactly one output; proposed maximum 4 source nodes per run, with Union/Join only through explicit typed edges |
 | Expression AST | Depth 8, 128 nodes per expression, 32 output fields per map, 1,024-character scalar literal |
 | Runtime source requests | 100 logical requests per run, including metered probes and completion checks; paid retry is an HTTP attempt of the same request |
 | Physical source HTTP attempts | At most 3 per logical request and 300 per run; payment safety can prohibit retry before this cap |
@@ -67,7 +67,9 @@ Model-provider fees use a separate platform cost allowance configured for the ch
 | Run processing deadline | 120 seconds from the first persisted execution start for new work; queue wait is excluded and retries share the original deadline |
 | Offline simulation | 1,000 fixture rows, 10 seconds, no network; same operator semantics and smaller effective budgets |
 | Node memory | Target 256 MiB isolated runner budget plus measured process overhead; process/container hard limit must be configured and tested |
-| Concurrency | Initially one executing DAG node per run; serialize source-page payment decisions and use database accounting across concurrent runs |
+| Concurrency | Initially one executing DAG node per run; serialize source-page payment decisions and use database accounting across concurrent runs and source keys |
+
+For the first cross-chain demo, use two source nodes and one explicit composition node. A platform profile may allow up to four source nodes, but each source is independently bounded for query pages, access mode, block/provenance and cost. Union inputs must be normalized to the same row schema. Join must declare typed key mappings, join type, cardinality and null/collision behavior; an unbounded many-to-many join is rejected.
 
 The row/request/storage/runtime ceilings align with or tighten the illustrative data-model resourcePolicy. Not every worst-case row set fits every byte ceiling; exceeding the tighter limit is a legitimate failure. Model-level resource fields remain the approved set; new limits above are platform-profile values unless a reviewed schema explicitly adds a versioned field.
 

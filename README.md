@@ -2,13 +2,13 @@
 
 Describe it. Shape it. Sell it.
 
-Sprue is a hosted web product that turns natural-language onchain data logic into persistent, reusable, and optionally monetizable APIs. It is a browser application, not a Windows or macOS native client. Product structure, technical selection, and data-model version 1.4 are approved. MVP implementation now includes the maintained frontend, backend database foundation and API/standby-worker framework. The seven-page application in `frontend/` is the maintained product frontend, using the selected Evidence-First Console design and English/Simplified Chinese localization. It currently runs against demo data while backend integration proceeds. The initial downstream payment profile is Hedera testnet with HBAR through Blocky402. No runnable MVP or live payment integration exists yet.
+Sprue is a hosted web product that turns natural-language onchain data logic into persistent, reusable, and optionally monetizable APIs. It is a browser application, not a Windows or macOS native client. Product structure, technical selection, and data-model version 1.5 are approved. MVP implementation now includes the maintained frontend, backend database foundation and API/standby-worker framework. The seven-page application in `frontend/` is the maintained product frontend, using the selected Evidence-First Console design and English/Simplified Chinese localization. It currently runs against demo data while backend integration proceeds. The initial downstream payment profile is Hedera testnet with HBAR through Blocky402. No runnable MVP or live payment integration exists yet.
 
 ## Product Boundary
 
 Sprue uses existing The Graph Subgraphs to turn data intent into a persistent API. It selects suitable sources by semantic fit, granularity, coverage, freshness, and evidenced query costs, generates validated queries, and applies only necessary supported transformations. Source gaps lead to explicit limitations, requirement revision, or another existing source for validation.
 
-Sprue does not create, deploy, or maintain new Subgraphs or Subgraph Composition, including as a fallback or future optimization task. Hosted API builds, refreshes, versioning, and optional x402 remain in scope. The initial single-source/five-operator runtime boundary is unchanged; this decision does not enable multi-source or cross-chain execution. See the [confirmed boundary](agents.md#confirmed-existing-subgraph-boundary).
+Sprue does not create, deploy, or maintain new Subgraphs or Subgraph Composition, including as a fallback or future optimization task. Hosted API builds, refreshes, versioning, and optional x402 remain in scope. The MVP can query multiple existing Subgraphs and combine their normalized results through explicit Union/Join DAG operators. See the [confirmed boundary](agents.md#confirmed-existing-subgraph-boundary).
 
 ## Selected Sponsors
 
@@ -48,7 +48,7 @@ The backend now has 51 domain tables, 15 ordered SQL migrations, typed Drizzle q
 - [Product intent and repository rules](agents.md)
 - [Plan, decisions, and AI contribution log](plan.md)
 - [Proposed project structure and financial model](project-structure.md)
-- [Approved MVP data model version 1.4 and validation gates](data-model.md)
+- [Approved MVP data model version 1.5 and validation gates](data-model.md)
 - [Proposed frontend/backend API contract and review gates](api-contract.md)
 - [Proposed Agent harness workflow, tools, operators, and constraints](backend/harness/README.md)
 - [Approved page architecture and interaction design](product-design.md)

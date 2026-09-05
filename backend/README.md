@@ -2,7 +2,7 @@
 
 For the complete Windows browser stack and Vercel/Railway packaging, see [deployment.md](../deployment.md). The root Compose/PowerShell entry coordinates frontend, API, worker, PostgreSQL, and explicit one-off migrations. Railway API/worker manifests share this Dockerfile but use different commands; only the API release applies migrations. No platform-specific domain code or live business integration is added by these profiles.
 
-This directory owns the Sprue API, worker, deterministic DAG runtime, persistence, and external-service adapters. The first implemented slice is the [database foundation](database.md): data-model 1.4, 51 tables, domain-split SQL migrations and Drizzle mappings, setup scripts and isolated tests. The [backend framework](framework.md) now adds runnable API/standby-worker processes, shared security/transport middleware, 100 domain-owned route registrations, public app configuration, a verifier-gated identity read service and generated OpenAPI. Business commands, compiler/Agent, queue dispatch and live integrations remain unimplemented.
+This directory owns the Sprue API, worker, deterministic DAG runtime, persistence, and external-service adapters. The first implemented slice is the [database foundation](database.md): data-model 1.5, 51 tables, domain-split SQL migrations and Drizzle mappings, setup scripts and isolated tests. The [backend framework](framework.md) now adds runnable API/standby-worker processes, shared security/transport middleware, 100 domain-owned route registrations, public app configuration, a verifier-gated identity read service and generated OpenAPI. Business commands, compiler/Agent, queue dispatch and live integrations remain unimplemented.
 
 ## Deployable Roles
 
@@ -65,7 +65,7 @@ The selected runtime baseline is Node.js 24 LTS, Express, and TypeScript, with P
 
 ## Proposed HTTP Contract
 
-See [api-contract.md](../api-contract.md) Draft 0.3 and its domain documents under `docs/api/` for route, request/response, authorization, idempotency, concurrency, trace, and payment boundaries. M1-M3 directions were approved and mapped into data-model 1.4; only the documented framework surfaces are implemented; reserved handlers and all command services remain unavailable. Provider and capped-buyer gates remain prerequisites for live financial behavior.
+See [api-contract.md](../api-contract.md) Draft 0.3 and its domain documents under `docs/api/` for route, request/response, authorization, idempotency, concurrency, trace, and payment boundaries. M1-M3 directions were approved and mapped into data-model 1.5; only the documented framework surfaces are implemented; reserved handlers and all command services remain unavailable. Provider and capped-buyer gates remain prerequisites for live financial behavior.
 
 ## Proposed Agent Harness
 

@@ -21,7 +21,7 @@ Describe an onchain data product
 
 The interface must keep the Agent useful without hiding product semantics, data lineage, wallet authority, cost, deployment state, or payment evidence.
 
-Product boundary confirmed on 2026-09-05: Sprue selects and queries existing Subgraphs and applies necessary supported transformations; it never creates or deploys new Subgraphs or Subgraph Composition. A source gap explains missing facts and bounded-search limits, then asks for a requirement revision or another existing source. Do not offer an upstream index-creation action. Build and Deploy still refer to the Sprue data product and hosted API. This clarification does not add pages, operators, multi-source/cross-chain execution, or new API fields.
+Product boundary confirmed on 2026-09-05: Sprue selects and queries existing Subgraphs and applies necessary supported transformations; it never creates or deploys new Subgraphs or Subgraph Composition. A source gap explains missing facts and bounded-search limits, then asks for a requirement revision or another existing source. Do not offer an upstream index-creation action. Build and Deploy still refer to the Sprue data product and hosted API. A later scope decision on 2026-09-05 approved multiple existing Subgraphs with explicit Union/Join DAG nodes; the current frontend design record predates that runtime extension and needs a follow-up UI alignment pass.
 
 ## MVP Experience Principles
 
@@ -566,7 +566,7 @@ The formal token proposal is in [`design-tokens.md`](design-tokens.md). It defin
 
 ## Screen-to-Backend Contract Summary
 
-These are logical UI contracts. Proposed HTTP paths, DTOs, authorization, and state behavior are now mapped in [api-contract.md](api-contract.md) Draft 0.3; approved M1-M3/H2 directions now map to data-model 1.4 and the database foundation, but API/runtime integration remains unimplemented.
+These are logical UI contracts. Proposed HTTP paths, DTOs, authorization, and state behavior are now mapped in [api-contract.md](api-contract.md) Draft 0.3; approved M1-M3/H2 directions now map to data-model 1.5 and the database foundation, but API/runtime integration remains unimplemented.
 
 | Contract | Consumer pages | Required outcome |
 |---|---|---|
