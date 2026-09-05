@@ -69,4 +69,4 @@ See [api-contract.md](../api-contract.md) Draft 0.3 and its domain documents und
 
 ## Proposed Agent Harness
 
-Start with [harness/README.md](harness/README.md) for the natural-language-to-operator workflow, planning/worker separation, proposed tool scripts, typed operator language, limits, recovery and verification. Draft 0.3 maps approved H2 persistence to implemented database tables, but contains no implemented harness scripts or runtime. The harness reuses modules/agent, modules/dag and modules/graph rather than becoming another backend service. H1 executable schemas and H3 live-source/operating-profile decisions remain open.
+Start with [harness/README.md](harness/README.md) for the natural-language-to-operator workflow, planning/worker separation, proposed tool scripts, typed operator language, limits, recovery and verification. The first fixture-backed harness/controller slice now lives under `src/modules/agent/harness`; it reuses modules/agent and modules/dag rather than becoming another backend service. Durable Agent sessions, HTTP handlers, queue execution, Graph adapters and H1/H3 live-source/operating-profile decisions remain open.

@@ -25,6 +25,11 @@ const schema = z.object({
   DATA_PUBLIC_BASE_URL: z.url(),
   CORS_ALLOWED_ORIGINS: z.string().min(1),
   PRIVY_APP_ID: z.string().max(200).optional(),
+  AGENT_MODE: z.enum(["mock", "remote"]).default("mock"),
+  AGENT_API_URL: z.url().optional(),
+  AGENT_API_KEY: z.string().min(1).max(4096).optional(),
+  AGENT_MODEL: z.string().trim().min(1).max(200).default("sprue-mock-planner"),
+  AGENT_TIMEOUT_MS: z.coerce.number().int().min(250).max(120000).default(30000),
 });
 export type AppConfig = ReturnType<typeof parseConfig>;
 export class ConfigError extends Error {
@@ -82,6 +87,13 @@ export function parseConfig(environment: NodeJS.ProcessEnv) {
     values.DEPLOYMENT_ENVIRONMENT === "local"
   )
     throw new ConfigError(["DEPLOYMENT_ENVIRONMENT"]);
+  if (values.AGENT_MODE === "remote" && !values.AGENT_API_URL)
+    throw new ConfigError(["AGENT_API_URL"]);
+  if (values.AGENT_MODE === "remote" && !values.AGENT_API_KEY)
+    throw new ConfigError(["AGENT_API_KEY"]);
+  const agentApiUrl = values.AGENT_API_URL
+    ? publicUrl("AGENT_API_URL", values.AGENT_API_URL)
+    : null;
   return {
     nodeEnvironment: values.NODE_ENV,
     environment: values.DEPLOYMENT_ENVIRONMENT,
@@ -97,6 +109,13 @@ export function parseConfig(environment: NodeJS.ProcessEnv) {
     ),
     allowedOrigins: [...new Set(origins)],
     privyAppId: values.PRIVY_APP_ID?.trim() || null,
+    agent: {
+      mode: values.AGENT_MODE,
+      apiUrl: agentApiUrl,
+      apiKey: values.AGENT_API_KEY ?? null,
+      model: values.AGENT_MODEL,
+      timeoutMs: values.AGENT_TIMEOUT_MS,
+    },
   };
 }
 export function loadConfig() {

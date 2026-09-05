@@ -88,7 +88,7 @@ Development records and commits stay English. User-visible runtime replies may f
 
 M1-M3 and H2 persistence directions were explicitly approved; model 1.5 now governs the records and validation/build/activation transitions. E2 concerns downstream hosted buyer authority; E1 gates live wallet control. Neither is approved by the persistence work.
 
-The separate database foundation implements approved persistence, including multiple source projections and multi-input artifact bindings, but this harness draft introduces no runtime script or wallet action. New Subgraph/Subgraph Composition creation, deployment, and maintenance are excluded by the confirmed product boundary, not deferred implementation gates. The cases above are acceptance requirements, not implemented tests. The next safe implementation step is the reviewed offline compiler/tool kit, followed by bounded multi-source metadata discovery and Agent wiring.
+The separate database foundation implements approved persistence, including multiple source projections and multi-input artifact bindings. The fixture-backed harness/runtime slice now covers proposal validation and the non-model Union/Aggregate/Join path, but no durable Agent session, queue worker, wallet action, live provider call, or public handler is enabled. New Subgraph/Subgraph Composition creation, deployment, and maintenance are excluded by the confirmed product boundary, not deferred implementation gates. The remaining cases above are acceptance requirements, not all implemented tests. The next safe implementation step is the durable command/session boundary, followed by bounded multi-source metadata discovery and Agent wiring.
 
 ## Frontend Alignment Evidence Boundary
 
