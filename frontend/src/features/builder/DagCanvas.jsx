@@ -44,10 +44,6 @@ export function DagCanvas({ draft, onSelectNode }) {
           })}
         </div>
       </div>
-      <details className="dag-edge-list">
-        <summary>{t("dag.connections", { count: graph.edges.length })}</summary>
-        <ul>{graph.edges.map((edge) => <li key={edge.id}><code>{edge.fromNode}.rows -&gt; {edge.toNode}.rows</code></li>)}</ul>
-      </details>
       {!primitive && draft.groups.map((group) => (
         <section className="dag-expansion" key={group.id} id={`${group.id}-details`} hidden={expanded !== group.id}>
           <h3>{t(group.labelKey)}</h3>
