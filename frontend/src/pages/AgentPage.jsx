@@ -51,7 +51,7 @@ export function AgentPage({ navigate }) {
       generatePlan();
       return;
     }
-    if (action === "manual" || action === "abort") {
+    if (action === "abort") {
       reset();
       navigate(buildPath);
     }
@@ -121,7 +121,6 @@ export function AgentPage({ navigate }) {
                 ) : hasAgentPlan ? (
                   <>
                     <Button type="button" icon={ArrowClockwise} onClick={() => setConfirmation("regenerate")}>{t("agent.regenerateAction")}</Button>
-                    <Button type="button" icon={PencilSimple} onClick={() => setConfirmation("manual")}>{t("agent.manualCreate")}</Button>
                     <Button type="button" variant="primary" icon={ArrowRight} onClick={() => navigate(buildPath)}>{t("agent.next")}</Button>
                   </>
                 ) : (

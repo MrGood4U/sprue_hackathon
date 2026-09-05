@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft 1.7, updated on 2026-09-06. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. Token review remains follow-up work; real backend, identity, wallet, and payment integrations are still pending.
+Draft 1.8, updated on 2026-09-06. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. Token review remains follow-up work; real backend, identity, wallet, and payment integrations are still pending.
 
 This document defines the MVP information architecture, page inventory, interactions, state behavior, desktop layout behavior, accessibility requirements, and screen-to-domain contracts. The decisions are recorded in [Confirmed Design Decisions](#confirmed-design-decisions).
 
@@ -303,7 +303,7 @@ Each step exposes a localized status and a concise evidence description. The pro
 
 - Before a plan exists, the composer offers `Create manually` and `Generate plan`.
 - During planning, the composer collapses to one spinning `Generating plan` action. Hovering or focusing it reveals `Abort and create manually`; activation requires confirmation before cancelling the request and opening Build.
-- After a plan exists, the composer offers `Recreate plan`, `Create manually`, and `Next`. Recreating or switching to manual creation requires confirmation; `Next` opens Build directly.
+- After a plan exists, the composer offers `Recreate plan` and `Next`. Recreating requires confirmation; `Next` opens Build directly. Manual creation is only offered before planning or when aborting an in-flight request.
 - A successful plan moves to the Build page while preserving the returned proposal in shared runtime state.
 - A failed plan remains on the Agent page with an actionable error.
 - Returning from Build to Agent keeps the current intent available for revision.
@@ -699,3 +699,4 @@ Remaining review and integration work:
 | 2026-09-06 | Recorded Draft 1.5 with Agent planning and DAG review split into separate deep-linkable product views; added backend-driven planning progress and a four-view product header | Information hierarchy approved; bounded DAG refinement and live integrations remain open |
 | 2026-09-06 | Recorded Draft 1.6 by removing non-functional version/status controls from the product header and environment/provider readiness content from the persistent sidebar | Product workflows remain deep-linkable; readiness is contextualized in Wallet & Access and relevant pages |
 | 2026-09-06 | Recorded Draft 1.7 with Agent composer states for no plan, planning, and existing plan; added confirmation before aborting or replacing the current plan | Agent action hierarchy and recovery paths approved; durable cancellation remains an implementation concern |
+| 2026-09-06 | Recorded Draft 1.8 by keeping the existing-plan composer focused on `Recreate plan` and `Next`; manual creation remains available before planning or after a confirmed abort | Existing-plan action hierarchy simplified |
