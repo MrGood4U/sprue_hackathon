@@ -110,6 +110,8 @@ Continue developing the existing seven-page frontend directly. The initial data 
 
 The proposed interface design is [api-contract.md](api-contract.md) Draft 0.1 with four domain references under `docs/api/`. Review its route/DTO/command mapping and resolve M1-M3 through data-model change control before implementing dependent backend contracts. E1/E2 remain gates for live provider and capped-consumer behavior; the document itself enables no payment or fee.
 
+The proposed Agent/runtime preparation is [backend/harness/README.md](backend/harness/README.md) Draft 0.1. It defines natural-language clarification, source/schema verification, bounded GraphQL compilation, predefined operator composition, validation/simulation, and a separate creator-authorized build. Prepare the typed tool/script kit, registry and golden tests before wiring the model. Review H1-H3 and related M1/M3 persistence/lifecycle refinements before dependent implementation; no scripts or live integrations are created by the design.
+
 Build the smallest reliable end-to-end product: creator-wallet funding and bounded Graph purchases, natural-language planning, validated data transformation, persistent API, conversational editing, optional Hedera x402 access through Blocky402, and a real paid consumer request with revenue reconciliation and any enabled fee.
 
 ### 7. Project Refinement
@@ -195,7 +197,7 @@ On 2026-09-05, the user approved Option A: dynamically compose predefined, devel
 
 The MVP must validate operator support, configuration, input/output compatibility, cycles, permissions, and resource budgets. Unsupported intent should produce an explicit limitation or a supported alternative, not an unrestricted code-execution fallback. Validate and bound generated Graph query configuration separately.
 
-Store a versioned execution definition separately from UI layout and pin each run to a definition version. Queue scheduling, DAG execution, and result refresh/materialization are separate responsibilities. The exact operator subset, implementation stack, and execution libraries remain open decisions.
+Store a versioned execution definition separately from UI layout and pin each run to a definition version. Queue scheduling, DAG execution, and result refresh/materialization are separate responsibilities. The technical baseline is selected above; the exact operator/configuration subset and execution libraries remain subject to implementation review. The proposed first registry and compiler/tool constraints are recorded in [backend/harness/operators.md](backend/harness/operators.md).
 
 ## Confirmed Deployment Strategy
 
@@ -244,23 +246,23 @@ This is a demo delivery decision, not a commitment to permanent managed hosting.
 
 ### Shared DAG Representation
 
-The frontend and backend should use one simple, validated representation:
+The frontend and backend use canonical DataProductSpec schemaVersion 2 from [data-model.md](data-model.md#canonical-data-product-specification). The earlier illustrative graph_source/from/to shape is superseded. This small structural excerpt is not a complete executable specification:
 
 ```json
 {
   "nodes": [
-    {"id": "source1", "type": "graph_source", "config": {}},
-    {"id": "filter1", "type": "filter", "config": {"minVolume": 1000}},
-    {"id": "agg1", "type": "aggregate", "config": {"by": "wallet"}}
+    {"id": "source1", "type": "source", "operatorVersion": "1", "config": {}},
+    {"id": "aggregate1", "type": "aggregate", "operatorVersion": "1", "config": {}},
+    {"id": "output1", "type": "output", "operatorVersion": "1", "config": {}}
   ],
   "edges": [
-    {"from": "source1", "to": "filter1"},
-    {"from": "filter1", "to": "agg1"}
+    {"fromNode": "source1", "fromPort": "rows", "toNode": "aggregate1", "toPort": "rows"},
+    {"fromNode": "aggregate1", "fromPort": "rows", "toNode": "output1", "toPort": "rows"}
   ]
 }
 ```
 
-The frontend edits the graph; the backend validates, compiles, runs, and persists it.
+The frontend edits supported graph parameters; the backend validates, compiles, runs, and persists immutable versions. Concrete source/operator configurations must follow the reviewed registry, not the empty illustrative objects above or frontend fixture labels.
 
 ## Implementation Sequence
 
@@ -386,6 +388,7 @@ For each substantial AI-assisted contribution, record the following information 
 | 2026-09-05 | English and Chinese frontend localization | Added a centralized React locale provider, complete English and Simplified Chinese message catalogs, browser-language detection, persistent user selection, accessible language controls, localized prototype copy, and catalog validation | Human requested initial English and Chinese localization support | Applied focused React context and language-control accessibility guidance, validated catalog parity and message references, rebuilt the frontend, and exercised locale switching across creator and public routes; no translation service, account data, backend write, or external provider action was used |
 | 2026-09-05 | Maintained product frontend | Promoted the existing seven-page application, updated product naming and guidance, isolated sample services and fixtures behind feature hooks, added cancellation and duplicate-submission guards, and documented integration gaps | Human requested that the existing code be treated as the real product frontend rather than a disposable prototype | Production build, page ownership, locale parity, tokens, four demo-service tests, and four Sites packaging tests passed; browser checks covered all seven page families, English/Chinese switching and reload persistence, sample build/API/consumer flows, and navigation during a running request. UI/UX guidance informed loading-state and current-step corrections. No real account, payment, provider request, or deployment was created |
 | 2026-09-05 | Frontend/backend API contract | Mapped data-model 1.3, seven frontend pages, and designed interactions into a shared HTTP contract and four domain references covering DTOs, authentication, commands, concurrency, traces, deployment, x402, recovery, and financial views; identified M1-M3 model gaps | Human requested an interface document based on the data model and frontend; contract, model refinements, provider control, and capped-consumer review remain pending | Checked six JSON examples, local documentation links/anchors, Markdown tables, operation uniqueness, English-only text, and Git diff formatting; cross-checked reviewed model invariants and official Privy/x402 references. Hedera pages were unavailable in this pass, so the previously reviewed local reference was retained. Documentation only: no migration, endpoint, provider action, payment, or deployment created |
+| 2026-09-05 | Agent harness design | Designed the natural-language/source/query/operator compilation stages, typed Agent tool and developer-script inventory, deterministic runtime handoff, bounded expression/operator language, recovery constraints, and semantic/security evaluation plan under backend/harness | Human requested a harness folder with step-by-step design, tools to prepare, and enforced constraints; exact operator/configuration schemas, durable checkpoint refinements, live metric/source, and operating limits remain proposed H1-H3 review items | Cross-checked data-model 1.3, frontend Builder fixtures, API contracts and active Graph/Privy references; checked five JSON examples, 75 local links/anchors, 20 Markdown tables, ten unique Agent tools, English-only text, and the worked repeat-activity arithmetic. Documentation only: no script implementation, migration, provider request, model call, wallet action, payment, source deployment or API publication |
 
 This table must be updated when AI materially influences architecture, implementation, testing, or submission content.
 
@@ -446,3 +449,4 @@ The central explanation for judges is:
 | 2026-09-05 | Added English and Simplified Chinese localization to the frontend prototype | Make evaluator-facing UI language selectable and persistent while keeping copy centralized, accessible, and ready for additional locales |
 | 2026-09-05 | Promoted the existing application to the maintained product frontend and started frontend implementation | Follow the human direction, retain page ownership and localization, isolate demo workflows, and track incomplete behavior explicitly without claiming live integration |
 | 2026-09-05 | Added API contract Draft 0.1 and four domain interface documents, linked from frontend/backend/model/design guidance | Establish one reviewable frontend/backend contract while explicitly separating proposed model additions and lifecycle clarification from approved data-model 1.3 |
+| 2026-09-05 | Added Agent harness Draft 0.1 under backend/harness and corrected the plan's superseded DAG excerpt | Define reusable bounded planning tools, deterministic operator execution, explicit creator gates and testable recovery before implementing the Agent; retain H1-H3 and existing model/API review gates |

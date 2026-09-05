@@ -1740,6 +1740,8 @@ Provider-specific metadata that proves necessary should first be added to valida
 
 The proposed [frontend/backend API contract](api-contract.md#6-review-gates-and-data-model-gaps) identifies review items M1-M3 for command idempotency, anonymous request recovery authorization, and validation/build/deployment transitions. These are not yet approved changes to this version 1.3 model; no corresponding fields, tables, or transition changes are introduced by the interface draft.
 
+The proposed [harness design](backend/harness/verification.md#review-gates) additionally details H1 operator/configuration schemas and H2 planning-budget checkpoints, frozen run context and cross-attempt source-request recovery. Review their schemas, uniqueness and lifecycle invariants before implementing them in JSONB or relational records. The harness documents do not introduce approved fields or changes to this baseline.
+
 After human approval, changes to this model require:
 
 1. An English update to this document explaining the invariant or workflow change.

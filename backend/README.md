@@ -15,6 +15,7 @@ The evaluator profile runs these roles on Railway with PostgreSQL. The self-host
 
 ```text
 backend/
+├── harness/                # Harness workflow, tools, operator and safety design; scripts planned
 ├── src/
 │   ├── app/                # Bootstrap, validated configuration, and process composition
 │   ├── http/
@@ -56,3 +57,7 @@ The selected runtime baseline is Node.js 24 LTS, Express, and TypeScript, with P
 ## Proposed HTTP Contract
 
 See [api-contract.md](../api-contract.md) Draft 0.1 and its domain documents under `docs/api/` for route, request/response, authorization, idempotency, concurrency, trace, and payment boundaries. The draft is not implemented. Resolve its model gates M1-M3 before creating dependent persistence or endpoints; provider and capped-buyer gates remain prerequisites for live financial behavior.
+
+## Proposed Agent Harness
+
+Start with [harness/README.md](harness/README.md) for the natural-language-to-operator workflow, planning/worker separation, proposed tool scripts, typed operator language, enforced limits, recovery and verification. This is Draft 0.1, not implemented scripts. The harness reuses modules/agent, modules/dag and modules/graph rather than becoming another backend service. Review its H1-H3 gates and the related API/model gates before dependent implementation.

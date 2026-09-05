@@ -49,6 +49,8 @@ Archiving/restoring products, slug renaming, invitations, and account administra
 
 DataProductSpec is exactly [canonical spec schemaVersion 2](../../data-model.md#canonical-data-product-specification), validated against the actual operator registry. A model-generated object is untrusted input. Source discovery/inspection during planning must use only a bounded non-paid adapter; if unavailable without charge or credentials, return a blocker/clarification, not an automatic Graph purchase.
 
+The proposed [harness workflow](../../backend/harness/workflow.md) and [tool catalog](../../backend/harness/tools.md) specify the internal implementation boundary for planning and operator compilation. They add no arbitrary browser tool-execution endpoint; their H1-H3 schemas and limits remain under review alongside this API draft.
+
 `AcceptVersionInput` is a tagged union:
 
 ```json
