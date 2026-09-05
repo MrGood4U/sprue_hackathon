@@ -13,14 +13,15 @@ export function ProductBuilderPage({ navigate }) {
   const { state } = useDemoRuntime();
   const { buildState, startBuild } = useBuildRun();
   const [modal, setModal] = useState(null);
+  const [readinessCollapsed, setReadinessCollapsed] = useState(false);
   const { product } = state;
   const { draft } = product;
   return (
     <div className="product-page">
       <ProductHeader product={product} active="build" navigate={navigate} />
-      <div className="builder-layout">
+      <div className={`builder-layout ${readinessCollapsed ? "readiness-collapsed" : ""}`}>
         <DagCanvas draft={draft} onSelectNode={setModal} />
-        <BuildReadiness draft={draft} onInspect={setModal} />
+        <BuildReadiness draft={draft} onInspect={setModal} collapsed={readinessCollapsed} onToggle={() => setReadinessCollapsed((value) => !value)} />
       </div>
       <ExecutionTrace buildState={buildState} onBuild={startBuild} onOpenDag={() => setModal("dag")} />
       {buildState === "failed" && <p className="inline-notice" role="alert">{t("common.operationFailed")}</p>}

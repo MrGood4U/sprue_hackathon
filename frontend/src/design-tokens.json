@@ -164,6 +164,7 @@
       "product-tabs": { "$value": "40px", "$type": "dimension", "$description": "Product tab strip height." },
       "builder-intent": { "$value": "190px", "$type": "dimension", "$description": "Builder intent and Agent-summary rail width." },
       "builder-evidence": { "$value": "270px", "$type": "dimension", "$description": "Builder readiness-evidence rail width." },
+      "builder-evidence-collapsed": { "$value": "54px", "$type": "dimension", "$description": "Builder collapsed evidence-rail width." },
       "builder-actions": { "$value": "76px", "$type": "dimension", "$description": "Builder bottom action-bar height." },
       "dag-node-width": { "$value": "94px", "$type": "dimension", "$description": "Canonical DAG node width." },
       "dag-node-height": { "$value": "128px", "$type": "dimension", "$description": "Canonical DAG node height." },
@@ -312,6 +313,7 @@
       "product-tabs": { "$value": "{primitive.dimension.product-tabs}", "$type": "dimension", "$description": "Product tab strip height." },
       "builder-intent": { "$value": "{primitive.dimension.builder-intent}", "$type": "dimension", "$description": "Builder intent rail width." },
       "builder-evidence": { "$value": "{primitive.dimension.builder-evidence}", "$type": "dimension", "$description": "Builder evidence rail width." },
+      "builder-evidence-collapsed": { "$value": "{primitive.dimension.builder-evidence-collapsed}", "$type": "dimension", "$description": "Builder collapsed evidence-rail width." },
       "builder-actions": { "$value": "{primitive.dimension.builder-actions}", "$type": "dimension", "$description": "Builder bottom action-bar height." },
       "dag-node-width": { "$value": "{primitive.dimension.dag-node-width}", "$type": "dimension", "$description": "DAG node width." },
       "dag-node-height": { "$value": "{primitive.dimension.dag-node-height}", "$type": "dimension", "$description": "DAG node height." },
@@ -385,6 +387,7 @@
     "builder": {
       "intent-width": { "$value": "{semantic.size.builder-intent}", "$type": "dimension", "$description": "Builder intent rail width." },
       "evidence-width": { "$value": "{semantic.size.builder-evidence}", "$type": "dimension", "$description": "Builder evidence rail width." },
+      "evidence-collapsed-width": { "$value": "{semantic.size.builder-evidence-collapsed}", "$type": "dimension", "$description": "Builder collapsed evidence-rail width." },
       "actions-height": { "$value": "{semantic.size.builder-actions}", "$type": "dimension", "$description": "Builder bottom action-bar height." },
       "rail-background": { "$value": "{semantic.color.background.rail}", "$type": "color", "$description": "Builder side-rail background." },
       "actions-background": { "$value": "{semantic.color.background.panel-subtle}", "$type": "color", "$description": "Builder action-bar background." }

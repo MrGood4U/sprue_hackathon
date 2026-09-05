@@ -1,13 +1,28 @@
-import { Database, BracketsCurly } from "@phosphor-icons/react";
+import { BracketsCurly, CaretLeft, CaretRight, Database } from "@phosphor-icons/react";
+import { IconButton } from "../../components/ui/Button.jsx";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
 
-export function BuildReadiness({ draft, onInspect }) {
+export function BuildReadiness({ draft, onInspect, collapsed, onToggle }) {
   const { t } = useI18n();
   const sourceNode = draft.specification.dag.nodes.find((node) => node.type === "source");
   const outputFields = draft.specification.outputSchema.fields ?? [];
+  if (collapsed) {
+    return (
+      <aside className="readiness-panel readiness-panel-collapsed">
+        <IconButton label={t("readiness.expand")} onClick={onToggle}>
+          <CaretLeft size={18} aria-hidden="true" />
+        </IconButton>
+      </aside>
+    );
+  }
   return (
     <aside className="readiness-panel">
-      <span className="section-label">{t("readiness.title")}</span>
+      <div className="readiness-header">
+        <span className="section-label">{t("readiness.title")}</span>
+        <IconButton label={t("readiness.collapse")} onClick={onToggle}>
+          <CaretRight size={18} aria-hidden="true" />
+        </IconButton>
+      </div>
       <div className="readiness-block">
         <div className="readiness-title"><Database size={22} className="violet-text" /><strong>{t("dag.sampleLabel")}</strong></div>
         <p>{t("builder.sampleNotice")}</p>

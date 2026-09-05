@@ -264,6 +264,8 @@ export const zhCN = {
   "readiness.viewAuthorization": "\u67e5\u770b\u6388\u6743",
   "readiness.outputSchema": "\u8f93\u51fa Schema",
   "readiness.viewFullSchema": "\u67e5\u770b\u5b8c\u6574 Schema",
+  "readiness.collapse": "\u6536\u8d77\u8bc1\u636e\u9762\u677f",
+  "readiness.expand": "\u5c55\u5f00\u8bc1\u636e\u9762\u677f",
 
   "trace.building": "\u6784\u5efa\u4e2d...",
   "trace.buildComplete": "\u6784\u5efa\u5b8c\u6210",

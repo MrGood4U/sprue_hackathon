@@ -261,6 +261,8 @@ export const en = {
   "readiness.viewAuthorization": "View authorization",
   "readiness.outputSchema": "Output schema",
   "readiness.viewFullSchema": "View full schema",
+  "readiness.collapse": "Collapse evidence panel",
+  "readiness.expand": "Expand evidence panel",
 
   "trace.building": "Building...",
   "trace.buildComplete": "Build complete",

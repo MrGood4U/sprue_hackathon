@@ -245,6 +245,8 @@
   --primitive-dimension-builder-intent: 190px;
   /* Builder readiness-evidence rail width. */
   --primitive-dimension-builder-evidence: 270px;
+  /* Builder collapsed evidence-rail width. */
+  --primitive-dimension-builder-evidence-collapsed: 54px;
   /* Builder bottom action-bar height. */
   --primitive-dimension-builder-actions: 76px;
   /* Canonical DAG node width. */
@@ -481,6 +483,8 @@
   --size-builder-intent: var(--primitive-dimension-builder-intent);
   /* Builder evidence rail width. */
   --size-builder-evidence: var(--primitive-dimension-builder-evidence);
+  /* Builder collapsed evidence-rail width. */
+  --size-builder-evidence-collapsed: var(--primitive-dimension-builder-evidence-collapsed);
   /* Builder bottom action-bar height. */
   --size-builder-actions: var(--primitive-dimension-builder-actions);
   /* DAG node width. */
@@ -591,6 +595,8 @@
   --builder-intent-width: var(--size-builder-intent);
   /* Builder evidence rail width. */
   --builder-evidence-width: var(--size-builder-evidence);
+  /* Builder collapsed evidence-rail width. */
+  --builder-evidence-collapsed-width: var(--size-builder-evidence-collapsed);
   /* Builder bottom action-bar height. */
   --builder-actions-height: var(--size-builder-actions);
   /* Builder side-rail background. */

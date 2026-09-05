@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft 1.9, updated on 2026-09-06. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. Token review remains follow-up work; real backend, identity, wallet, and payment integrations are still pending.
+Draft 1.10, updated on 2026-09-06. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. Token review remains follow-up work; real backend, identity, wallet, and payment integrations are still pending.
 
 This document defines the MVP information architecture, page inventory, interactions, state behavior, desktop layout behavior, accessibility requirements, and screen-to-domain contracts. The decisions are recorded in [Confirmed Design Decisions](#confirmed-design-decisions).
 
@@ -319,7 +319,7 @@ Each step exposes a localized status and a concise evidence description. The pro
 **Desktop layout:**
 
 - Center: visual DAG and structured toolbar, using the full space left of the evidence inspector.
-- Right: selected-node/source details, validation, and output schema.
+- Right: selected-node/source details, validation, and output schema; the evidence inspector can collapse into a narrow restore rail when more canvas space is needed.
 - Bottom action bar: `Structured DAG` and `Run backend build`, aligned to the right edge of the DAG canvas rather than the evidence inspector.
 
 The DAG is the primary surface on this page. Full specifications, schemas, and sample output are progressive-disclosure details opened from the relevant inspector instead of competing with the canvas by default.
@@ -700,3 +700,4 @@ Remaining review and integration work:
 | 2026-09-06 | Recorded Draft 1.7 with Agent composer states for no plan, planning, and existing plan; added confirmation before aborting or replacing the current plan | Agent action hierarchy and recovery paths approved; durable cancellation remains an implementation concern |
 | 2026-09-06 | Recorded Draft 1.8 by keeping the existing-plan composer focused on `Recreate plan` and `Next`; manual creation remains available before planning or after a confirmed abort | Existing-plan action hierarchy simplified |
 | 2026-09-06 | Recorded Draft 1.9 by removing the Builder's duplicate left rail and simulated bottom progress trace while retaining the right evidence inspector and three build actions | Builder hierarchy simplified around the DAG and evidence |
+| 2026-09-06 | Recorded Draft 1.10 by adding a reversible collapse control and narrow restore rail to the Builder evidence inspector | Canvas space can expand without losing access to readiness evidence |
