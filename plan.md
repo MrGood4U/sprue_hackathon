@@ -160,9 +160,29 @@ The initial user is a Web3 builder, analyst, protocol team, or AI agent creator 
 
 Example request:
 
-> Build an API that reports, for each protocol, the share of all active wallets active on at least two dates during the last 30 complete UTC days. Refresh daily. Optionally publish paid access after deployment and separate approval.
+> Build an API that reports wallets that traded on Uniswap V3 on both Ethereum and Arbitrum during the last 30 complete UTC days. Return each wallet's trade count, per-chain USD volume, combined volume, first-seen time and last-seen time. Refresh daily and optionally publish paid access after deployment and separate approval.
 
-This is the proposed repeat-activity demo, not cohort retention. Keep one-day wallets in the denominator. Validate the actual Graph source/granularity and approve the live profile under H3 before execution.
+### Confirmed MVP Demo Target: Cross-chain DEX Trader Footprint API
+
+The primary MVP data product is a cross-chain trader-footprint API. It answers: "Which wallets used the same DEX on more than one chain, and what was their activity on each chain?" This is the concrete judge-facing product target for the current vertical slice. The earlier repeat-activity example remains a fixture/template reference, not the primary demo.
+
+The initial source candidates are existing Uniswap V3 Subgraphs for Ethereum and Arbitrum. They are candidates only until Sprue performs bounded discovery, schema inspection, deployment pinning, live query validation and coverage checks. Sprue must not assume that similarly named deployments have identical schemas or usable history.
+
+The intended normalized row shape is `{wallet, chain, tradeId, pool, volumeUsd, timestamp}` where each field is included only after source-specific schema and semantic validation. The product should preserve each source's deployment, schema hash, query, access mode, block/time provenance and Graph cost evidence.
+
+The intended DAG is:
+
+```text
+Uniswap V3 Ethereum  -> Normalize -> Aggregate by wallet and chain -+
+                                                                      +-> Join on normalized wallet -> Map totals -> Output
+Uniswap V3 Arbitrum  -> Normalize -> Aggregate by wallet and chain -+
+```
+
+The `Join` keeps wallets active on both chains and combines their per-chain statistics. A companion all-activity view may use the same normalized source rows with an explicit `Union` before aggregation. The first implementation must not force every operator into one graph when a simpler graph is more reliable; Union and Join are both supported, but each must have a clear business purpose.
+
+The API response should expose `wallet`, `chains`, `ethereum`, `arbitrum`, `combinedVolumeUsd`, `firstSeenAt` and `lastSeenAt`, plus source and freshness evidence in an owner-facing trace. The public paid response must contain only the approved output projection.
+
+The demo should support a bounded 30-day window and a small result cap, with optional filters such as minimum combined volume or a specific wallet. It must not claim canonical cross-chain atomicity: each source keeps its own chain provenance and the product uses a common time interval.
 
 ## Hackathon Definition of Done
 
@@ -198,7 +218,8 @@ The demonstration must show creator funding, a real Graph purchase authorized th
 - A focused Data Product Spec representation.
 - A validated transformation DAG.
 - Seven runtime types: Source, Filter, Map, Aggregate, Union, Join, and Output. Grouping/window/score use configuration or expressions; advanced operators remain deferred.
-- Wallet Activity and Repeat Activity compile-time templates, with inspectable primitive expansion and one canonical execution definition; see [semantic-templates.md](backend/harness/semantic-templates.md).
+- Cross-chain DEX Trader Footprint as the primary end-to-end demo product, using existing Uniswap V3 source candidates and explicit multi-source composition.
+- Wallet Activity and Repeat Activity remain compile-time template coverage with inspectable primitive expansion; they are not the primary judge-facing product; see [semantic-templates.md](backend/harness/semantic-templates.md).
 - Live or freshly queried Graph data.
 - Persistent product configuration and API endpoint.
 - Conversational editing of an existing product definition.
@@ -430,6 +451,8 @@ For each substantial AI-assisted contribution, record the following information 
 | 2026-09-05 | Windows-local stack and evaluator packaging | Added root Compose/PowerShell lifecycle, frontend Docker/Nginx packaging, public API configuration transport, Vercel and Railway manifests, deployment guidance and infrastructure tests; preserved the optional Sites adapter and patched Vite to 6.4.3 with compatible dependency updates | Human requested Windows-local frontend/backend/database testing plus portable evaluator deployment; no cloud resource, payment authority or business feature was approved | Passed 28 backend tests, typecheck, frontend full build and 28 frontend tests including Sites, three deployment checks, PowerShell 5.1/7 config validation, Docker image builds and four-service readiness. Native PostgreSQL 17 verified 15 migrations, 51 tables and 699 columns; native Node API/worker probes and shutdown passed. HTTP deep links, missing-asset/API 404s, exact CORS and unchanged migration journal after full stop/start passed. Official-registry dependency audits reported zero known vulnerabilities. Local port conflicts were handled through configuration only; no volume or system reservation was deleted. Cloud deployment, browser interaction QA, multi-connection races and sponsor/business integrations remain unverified |
 | 2026-09-05 | Multi-Subgraph Union and Join scope | Expanded the MVP from one Graph source to multiple existing Subgraph sources with explicit Union and Join nodes, per-source access and provenance, compatible-schema validation, typed join constraints, and bounded fan-in and fan-out | Human explicitly changed the prior single-source boundary; new Subgraph creation, Subgraph Composition, hidden adapter merging, automatic payment fallback, and arbitrary code execution remain excluded | Documentation-only synchronization across agents.md, data-model 1.5, harness, Graph sponsor guidance, API/design records and current frontend-status notes; no runtime code, migration, provider query, wallet action, payment or deployment was performed |
 
+| 2026-09-06 | Primary MVP demo target | Converted the approved multi-Subgraph scope into one concrete Cross-chain DEX Trader Footprint API: Uniswap V3 activity on Ethereum and Arbitrum, explicit Join for cross-chain wallet overlap, and Union for the companion all-activity view | Human approved this example as the MVP planning target | Recorded the natural-language request, normalized row contract, DAG shape, output projection, source-validation gates and bounded demo scope; no code, migration, provider query, wallet action, payment or deployment was performed |
+
 This table must be updated when AI materially influences architecture, implementation, testing, or submission content.
 
 ## Risk Controls
@@ -498,3 +521,4 @@ The central explanation for judges is:
 | 2026-09-05 | Updated language-selector labels to use native language names | Help users identify their language regardless of the current interface locale; `English` and `中文` are now stable option labels in both catalogs | Added localization regression coverage; frontend i18n tests and the isolated production build passed |
 | 2026-09-05 | Clarified the Graph Subgraph MCP adapter boundary in the harness | Treat MCP as replaceable discovery/schema/execution infrastructure while keeping GraphQL generation, validation and DAG semantics inside Sprue; preserve access and payment authorization around execution | Updated harness overview, workflow, tool catalog, and Graph module ownership notes; documentation-only change, no provider call or live query performed |
 | 2026-09-05 | Expanded the MVP to explicit multi-Subgraph Union and Join composition | Enable cross-chain and multi-source products while preserving separate source selection, access, provenance, consistency and cost accounting; keep upstream Subgraph creation out of scope | Human explicitly approved the scope change; synchronized model 1.5, harness, Graph sponsor guidance, API/design records and frontend alignment notes; no runtime code, migration, provider request, wallet action, payment or deployment was performed |
+| 2026-09-06 | Confirmed the Cross-chain DEX Trader Footprint API as the primary MVP demo target | Give the multi-Subgraph MVP one concrete buyer-facing data product: compare Uniswap V3 activity on Ethereum and Arbitrum, use Join for cross-chain wallet overlap, and retain Union as an explicit all-activity view | Human approved the concrete example for MVP planning; source candidates, schema compatibility, coverage, runtime limits and live payment/provider evidence remain validation gates; no code, migration, provider query, wallet action, payment or deployment was performed |
