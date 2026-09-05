@@ -1,0 +1,69 @@
+{
+  "fixtureVersion": 1,
+  "capturedSample": true,
+  "capturedAt": "2026-09-06T00:00:00Z",
+  "sourceKey": "uniswap-v3-ethereum",
+  "chain": "ethereum",
+  "subgraphId": "4cKy6QQMc5tpfdx8yxfYeb9TLZmgLQe44ddW1G7NwkA6",
+  "deploymentId": null,
+  "schemaScope": "Swap plus selected nested fields",
+  "schemaHash": "live-selection:swap-v1",
+  "fieldTypes": {
+    "id": "id",
+    "timestamp": "timestamp",
+    "account.id": "address",
+    "pool.id": "address",
+    "amountInUSD": "decimal",
+    "amountOutUSD": "decimal",
+    "tokenIn.id": "address",
+    "tokenOut.id": "address"
+  },
+  "mapping": {
+    "wallet": "account.id",
+    "tradeId": "id",
+    "pool": "pool.id",
+    "timestamp": "timestamp",
+    "amountInUsd": "amountInUSD",
+    "amountOutUsd": "amountOutUSD",
+    "tokenIn": "tokenIn.id",
+    "tokenOut": "tokenOut.id"
+  },
+  "query": "swaps(first: 100, where: { timestamp_gte: $startTimestamp }, orderBy: id, orderDirection: asc) { id timestamp account { id } pool { id } amountInUSD amountOutUSD tokenIn { id } tokenOut { id } } _meta { block { number hash timestamp } }",
+  "meta": {
+    "blockNumber": "25912621",
+    "blockHash": "0xecd8e3c0feba06bc86c53d81645a31e38c861529e486aba65017e2e1ee3badb0",
+    "blockTimestamp": "1788629255"
+  },
+  "rows": [
+    {
+      "id": "0x000000384bcbdcc5aba1cfd9719ffbe85c994aa293430303f39d12af470a0c2dc5000000",
+      "timestamp": "1755607163",
+      "account": {"id": "0xfb51d56937c28904ae3e5aaca8beefcdcf97ff4b"},
+      "pool": {"id": "0xe0554a476a092703abdb3ef35c80e0d76d32939f"},
+      "amountInUSD": "3337.057401",
+      "amountOutUSD": "3334.282550871459137377980301717956",
+      "tokenIn": {"id": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"},
+      "tokenOut": {"id": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"}
+    },
+    {
+      "id": "0x0000006cfab44a8db8060b58bb9f7c261ce2c2554cd954bbec2bc5024d1917201e000000",
+      "timestamp": "1657552276",
+      "account": {"id": "0xf654cbd0d7b1765091b035bbb0205dd4b6b49c7f"},
+      "pool": {"id": "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640"},
+      "amountInUSD": "3800",
+      "amountOutUSD": "3807.054609826055308694133513407135",
+      "tokenIn": {"id": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"},
+      "tokenOut": {"id": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"}
+    },
+    {
+      "id": "0x0000007332a02c4f3fe5743ad3c2052339a754dabc72559ef5da60a185ddbc29a8000000",
+      "timestamp": "1728375383",
+      "account": {"id": "0x7a7d3be6d759a10ca333b9ae5f47b6580f70bdc4"},
+      "pool": {"id": "0xa033d7f47d9099a2f390c115dfe470b8e49cc472"},
+      "amountInUSD": "51.6",
+      "amountOutUSD": "0",
+      "tokenIn": {"id": "0xdac17f958d2ee523a2206206994597c13d831ec7"},
+      "tokenOut": {"id": "0x08389495d7456e1951ddf7c3a1314a4bfb646d8b"}
+    }
+  ]
+}
