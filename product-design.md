@@ -320,7 +320,7 @@ Each step exposes a localized status and a concise evidence description. The pro
 
 - Center: visual DAG and structured toolbar, using the full space left of the evidence inspector.
 - Right: selected-node/source details, validation, and output schema.
-- Bottom action bar: `Structured DAG`, `Review spec`, and `Run backend build`.
+- Bottom action bar: `Structured DAG`, `Review spec`, and `Run backend build`, aligned to the right edge of the DAG canvas rather than the evidence inspector.
 
 The DAG is the primary surface on this page. Full specifications, schemas, and sample output are progressive-disclosure details opened from the relevant inspector instead of competing with the canvas by default.
 
