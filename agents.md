@@ -106,6 +106,8 @@ Sprue must also support Docker-based self-hosting from the same source without c
 
 Vercel and Railway are the demo delivery profile, not permanent product dependencies. A Docker operator must be able to supply equivalent configuration, networking, persistence, and secrets without patching source code.
 
+On 2026-09-05, the user explicitly requested Windows local frontend/backend/database operation for browser testing, alongside evaluator packaging. Follow [deployment.md](deployment.md): the root Compose profile and PowerShell helper run a loopback-only local stack with an explicit migration step and a persistent PostgreSQL volume; native Node.js 24 development remains supported. Windows is the host, not a desktop-client target. Preserve the optional Sites build adapter, keep frontend API origins public and server secrets private, and use the Vercel/Railway manifests for the selected external profile. Starting infrastructure does not enable unfinished business routes, authentication, jobs or payments.
+
 ## Current Planning Stage
 
 Project-structure conception, technical selection, and data-model definition were marked complete on 2026-09-05. On the same date, the user promoted the seven-page application in `frontend/` to the maintained product frontend and authorized frontend implementation to proceed. Extend the existing pages directly, preserving the Evidence-First Console design, route ownership, and English/Simplified Chinese localization. The current runtime uses demo fixtures and services while real backend integrations remain pending. Token decisions DT1-DT4 remain follow-up design review items, and the capped demo-consumer funding boundary remains a live-integration gate.

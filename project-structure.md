@@ -323,6 +323,8 @@ Vercel plus Railway and Docker Compose are two ways to run the shared Sprue plat
 
 ## Data Plane
 
+The portable service boundary is packaged in root [compose.yaml](compose.yaml) and [deployment.md](deployment.md): Windows can run a complete local browser stack, while Vercel/Railway use the frontend manifest and separate backend API/worker manifests. Public frontend origin configuration is distinct from server-side credentials. The worker remains private and migrations are explicit release/orchestration actions, not application startup behavior.
+
 The data plane executes and serves the product.
 
 ### Graph Data Adapter

@@ -20,10 +20,12 @@ Official documentation establishes the Hedera x402 wire profile and Blocky402's 
 
 ## Deployment Profiles
 
+See [deployment.md](deployment.md) for Windows local setup, native Node development, complete Docker packaging, and Vercel/Railway configuration. From PowerShell at the repository root, run `./scripts/local.ps1 init`, then `./scripts/local.ps1 up`; the default browser address is `http://127.0.0.1:4173`. Stop with `./scripts/local.ps1 stop` to preserve database data. These commands start the current frontend and backend framework, not the unfinished live business integrations.
+
 - Evaluator demo: Creator Console on Vercel; public API, private worker, and PostgreSQL on Railway, using platform-provided domains.
 - Self-hosted: equivalent frontend, API, worker, and PostgreSQL roles through Docker Compose from the same source and configuration contract.
 
-Vercel and Railway are temporary delivery targets, not application dependencies. Deployment portability, explicit migrations, health checks, server-side secrets, and non-ephemeral source-of-truth persistence are required. No live deployment exists yet.
+Vercel and Railway are temporary delivery targets, not application dependencies. Deployment portability, explicit migrations, health checks, server-side secrets, and non-ephemeral source-of-truth persistence are required. Cloud deployment remains unverified; checked-in manifests do not provision services or satisfy sponsor evidence.
 
 ## Product Frontend
 
@@ -39,7 +41,7 @@ Open `http://127.0.0.1:4173`. Use a browser window at least 1024 CSS pixels wide
 
 ## Database Foundation
 
-The backend now has 51 domain tables, 15 ordered SQL migrations, typed Drizzle query mappings, explicit reference seeds and isolated tests. Read [backend/database.md](backend/database.md) for local PostgreSQL setup, commands, schema authority and remaining verification. Database structure and the API/standby-worker framework are implemented; business handlers and live integrations are not. See [backend/framework.md](backend/framework.md) for startup commands, security boundaries, generated OpenAPI and reserved routes. Native PostgreSQL 17/Docker/Railway and multi-connection behavior remain unverified.
+The backend now has 51 domain tables, 15 ordered SQL migrations, typed Drizzle query mappings, explicit reference seeds and isolated tests. Read [backend/database.md](backend/database.md) for local PostgreSQL setup, commands, schema authority and remaining verification. Database structure and the API/standby-worker framework are implemented; business handlers and live integrations are not. See [backend/framework.md](backend/framework.md) for startup commands, security boundaries, generated OpenAPI and reserved routes. Native PostgreSQL 17 schema/migrations and Docker service startup now pass the Windows-local checks in [deployment.md](deployment.md); Railway deployment and multi-connection behavior remain unverified.
 
 ## Project Records
 

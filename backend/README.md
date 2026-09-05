@@ -1,5 +1,7 @@
 # Sprue Backend
 
+For the complete Windows browser stack and Vercel/Railway packaging, see [deployment.md](../deployment.md). The root Compose/PowerShell entry coordinates frontend, API, worker, PostgreSQL, and explicit one-off migrations. Railway API/worker manifests share this Dockerfile but use different commands; only the API release applies migrations. No platform-specific domain code or live business integration is added by these profiles.
+
 This directory owns the Sprue API, worker, deterministic DAG runtime, persistence, and external-service adapters. The first implemented slice is the [database foundation](database.md): data-model 1.4, 51 tables, domain-split SQL migrations and Drizzle mappings, setup scripts and isolated tests. The [backend framework](framework.md) now adds runnable API/standby-worker processes, shared security/transport middleware, 100 domain-owned route registrations, public app configuration, a verifier-gated identity read service and generated OpenAPI. Business commands, compiler/Agent, queue dispatch and live integrations remain unimplemented.
 
 ## Deployable Roles

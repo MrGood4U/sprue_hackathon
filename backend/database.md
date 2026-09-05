@@ -28,6 +28,8 @@ The migration runner uses one dedicated connection and a session advisory lock. 
 
 ## Local PostgreSQL 17
 
+For the complete browser stack, prefer the root [Windows/Docker workflow](../deployment.md), which defaults to database port 15432. Its `sprue-local` project and volume are intentionally separate from this older backend-only `sprue-database` profile. Do not configure both on the same ports or reuse one profile's credentials with the other's volume. Later native-container verification is recorded in the current deployment/plan records; the original PGlite-only verification below is historical.
+
 Use Node.js 24 and run commands from `backend/`. Install the locked dependencies with `npm ci`. Copy `.env.example` to an untracked `.env` locally and replace its password placeholder. `POSTGRES_PASSWORD` and the password in `DATABASE_URL` must agree; percent-encode URL credentials. Do not use real provider secrets for schema setup.
 
 ```sh

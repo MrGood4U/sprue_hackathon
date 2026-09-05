@@ -12,6 +12,8 @@ Application metadata, entry-page actions, and project instructions identify Spru
 
 ## Remaining Page Work
 
+Deployment infrastructure now includes public API-origin validation, a read-only app-config client, Windows/full-stack Docker orchestration and Vercel/Railway manifests; see [deployment.md](../deployment.md). The default page service adapter remains demo. A reachable backend or successful infrastructure probe does not complete any of the live page dependencies below.
+
 | Page | Current behavior | Needed for the integrated MVP |
 |---|---|---|
 | Entry | Product introduction and navigation into the demo workspace | Privy sign-in, session restoration, and workspace bootstrap |

@@ -1,0 +1,79 @@
+# Local browser stack. Credentials come from an ignored .env.local file.
+# Migrations run explicitly through the tools profile, never on API/worker startup.
+name: sprue-local
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: sprue
+      POSTGRES_USER: sprue
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Initialize .env.local first}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-15432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sprue -d sprue"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+  api:
+    image: sprue-backend:local
+    build: ./backend
+    environment: &backend-environment
+      NODE_ENV: development
+      DEPLOYMENT_ENVIRONMENT: local
+      HOST: 0.0.0.0
+      PORT: 3001
+      WORKER_PORT: 3002
+      DATABASE_URL: postgresql://sprue:${POSTGRES_PASSWORD:?Initialize .env.local first}@postgres:5432/sprue
+      DATABASE_SSL_MODE: disable
+      API_BASE_URL: http://127.0.0.1:${API_PORT:-3001}
+      CONSOLE_PUBLIC_URL: http://127.0.0.1:${FRONTEND_PORT:-4173}
+      DATA_PUBLIC_BASE_URL: http://127.0.0.1:${API_PORT:-3001}/data/v1
+      CORS_ALLOWED_ORIGINS: http://127.0.0.1:${FRONTEND_PORT:-4173}
+    ports:
+      - "127.0.0.1:${API_PORT:-3001}:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  worker:
+    image: sprue-backend:local
+    command: ["node", "dist/src/app/worker.js"]
+    environment: *backend-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3002/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  frontend:
+    image: sprue-frontend:local
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: http://127.0.0.1:${API_PORT:-3001}
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-4173}:8080"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:8080/"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  migrate:
+    image: sprue-backend:local
+    profiles: ["tools"]
+    command: ["node", "dist/scripts/migrate.js"]
+    environment: *backend-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+volumes:
+  postgres-data:

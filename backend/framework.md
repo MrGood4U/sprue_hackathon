@@ -55,6 +55,8 @@ Build emits standalone JavaScript plus the unchanged migration assets, without t
 
 ## Deployment and Security
 
+The subsequent [complete local/deployment profile](../deployment.md) adds the root four-service Compose stack, Windows PowerShell orchestration, a frontend image and Vercel/Railway manifests. The commands below remain the smaller backend-only profile; do not run it on the same ports as the root stack. API/worker startup still does not migrate; local orchestration and the Railway API release invoke migrations explicitly.
+
 API and worker use the same Docker image with different commands. `compose.backend.yml` adds them to the database-only development profile and includes a separately invoked migration service. It does not deploy the frontend or complete the full self-hosted product. Railway can use the Dockerfile or the documented build/start commands. Bind `HOST=0.0.0.0` in a container; use exact HTTPS public URLs and explicit CORS origins for non-local profiles. Do not provision any cloud service as part of framework setup.
 
 For local backend containers, configure POSTGRES_PASSWORD and the matching percent-encoded CONTAINER_DATABASE_URL in .env, then run:
@@ -75,6 +77,8 @@ SIGINT/SIGTERM stops admission, drains connections within a bounded grace period
 
 ## Verification Boundary
 
-Tests use real local HTTP sockets with injected ports and isolated PGlite SQL; they do not use external credentials, queues or live providers. 28 tests passed, covering route/catalog parity with all five Markdown API documents, security/error behavior, identity ownership and readiness. The compiled API and worker both passed local startup/probe/idempotent-shutdown smoke tests; migration assets were unchanged and test output was excluded. Compose configuration validation passed. These checks did not start a native PostgreSQL server or container. Native PostgreSQL 17, container execution, Railway networking, real Privy verification and pg-boss recovery remain separate integration gates until actually exercised.
+The initial framework tests used real local HTTP sockets with injected ports and isolated PGlite SQL; they did not use external credentials, queues or live providers. 28 tests passed, covering route/catalog parity with all five Markdown API documents, security/error behavior, identity ownership and readiness. The compiled API and worker both passed local startup/probe/idempotent-shutdown smoke tests; migration assets were unchanged and test output was excluded. Compose configuration validation passed. Those initial checks did not start a native PostgreSQL server or container.
+
+The subsequent Windows-local deployment checks passed native PostgreSQL 17 schema/migration validation, Docker API/worker/frontend startup, native Node API/worker readiness and shutdown, exact-origin CORS and frontend deep-link probes. See [deployment.md](../deployment.md) and the current [plan record](../plan.md). Railway networking, real Privy verification, multi-connection race behavior and pg-boss recovery remain unverified; the worker remains standby and business handlers remain unavailable.
 
 Implementation references: [Express 5 asynchronous errors](https://expressjs.com/en/guide/error-handling/), [Express 5 migration notes](https://expressjs.com/en/guide/migrating-5/), and [Node HTTP server lifecycle](https://nodejs.org/docs/latest-v24.x/api/http.html).

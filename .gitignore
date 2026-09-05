@@ -8,3 +8,8 @@ backend/.env
 backend/.env.*
 !backend/.env.example
 backend/.local/
+.env.local
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+frontend/.vercel/

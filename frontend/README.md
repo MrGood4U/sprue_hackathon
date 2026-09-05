@@ -1,5 +1,7 @@
 # Sprue Frontend
 
+For Windows local browser testing, complete Docker hosting, and Vercel/Railway delivery, see [deployment.md](../deployment.md). The frontend has a Dockerfile, static SPA routing, a Vercel manifest and public `VITE_API_BASE_URL` configuration. `npm run build` runs the full repository-aware checks; `npm run build:app` packages an isolated frontend build context. Keep the existing Sites outputs compatible. Page workflows still use the demo adapter until individual real business clients are implemented.
+
 This directory is the maintained Sprue product frontend: the Creator Console, public consumer page, localization, design tokens, build, and deployment adapter. The user promoted this source to the product frontend on 2026-09-05. Continue implementation here.
 
 The currently available workspace uses demo data and local demo services. Authentication, durable product operations, live Graph queries, wallets, and payments remain pending. See [implementation-status.md](implementation-status.md) for concrete gaps and their implementation order.
