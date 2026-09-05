@@ -110,7 +110,7 @@ Continue developing the existing seven-page frontend directly. The initial data 
 
 The proposed interface design is [api-contract.md](api-contract.md) Draft 0.1 with four domain references under `docs/api/`. Review its route/DTO/command mapping and resolve M1-M3 through data-model change control before implementing dependent backend contracts. E1/E2 remain gates for live provider and capped-consumer behavior; the document itself enables no payment or fee.
 
-The proposed Agent/runtime preparation is [backend/harness/README.md](backend/harness/README.md) Draft 0.1. It defines natural-language clarification, source/schema verification, bounded GraphQL compilation, predefined operator composition, validation/simulation, and a separate creator-authorized build. Prepare the typed tool/script kit, registry and golden tests before wiring the model. Review H1-H3 and related M1/M3 persistence/lifecycle refinements before dependent implementation; no scripts or live integrations are created by the design.
+The proposed Agent/runtime preparation is [backend/harness/README.md](backend/harness/README.md) Draft 0.2. It defines natural-language clarification, source/schema verification, bounded GraphQL compilation, predefined operator composition, validation/simulation, and a separate creator-authorized build. Prepare the typed tool/script kit, registry and golden tests before wiring the model. Review H1-H3 and related M1/M3 persistence/lifecycle refinements before dependent implementation; no scripts or live integrations are created by the design.
 
 Build the smallest reliable end-to-end product: creator-wallet funding and bounded Graph purchases, natural-language planning, validated data transformation, persistent API, conversational editing, optional Hedera x402 access through Blocky402, and a real paid consumer request with revenue reconciliation and any enabled fee.
 
@@ -122,13 +122,19 @@ Improve the product after the core flow works. Focus on interface quality, expla
 
 Onchain data is abundant, but turning a data idea into a reliable service still requires source discovery, schema understanding, transformation logic, validation, scheduling, API design, deployment, and monetization. Sprue hides this data-engineering complexity behind a natural-language interface while preserving an inspectable execution plan.
 
+### MVP Operator and Template Alignment
+
+On 2026-09-05, the human approved a small node scope and the corresponding repository changes. The five runtime types are source/filter/map/aggregate/output; Wallet Activity and Repeat Activity are compile-time templates. The maintained frontend now demonstrates actual-edge rendering, semantic disclosure and local parameter recompilation. Data-model and API examples share a denominator-safe repeat-activity metric and four string-safe output fields. This is frontend/design progress, not an implemented Agent or backend runtime. H1 exact schemas, H2 durable provenance/recovery, H3 live source/methodology/limits and prior API/provider gates remain open.
+
 ## Target User
 
 The initial user is a Web3 builder, analyst, protocol team, or AI agent creator who wants to create a derived onchain data product without manually implementing the full indexing and API stack.
 
 Example request:
 
-> Build an API that measures DEX stickiness on Base. Use the last 30 days, exclude one-time wallets, group by protocol, refresh daily, and charge $0.01 per request.
+> Build an API that reports, for each protocol, the share of all active wallets active on at least two dates during the last 30 complete UTC days. Refresh daily. Optionally publish paid access after deployment and separate approval.
+
+This is the proposed repeat-activity demo, not cohort retention. Keep one-day wallets in the denominator. Validate the actual Graph source/granularity and approve the live profile under H3 before execution.
 
 ## Hackathon Definition of Done
 
@@ -163,7 +169,8 @@ The demonstration must show creator funding, a real Graph purchase authorized th
 - Existing The Graph source discovery and schema inspection.
 - A focused Data Product Spec representation.
 - A validated transformation DAG.
-- A small set of transformation nodes: Source, Filter, GroupBy, Window, Aggregate, and Output.
+- Five runtime types: Source, Filter, Map, Aggregate, and Output. Grouping/window/score use configuration or expressions; advanced operators are deferred.
+- Wallet Activity and Repeat Activity compile-time templates, with inspectable primitive expansion and one canonical execution definition; see [semantic-templates.md](backend/harness/semantic-templates.md).
 - Live or freshly queried Graph data.
 - Persistent product configuration and API endpoint.
 - Conversational editing of an existing product definition.
@@ -197,7 +204,7 @@ On 2026-09-05, the user approved Option A: dynamically compose predefined, devel
 
 The MVP must validate operator support, configuration, input/output compatibility, cycles, permissions, and resource budgets. Unsupported intent should produce an explicit limitation or a supported alternative, not an unrestricted code-execution fallback. Validate and bound generated Graph query configuration separately.
 
-Store a versioned execution definition separately from UI layout and pin each run to a definition version. Queue scheduling, DAG execution, and result refresh/materialization are separate responsibilities. The technical baseline is selected above; the exact operator/configuration subset and execution libraries remain subject to implementation review. The proposed first registry and compiler/tool constraints are recorded in [backend/harness/operators.md](backend/harness/operators.md).
+Store a versioned execution definition separately from UI layout and pin each run to a definition version. Queue scheduling, DAG execution, and result refresh/materialization are separate responsibilities. The technical baseline is selected above; the five-type operator scope is now confirmed; exact configuration/template schemas, numeric/null semantics and execution libraries remain subject to implementation review. The proposed first registry and compiler/tool constraints are recorded in [backend/harness/operators.md](backend/harness/operators.md).
 
 ## Confirmed Deployment Strategy
 
@@ -389,6 +396,7 @@ For each substantial AI-assisted contribution, record the following information 
 | 2026-09-05 | Maintained product frontend | Promoted the existing seven-page application, updated product naming and guidance, isolated sample services and fixtures behind feature hooks, added cancellation and duplicate-submission guards, and documented integration gaps | Human requested that the existing code be treated as the real product frontend rather than a disposable prototype | Production build, page ownership, locale parity, tokens, four demo-service tests, and four Sites packaging tests passed; browser checks covered all seven page families, English/Chinese switching and reload persistence, sample build/API/consumer flows, and navigation during a running request. UI/UX guidance informed loading-state and current-step corrections. No real account, payment, provider request, or deployment was created |
 | 2026-09-05 | Frontend/backend API contract | Mapped data-model 1.3, seven frontend pages, and designed interactions into a shared HTTP contract and four domain references covering DTOs, authentication, commands, concurrency, traces, deployment, x402, recovery, and financial views; identified M1-M3 model gaps | Human requested an interface document based on the data model and frontend; contract, model refinements, provider control, and capped-consumer review remain pending | Checked six JSON examples, local documentation links/anchors, Markdown tables, operation uniqueness, English-only text, and Git diff formatting; cross-checked reviewed model invariants and official Privy/x402 references. Hedera pages were unavailable in this pass, so the previously reviewed local reference was retained. Documentation only: no migration, endpoint, provider action, payment, or deployment created |
 | 2026-09-05 | Agent harness design | Designed the natural-language/source/query/operator compilation stages, typed Agent tool and developer-script inventory, deterministic runtime handoff, bounded expression/operator language, recovery constraints, and semantic/security evaluation plan under backend/harness | Human requested a harness folder with step-by-step design, tools to prepare, and enforced constraints; exact operator/configuration schemas, durable checkpoint refinements, live metric/source, and operating limits remain proposed H1-H3 review items | Cross-checked data-model 1.3, frontend Builder fixtures, API contracts and active Graph/Privy references; checked five JSON examples, 75 local links/anchors, 20 Markdown tables, ten unique Agent tools, English-only text, and the worked repeat-activity arithmetic. Documentation only: no script implementation, migration, provider request, model call, wallet action, payment, source deployment or API publication |
+| 2026-09-05 | MVP operator and semantic-template alignment | Aligned the five-type scope across guidance, architecture, design, harness and API/model examples; designed two versioned compile-time templates plus bounded read/expand tools; replaced the six-card frontend fixture with a seven-node spec, actual-edge projection, semantic disclosure, constrained local recompilation and consistent output fixtures | Human agreed to small MVP scope and authorized these changes; exact executable schemas, durable provenance, live source/methodology and numerical limits remain H1-H3 review work | Used UI/UX guidance for stable IDs, derived display state and keyboard disclosure while preserving semantic tokens. Build, 26 automated tests and token checks passed; validated 10 JSON examples and 86 local links, and opened a local route after HTTP 200. No new browser interaction/visual QA, backend compiler/runtime, Agent call, migration, provider query, wallet action, payment or cloud deployment. Fixture evaluation is test-only, not integration evidence |
 
 This table must be updated when AI materially influences architecture, implementation, testing, or submission content.
 
@@ -450,3 +458,4 @@ The central explanation for judges is:
 | 2026-09-05 | Promoted the existing application to the maintained product frontend and started frontend implementation | Follow the human direction, retain page ownership and localization, isolate demo workflows, and track incomplete behavior explicitly without claiming live integration |
 | 2026-09-05 | Added API contract Draft 0.1 and four domain interface documents, linked from frontend/backend/model/design guidance | Establish one reviewable frontend/backend contract while explicitly separating proposed model additions and lifecycle clarification from approved data-model 1.3 |
 | 2026-09-05 | Added Agent harness Draft 0.1 under backend/harness and corrected the plan's superseded DAG excerpt | Define reusable bounded planning tools, deterministic operator execution, explicit creator gates and testable recovery before implementing the Agent; retain H1-H3 and existing model/API review gates |
+| 2026-09-05 | Confirmed the five-type MVP scope and aligned semantic-template design, canonical examples and maintained Builder frontend | Keep execution primitive-only, distinguish repeat activity from retention, preserve the full denominator and record H1-H3 boundaries without approving new persistence or live integrations |

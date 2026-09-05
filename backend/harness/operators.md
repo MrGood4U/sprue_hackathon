@@ -1,6 +1,6 @@
 # Query and Operator Contract
 
-Draft 0.1. This proposes the exact bounded language behind "turn intent into operators." It is not a shipped registry. Review H1 before implementing configuration schemas; preserve the approved [canonical spec envelope](../../data-model.md#canonical-data-product-specification).
+Draft 0.2. This proposes the exact bounded language behind "turn intent into operators." It is not a shipped registry. Review H1 before implementing configuration schemas; preserve the approved [canonical spec envelope](../../data-model.md#canonical-data-product-specification).
 
 ## 1. Compilation Layers
 
@@ -14,9 +14,9 @@ Draft 0.1. This proposes the exact bounded language behind "turn intent into ope
 
 Display names such as "Group by Protocol" are not operator identifiers. The same operator can appear multiple times with different parameters, and different user requests can produce different DAGs. The model selects registered operations; it does not define a new operation implementation.
 
-## 2. Proposed First Registry
+## 2. Confirmed MVP Scope and Proposed Configuration
 
-Start with five operator types sufficient for a bounded activity metric. Each has operatorVersion `1` once implemented. Source is the only network-capable operator; its I/O is performed by the trusted Graph adapter, not an expression evaluator.
+The human approved these five operator types on 2026-09-05; their exact configuration and numeric/null schemas remain H1 review work. Each has operatorVersion `1` once implemented. Source is the only network-capable operator; its I/O is performed by the trusted Graph adapter, not an expression evaluator.
 
 | Type | Ports | Proposed configuration | Semantics and constraints |
 |---|---|---|---|
@@ -37,6 +37,8 @@ Output sorting is for deterministic serving, not an undeclared top-k operation. 
 Each entry contains configSchema, inputPorts, outputPorts, inferOutputSchema, validateSemantics, estimateResources, and execute, plus type/version and determinism guarantees. Functions are developer-owned code resolved by a frozen registry, never names dynamically imported from a user path. Changes to semantics require a new operatorVersion; do not keep version 1 while changing rounding, null behavior or aggregation meaning.
 
 The registry hash covers versioned definitions and implementation identity. Executions pin runtimeVersion and registryHash; a worker missing the pinned version returns RUNTIME_VERSION_UNAVAILABLE instead of substituting its newest operator. Compiler output may be cached by specHash/registryHash but is not an independent editable source of truth.
+
+[Semantic templates](semantic-templates.md) provide Wallet Activity and Repeat Activity as compile-time expansions into these operators, not extra runtime types. The expanded primitive spec remains the only execution definition; template provenance is separately reviewed under H1/H2.
 
 ## 3. Types and Expression Language
 
@@ -118,17 +120,17 @@ Required raw facts are protocol identity, wallet identity and event timestamp at
 | compute_ratio | map | Keep counts and protocol; repeatShare = safe_divide(repeatWallets, activeWallets) |
 | result | output | Validate schema and stable protocol ordering; no API or x402 side effect |
 
-All adjacent edges connect rows to rows. This seven-node path uses four of the five proposed operator types; filter is unnecessary here. Crucially, do not filter out one-day wallets before computing the denominator. That would produce the wrong metric, often 100%, despite a syntactically valid DAG.
+All adjacent edges connect rows to rows. This seven-node path uses four of the five scoped operator types; filter is unnecessary here. Crucially, do not filter out one-day wallets before computing the denominator. That would produce the wrong metric, often 100%, despite a syntactically valid DAG.
 
 Small synthetic fixture after timestamp-to-date mapping, entirely within the chosen interval:
 
 ```json
 [
-  {"protocol": "alpha", "wallet": "wallet_a", "date": "2026-08-01"},
-  {"protocol": "alpha", "wallet": "wallet_a", "date": "2026-08-02"},
-  {"protocol": "alpha", "wallet": "wallet_b", "date": "2026-08-01"},
-  {"protocol": "alpha", "wallet": "wallet_b", "date": "2026-08-01"},
-  {"protocol": "beta", "wallet": "wallet_a", "date": "2026-08-03"}
+  {"protocol": "alpha", "wallet": "wallet_a", "date": "2026-08-27"},
+  {"protocol": "alpha", "wallet": "wallet_a", "date": "2026-08-28"},
+  {"protocol": "alpha", "wallet": "wallet_b", "date": "2026-08-27"},
+  {"protocol": "alpha", "wallet": "wallet_b", "date": "2026-08-27"},
+  {"protocol": "beta", "wallet": "wallet_a", "date": "2026-08-29"}
 ]
 ```
 
@@ -149,4 +151,4 @@ With no input rows, this grouped metric returns an empty array, not invented zer
 
 Reject unknown types/versions/config fields, duplicate IDs, cycles, disconnected/dead nodes, missing inputs, invalid ports, unreachable output, extra output nodes, unsatisfied field/unit constraints, unbounded expressions, unsupported source semantics, resource excess and inconsistent output schemas. Every accepted node must reach the single output. The first runtime supports DAGs, not loops or recursive feedback edges.
 
-The data-model example uses abbreviated query/config fields for illustration; it is not a complete executable operator schema. This document proposes those missing details under H1, without silently rewriting model 1.3. After approval, update the example and schema references together and make the compiler, frontend registry and runtime reject any older incompatible shape explicitly.
+The data-model example uses abbreviated query/config fields for illustration; it is not a complete executable operator schema. This document proposes those missing details under H1, without silently rewriting model 1.3. The canonical illustration and frontend fixture now show the same seven-node denominator-safe composition. This corrects examples only, not schema approval or a shipped runtime; after H1 approval, publish complete schemas and reject older incompatible shapes explicitly.

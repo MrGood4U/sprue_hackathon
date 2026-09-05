@@ -345,13 +345,13 @@ The data plane executes and serves the product.
 
 ### DAG Runtime
 
-The user confirmed Option A on 2026-09-05: the Agent dynamically composes predefined, developer-implemented operators. Candidate operator types include:
+The user confirmed Option A on 2026-09-05: the Agent dynamically composes predefined, developer-implemented operators. The confirmed MVP type scope is:
 
 ```text
-Source, Filter, Map, Join, GroupBy, Window, Aggregate, Score, Output
+Source, Filter, Map, Aggregate, Output
 ```
 
-This list is an operator catalog, not a required sequence. Different requests may use different supported nodes and connections. Implement only the subset needed for one convincing MVP product flow.
+This list is an operator catalog, not a required sequence. Different requests may use different supported nodes and connections. A DAG need not use every type. GroupBy is aggregate configuration; time windows and derived scores are bounded config/expressions. Join, Union and advanced semantic analytics are deferred. Wallet Activity and Repeat Activity compile into primitives under [semantic-templates.md](backend/harness/semantic-templates.md); their display groups never create a second runtime.
 
 - Accept a versioned execution definition containing node types, validated configuration, typed inputs/outputs, and dependency edges; keep visual positions separate.
 - Reject unsupported operators, incompatible connections, cycles, invalid configuration, or requests outside permission and resource budgets before execution.

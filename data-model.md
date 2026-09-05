@@ -184,12 +184,14 @@ erDiagram
 
 `data_product_versions.specification_json` is the canonical execution definition. It is validated against an application schema and hashed after canonical JSON serialization.
 
+This illustration was corrected on 2026-09-05 to retain all active wallets in the denominator and match the [seven-node harness example](backend/harness/operators.md#5-worked-compilation-example). It uses synthetic source identities and an illustrative query/config shape, not a verified Graph schema or an executable approved registry. Real extraction mappings, timestamp units, exact configuration/numeric schemas and live coverage remain H1/H3 checks. The resource numbers remain illustrative, not new spending authorization.
+
 ```json
 {
   "schemaVersion": 2,
   "runtimeVersion": "1",
   "intent": {
-    "summary": "Measure DEX stickiness on Base over the last 30 days"
+    "summary": "Measure repeat activity by protocol over 30 complete UTC days; repeat means at least 2 active dates."
   },
   "sources": [
     {
@@ -201,11 +203,11 @@ erDiagram
       "dataNetwork": "eip155:8453",
       "target": {
         "type": "deployment_id",
-        "id": "opaque-deployment-id",
-        "logicalSubgraphId": "optional-subgraph-id",
-        "manifestIpfsCid": "optional-ipfs-cid"
+        "id": "demo-not-a-live-deployment",
+        "logicalSubgraphId": null,
+        "manifestIpfsCid": null
       },
-      "schemaHash": "sha256:...",
+      "schemaHash": "demo-not-verified",
       "access": {
         "mode": "x402",
         "gatewayEnvironment": "testnet",
@@ -221,33 +223,277 @@ erDiagram
   "dag": {
     "nodes": [
       {
-        "id": "source1",
+        "id": "activity",
         "type": "source",
         "operatorVersion": "1",
         "config": {
           "sourceId": "source_dex_activity",
-          "queryDocument": "query Activity($start: Int!, $end: Int!, $first: Int!, $lastId: ID!, $block: Int!) { ... }",
-          "variableBindings": {"start": "run.window.start", "end": "run.window.end", "block": "run.sourceBlock", "lastId": "page.cursor"},
-          "pagination": {"strategy": "id_cursor", "cursorField": "id", "pageSize": 1000}
+          "queryDocument": "query Activity($start: Int!, $end: Int!, $first: Int!, $lastId: ID!, $block: Int!) { activities(first: $first, orderBy: id, orderDirection: asc, where: {id_gt: $lastId, timestamp_gte: $start, timestamp_lt: $end}, block: {number: $block}) { id protocol wallet timestamp } _meta(block: {number: $block}) { block { number hash } deployment hasIndexingErrors } }",
+          "variableBindings": {
+            "start": "run.window.start",
+            "end": "run.window.end",
+            "first": "page.size",
+            "lastId": "page.cursor",
+            "block": "run.sourceBlock"
+          },
+          "pagination": {
+            "strategy": "id_cursor",
+            "cursorField": "id",
+            "pageSize": 1000
+          },
+          "window": {
+            "mode": "complete_utc_days",
+            "days": 30
+          },
+          "resultPath": [
+            "activities"
+          ]
         }
       },
-      {"id": "filter1", "type": "filter", "operatorVersion": "1", "config": {"minimumActiveDays": 2}},
-      {"id": "aggregate1", "type": "aggregate", "operatorVersion": "1", "config": {"groupBy": ["protocol"]}},
-      {"id": "output1", "type": "output", "operatorVersion": "1", "config": {}}
+      {
+        "id": "normalize_day",
+        "type": "map",
+        "operatorVersion": "1",
+        "config": {
+          "fields": {
+            "protocol": {
+              "op": "field",
+              "path": [
+                "protocol"
+              ]
+            },
+            "wallet": {
+              "op": "field",
+              "path": [
+                "wallet"
+              ]
+            },
+            "date": {
+              "op": "utc_date",
+              "args": [
+                {
+                  "op": "field",
+                  "path": [
+                    "timestamp"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": "wallet_activity",
+        "type": "aggregate",
+        "operatorVersion": "1",
+        "config": {
+          "groupBy": [
+            "protocol",
+            "wallet"
+          ],
+          "measures": {
+            "activeDays": {
+              "op": "count_distinct",
+              "field": "date"
+            }
+          }
+        }
+      },
+      {
+        "id": "classify_repeat_wallet",
+        "type": "map",
+        "operatorVersion": "1",
+        "config": {
+          "fields": {
+            "protocol": {
+              "op": "field",
+              "path": [
+                "protocol"
+              ]
+            },
+            "isRepeat": {
+              "op": "if",
+              "args": [
+                {
+                  "op": "gte",
+                  "args": [
+                    {
+                      "op": "field",
+                      "path": [
+                        "activeDays"
+                      ]
+                    },
+                    {
+                      "op": "literal",
+                      "type": "integer",
+                      "value": "2"
+                    }
+                  ]
+                },
+                {
+                  "op": "literal",
+                  "type": "integer",
+                  "value": "1"
+                },
+                {
+                  "op": "literal",
+                  "type": "integer",
+                  "value": "0"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": "protocol_activity",
+        "type": "aggregate",
+        "operatorVersion": "1",
+        "config": {
+          "groupBy": [
+            "protocol"
+          ],
+          "measures": {
+            "activeWallets": {
+              "op": "count_rows"
+            },
+            "repeatWallets": {
+              "op": "sum",
+              "field": "isRepeat"
+            }
+          }
+        }
+      },
+      {
+        "id": "compute_ratio",
+        "type": "map",
+        "operatorVersion": "1",
+        "config": {
+          "fields": {
+            "protocol": {
+              "op": "field",
+              "path": [
+                "protocol"
+              ]
+            },
+            "activeWallets": {
+              "op": "field",
+              "path": [
+                "activeWallets"
+              ]
+            },
+            "repeatWallets": {
+              "op": "field",
+              "path": [
+                "repeatWallets"
+              ]
+            },
+            "repeatShare": {
+              "op": "safe_divide",
+              "args": [
+                {
+                  "op": "field",
+                  "path": [
+                    "repeatWallets"
+                  ]
+                },
+                {
+                  "op": "field",
+                  "path": [
+                    "activeWallets"
+                  ]
+                }
+              ],
+              "scale": 6,
+              "rounding": "half_even"
+            }
+          }
+        }
+      },
+      {
+        "id": "result",
+        "type": "output",
+        "operatorVersion": "1",
+        "config": {
+          "orderBy": [
+            {
+              "field": "protocol",
+              "direction": "asc"
+            }
+          ],
+          "nullPolicy": "reject_unexpected"
+        }
+      }
     ],
     "edges": [
-      {"fromNode": "source1", "fromPort": "rows", "toNode": "filter1", "toPort": "rows"},
-      {"fromNode": "filter1", "fromPort": "rows", "toNode": "aggregate1", "toPort": "rows"},
-      {"fromNode": "aggregate1", "fromPort": "rows", "toNode": "output1", "toPort": "rows"}
+      {
+        "fromNode": "activity",
+        "fromPort": "rows",
+        "toNode": "normalize_day",
+        "toPort": "rows"
+      },
+      {
+        "fromNode": "normalize_day",
+        "fromPort": "rows",
+        "toNode": "wallet_activity",
+        "toPort": "rows"
+      },
+      {
+        "fromNode": "wallet_activity",
+        "fromPort": "rows",
+        "toNode": "classify_repeat_wallet",
+        "toPort": "rows"
+      },
+      {
+        "fromNode": "classify_repeat_wallet",
+        "fromPort": "rows",
+        "toNode": "protocol_activity",
+        "toPort": "rows"
+      },
+      {
+        "fromNode": "protocol_activity",
+        "fromPort": "rows",
+        "toNode": "compute_ratio",
+        "toPort": "rows"
+      },
+      {
+        "fromNode": "compute_ratio",
+        "fromPort": "rows",
+        "toNode": "result",
+        "toPort": "rows"
+      }
     ]
   },
   "outputSchema": {
     "type": "array",
     "items": {
       "type": "object",
+      "required": [
+        "protocol",
+        "activeWallets",
+        "repeatWallets",
+        "repeatShare"
+      ],
+      "additionalProperties": false,
       "properties": {
-        "protocol": {"type": "string"},
-        "stickiness": {"type": "number"}
+        "protocol": {
+          "type": "string"
+        },
+        "activeWallets": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "repeatWallets": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "repeatShare": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9]+\\.[0-9]{6}$"
+        }
       }
     }
   },
@@ -1740,7 +1986,7 @@ Provider-specific metadata that proves necessary should first be added to valida
 
 The proposed [frontend/backend API contract](api-contract.md#6-review-gates-and-data-model-gaps) identifies review items M1-M3 for command idempotency, anonymous request recovery authorization, and validation/build/deployment transitions. These are not yet approved changes to this version 1.3 model; no corresponding fields, tables, or transition changes are introduced by the interface draft.
 
-The proposed [harness design](backend/harness/verification.md#review-gates) additionally details H1 operator/configuration schemas and H2 planning-budget checkpoints, frozen run context and cross-attempt source-request recovery. Review their schemas, uniqueness and lifecycle invariants before implementing them in JSONB or relational records. The harness documents do not introduce approved fields or changes to this baseline.
+The proposed [harness design](backend/harness/verification.md#review-gates) additionally details H1 operator/configuration schemas and H2 planning-budget checkpoints, frozen run context and cross-attempt source-request recovery. Review their schemas, uniqueness and lifecycle invariants before implementing them in JSONB or relational records. The harness documents do not introduce approved fields or changes to this baseline. The five-type MVP scope is confirmed. A proposed [CompilationProvenance sidecar](backend/harness/semantic-templates.md#3-deterministic-expansion-and-provenance) must separately define immutable ownership, uniqueness, hashes, acceptance transaction and retention under H1/H2 before persistence. Template metadata must not become a second executable spec, an unvalidated JSONB field or synthetic node IDs inside product_version_layouts.
 
 After human approval, changes to this model require:
 

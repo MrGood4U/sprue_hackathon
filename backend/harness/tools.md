@@ -1,6 +1,6 @@
 # Harness Tool and Script Catalog
 
-Draft 0.1. All filenames and tool names below are proposed Sprue-owned contracts, not existing scripts or official Graph MCP tool names. Read [workflow](workflow.md) and [constraints](constraints.md) before implementation.
+Draft 0.2. All filenames and tool names below are proposed Sprue-owned contracts, not existing scripts or official Graph MCP tool names. Read [workflow](workflow.md) and [constraints](constraints.md) before implementation.
 
 ## 1. Tool Packaging
 
@@ -40,8 +40,14 @@ Paths below are relative to the future `backend/harness/scripts/` directory. P-s
 | T08 `dag.simulate` | `simulate-dag.ts` | P6; isolated offline execution only | `{proposalRef, fixtureSetId}` | Labeled fixture result, per-node counts/hashes, assertion failures and truncated preview |
 | T09 `spec.diff` | `diff-spec.ts` | P5-P7; authorized pure comparison | `{parentVersionId, proposalRef}` | Semantic changes to sources, access, query, DAG, output, time and refresh; excludes layout |
 | T10 `evidence.read` | `read-evidence.ts` | P1-P7; authorized bounded local read | `{references: string[], view: summary}` | Verified prior decisions, validation failures, source mappings or run summaries needed for a conversational edit |
+| T11 `templates.read` | `read-templates.ts` | P1-P6; local read | `{templateIds?: string[]}` | Pinned catalog hash, enabled template IDs/versions, typed input/parameter schemas, expansion dependencies and constraints |
+| T12 `templates.expand` | `expand-template.ts` | P5-P6; pure deterministic expansion | `{templateId, templateVersion, instanceId, inputBindings, parameters}` | Primitive nodes/edges and validated mapping/provenance proposal; no accepted version or side effect |
 
 These tools do not call each other recursively on behalf of the model. The controller composes them so every network call, validation and repair is visible in the shared budget. A tool may use bounded internal library operations, but cannot hide another model call, source data query, subprocess or payment inside them.
+
+### T11-T12: Prepare Semantic Templates
+
+Implement the [semantic template contract](semantic-templates.md) as a pinned, developer-owned catalog and pure compiler functions. T11 exposes only templates whose primitive dependencies are implemented in the selected worker registry. T12 checks input facts/types, unknown fields, parameter bounds and stable instance IDs, then emits ordinary nodes/edges. The controller still invokes T07 and T08; expansion cannot self-certify semantic correctness. Missing versions and incompatible input return precise diagnostics, not a generated-code fallback. Both tools, including repairs, consume the existing shared tool-call budget; they add no model calls, paid queries or independent budget. The frontend sample is not these backend handlers.
 
 ### T01: Prepare a Real Registry
 

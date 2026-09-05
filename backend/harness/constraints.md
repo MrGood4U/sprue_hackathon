@@ -1,6 +1,6 @@
 # Harness Constraints and Enforcement
 
-Draft 0.1. These are proposed engineering controls, not sponsor rules or implemented protections. The approved DAG, wallet, privacy and deployment boundaries remain mandatory. Numerical defaults below require review H3 and load/cost testing.
+Draft 0.2. These are proposed engineering controls, not sponsor rules or implemented protections. The approved DAG, wallet, privacy and deployment boundaries remain mandatory. Numerical defaults below require review H3 and load/cost testing.
 
 ## 1. Authority Must Be Enforced Outside the Prompt
 
@@ -54,7 +54,7 @@ Model-provider fees use a separate platform cost allowance configured for the ch
 | Graph schema | 5 MiB stored maximum from data-model 1.3; smaller slices for the model |
 | Query | 16 KiB document, depth 6, 64 expanded selected fields, one business root collection plus allowed provenance |
 | Source pagination | Default 500, maximum 1,000 rows/page; cursor strategy must be supported by inspected schema |
-| Graph | 12 nodes, 24 edges; exactly one output; first operator profile supports one source, with multi-source joins deferred |
+| Graph | Count expanded primitive nodes and edges, not semantic cards: 12 nodes, 24 edges; exactly one output; first operator profile supports one source, with multi-source joins deferred |
 | Expression AST | Depth 8, 128 nodes per expression, 32 output fields per map, 1,024-character scalar literal |
 | Runtime source requests | 100 logical requests per run, including metered probes and completion checks; paid retry is an HTTP attempt of the same request |
 | Physical source HTTP attempts | At most 3 per logical request and 300 per run; payment safety can prohibit retry before this cap |
@@ -111,3 +111,7 @@ The [Graph](../../sponsor/graph.md) and [Privy](../../sponsor/privy.md) referenc
 | Missing replay artifact or unavailable pinned runtime | Return REPLAY_EVIDENCE_MISSING / RUNTIME_VERSION_UNAVAILABLE; no live refetch hidden inside replay |
 
 Every limit/security failure emits a sanitized stable code, stage, related IDs and actionable diagnostic. The planner may explain the failure but cannot turn it into success or widen the affected permissions. Global/provider outages do not justify fixture fallback in a live response.
+
+## Semantic Template Boundary
+
+Only developer-owned pinned templates may expand. Apply the same allowlist, AST, type, query and resource validation after expansion. Reject recursive/nested template calls, unknown parameters/versions, overlapping or disconnected provenance mappings, and hidden network/model/tool work. A template cannot grant wallet authority, publish, accept a proposal or bypass the shared planning budget. Layout and localization never change executable semantics. See [semantic templates](semantic-templates.md).

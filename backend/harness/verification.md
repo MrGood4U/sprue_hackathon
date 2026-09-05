@@ -1,6 +1,6 @@
 # Harness Verification and Delivery Plan
 
-Draft 0.1. This is a preparation/acceptance plan; unchecked items are not implemented. The design links the human's natural-language-to-operator workflow to reusable, bounded tools rather than a general coding Agent.
+Draft 0.2. This is a preparation/acceptance plan; unchecked items are not implemented. The design links the human's natural-language-to-operator workflow to reusable, bounded tools rather than a general coding Agent.
 
 ## 1. Implementation Order
 
@@ -47,6 +47,7 @@ The complete golden pipeline begins with deterministic structured requirements a
 | Injection | User/SDL/schema-description/error text instructs secret upload, policy changes or tool escalation; treat it as data and preserve denied authority |
 | Model output | Malformed JSON, unknown fields, invented IDs, fabricated tool result, oversized output, invalid operator/config, unsupported expression |
 | Query | Wrong field/type, mutation, alias/fragment depth bypass, unbounded nesting, invalid cursor, oversized query and decompression bomb |
+| Templates | Deterministic expansion, pinned versions, stable IDs across parameter changes, primitive equivalence, disjoint connected mappings, stale spec/provenance hashes, unavailable catalog, parameter bounds and expanded resource accounting |
 | DAG | Cycle, dead node, duplicate IDs, invalid ports, type/null/unit mismatch, multiple outputs, excessive nodes or distinct/group state |
 | Egress | Unapproved host, redirect, loopback/private address, DNS rebinding, URL credentials and arbitrary MCP registration |
 | Cost limits | Repeated sessions, six-model-call exhaustion, retry/repair accounting, unknown metadata billing, counter reservation before dispatch, crash after external call |
@@ -74,10 +75,14 @@ Development records and commits stay English. User-visible runtime replies may f
 
 | Gate | Proposed decision / unresolved detail | Recommendation |
 |---|---|---|
-| H1. Executable language | Exact five-operator subset, typed expression and source-query config schemas, interval and numeric/null semantics | Approve the small registry in operators.md; implement GroupBy/window/score through existing config/expressions first; update canonical examples after review |
-| H2. Durable orchestration | Extend API gate M1 to include reserved model/tool capacity, stable tool call outcomes/checkpoints, frozen run context and initialization, and logical source-page recovery across node attempts | Design versioned records/constraints under data-model change control before claiming restart-safe limits or side-effect recovery; artifacts/messages are not an unvalidated JSON escape hatch |
+| H1. Executable language | Five-type scope confirmed; exact typed expression, source-query and template schemas, interval and numeric/null semantics still pending | Implement GroupBy/window/score through config/expressions; review versioned schemas before backend implementation; examples are aligned but not schema approval |
+| H2. Durable orchestration | Extend API gate M1 to include reserved model/tool capacity, stable tool call outcomes/checkpoints, frozen run context and initialization, logical source-page recovery across node attempts, and immutable template compilation provenance | Design versioned records/constraints under data-model change control before claiming restart-safe limits or side-effect recovery; artifacts/messages are not an unvalidated JSON escape hatch |
 | H3. First live case and operating profile | Concrete real subgraph/field methodology, repeat-day metric definition, acceptable coverage checks, initial numerical limits and model-cost budget | Treat the worked example and caps as proposals; validate one real source and approve a bounded demo profile before live execution |
 
 API model gate M3 still governs validation/build/activation transitions. M2 and E2 concern downstream anonymous buyers and are not needed for offline compiler work; E1 gates live wallet control. None of these prior gates is implicitly approved by the harness documentation.
 
 This draft introduces no model table/status, migration, wallet action, script implementation or automatic new-subgraph creation. The next safe implementation step is the reviewed offline compiler/tool kit, followed by bounded metadata discovery and Agent wiring.
+
+## Frontend Alignment Evidence Boundary
+
+The frontend has a local five-type-scope/seven-node illustration, semantic disclosure, explicit edge projection, parameter recompilation and an independent fixed fixture oracle. Its tests cover sample structure and graph display, not an implemented backend compiler, actual runtime execution, natural-language understanding or live Graph data. Offline backend golden tests and H1-H3 remain required.

@@ -298,7 +298,7 @@ Only user-visible messages and structured facts are displayed or retained. Hidde
 
 **DAG elements:**
 
-- Allowlisted Source, Filter, GroupBy, Window, Aggregate, and Output nodes.
+- Five allowlisted runtime types: Source, Filter, Map, Aggregate, and Output. GroupBy is aggregate configuration; a source window and derived score are configuration/expressions, not separate MVP operators.
 - Directed edges with typed input/output ports.
 - Pan, zoom, fit, select, connect, duplicate where valid, and remove actions.
 - Node inspector with visible labels, helper text, units, inline validation, and schema-aware choices.
@@ -307,6 +307,8 @@ Only user-visible messages and structured facts are displayed or retained. Hidde
 - Layout state stored separately from execution semantics.
 
 The MVP has no arbitrary JavaScript/Python editor and no unrestricted custom-code node.
+
+**2026-09-05 scope alignment:** Follow the [semantic template contract](backend/harness/semantic-templates.md). The first overview shows Source, Wallet Activity, Repeat Activity, and Output, with a read-only seven-node primitive expansion. Use stable node IDs and actual typed edges, never positional arrows between fixture cards. Semantic cards provide keyboard-operable disclosure and a separate parameter action. Source interval and repeat threshold edits regenerate a local sample draft with a visible change summary; they do not mutate an accepted version. Generated internals are read-only in this first template UI; general structured editing remains a separate implementation deliverable, not a promised bidirectional template editor. Clearly label synthetic source/configuration/results, local-only edits, and unconnected Agent/runtime integrations. API and consumer examples share the same default four-field repeat-activity schema. Do not describe this metric as cohort retention.
 
 **Version and build elements:**
 

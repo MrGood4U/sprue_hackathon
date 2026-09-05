@@ -34,7 +34,7 @@ Example data shape (synthetic values, not real Graph evidence):
 
 ```json
 {
-  "data": [{"protocol": "Example DEX", "stickiness_score": 0.68}],
+  "data": [{"protocol": "alpha", "activeWallets": "2", "repeatWallets": "1", "repeatShare": "0.500000"}],
   "meta": {
     "correlationId": "req_example",
     "version": {"id": "40000000-0000-4000-8000-000000000001", "versionNo": 1, "specHash": "sha256:example-only"},

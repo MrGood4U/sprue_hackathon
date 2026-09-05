@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft 0.1, 2026-09-05. This directory contains the proposed harness design, not an implemented Agent, executable scripts, or verified provider integrations. The human requested a step-by-step design and an inventory of tools to prepare before implementation.
+Draft 0.2, 2026-09-05. This directory contains the proposed harness design, not an implemented Agent, executable scripts, or verified provider integrations. The human requested a step-by-step design and an inventory of tools to prepare before implementation.
 
 Read the approved [data model 1.3](../../data-model.md), proposed [API contract](../../api-contract.md), [backend ownership](../README.md), and active [Graph reference](../../sponsor/graph.md) alongside this design. Existing model/API review gates remain open. This draft does not approve new database fields, Graph purchases, wallet authority, subgraph deployment, or API publication.
 
@@ -37,6 +37,7 @@ The source stage normally selects an existing subgraph. If the needed indexed fa
 | [Workflow](workflow.md) | Every stage, inputs/outputs, transitions, approvals, persistence, and frontend mapping |
 | [Tool and script catalog](tools.md) | Exact Sprue-owned tool contracts, proposed script files, permissions, and developer prerequisites |
 | [Operator contract](operators.md) | Query compilation, typed operator semantics, expression restrictions, and a worked metric example |
+| [Semantic templates](semantic-templates.md) | Versioned Wallet Activity/Repeat Activity expansion, provenance, editing limits and tests |
 | [Constraints](constraints.md) | Enforced permissions, resource limits, payment boundaries, injection defense, and recovery |
 | [Verification and delivery](verification.md) | Implementation order, golden cases, attack/retry tests, and review gates |
 
@@ -56,7 +57,7 @@ Only the Markdown files listed above exist in this change. The following are fut
 
 ```text
 backend/harness/
-  README.md, workflow.md, tools.md, operators.md, constraints.md, verification.md
+  README.md, workflow.md, tools.md, operators.md, semantic-templates.md, constraints.md, verification.md
   schemas/       # Versioned tool, semantic-plan, expression, and checkpoint schemas
   prompts/       # Small versioned prompts per planning phase; no secrets or authority
   catalogs/      # Reviewed query recipes and metadata-adapter capability declarations
@@ -83,4 +84,4 @@ Scripts import these domain implementations; they do not contain a second compil
 
 First prove a deterministic, fixture-backed `intent requirements -> inspected schema -> static query -> operator DAG -> expected output` path without any model or network dependency. Then add bounded metadata discovery and the planner around it. Finally connect authorized live Graph execution. This order makes incorrect reasoning distinguishable from incorrect data processing.
 
-The proposed first operator subset and numerical limits are design recommendations, not silently approved product defaults. [Verification](verification.md#review-gates) identifies the decisions needed before implementing dependent behavior.
+The human approved the five-type MVP scope and semantic-template/frontend alignment on 2026-09-05. Exact configuration/numeric schemas, durable provenance, the live source/methodology and numerical operating limits remain review items. The local frontend demonstrates expansion only; no backend script or runtime is implemented. [Verification](verification.md#review-gates) identifies the decisions needed before implementing dependent behavior.

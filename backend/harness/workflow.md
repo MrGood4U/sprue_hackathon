@@ -1,6 +1,6 @@
 # Harness Workflow
 
-Draft 0.1. See the [overview](README.md), [tools](tools.md), and [constraints](constraints.md). Stage names below are orchestration labels, not new PostgreSQL status enums.
+Draft 0.2. See the [overview](README.md), [tools](tools.md), and [constraints](constraints.md). Stage names below are orchestration labels, not new PostgreSQL status enums.
 
 ## 1. Planning Stages
 
@@ -11,7 +11,7 @@ Draft 0.1. See the [overview](README.md), [tools](tools.md), and [constraints](c
 | P2. Find sources | Required facts and user network/protocol scope | Model calls bounded source discovery through the Graph metadata adapter | Ranked candidates with provider evidence; no raw data query or invented source IDs |
 | P3. Verify source fit | Candidate handles and required fields/period | Inspect real schema/identity, resolve immutable deployment, check types and mapping; distinguish schema support from observed historical coverage | SourceBinding and CoverageReport; unavailable facts cause needs_input/unsupported, not a fabricated query |
 | P4. Compile source queries | Validated snapshot, field mapping, time specification, selected access references | Typed query compiler constructs a static GraphQL AST/document and variable bindings; query validator checks schema, pagination, block and cost bounds | QueryPlan with hashes and diagnostics; no request sent to the data gateway |
-| P5. Compose operators | SemanticPlan, QueryPlans, actual runtime registry | Model chooses and connects developer-implemented operators; server assembles canonical spec schemaVersion 2 | Candidate DataProductSpec, inferred output schema, and source-to-metric lineage |
+| P5. Compose operators | SemanticPlan, QueryPlans, actual runtime registry | Model chooses supported operators or reviewed semantic templates; deterministic expansion assembles only primitive nodes in canonical spec schemaVersion 2 | Candidate DataProductSpec, inferred output schema, and source-to-metric lineage |
 | P6. Validate and simulate | Candidate spec, pinned registry, approved fixture or retained test evidence | Deterministic DAG validator and offline simulator check structure, semantics, resource bounds, and testable examples; controller permits at most two model repairs | ValidationReport plus honestly labeled simulation result; no claims of live correctness from fixtures |
 | P7. Present | Validated proposal or unresolved diagnostics | Controller produces the API Proposal and version diff; stores only approved visible content/evidence | Actionable proposal, clarification, unsupported result, or command failure; no accepted product version or running build |
 
@@ -73,6 +73,8 @@ At each phase the model may submit a bounded structured candidate to the control
 
 The canonical spec must encode all executable semantics, including interval calculation, selected fields, unit conversions, null policy, aggregation definitions, ordering, and output schema. Do not leave essential behavior only in a chat summary or SemanticPlan. [Operator design](operators.md) proposes the required configuration schemas for review H1.
 
+P5 may use `templates.read` and `templates.expand` with pinned versions and typed bindings. Validate their expanded nodes, edges and budgets through the same compiler. Retain a separately validated compilation-provenance sidecar under H1/H2; never put semantic template nodes into the runtime DAG. Parameter edits create new proposals and show window/threshold/population diffs; accepted and active versions remain untouched. See [semantic templates](semantic-templates.md).
+
 ### P6-P7: Verification and Honest Presentation
 
 Run pure schema/query/DAG checks even when a model says its plan is valid. A deterministic test can disprove a proposal, but a tiny sample cannot prove complete source coverage or semantic correctness for arbitrary data. Production source bindings stay intact when simulation injects fixtures; it never swaps the accepted source with a fixture reference.
@@ -121,6 +123,6 @@ On restart, reload trusted command state and committed tool results. Never reset
 
 Use the existing [Builder interface proposal](../../docs/api/products-builder.md): message submission and command polling for P0-P7; proposal acceptance for A0; build-preflight and runs for A1; run/trace/output reads for E0-E3; deployment endpoints for A2.
 
-There is no new browser endpoint that accepts arbitrary tool names or shell scripts. DAG inspection renders the real specification rather than the current modal's `{version: 1, nodes: [{op: title}]}` fixture. The six fixture cards are presentation examples, not a fixed runtime pipeline or source/schema evidence.
+There is no new browser endpoint that accepts arbitrary tool names or shell scripts. DAG inspection renders actual node IDs, configurations and typed edges. The frontend's synthetic seven-node example now has a four-card semantic overview and read-only expansion; it is not a fixed runtime pipeline or source/schema evidence. Local parameter edits do not persist versions, and simulated trace completion never means a deployed endpoint.
 
 Internal progress labels map to visible events such as intent_clarified, source_inspected, query_compiled, dag_validated, simulation_completed, and proposal_ready. These are proposed typed event variants, not new trace status values. Unavailable evidence displays as pending/blocked. Cancelling a browser request only stops observation; explicit cancellation follows the existing command/run contract.

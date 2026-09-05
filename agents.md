@@ -26,7 +26,7 @@ Natural-language intent
 
 Sprue should prefer existing The Graph subgraphs as sources. It should generate and deploy a new subgraph only when the required onchain facts are not already indexed.
 
-The transformation layer may support a focused set of composable operations such as Source, Filter, Map, Join, GroupBy, Window, Aggregate, Score, and Output. The frontend DAG and backend execution model should share a simple, validated representation.
+The MVP runtime scope is Source, Filter, Map, Aggregate, and Output. GroupBy is aggregate configuration; source windows and derived scores use bounded configuration/expressions. Join, Union, standalone Window/Score and advanced onchain analytics are deferred. The frontend DAG and backend execution model should share a simple, validated representation.
 
 ## Confirmed DAG Execution Boundary
 
@@ -35,6 +35,8 @@ On 2026-09-05, the user selected Option A: the Agent dynamically selects, config
 The Agent produces a structured specification, not arbitrary executable JavaScript or Python. Validate operator allowlists, configuration, input/output compatibility, acyclicity, permissions, and resource budgets before execution. Generated Graph query configuration must also be validated and bounded. Unsupported transformations must be reported explicitly, not implemented through an unrestricted code-execution fallback.
 
 Keep the versioned execution definition separate from visual layout. A background job queue schedules work; the DAG runtime executes node dependencies and records progress. This decision does not select a frontend framework, queue library, database vendor, or hosting provider.
+
+On 2026-09-05, the user approved this small operator scope and the corresponding documentation/frontend alignment. Follow [semantic-templates.md](backend/harness/semantic-templates.md): Wallet Activity and Repeat Activity are versioned compile-time templates, not additional runtime operators. Execute only the expanded primitive DAG. Keep template provenance separate from execution and visual layout; its durable schema remains H2 review work. Initial template expansion is read-only, and parameter edits produce new proposals. Repeat activity is not cohort retention; retain one-day wallets in its denominator. The frontend sample is not live Graph/runtime evidence. Exact configuration/numeric schemas, persistence refinements, operating caps and the live source/methodology remain H1-H3 review items.
 
 ## Hackathon MVP
 
@@ -108,7 +110,7 @@ Do not infer database fields ad hoc while building endpoints. If implementation 
 
 The proposed frontend/backend HTTP contract is [api-contract.md](api-contract.md) Draft 0.1, with domain details under `docs/api/`. Review it before implementing frontend clients or backend routes. It records proposed authentication, DTOs, commands, concurrency, traces, private deployment, x402 delivery, and financial projections. Model gaps M1-M3 (durable command idempotency, anonymous request recovery authorization, and validation/build/activation lifecycle clarification) are proposals, not amendments to approved data-model version 1.3. Resolve them through human review and model change control before implementing dependent guarantees. Provider and capped-consumer gates E1/E2 remain explicit.
 
-The proposed Agent harness is documented in [backend/harness/README.md](backend/harness/README.md) Draft 0.1. It separates natural-language planning and verified source/query/operator compilation from creator-authorized deterministic execution. Consult its workflow, tool/script catalog, operator semantics, constraints and verification plan before building the planner/runtime. Tools are named typed functions, not unrestricted shell, code, network or wallet access. Existing subgraphs are the default; source gaps require explicit review, not automatic source deployment. H1-H3 cover the proposed executable language, durable orchestration refinements and initial live metric/operating limits; these do not silently amend the approved model or enable payments. Planned scripts are not yet implemented.
+The proposed Agent harness is documented in [backend/harness/README.md](backend/harness/README.md) Draft 0.2. It separates natural-language planning and verified source/query/operator compilation from creator-authorized deterministic execution. Consult its workflow, tool/script catalog, operator semantics, constraints and verification plan before building the planner/runtime. Tools are named typed functions, not unrestricted shell, code, network or wallet access. Existing subgraphs are the default; source gaps require explicit review, not automatic source deployment. H1-H3 cover the proposed executable language, durable orchestration refinements and initial live metric/operating limits; these do not silently amend the approved model or enable payments. Planned scripts are not yet implemented.
 
 ## Account Wallet and Revenue Model
 

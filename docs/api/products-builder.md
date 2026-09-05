@@ -49,7 +49,7 @@ Archiving/restoring products, slug renaming, invitations, and account administra
 
 DataProductSpec is exactly [canonical spec schemaVersion 2](../../data-model.md#canonical-data-product-specification), validated against the actual operator registry. A model-generated object is untrusted input. Source discovery/inspection during planning must use only a bounded non-paid adapter; if unavailable without charge or credentials, return a blocker/clarification, not an automatic Graph purchase.
 
-The proposed [harness workflow](../../backend/harness/workflow.md) and [tool catalog](../../backend/harness/tools.md) specify the internal implementation boundary for planning and operator compilation. They add no arbitrary browser tool-execution endpoint; their H1-H3 schemas and limits remain under review alongside this API draft.
+The proposed [harness workflow](../../backend/harness/workflow.md) and [tool catalog](../../backend/harness/tools.md) specify the internal implementation boundary for planning and operator compilation. They add no arbitrary browser tool-execution endpoint; their exact H1-H3 schemas and limits remain under review alongside this API draft. The five-type scope is confirmed; semantic templates are compile-time authoring aids, not runtime types or arbitrary browser tools.
 
 `AcceptVersionInput` is a tagged union:
 
@@ -93,6 +93,12 @@ Discarding an unaccepted local edit is client-only. The discard endpoint appends
 
 `VersionLayout = {versionId, layoutSchemaVersion: 1, layout: {nodes: [{nodeId, x, y}], viewport: {x, y, zoom}}, lockVersion, persisted: boolean}`. Coordinates are finite bounded numbers, zoom is 0.1-4, and node IDs must be a subset of that version's DAG. Omitted groups/display state are not a commitment to a grouping editor. For absent layout, return persisted false, lockVersion 0, and an ETag tied to the version/default; first write checks that no row has appeared. Never accept execution config through layout JSON.
 
+### Proposed Semantic Template Read Projections
+
+Follow [semantic-templates.md](../../backend/harness/semantic-templates.md). The initial executable registry is source/filter/map/aggregate/output; grouping/window/score do not require independent types. Before backend integration, review an optional template catalog read projection and an immutable CompilationProvenance sidecar for Proposal/VersionDetail, including ownership, hashes, size limits and acceptance transaction rules under H1/H2/M1. These fields are not silently added to the DTOs above or to canonical specification/layout JSON. No new HTTP mutation endpoint is introduced here.
+
+A template-parameter edit follows the existing proposal/new-version workflow. Runtime execution always uses the expanded primitive spec. Display collapse state is client-only; synthetic semantic group IDs are not layout node IDs. Missing/stale provenance shows the primitive graph and blocks template editing rather than guessing a group. The current frontend only recompiles a local synthetic draft and is not an implementation of these APIs.
+
 ## 4. Build and Run Lifecycle
 
 | Method | Path | Input | Success | Model ownership |
@@ -130,6 +136,6 @@ Actions are backend-computed hints rechecked by the command handler. Unknown dur
 - Serialize active initial build/preview commands for one version; return OPERATION_IN_PROGRESS with its authorized run reference for a different concurrent command. Ready versions remain ready while refresh operations run; individual run status carries their progress/failure. A failed validation marks invalid, whereas a failed runtime attempt preserves validation evidence and follows M3's proposed retryable transition.
 - A view cancellation aborts polling only. Run cancellation is cooperative: stop launching new nodes/requests, reconcile any already submitted side effect, preserve confirmed expenses, and release reservations only on definite non-payment. Show requested cancellation separately until it is safe to mark cancelled.
 - Failed or blocked work never replaces prior deployment pointers. An API-key failure does not invoke the wallet branch. Graph HTTP 200 with disallowed GraphQL/indexing errors is still a failed data operation.
-- The build trace reads persisted source/node/payment events, not the current frontend's fixed six-node fixture or elapsed timers. Readiness source IDs, schema fields, balances, and status badges must all come from the relevant response.
+- The live build trace reads persisted source/node/payment events, not the frontend's synthetic seven-node example or elapsed timers. Readiness source IDs, schema fields, balances, and status badges must all come from the relevant response. The local sample explicitly reports no runtime execution or deployment.
 - Schema/explorer buttons open authorized stored schema or server-validated evidence URLs. There is no generic browser-controlled proxy-fetch endpoint.
 - Parent/version mismatch -> 409 `VERSION_PARENT_MISMATCH`; unsupported or malformed DAG -> 422 `VALIDATION_FAILED`; changed source/credential/authority -> 409 `READINESS_BLOCKED`; unresolved paid attempt -> 409 `PAYMENT_UNCERTAIN` with reconcile action.
