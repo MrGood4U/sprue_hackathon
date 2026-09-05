@@ -3,7 +3,7 @@ export const en = {
   "meta.description": "Build, host, and monetize onchain data products with Sprue.",
   "language.label": "Language",
   "language.en": "English",
-  "language.zh-CN": "Chinese",
+  "language.zh-CN": "\u4e2d\u6587",
 
   "common.operationFailed": "The operation failed. Please try again.",
   "common.close": "Close",

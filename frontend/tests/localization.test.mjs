@@ -15,6 +15,13 @@ test("English and Chinese catalogs expose the same message keys", () => {
   }
 });
 
+test("language options use each language's native name", () => {
+  assert.equal(en["language.en"], "English");
+  assert.equal(en["language.zh-CN"], "\u4e2d\u6587");
+  assert.equal(zhCN["language.en"], "English");
+  assert.equal(zhCN["language.zh-CN"], "\u4e2d\u6587");
+});
+
 test("the Chinese catalog explicitly translates every fallback message", async () => {
   const source = await readFile(new URL("../src/i18n/messages/zh-CN.js", import.meta.url), "utf8");
   const declaredKeys = [...source.matchAll(/^\s+"([^"]+)":/gm)].map((match) => match[1]).sort();

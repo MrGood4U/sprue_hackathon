@@ -5,7 +5,7 @@ export const zhCN = {
   "meta.title": "Sprue \u00b7 \u94fe\u4e0a\u6570\u636e\u4ea7\u54c1",
   "meta.description": "\u4f7f\u7528 Sprue \u6784\u5efa\u3001\u6258\u7ba1\u94fe\u4e0a\u6570\u636e\u4ea7\u54c1\uff0c\u5e76\u901a\u8fc7 API \u83b7\u5f97\u6536\u5165\u3002",
   "language.label": "\u8bed\u8a00",
-  "language.en": "\u82f1\u6587",
+  "language.en": "English",
   "language.zh-CN": "\u4e2d\u6587",
 
   "common.operationFailed": "\u64cd\u4f5c\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5\u3002",
