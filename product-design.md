@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft 1.5, updated on 2026-09-06. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. Token review remains follow-up work; real backend, identity, wallet, and payment integrations are still pending.
+Draft 1.6, updated on 2026-09-06. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. Token review remains follow-up work; real backend, identity, wallet, and payment integrations are still pending.
 
 This document defines the MVP information architecture, page inventory, interactions, state behavior, desktop layout behavior, accessibility requirements, and screen-to-domain contracts. The decisions are recorded in [Confirmed Design Decisions](#confirmed-design-decisions).
 
@@ -80,9 +80,9 @@ Supported desktop layouts use a persistent application sidebar with two top-leve
 - `Products`
 - `Wallet & Access`
 
-The account control contains the authenticated identity, workspace name, environment indicator, and sign-out action. Destructive actions do not belong in primary navigation.
+The account control contains the authenticated identity, workspace name, and sign-out action. Environment and provider readiness are not persistent sidebar content; they belong in the Wallet & Access page or the relevant product workflow. Destructive actions do not belong in primary navigation.
 
-Inside a product, a persistent product header shows product name, product status, selected version, deployment health, and four deep-linkable views:
+Inside a product, a persistent product header shows the product name and four deep-linkable views. Version, deployment, and workflow status are shown within the page where they support a decision rather than as always-visible header controls:
 
 - `Agent`
 - `Build`
@@ -91,9 +91,9 @@ Inside a product, a persistent product header shows product name, product status
 
 The browser Back action must preserve product context, filters, chat draft, selected DAG node, and scroll position when safe. URL parameters identify product, product view, selected version, and selected run where appropriate. Modal and drawer state should use URL state only when it must be shareable or restorable.
 
-### Global Status Strip
+### Readiness Surfaces
 
-The Creator Console header shows compact, separately labeled readiness facts:
+The Creator Console presents compact, separately labeled readiness facts in the Wallet & Access page and the relevant product workflows:
 
 - Graph access: `API key ready`, `x402 ready`, or `Action required`.
 - Graph spending balance: network and asset included.
@@ -694,4 +694,5 @@ Remaining review and integration work:
 | 2026-09-05 | Added version 1.1 with the selected Evidence-First Console direction, explicit browser-only product boundary, design tokens, and a seven-page interactive prototype | Prototype ready for human review; MVP implementation has not started |
 | 2026-09-05 | Proposed Draft 1.2 with a documented primitive-to-semantic-to-component token system, generated CSS contract, accessibility checks, and prototype adoption | Token decisions DT1-DT4 and final prototype review await human approval |
 | 2026-09-05 | Recorded Draft 1.3 with the existing application promoted to the maintained product frontend, feature/service boundaries, and an implementation-gap register | Frontend implementation authorized; token review and live-integration gates remain open |
-| 2026-09-06 | Recorded Draft 1.5 with Agent planning and DAG review split into separate deep-linkable product views; added backend-driven planning progress and a four-stage product header | Information hierarchy approved; bounded DAG refinement and live integrations remain open |
+| 2026-09-06 | Recorded Draft 1.5 with Agent planning and DAG review split into separate deep-linkable product views; added backend-driven planning progress and a four-view product header | Information hierarchy approved; bounded DAG refinement and live integrations remain open |
+| 2026-09-06 | Recorded Draft 1.6 by removing non-functional version/status controls from the product header and environment/provider readiness content from the persistent sidebar | Product workflows remain deep-linkable; readiness is contextualized in Wallet & Access and relevant pages |

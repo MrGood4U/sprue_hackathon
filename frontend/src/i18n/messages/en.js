@@ -35,8 +35,6 @@ export const en = {
   "sidebar.primaryNavigation": "Primary navigation",
   "sidebar.products": "Products",
   "sidebar.walletAccess": "Wallet & Access",
-  "sidebar.environment": "Environment",
-  "sidebar.demo": "Demo",
   "sidebar.secondaryNavigation": "Secondary navigation",
   "sidebar.docs": "Docs",
   "sidebar.docsAlert": "Documentation is not available yet.",

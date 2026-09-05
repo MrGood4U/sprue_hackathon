@@ -47,17 +47,10 @@ code, pre { font-family: var(--mono); }
 .icon-button { width: 34px; height: 34px; border-radius: 6px; border: 1px solid var(--line-strong); background: transparent; display: inline-grid; place-items: center; cursor: pointer; color: var(--muted); }
 .icon-button:hover { background: var(--surface-3); color: var(--text); }
 .side-nav { display: grid; gap: 5px; }
-.side-nav button, .environment-button { min-height: var(--sidebar-item-height); width: 100%; border: 0; border-radius: var(--button-radius); background: transparent; color: var(--sidebar-item-foreground); display: flex; align-items: center; gap: 12px; padding: 0 12px; cursor: pointer; text-align: left; }
+.side-nav button { min-height: var(--sidebar-item-height); width: 100%; border: 0; border-radius: var(--button-radius); background: transparent; color: var(--sidebar-item-foreground); display: flex; align-items: center; gap: 12px; padding: 0 12px; cursor: pointer; text-align: left; }
 .side-nav button:hover, .side-nav button.active { background: var(--sidebar-item-background-hover); color: var(--text); }
 .side-nav button.active { box-shadow: inset 2px 0 0 var(--violet); }
-.side-section { margin-top: 255px; padding: 0 10px 14px; border-bottom: 1px solid var(--line); }
-.side-label, .section-label { color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
-.environment-button { padding: 8px 0 0; justify-content: space-between; color: var(--text); }
-.readiness-list { padding: 16px 10px; display: grid; gap: 22px; }
-.readiness-item { display: grid; grid-template-columns: 22px 1fr 18px; align-items: start; gap: 10px; color: var(--muted); }
-.readiness-item div { display: grid; gap: 4px; }
-.readiness-item div span { color: var(--color-foreground-secondary-strong); font-size: 12px; text-transform: uppercase; }
-.readiness-item small { font-size: 11px; color: var(--muted); }
+.section-label { color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
 .side-nav-bottom { margin-top: auto; }
 .language-switcher { min-height: 38px; display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line-strong); border-radius: var(--button-radius); background: transparent; color: var(--muted); padding: 0 9px; cursor: pointer; }
 .language-switcher:hover { background: var(--surface-3); color: var(--text); }

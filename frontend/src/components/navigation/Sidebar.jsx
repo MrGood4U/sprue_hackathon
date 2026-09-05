@@ -1,10 +1,6 @@
 import {
   ArrowLeft,
   Books,
-  CaretDown,
-  CheckCircle,
-  Coins,
-  Database,
   Gear,
   SquaresFour,
   Wallet,
@@ -33,24 +29,6 @@ export function Sidebar({ path, navigate }) {
           <span>{t("sidebar.walletAccess")}</span>
         </button>
       </nav>
-
-      <div className="side-section">
-        <div className="side-label">{t("sidebar.environment")}</div>
-        <button className="environment-button"><span>{t("sidebar.demo")}</span><CaretDown size={15} /></button>
-      </div>
-
-      <div className="readiness-list">
-        <div className="readiness-item">
-          <Database size={19} className="violet-text" />
-          <div><span>The Graph</span><small>{t("common.ready")}</small></div>
-          <CheckCircle size={18} weight="fill" className="green-text" />
-        </div>
-        <div className="readiness-item">
-          <Coins size={19} />
-          <div><span>Hedera</span><small>{t("common.ready")}</small></div>
-          <CheckCircle size={18} weight="fill" className="green-text" />
-        </div>
-      </div>
 
       <nav className="side-nav side-nav-bottom" aria-label={t("sidebar.secondaryNavigation")}>
         <button onClick={() => alert(t("sidebar.docsAlert"))}>

@@ -38,8 +38,6 @@ export const zhCN = {
   "sidebar.primaryNavigation": "\u4e3b\u5bfc\u822a",
   "sidebar.products": "\u6570\u636e\u4ea7\u54c1",
   "sidebar.walletAccess": "\u94b1\u5305\u4e0e\u8bbf\u95ee",
-  "sidebar.environment": "\u73af\u5883",
-  "sidebar.demo": "\u6f14\u793a",
   "sidebar.secondaryNavigation": "\u8f85\u52a9\u5bfc\u822a",
   "sidebar.docs": "\u6587\u6863",
   "sidebar.docsAlert": "\u6587\u6863\u5c1a\u672a\u5f00\u653e\u3002",
