@@ -13,7 +13,8 @@ const parametersSchema = z
 
 const actionSchema = z
   .strictObject({
-    action: z.enum(["build", "api_request", "consumer_request"]),
+    action: z.enum(["agent_plan", "build", "api_request", "consumer_request"]),
+    intent: z.string().trim().min(1).max(8000).optional(),
     parameters: parametersSchema,
   });
 

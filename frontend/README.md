@@ -103,6 +103,7 @@ Do not create frontend adapters for Graph payments, private wallet signing mater
 | `/` | `pages/EntryPage.jsx` | Entry and navigation |
 | `/app` | `pages/DashboardPage.jsx` | Product summaries |
 | `/app/wallet` | `pages/WalletAccessPage.jsx` | Wallet and Graph access |
+| `/app/products/:id/agent` | `pages/AgentPage.jsx` | Agent conversation and planning progress |
 | `/app/products/:id/build` | `pages/ProductBuilderPage.jsx` | Builder DAG and execution evidence |
 | `/app/products/:id/api` | `pages/ApiDeploymentPage.jsx` | Deployment and private testing |
 | `/app/products/:id/monetize` | `pages/MonetizationRevenuePage.jsx` | x402 publication and revenue |
@@ -116,6 +117,6 @@ The evidence files under `evidence/` document the approved visual comparison. Th
 
 ## Semantic Builder Sample
 
-The maintained Builder consumes the backend demo runtime's cross-chain proposal, eleven-node DAG, two display groups and computed output. `features/builder/graphView.js` projects backend edges and topological positions; it is not the backend validator. `DagCanvas.jsx` owns semantic/primitive views and keyboard disclosures, `TemplateParameters.jsx` owns constrained inputs, and `BuilderInspector.jsx` displays exact read-only node/spec/schema JSON. Route state remains in `ProductBuilderPage.jsx`.
+The maintained Agent Planner consumes the backend demo runtime's intent, source selection, proposal trace, and cross-chain summary. A completed plan links to the maintained Builder, which consumes the eleven-node DAG, two display groups and computed output. `features/builder/graphView.js` projects backend edges and topological positions; it is not the backend validator. `DagCanvas.jsx` owns semantic/primitive views and keyboard disclosures, `TemplateParameters.jsx` owns constrained inputs, and `BuilderInspector.jsx` displays exact read-only node/spec/schema JSON. Route state remains in `AgentPage.jsx` and `ProductBuilderPage.jsx`.
 
 Build and request actions call the backend demo runtime; no browser timer or local business-data generator is used. The server response is explicitly marked as demo data and is not live provider/payment evidence. Run `npm run test:builder`, `npm run test:services` and the full build for changes here.

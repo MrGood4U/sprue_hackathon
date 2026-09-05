@@ -5,6 +5,7 @@ import { LanguageSwitcher } from "../navigation/LanguageSwitcher.jsx";
 export function ProductHeader({ product, active, navigate, buildStatus }) {
   const { t } = useI18n();
   const tabs = [
+    ["agent", "productHeader.agent", `/app/products/${product.slug}/agent`],
     ["build", "productHeader.build", `/app/products/${product.slug}/build`],
     ["api", "productHeader.api", `/app/products/${product.slug}/api`],
     ["monetize", "productHeader.monetize", `/app/products/${product.slug}/monetize`],

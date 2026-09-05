@@ -1,6 +1,6 @@
 import { parseApiBaseUrl } from "./public-config.js";
 
-const actionNames = new Set(["build", "api_request", "consumer_request"]);
+const actionNames = new Set(["agent_plan", "build", "api_request", "consumer_request"]);
 
 function requestSignal(signal) {
   const timeout = AbortSignal.timeout(15000);
@@ -42,9 +42,10 @@ export async function getDemoState({ apiBaseUrl: configuredBaseUrl, fetchImpl = 
   return data;
 }
 
-export async function runDemoAction(action, { parameters, apiBaseUrl: configuredBaseUrl, fetchImpl = globalThis.fetch, signal } = {}) {
+export async function runDemoAction(action, { intent, parameters, apiBaseUrl: configuredBaseUrl, fetchImpl = globalThis.fetch, signal } = {}) {
   if (!actionNames.has(action)) throw new Error("INVALID_DEMO_ACTION");
   const body = { action };
+  if (intent) body.intent = intent;
   if (parameters) body.parameters = parameters;
   const response = await fetchImpl(`${apiBaseUrl(configuredBaseUrl)}/api/v1/public/demo/actions`, {
     method: "POST",
@@ -62,6 +63,10 @@ export async function runDemoAction(action, { parameters, apiBaseUrl: configured
 
 export const backendServices = {
   getDemoState,
+  async generatePlan({ signal, intent } = {}) {
+    const response = await runDemoAction("agent_plan", { signal, intent });
+    return { ...response.result, state: response.state };
+  },
   async buildVersion({ signal, parameters } = {}) {
     const response = await runDemoAction("build", { signal, parameters });
     return { ...response.result, state: response.state };

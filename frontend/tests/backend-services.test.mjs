@@ -25,15 +25,15 @@ test("frontend requests backend demo state without a fixture fallback", async ()
 });
 
 test("frontend action client sends strict backend actions and returns server state", async () => {
-  const result = await runDemoAction("consumer_request", {
+  const result = await runDemoAction("agent_plan", {
     apiBaseUrl: "https://api.example.test",
-    parameters: {windowDays: 30, minimumActiveDays: 2},
+    intent: "Find wallets across two chains.",
     fetchImpl: async (url, options) => {
       assert.equal(url, "https://api.example.test/api/v1/public/demo/actions");
       assert.equal(options.method, "POST");
       assert.deepEqual(JSON.parse(options.body), {
-        action: "consumer_request",
-        parameters: {windowDays: 30, minimumActiveDays: 2},
+        action: "agent_plan",
+        intent: "Find wallets across two chains.",
       });
       return response({state, result: {data: []}});
     },

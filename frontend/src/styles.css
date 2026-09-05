@@ -81,7 +81,7 @@ code, pre { font-family: var(--mono); }
 .button-primary:active { background: var(--button-primary-background-active); }
 .status { display: inline-flex; width: fit-content; align-items: center; gap: 7px; font-size: 11px; color: var(--green); white-space: nowrap; }
 .status-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 16%, transparent); }
-.status-violet { color: var(--status-agent-soft); }.status-amber { color: var(--amber); }
+.status-violet { color: var(--status-agent-soft); }.status-amber { color: var(--amber); }.status-neutral { color: var(--muted); }
 .green-text { color: var(--green) !important; }.violet-text { color: var(--violet) !important; }.cyan-text { color: var(--cyan) !important; }.amber-text { color: var(--amber) !important; }
 
 .panel { border: 1px solid var(--panel-border); background: var(--panel-background); border-radius: var(--panel-radius); box-shadow: var(--panel-shadow); }

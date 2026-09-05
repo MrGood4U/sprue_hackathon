@@ -24,6 +24,10 @@ Keep user-facing copy in `src/i18n/messages/`, with English as the fallback and 
 
 Historical demo fixtures belong in `src/services/demo/fixtures/` for isolated tests only. Route-level pages use feature hooks for async workflows; hooks call the selected backend client in `src/services/index.js`. Cancel in-flight view work on unmount. Replace the documented backend demo routes with reviewed durable clients as integration proceeds; do not invent unreviewed API routes or add live payment behavior in page components.
 
+## Product Workflow Navigation
+
+The product header uses four deep-linkable views in this order: `Agent`, `Build`, `API`, and `Monetize`. `AgentPage.jsx` owns the natural-language conversation, backend-driven planning progress, editable intent, and transition to the generated DAG. `ProductBuilderPage.jsx` owns DAG review and bounded refinement. Do not place Agent conversation and the full DAG workspace back into one route-level page. A successful Agent plan may navigate to Build after the backend response completes; preserve an explicit `Review generated DAG` path for users who revisit the Agent page.
+
 ## Semantic Builder Boundary
 
 Use the seven-type runtime scope and [semantic template contract](../backend/harness/semantic-templates.md) for future integration. The current UI consumes the backend demo proposal for the cross-chain Union/Join example. Render actual stable node IDs and edges, including explicit multi-source inputs, not labels/array positions as execution identity. Wallet Activity and Repeat Activity are compile-time templates with read-only expanded internals in the initial UI. Parameter edits must become new backend proposals when the durable proposal APIs are connected. Do not describe backend demo output as live provider data or repeat activity as cohort retention. Keep template display metadata outside canonical execution/layout persistence until H1/H2 review. Preserve semantic tokens and keyboard-operable disclosure.

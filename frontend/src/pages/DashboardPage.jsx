@@ -75,7 +75,7 @@ export function DashboardPage({ navigate }) {
             <span>{t("dashboard.column.product")}</span><span>{t("dashboard.column.source")}</span><span>{t("dashboard.column.version")}</span><span>API</span><span>{t("dashboard.column.lastRun")}</span>
             <span aria-label={t("dashboard.column.actions")} />
           </div>
-          <button className="table-row product-row" onClick={() => navigate(`/app/products/${demoProduct.slug}/build`)}>
+          <button className="table-row product-row" onClick={() => navigate(`/app/products/${demoProduct.slug}/agent`)}>
             <span className="product-cell">
               <span className="product-icon"><Graph size={20} /></span>
               <span><strong>{demoProduct.name}</strong><small>{demoProduct.description}</small></span>
@@ -122,7 +122,7 @@ export function DashboardPage({ navigate }) {
                 icon={Sparkle}
                 onClick={() => {
                   setShowCreate(false);
-                  navigate(`/app/products/${product.slug}/build`);
+                  navigate(`/app/products/${product.slug}/agent`);
                 }}
               >
                 {t("dashboard.generatePlan")}

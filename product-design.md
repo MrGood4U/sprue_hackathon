@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft 1.4, updated on 2026-09-06. The user promoted the existing seven-page application to the maintained Sprue frontend and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. Token review remains follow-up work; real backend, identity, wallet, and payment integrations are still pending.
+Draft 1.5, updated on 2026-09-06. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. Token review remains follow-up work; real backend, identity, wallet, and payment integrations are still pending.
 
 This document defines the MVP information architecture, page inventory, interactions, state behavior, desktop layout behavior, accessibility requirements, and screen-to-domain contracts. The decisions are recorded in [Confirmed Design Decisions](#confirmed-design-decisions).
 
@@ -52,19 +52,20 @@ The MVP implements one active owner per workspace. Invitations, role management,
 
 ## Approved Page Count
 
-The MVP contains **seven route-level page families**. Parameterized routes and create/edit variants within one family do not increase this count. Privy callbacks, generic errors, and not-found routes are utility routes rather than product pages.
+The MVP contains **eight route-level page families**. Parameterized routes and create/edit variants within one family do not increase this count. Privy callbacks, generic errors, and not-found routes are utility routes rather than product pages.
 
 | No. | Page family | Proposed route | Audience | Primary outcome |
 |---:|---|---|---|---|
 | 1 | Entry and Sign In | `/` | Public | Understand Sprue and enter the Creator Console or public demo |
 | 2 | Product Dashboard | `/app` | Creator | Start or resume a data product |
 | 3 | Wallet and Access | `/app/wallet` | Creator | Prepare Graph credentials, wallet funding, and bounded authority |
-| 4 | Product Builder | `/app/products/new`, `/app/products/:productId/build` | Creator | Describe, inspect, validate, and build a version |
-| 5 | API and Deployment | `/app/products/:productId/api` | Creator | Deploy and privately test a persistent API |
-| 6 | Monetization and Revenue | `/app/products/:productId/monetize` | Creator | Validate Hedera receipt, enable x402, and reconcile sales |
-| 7 | Public Product and Consumer Demo | `/p/:slug` | Public | Understand and exercise the paid API flow |
+| 4 | Agent Planner | `/app/products/new`, `/app/products/:productId/agent` | Creator | Describe intent, discover sources, and review Agent progress |
+| 5 | DAG Builder | `/app/products/:productId/build` | Creator | Inspect, refine, validate, and build the generated DAG |
+| 6 | API and Deployment | `/app/products/:productId/api` | Creator | Deploy and privately test a persistent API |
+| 7 | Monetization and Revenue | `/app/products/:productId/monetize` | Creator | Validate Hedera receipt, enable x402, and reconcile sales |
+| 8 | Public Product and Consumer Demo | `/p/:slug` | Public | Understand and exercise the paid API flow |
 
-There is no separate MVP page for run history, global settings, team management, or marketplace discovery. Build trace and recent runs belong inside Product Builder; API usage belongs inside API and Deployment; payment history belongs inside Monetization and Revenue.
+There is no separate MVP page for run history, global settings, team management, or marketplace discovery. Agent progress belongs inside Agent Planner; build trace and recent runs belong inside DAG Builder; API usage belongs inside API and Deployment; payment history belongs inside Monetization and Revenue.
 
 ## Route and Navigation Model
 
@@ -81,8 +82,9 @@ Supported desktop layouts use a persistent application sidebar with two top-leve
 
 The account control contains the authenticated identity, workspace name, environment indicator, and sign-out action. Destructive actions do not belong in primary navigation.
 
-Inside a product, a persistent product header shows product name, product status, selected version, deployment health, and three deep-linkable views:
+Inside a product, a persistent product header shows product name, product status, selected version, deployment health, and four deep-linkable views:
 
+- `Agent`
 - `Build`
 - `API`
 - `Monetize`
@@ -264,80 +266,89 @@ The page must not expose a wallet address as proof that authentication or wallet
 
 **Domain reads and writes:** `account_wallets`, `wallet_addresses`, `wallet_asset_capabilities`, `wallet_policies`, `wallet_signer_grants`, `spending_policies`, `budget_reservations`, `wallet_balance_snapshots`, `provider_credentials`, `payment_intents`, and `financial_ledger_entries`.
 
-### 4. Product Builder
+### 4. Agent Planner
 
-**Purpose:** Turn natural-language intent into an inspectable, validated, and built data-product version.
+**Purpose:** Turn a natural-language request into an inspectable source and DAG proposal without hiding the Agent's work.
 
-**Primary action:** Contextual: `Generate plan`, `Accept version`, or `Build version`.
+**Primary action:** `Generate DAG`.
 
 **Desktop layout:**
 
-- Left: persistent Builder Agent conversation.
+- Main area: user/Agent conversation and the current intent composer.
+- Side panel: a visual execution progress timeline.
+- Product header: the four-step `Agent` → `Build` → `API` → `Monetize` journey.
+
+The Agent page is the primary surface while planning. It does not show the full DAG, schema JSON, or API response by default. A completed plan offers `Review generated DAG`, which opens the Build page.
+
+**Conversation elements:**
+
+- Multiline intent composer with an explicit generate action.
+- User intent message and structured Agent response.
+- Discovered source chips, source count, DAG node count, and output-field count.
+- Demo-versus-live labeling and operation status.
+- No hidden chain-of-thought is requested or displayed.
+
+**Progress elements:**
+
+- Intent admission.
+- Source planning.
+- Proposal validation.
+- Source mapping.
+- DAG execution.
+- Output preparation.
+
+Each step exposes a localized status and a concise evidence description. The progress view is driven by backend trace events; the frontend must not fake elapsed progress with timers.
+
+**Transitions:**
+
+- `Generate DAG` sends the current intent to the reviewed Agent endpoint.
+- A successful plan moves to the Build page while preserving the returned proposal in shared runtime state.
+- A failed plan remains on the Agent page with an actionable error.
+- Returning from Build to Agent keeps the current intent available for revision.
+
+**Domain reads and writes:** `agent_sessions`, `agent_messages`, `source_snapshots`, `provider_credentials`, `spending_policies`, and proposal/version records. The demo runtime remains non-durable and does not write these records.
+
+### 5. DAG Builder
+
+**Purpose:** Inspect and make bounded refinements to the Agent-generated DAG before building a data-product version.
+
+**Primary action:** `Run backend build` after the proposal is reviewed.
+
+**Desktop layout:**
+
 - Center: visual DAG and structured toolbar.
-- Right: selected-node inspector, source details, validation, and output schema.
+- Left: concise intent and Agent summary with a link back to Agent.
+- Right: selected-node/source details, validation, and output schema.
 - Bottom drawer: build trace and recent runs.
 
-Only the center workspace is primary at one time. Side panels are resizable within bounded widths and collapsible without losing state.
-
-**Agent conversation elements:**
-
-- Starter prompt and example DEX-stickiness intent.
-- Multiline composer with explicit send action and keyboard shortcut hint.
-- User and Agent messages, timestamps, and operation status.
-- Structured Agent cards for assumptions, unsupported intent, discovered sources, access-mode choice, estimated resource bounds, and proposed version diff.
-- `Accept proposal`, `Revise in chat`, and `Discard proposal` actions.
-- Stop action for an active Agent request when supported.
-
-Only user-visible messages and structured facts are displayed or retained. Hidden chain-of-thought is never requested or shown.
-
-**Source and access elements:**
-
-- Source identity, data network, schema status, immutable deployment/manifest evidence, and discovery method.
-- Explicit choice between `Customer Graph API key` and `Wallet-funded Graph x402` for every source.
-- API-key mode selects one active workspace credential.
-- x402 mode selects one active spending policy and shows available network/asset budget.
-- No fallback checkbox or implied automatic switch between modes.
+The DAG is the primary surface on this page. Full specifications, schemas, and sample output are progressive-disclosure details opened from the relevant inspector instead of competing with the canvas by default.
 
 **DAG elements:**
 
-- Five allowlisted runtime types: Source, Filter, Map, Aggregate, and Output. GroupBy is aggregate configuration; a source window and derived score are configuration/expressions, not separate MVP operators.
-- Directed edges with typed input/output ports.
-- Pan, zoom, fit, select, connect, duplicate where valid, and remove actions.
-- Node inspector with visible labels, helper text, units, inline validation, and schema-aware choices.
-- Structured DAG outline that lists nodes and inputs and permits connection changes without dragging.
+- Seven allowlisted runtime types: Source, Filter, Map, Aggregate, Union, Join, and Output. GroupBy is aggregate configuration; a source window and derived score are configuration/expressions, not separate MVP operators.
+- Directed edges with typed input/output ports and stable node IDs.
+- Bounded node and parameter edits with inline validation.
+- Structured DAG outline that provides a keyboard and single-pointer alternative to canvas connections.
 - Validation summary for cycles, incompatible ports, unsupported configuration, missing sources, and resource bounds.
 - Layout state stored separately from execution semantics.
 
-The MVP has no arbitrary JavaScript/Python editor and no unrestricted custom-code node.
-
-**2026-09-05 scope alignment:** Follow the [semantic template contract](backend/harness/semantic-templates.md). The first overview shows Source, Wallet Activity, Repeat Activity, and Output, with a read-only seven-node primitive expansion. Use stable node IDs and actual typed edges, never positional arrows between fixture cards. Semantic cards provide keyboard-operable disclosure and a separate parameter action. Source interval and repeat threshold edits regenerate a local sample draft with a visible change summary; they do not mutate an accepted version. Generated internals are read-only in this first template UI; general structured editing remains a separate implementation deliverable, not a promised bidirectional template editor. Clearly label synthetic source/configuration/results, local-only edits, and unconnected Agent/runtime integrations. API and consumer examples share the same default four-field repeat-activity schema. Do not describe this metric as cohort retention.
+The MVP has no arbitrary JavaScript/Python editor and no unrestricted custom-code node. Unsupported edits must be rejected explicitly rather than compiled through a custom-code fallback.
 
 **Version and build elements:**
 
 - Product name, lifecycle status, proposed/selected version, and dirty-change indicator.
+- A clear `Back to Agent` path for intent revision and regeneration.
 - Semantic diff between parent and proposed version.
-- `Accept as version` creates a new immutable proposed version and runs validation.
 - Build confirmation summarizes version, source access modes, selected credentials/policies, configured maximum spend, refresh behavior, and known blockers.
-- Because the exact Graph x402 amount may arrive only with the real `402`, the confirmation shows the approved bounds rather than inventing an exact quote.
 - Build progress uses a durable trace: queued, planning, source request, payment challenge when applicable, payment, transform nodes, validation, materialization, and completion.
 - Output preview shows a bounded row sample, output schema, row count, freshness, provenance, and downloadable JSON only when allowed.
 - Failed and blocked runs retain successful prior deployment pointers.
 
-**Important states:**
+**Important states:** No proposal yet, Agent planning, proposal ready, unaccepted local changes, version validating, invalid, building, ready, or retired. Graph payment confirmation and provider failures retain their evidence and recovery guidance.
 
-- No intent yet.
-- Agent planning.
-- Proposal ready.
-- Unsupported intent with a supported alternative.
-- Unaccepted local changes.
-- Version validating, invalid, building, ready, or retired.
-- Run queued, running, succeeded, failed, blocked, or cancelled.
-- Graph payment confirmed but source delivery failed, with reconciliation guidance and no false budget refund.
-- Insufficient budget, revoked grant, invalid credential, changed source schema, or unavailable provider, each linked to its recovery view.
+**Domain reads and writes:** `agent_sessions`, `agent_messages`, `source_snapshots`, `data_products`, `data_product_versions`, `data_product_version_sources`, `product_version_layouts`, `execution_runs`, `run_attempts`, `node_runs`, `source_requests`, `source_http_attempts`, `artifacts`, `materializations`, `trace_streams`, `trace_events`, `budget_reservations`, and upstream payment records.
 
-**Domain reads and writes:** `agent_sessions`, `agent_messages`, `source_snapshots`, `provider_credentials`, `data_products`, `data_product_versions`, `data_product_version_sources`, `product_version_layouts`, `execution_runs`, `run_attempts`, `node_runs`, `source_requests`, `source_http_attempts`, `artifacts`, `materializations`, `trace_streams`, `trace_events`, `budget_reservations`, and upstream payment records.
-
-### 5. API and Deployment
+### 6. API and Deployment
 
 **Purpose:** Activate a ready version, test the private endpoint, and manage refresh and API credentials.
 
@@ -372,7 +383,7 @@ The MVP has no arbitrary JavaScript/Python editor and no unrestricted custom-cod
 
 **Domain reads and writes:** `deployments`, `publication_versions`, `api_credentials`, `refresh_schedules`, `materializations`, `execution_runs`, `api_access_requests`, `api_http_attempts`, `usage_events`, and `active_product_view`.
 
-### 6. Monetization and Revenue
+### 7. Monetization and Revenue
 
 **Purpose:** Turn an already healthy private API into an optional Hedera x402 product and show evidence-backed sales.
 
@@ -419,7 +430,7 @@ Each step is deep-linkable within the page and preserves completed state. Failed
 
 **Domain reads and writes:** `wallet_addresses`, `wallet_asset_capabilities`, `deployments`, `publication_versions`, `api_access_requests`, `api_http_attempts`, `payment_intents`, `payment_attempts`, `payment_settlements`, `payment_allocations`, `financial_ledger_entries`, `usage_events`, `product_sales`, and `creator_proceeds`.
 
-### 7. Public Product and Consumer Demo
+### 8. Public Product and Consumer Demo
 
 **Purpose:** Give evaluators and external developers a public-safe product description, integration reference, and real x402 request path.
 
@@ -556,11 +567,11 @@ The human team selected the third visual exploration on 2026-09-05. The directio
 - Inter for interface text and DM Mono for code, identifiers, hashes, JSON, and tabular amounts.
 - A compact 4/8-pixel spacing rhythm, 5-8 pixel radii, thin borders, and minimal elevation.
 - Phosphor icons provide one consistent icon family; emoji, custom inline SVG, and decorative illustration are not structural UI assets.
-- The Product Builder uses a persistent account sidebar, product tabs, intent and Agent summary, central DAG canvas, build-readiness evidence, and a bottom execution trace.
+- The Agent Planner uses a persistent account sidebar, product tabs, conversation, editable intent, and a backend-driven progress timeline. The DAG Builder uses the same shell with a central DAG canvas, concise intent summary, build-readiness evidence, progressive-disclosure inspectors, and a bottom execution trace.
 - Motion is short, interruptible, and state-explanatory; `prefers-reduced-motion` is respected.
 - Operational text uses flat, high-contrast surfaces rather than glass or ambient animation.
 
-The maintained product frontend is in [`frontend/`](frontend/). It includes all seven page families, shared components, locale catalogs, and feature hooks. Demo fixtures and async services are isolated under `src/services/demo/`; the current workspace remains a sample-data environment until backend integration. Continue implementing this source directly. [Frontend implementation status](frontend/implementation-status.md) records the remaining behavior and service gaps.
+The maintained product frontend is in [`frontend/`](frontend/). It includes all eight page families, shared components, locale catalogs, and feature hooks. The evaluator path uses a server-generated demo runtime while durable backend integration remains unfinished. Continue implementing this source directly. [Frontend implementation status](frontend/implementation-status.md) records the remaining behavior and service gaps.
 
 The formal token proposal is in [`design-tokens.md`](design-tokens.md). It defines primitive, semantic, and component layers; meaningful color roles; typography and spacing scales; state behavior; accessibility checks; layout contracts; and the JSON-to-CSS generation workflow. The product frontend consumes the generated CSS; DT1-DT4 remain follow-up review items.
 
@@ -589,7 +600,7 @@ Every state-changing contract needs authorization, idempotency, a stable correla
 
 ### P0 Implementation
 
-- All seven page families.
+- All eight page families.
 - Desktop Creator Console support from 1024 CSS pixels, optimized for the 1440-pixel judge-demo viewport.
 - One owner workspace.
 - One representative Graph-backed product.
@@ -644,7 +655,7 @@ A prebuilt fallback product may protect the presentation from a slow live build,
 
 ### D1. Page Architecture
 
-**Approved:** Seven page families with shared product views for Build, API, and Monetize. This keeps wallet resources account-scoped, gives the complex Builder enough space, and separates private API readiness from optional payment configuration without creating a page for every table.
+**Approved:** Eight route-level page families with shared product views for Agent, Build, API, and Monetize. Separating Agent conversation/progress from DAG review keeps each page focused while preserving a clear product workflow and shared product context.
 
 ### D2. Evaluator Paid-Request Method
 
@@ -683,3 +694,4 @@ Remaining review and integration work:
 | 2026-09-05 | Added version 1.1 with the selected Evidence-First Console direction, explicit browser-only product boundary, design tokens, and a seven-page interactive prototype | Prototype ready for human review; MVP implementation has not started |
 | 2026-09-05 | Proposed Draft 1.2 with a documented primitive-to-semantic-to-component token system, generated CSS contract, accessibility checks, and prototype adoption | Token decisions DT1-DT4 and final prototype review await human approval |
 | 2026-09-05 | Recorded Draft 1.3 with the existing application promoted to the maintained product frontend, feature/service boundaries, and an implementation-gap register | Frontend implementation authorized; token review and live-integration gates remain open |
+| 2026-09-06 | Recorded Draft 1.5 with Agent planning and DAG review split into separate deep-linkable product views; added backend-driven planning progress and a four-stage product header | Information hierarchy approved; bounded DAG refinement and live integrations remain open |

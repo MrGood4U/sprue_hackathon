@@ -1,10 +1,10 @@
 # Frontend Implementation Status
 
-Updated on 2026-09-05 after the human team promoted this application to the maintained Sprue frontend.
+Updated on 2026-09-06 after the Agent Planner and DAG Builder views were separated.
 
 ## Current Baseline
 
-The existing seven pages are the product frontend and will be developed in place. Shared UI, navigation, tokens, localization, and page ownership carry forward. The frontend now loads its evaluator workspace projection, DAG, product metadata, API response, wallet display state and consumer action result from the backend demo runtime. Live backend integration and the complete durable MVP remain unfinished.
+The existing eight route-level pages are the product frontend and will be developed in place. Shared UI, navigation, tokens, localization, and page ownership carry forward. The frontend now loads its evaluator workspace projection, Agent trace, DAG, product metadata, API response, wallet display state and consumer action result from the backend demo runtime. Agent planning and DAG review are separate product views under one product header. Live backend integration and the complete durable MVP remain unfinished.
 
 Implemented browser behavior includes route navigation, English/Simplified Chinese selection with a local preference, page composition, dialogs, Graph access-mode selection, backend-provided DAG inspection, and backend action flows. `services/index.js` selects the backend demo client. Build and request flows run through feature hooks with cancellation and duplicate-submission protection; no product page imports browser fixture records.
 
@@ -19,7 +19,8 @@ Deployment infrastructure now includes public API-origin validation, a read-only
 | Entry | Product introduction and navigation into the demo workspace | Privy sign-in, session restoration, and workspace bootstrap |
 | Dashboard | Backend-generated product projection, metrics, activity, sponsor proof, and a dialog that opens its plan | Product list/create APIs, search/filter behavior, durable activity and usage, creator loading/empty/error states |
 | Wallet and Access | Sample balances and authorization, local access-mode selection, dialogs without durable writes | Wallet identity/funding, credential storage, validated grants, budgets, recipient capability, balance and policy refresh |
-| Builder | Backend-generated cross-chain proposal, eleven-node Union/Join DAG, actual-edge layout, semantic overview, read-only spec/schema inspection, and bounded backend build action | Agent conversation, reviewed backend compiler/templates, general structured editing, immutable provenance/versions, real run state and evidence |
+| Agent Planner | Backend-generated intent, source summary, proposal facts, and six-stage planning trace; editable intent and backend plan action | Durable Agent sessions/messages, live provider discovery, streaming trace, proposal history, and unsupported-intent recovery |
+| Builder | Backend-generated cross-chain proposal, eleven-node Union/Join DAG, actual-edge layout, semantic overview, read-only spec/schema inspection, and bounded backend build action | Bounded structured editing, immutable provenance/versions, real run state and evidence |
 | API and Deployment | Backend-generated endpoint, copied endpoint text, and backend action response | Reviewed request parameters, private access, real output, deployment and logs, functional code-example tabs |
 | Monetization and Revenue | Backend-generated publication state and price/split projection; publication button remains a demo action | Validated price and confirmed fee policy, creator recipient checks, durable publication state, payment gate, revenue reconciliation |
 | Public product | Backend-generated product metadata and a backend consumer action response; no browser payment is performed | Slug-based product loading, real payment requirements, authorized buyer client, receipts and uncertain-payment recovery |

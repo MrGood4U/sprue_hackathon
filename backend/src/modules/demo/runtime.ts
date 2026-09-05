@@ -164,6 +164,17 @@ function sourceSnapshots(result: HarnessResult): readonly Record<string, unknown
 
 function buildState(config: AppConfig, result: HarnessResult): DemoState {
   const output = serializeOutput(result.execution);
+  const agent = {
+    status: "ready_for_review" as const,
+    provider: result.model.provider,
+    model: result.model.model,
+    intent: result.proposal.intentSummary,
+    sources: result.proposal.sources.map(({sourceKey, chain}) => ({sourceKey, chain})),
+    nodeCount: result.proposal.dag.nodes.length,
+    edgeCount: result.proposal.dag.edges.length,
+    outputFieldCount: result.proposal.outputSchema.fields.length,
+    trace: result.trace,
+  };
   const endpoint = `${config.dataPublicBaseUrl}/${DEMO_PRODUCT_SLUG}`;
   const draft = {
     parameters: { windowDays: 30, minimumActiveDays: 2 },
@@ -207,11 +218,12 @@ function buildState(config: AppConfig, result: HarnessResult): DemoState {
   return {
     dataSource: "backend_demo",
     generatedAt: new Date().toISOString(),
+    agent,
     product: {
       slug: DEMO_PRODUCT_SLUG,
       name: "Cross-chain DEX Trader Footprint",
       description: "Wallet activity observed on both Ethereum and Arbitrum DEX sources, with per-chain summaries and combined volume.",
-      intent: DEMO_INTENT,
+      intent: result.proposal.intentSummary,
       endpoint,
       version: "v1",
       status: "ready",
@@ -312,6 +324,22 @@ export interface DemoState {
       referenceResult: readonly Record<string, unknown>[];
     };
   };
+  agent: {
+    status: "ready_for_review";
+    provider: "mock" | "remote";
+    model: string;
+    intent: string;
+    sources: readonly {sourceKey: string; chain: string}[];
+    nodeCount: number;
+    edgeCount: number;
+    outputFieldCount: number;
+    trace: readonly {
+      sequenceNo: number;
+      stage: string;
+      status: string;
+      summary: string;
+    }[];
+  };
   dashboard: Record<string, unknown>;
   wallet: Record<string, unknown>;
   api: Record<string, unknown>;
@@ -320,7 +348,8 @@ export interface DemoState {
 }
 
 export interface DemoAction {
-  action: "build" | "api_request" | "consumer_request";
+  action: "agent_plan" | "build" | "api_request" | "consumer_request";
+  intent?: string;
   parameters?: {windowDays: 30; minimumActiveDays: 2};
 }
 
@@ -332,9 +361,9 @@ export class DemoRuntime {
     this.harness = new AgentHarness(createAgentModel(config.agent));
   }
 
-  private async runHarness(): Promise<HarnessResult> {
+  private async runHarness(intent = DEMO_INTENT): Promise<HarnessResult> {
     return this.harness.run({
-      intent: DEMO_INTENT,
+      intent,
       sources: this.sources,
       executionWindow: {startInclusive, endExclusive},
     });
@@ -345,9 +374,20 @@ export class DemoRuntime {
   }
 
   async run(action: DemoAction): Promise<{state: DemoState; result: Record<string, unknown>}> {
-    const harness = await this.runHarness();
+    const harness = await this.runHarness(action.intent);
     const state = buildState(this.config, harness);
     const responseData = serializeOutput(harness.execution);
+    if (action.action === "agent_plan") {
+      return {
+        state,
+        result: {
+          status: "ready_for_review",
+          source: "backend_demo_runtime",
+          model: harness.model,
+          trace: harness.trace,
+        },
+      };
+    }
     if (action.action === "build") {
       return {
         state,

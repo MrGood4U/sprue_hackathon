@@ -4,6 +4,7 @@ import { test } from "node:test";
 
 const sourceRoot = new URL("../src/", import.meta.url);
 const expectedPages = [
+  "AgentPage.jsx",
   "ApiDeploymentPage.jsx",
   "DashboardPage.jsx",
   "EntryPage.jsx",

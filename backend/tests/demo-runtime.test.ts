@@ -24,6 +24,8 @@ test("backend demo runtime returns the harness proposal and cross-chain output",
   const state = await new DemoRuntime(config).getState();
   assert.equal(state.dataSource, "backend_demo");
   assert.equal(state.product.slug, "cross-chain-dex-trader-footprint");
+  assert.equal(state.agent.status, "ready_for_review");
+  assert.equal(state.agent.trace.length, 9);
   assert.equal(state.product.draft.specification.dag.nodes.length, 11);
   assert.equal(state.product.draft.referenceResult.length, 1);
   assert.equal(state.product.draft.referenceResult[0]?.combinedVolumeUsd, "456.50");
@@ -65,6 +67,16 @@ test("enabled demo HTTP routes are the only frontend business-data boundary in t
     const actionBody = await actionResponse.json();
     assert.equal(actionBody.data.result.data.length, 1);
     assert.equal(actionBody.data.state.dataSource, "backend_demo");
+
+    const planResponse = await fetch(`${baseUrl}/api/v1/public/demo/actions`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({action: "agent_plan", intent: "Find cross-chain traders."}),
+    });
+    assert.equal(planResponse.status, 200);
+    const planBody = await planResponse.json();
+    assert.equal(planBody.data.result.status, "ready_for_review");
+    assert.equal(planBody.data.state.product.intent, "Find cross-chain traders.");
 
     const invalidResponse = await fetch(`${baseUrl}/api/v1/public/demo/actions`, {
       method: "POST",
