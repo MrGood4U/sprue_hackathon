@@ -22,7 +22,7 @@ export function ProductBuilderPage({ navigate }) {
         <DagCanvas draft={draft} onSelectNode={setModal} />
         <BuildReadiness draft={draft} onInspect={setModal} />
       </div>
-      <ExecutionTrace buildState={buildState} onBuild={startBuild} onOpenDag={() => setModal("dag")} onOpenSpec={() => setModal("spec")} />
+      <ExecutionTrace buildState={buildState} onBuild={startBuild} onOpenDag={() => setModal("dag")} />
       {buildState === "failed" && <p className="inline-notice" role="alert">{t("common.operationFailed")}</p>}
       {modal && <BuilderInspector selection={modal} draft={draft} onClose={() => setModal(null)} />}
     </div>

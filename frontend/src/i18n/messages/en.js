@@ -265,7 +265,6 @@ export const en = {
   "trace.building": "Building...",
   "trace.buildComplete": "Build complete",
   "trace.buildVersion": "Run backend build",
-  "trace.reviewSpec": "Review spec",
 
   "api.endpointReady": "Endpoint ready",
   "api.eyebrow": "Hosted data API",

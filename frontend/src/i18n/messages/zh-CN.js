@@ -268,7 +268,6 @@ export const zhCN = {
   "trace.building": "\u6784\u5efa\u4e2d...",
   "trace.buildComplete": "\u6784\u5efa\u5b8c\u6210",
   "trace.buildVersion": "\u8fd0\u884c\u540e\u7aef\u6784\u5efa",
-  "trace.reviewSpec": "\u5ba1\u67e5\u89c4\u8303",
 
   "api.endpointReady": "\u7aef\u70b9\u5df2\u5c31\u7eea",
   "api.eyebrow": "\u6258\u7ba1\u6570\u636e API",
