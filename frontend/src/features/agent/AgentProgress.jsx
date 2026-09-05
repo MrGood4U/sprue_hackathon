@@ -15,17 +15,17 @@ function latestByStage(trace) {
   return new Map(trace.map((event) => [event.stage, event]));
 }
 
-function itemState(event, planState) {
+function itemState(event, planState, index) {
   if (event?.status === "failed") return "failed";
   if (event?.status === "started") return "active";
   if (event?.status === "passed") return "complete";
-  return planState === "planning" ? "active" : "pending";
+  return planState === "planning" && index === 0 ? "active" : "pending";
 }
 
 export function AgentProgress({ trace = [], planState }) {
   const { t } = useI18n();
   const events = latestByStage(trace);
-  const completed = stageDefinitions.filter(([stage]) => itemState(events.get(stage), planState) === "complete").length;
+  const completed = stageDefinitions.filter(([stage], index) => itemState(events.get(stage), planState, index) === "complete").length;
   const progress = Math.round((completed / stageDefinitions.length) * 100);
 
   return (
@@ -43,7 +43,7 @@ export function AgentProgress({ trace = [], planState }) {
       </div>
       <ol className="agent-trace-list">
         {stageDefinitions.map(([stage, titleKey, detailKey], index) => {
-          const state = itemState(events.get(stage), planState);
+          const state = itemState(events.get(stage), planState, index);
           return (
             <li className={`agent-trace-item agent-trace-${state}`} key={stage}>
               <span className="agent-trace-icon">
