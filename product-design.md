@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft 1.3, updated on 2026-09-05. The user promoted the existing seven-page application to the maintained Sprue frontend and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. Token review remains follow-up work; real backend, identity, wallet, and payment integrations are still pending.
+Draft 1.4, updated on 2026-09-06. The user promoted the existing seven-page application to the maintained Sprue frontend and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. Token review remains follow-up work; real backend, identity, wallet, and payment integrations are still pending.
 
 This document defines the MVP information architecture, page inventory, interactions, state behavior, desktop layout behavior, accessibility requirements, and screen-to-domain contracts. The decisions are recorded in [Confirmed Design Decisions](#confirmed-design-decisions).
 
@@ -541,7 +541,7 @@ The target is WCAG 2.2 AA for the implemented MVP path.
 ## Localization Baseline
 
 - The initial UI locales are English (`en`) and Simplified Chinese (`zh-CN`), with English as the complete fallback catalog.
-- The first visit follows the browser language when supported. A visible language selector is available on the entry page, creator sidebar, and public product page.
+- The first visit follows the browser language when supported. A visible language selector is available in the top-right navigation area on the entry page, creator console headers, and public product page.
 - A user override is stored locally and applies across routes without changing route URLs or product identifiers.
 - Locale changes update the document `lang`, title, description, visible labels, accessible names, alerts, workflow text, and mock-state copy without a reload.
 - Provider names, addresses, hashes, API fields, source identifiers, code samples, network symbols, and other technical identifiers remain unchanged when translation could alter their meaning.

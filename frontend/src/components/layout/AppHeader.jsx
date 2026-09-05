@@ -1,4 +1,5 @@
 import { useI18n } from "../../i18n/I18nProvider.jsx";
+import { LanguageSwitcher } from "../navigation/LanguageSwitcher.jsx";
 
 export function AppHeader({ title, subtitle, actions }) {
   const { t } = useI18n();
@@ -10,7 +11,7 @@ export function AppHeader({ title, subtitle, actions }) {
         <h1>{title}</h1>
         {subtitle && <p>{subtitle}</p>}
       </div>
-      <div className="header-actions">{actions}</div>
+      <div className="header-actions">{actions}<LanguageSwitcher /></div>
     </header>
   );
 }

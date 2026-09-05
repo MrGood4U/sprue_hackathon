@@ -11,7 +11,6 @@ import {
 } from "@phosphor-icons/react";
 import { IconButton } from "../ui/Button.jsx";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
-import { LanguageSwitcher } from "./LanguageSwitcher.jsx";
 
 export function Sidebar({ path, navigate }) {
   const { t } = useI18n();
@@ -63,7 +62,6 @@ export function Sidebar({ path, navigate }) {
           <span>{t("sidebar.settings")}</span>
         </button>
       </nav>
-      <LanguageSwitcher />
       <div className="workspace-status">{t("sidebar.workspaceStatus")}</div>
     </aside>
   );
