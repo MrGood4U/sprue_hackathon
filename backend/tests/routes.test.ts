@@ -11,6 +11,7 @@ test("all documented HTTP operations have one domain-owned route reservation", a
     "docs/api/products-builder.md",
     "docs/api/deployment-publication.md",
     "docs/api/consumer-payments.md",
+    "docs/api/demo-runtime.md",
   ]) {
     const content = await readFile(
       new URL(`../../${file}`, import.meta.url),

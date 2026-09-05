@@ -9,9 +9,9 @@ import {
 } from "@phosphor-icons/react";
 import { Button } from "../components/ui/Button.jsx";
 import { Status } from "../components/ui/Status.jsx";
-import { productSlug } from "../services/demo/fixtures/product.js";
 import { LanguageSwitcher } from "../components/navigation/LanguageSwitcher.jsx";
 import { useI18n } from "../i18n/I18nProvider.jsx";
+import { useDemoRuntime } from "../features/runtime/DemoRuntimeProvider.jsx";
 
 const proofSteps = [
   [Sparkle, "entry.proof.intent.title", "entry.proof.intent.detail"],
@@ -23,6 +23,8 @@ const proofSteps = [
 
 export function EntryPage({ navigate }) {
   const { t } = useI18n();
+  const { state } = useDemoRuntime();
+  const { slug: productSlug } = state.product;
 
   return (
     <main className="entry-page">

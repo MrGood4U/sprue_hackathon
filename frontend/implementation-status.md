@@ -4,9 +4,9 @@ Updated on 2026-09-05 after the human team promoted this application to the main
 
 ## Current Baseline
 
-The existing seven pages are the product frontend and will be developed in place. Shared UI, navigation, tokens, localization, and page ownership carry forward. The backend now has an offline schema-driven DAG runtime for the cross-chain target, but the current frontend still uses one demo workspace and demo services; live backend integration and the complete MVP remain unfinished.
+The existing seven pages are the product frontend and will be developed in place. Shared UI, navigation, tokens, localization, and page ownership carry forward. The frontend now loads its evaluator workspace projection, DAG, product metadata, API response, wallet display state and consumer action result from the backend demo runtime. Live backend integration and the complete durable MVP remain unfinished.
 
-Implemented browser behavior includes route navigation, English/Simplified Chinese selection with a local preference, page composition, dialogs, Graph access-mode selection, DAG inspection, and sample build/request/publication flows. `services/index.js` currently selects the demo adapter. Build and request flows run through feature hooks with cancellation and duplicate-submission protection; sample response objects live in `services/demo/fixtures/`.
+Implemented browser behavior includes route navigation, English/Simplified Chinese selection with a local preference, page composition, dialogs, Graph access-mode selection, backend-provided DAG inspection, and backend action flows. `services/index.js` selects the backend demo client. Build and request flows run through feature hooks with cancellation and duplicate-submission protection; no product page imports browser fixture records.
 
 Application metadata, entry-page actions, and project instructions identify Sprue as a product. The demo workspace and simulated financial operations remain labeled with their actual behavior.
 
@@ -17,12 +17,12 @@ Deployment infrastructure now includes public API-origin validation, a read-only
 | Page | Current behavior | Needed for the integrated MVP |
 |---|---|---|
 | Entry | Product introduction and navigation into the demo workspace | Privy sign-in, session restoration, and workspace bootstrap |
-| Dashboard | One sample product, static metrics, and a dialog that opens its sample plan | Product list/create APIs, search/filter behavior, actual activity and usage, loading/empty/error states |
+| Dashboard | Backend-generated product projection, metrics, activity, sponsor proof, and a dialog that opens its plan | Product list/create APIs, search/filter behavior, durable activity and usage, creator loading/empty/error states |
 | Wallet and Access | Sample balances and authorization, local access-mode selection, dialogs without durable writes | Wallet identity/funding, credential storage, validated grants, budgets, recipient capability, balance and policy refresh |
-| Builder | Seven-node synthetic spec, actual-edge layout, four-card semantic overview, keyboard disclosure, read-only node/spec/schema inspection, constrained local parameter recompilation and resettable simulated trace | Agent conversation, reviewed backend compiler/templates, general structured editing, immutable provenance/versions, real run state and evidence |
-| API and Deployment | Sample endpoint, copied endpoint text, demo request response | Reviewed request parameters, private access, real output, deployment and logs, functional code-example tabs |
-| Monetization and Revenue | Local publication state and illustrative price/5% split | Validated price and confirmed fee policy, creator recipient checks, durable publication state, payment gate, revenue reconciliation |
-| Public product | Sample product and a cancelable four-stage paid-request demonstration | Slug-based product loading, real payment requirements, authorized buyer client, receipts and uncertain-payment recovery |
+| Builder | Backend-generated cross-chain proposal, eleven-node Union/Join DAG, actual-edge layout, semantic overview, read-only spec/schema inspection, and bounded backend build action | Agent conversation, reviewed backend compiler/templates, general structured editing, immutable provenance/versions, real run state and evidence |
+| API and Deployment | Backend-generated endpoint, copied endpoint text, and backend action response | Reviewed request parameters, private access, real output, deployment and logs, functional code-example tabs |
+| Monetization and Revenue | Backend-generated publication state and price/split projection; publication button remains a demo action | Validated price and confirmed fee policy, creator recipient checks, durable publication state, payment gate, revenue reconciliation |
+| Public product | Backend-generated product metadata and a backend consumer action response; no browser payment is performed | Slug-based product loading, real payment requirements, authorized buyer client, receipts and uncertain-payment recovery |
 
 Some secondary controls still have no implemented action, including wallet viewing, deployment logs and navigation collapse. The Builder now provides functional source-configuration and full-schema inspection; live Explorer evidence is not available. New-product planning is not connected, and local template edits do not create or save versions. Demo publication does not publish an endpoint, and fee terms are not yet agreed. These are concrete implementation tasks, not evidence of completed functionality.
 
@@ -41,12 +41,12 @@ The approved large-screen browser scope and English/Simplified Chinese localizat
 
 ### Semantic Builder Update, 2026-09-05
 
-The current frontend fixture reflects the earlier five-type single-source scope in a synthetic seven-node spec. The two semantic groups expand read-only, actual edge IDs determine layout/connections, and constrained parameter changes rebuild local config and reset the simulated trace. A test-only evaluator independently checks the fixed expected output, including one-day wallets in the denominator and same-day event deduplication. This is not the backend interpreter and does not yet demonstrate the newly approved Union/Join composition. Canonical model, Builder, API and consumer examples share four typed output fields. Durable compilation provenance and backend schemas remain H1/H2; a live metric/source/profile remains H3.
+The frontend/backend demo transition now exercises the approved cross-chain scope: two server-side source inputs are mapped to a canonical Swap shape, the mock Agent returns an eleven-node proposal with explicit Union and Join, and the backend runtime returns one cross-chain wallet row. This is a fixture-backed evaluator path, not live Graph/Privy/Hedera evidence. Durable compilation provenance and backend schemas remain H1/H2; a live source profile remains H3.
 
-The build, 26 automated tests and token validation passed, including 12 new Builder tests. The existing Sites packaging adapter passed unchanged. A local Builder route returned HTTP 200 and was opened for preview; no new browser interaction, screenshot or visual QA was performed for this canvas. Earlier visual evidence below describes the previous frontend state, not this update. No provider requests, backend runtime, payments, migrations or cloud deployment were performed.
+The backend test suite and frontend build passed after adding the demo HTTP boundary and client tests. The existing Sites packaging adapter passed unchanged. No provider requests, wallet actions, payments, migrations or cloud deployment were performed.
 
 ### Earlier Frontend Transition
 
-Run `npm run build` and `npm run test:sites`. The build includes page-ownership, localization, demo-service, and token checks; `npm run test:services` also runs the service checks independently. Service tests cover canceled demo work, detached response objects, and consumer progress without external requests.
+Run `npm run build` and `npm run test:sites`. The build includes page-ownership, localization, backend-client, and token checks; `npm run test:services` validates the backend request boundary without external requests.
 
 On 2026-09-05, the build, 14 automated tests, and token validation passed. Browser checks exercised all seven page families at the supported 1440-pixel viewport, English/Chinese selection and reload persistence, build progress/completion, sample API responses, consumer progress/completion, and leaving a running consumer request. Returning to that page restored the idle view, and the browser reported no console errors or warnings. These are frontend smoke checks, not a full accessibility audit or live-integration evidence.

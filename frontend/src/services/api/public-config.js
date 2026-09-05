@@ -1,4 +1,5 @@
-// This read-only transport does not replace the current demo business adapter.
+// This read-only transport exposes public server configuration; business data
+// is requested through the backend demo client during the current evaluator slice.
 export function parseApiBaseUrl(value) {
   if (!value) return null;
   let url;

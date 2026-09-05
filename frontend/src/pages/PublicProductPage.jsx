@@ -11,10 +11,10 @@ import {
 } from "@phosphor-icons/react";
 import { Button } from "../components/ui/Button.jsx";
 import { Status } from "../components/ui/Status.jsx";
-import { product } from "../services/demo/fixtures/product.js";
 import { LanguageSwitcher } from "../components/navigation/LanguageSwitcher.jsx";
 import { useI18n } from "../i18n/I18nProvider.jsx";
 import { useConsumerRequest } from "../features/consumer/useConsumerRequest.js";
+import { useDemoRuntime } from "../features/runtime/DemoRuntimeProvider.jsx";
 
 const stageKeys = ["public.stage.request", "public.stage.terms", "public.stage.settle", "public.stage.response"];
 
@@ -26,6 +26,8 @@ function progressMessage(stage, t) {
 
 export function PublicProductPage({ navigate }) {
   const { t } = useI18n();
+  const { state } = useDemoRuntime();
+  const { product, public: publicProduct, api } = state;
   const { stage, result, status, run } = useConsumerRequest();
 
   const [progressTitle, progressDetail] = progressMessage(stage, t);
@@ -45,16 +47,16 @@ export function PublicProductPage({ navigate }) {
         <div>
           <span className="eyebrow">{t("public.eyebrow")}</span>
           <h1>{product.name}</h1>
-          <p>{t("product.description")}</p>
+          <p>{product.description}</p>
           <div className="public-meta">
             <Status>{t("public.graphVerified")}</Status>
             <Status tone="violet">{t("public.updated")}</Status>
-            <Status tone="amber">{t("public.price")}</Status>
+            <Status tone="amber">{publicProduct.price}</Status>
           </div>
         </div>
         <div className="publisher-card">
           <span>{t("public.publishedBy")}</span>
-          <strong>0x71F2…9C84</strong>
+          <strong>{publicProduct.publisher}</strong>
           <small>{t("public.revenueDestination")}</small>
         </div>
       </section>
@@ -63,9 +65,9 @@ export function PublicProductPage({ navigate }) {
         <div className="request-pane">
           <div className="console-head">
             <div><TerminalWindow size={19} /><strong>{t("public.consumerRequest")}</strong></div>
-            <span className="mock-chip">{t("common.safeSimulation")}</span>
+            <span className="mock-chip">{t("common.backendResponse")}</span>
           </div>
-          <label className="endpoint-line"><span>GET</span><code>{product.endpoint}</code></label>
+          <label className="endpoint-line"><span>{api.method}</span><code>{api.endpoint}</code></label>
           <div className="consumer-actions">
             <Button variant="primary" icon={Play} onClick={run} disabled={status === "loading"}>
               {t(status === "loading" ? "public.running" : stage === 4 ? "public.runAgain" : "public.requestPaidData")}
@@ -107,10 +109,10 @@ export function PublicProductPage({ navigate }) {
       </section>
 
       <section className="public-details">
-        <div><span>{t("public.schema")}</span><strong>{t("public.schemaValue")}</strong></div>
-        <div><span>{t("public.freshness")}</span><strong>{t("public.freshnessValue")}</strong></div>
-        <div><span>{t("public.provenance")}</span><strong>base-dex@v1.4.2</strong></div>
-        <div><span>{t("public.settlement")}</span><strong>Hedera x402</strong></div>
+        <div><span>{t("public.schema")}</span><strong>{publicProduct.schema}</strong></div>
+        <div><span>{t("public.freshness")}</span><strong>{publicProduct.freshness}</strong></div>
+        <div><span>{t("public.provenance")}</span><strong>{publicProduct.provenance}</strong></div>
+        <div><span>{t("public.settlement")}</span><strong>{publicProduct.settlement}</strong></div>
       </section>
     </main>
   );

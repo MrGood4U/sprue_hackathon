@@ -4,7 +4,7 @@ The same Sprue source supports Windows browser testing, Docker self-hosting, and
 
 ## Current Capability Boundary
 
-The frontend is usable with labeled demo data. API health/readiness and public configuration are implemented; business routes, verified Privy authentication, queue consumption, Agent execution and payments remain unavailable. Starting all four services is infrastructure readiness, not a completed live product. The public-config transport is read-only and does not switch the page service adapter from demo to live.
+The frontend requests a labeled server-generated projection from the explicit backend demo runtime. API health/readiness, public configuration and the evaluator demo routes are implemented; durable business routes, verified Privy authentication, queue consumption, live Agent/Graph execution and payments remain unavailable. Starting all four services is infrastructure readiness, not a completed live product. The public-config transport remains read-only; `DEMO_RUNTIME_ENABLED=true` explicitly enables the temporary evaluator path.
 
 ## Windows: Complete Local Docker Stack
 
@@ -23,7 +23,7 @@ From the repository root:
 | Service | Default local address | Exposure |
 |---|---|---|
 | Frontend | `http://127.0.0.1:4173` | Loopback only; browser entry |
-| API | `http://127.0.0.1:3001` | Loopback only; `/healthz`, `/readyz`, `/api/v1/app-config` |
+| API | `http://127.0.0.1:3001` | Loopback only; probes, app config, and `/api/v1/public/demo/*` when enabled |
 | PostgreSQL | `127.0.0.1:15432`, database/user `sprue` | Loopback only; password stays in `.env.local` |
 | Worker | Port 3002 inside its container | No host/public port; probes only, currently standby |
 
@@ -67,6 +67,7 @@ Run `npm run db:status`, then explicitly `npm run db:migrate` in `backend/`. In 
 - Root deployment checks: `node --test scripts/deployment.test.mjs` validates Compose configuration and manifest/packaging boundaries without starting services. It requires the Docker CLI, not a running engine.
 - Opt-in native database smoke: after the root stack has initialized PostgreSQL, run `npm run test:local-db` from backend under Node.js 24. It reads only the root local configuration, ignores ambient `DATABASE_URL`, checks the schema/journal and starts ephemeral native API/worker probes. It performs no migration, seed or provider action.
 - `VITE_API_BASE_URL` is public, build-time configuration. Changing it requires rebuilding frontend assets, not editing application source. All other server configuration and credentials stay in backend runtime environment variables. Do not prefix any secret with `VITE_`.
+- Backend local/evaluator demo: set `DEMO_RUNTIME_ENABLED=true` with `AGENT_MODE=mock` to expose the server-backed cross-chain preview. This path is fixture-backed, non-durable and must not be confused with live sponsor evidence.
 
 The frontend Docker image serves only `dist/client/` through Nginx. Browser routes under `/app` and `/p/` support direct navigation/reload; missing `/api/`, `/data/` and asset URLs return 404 instead of a fake HTML success. Self-hosted internet exposure additionally requires operator-managed HTTPS, access controls, backups and an explicit non-local backend environment; the root Compose profile is intentionally loopback-only for local testing.
 
@@ -104,6 +105,8 @@ The Dockerfile path is `Dockerfile` within the backend build root. Set these run
 | `CONSOLE_PUBLIC_URL` | Actual HTTPS Vercel console origin |
 | `DATA_PUBLIC_BASE_URL` | API origin plus `/data/v1` |
 | `CORS_ALLOWED_ORIGINS` | Exact console origin(s), comma-separated |
+| `DEMO_RUNTIME_ENABLED` | `true` for the temporary evaluator-facing backend projection; otherwise `false` |
+| `AGENT_MODE` | `mock` for the current evaluator projection; `remote` remains fail-closed until its adapter is implemented |
 
 Only the API needs a public Railway domain. The worker and database remain private. Both services use `/readyz` as a deployment check; worker readiness currently means compatible database access, not implemented job execution. Privy/provider secrets and approved capability configuration must be added separately as those integrations are implemented. A public Privy app ID alone does not enable login.
 

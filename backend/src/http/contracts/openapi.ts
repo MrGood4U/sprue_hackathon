@@ -64,7 +64,7 @@ export function openApiDocument() {
               additionalProperties: false,
               properties: {
                 data: {
-                  $ref: `#/components/schemas/${route.implementation === "me" ? "Bootstrap" : "AppConfig"}`,
+                  $ref: `#/components/schemas/${route.implementation === "me" ? "Bootstrap" : route.implementation === "app-config" ? "AppConfig" : "DemoEnvelope"}`,
                 },
                 meta: { $ref: "#/components/schemas/Meta" },
               },
@@ -134,6 +134,11 @@ export function openApiDocument() {
         Bootstrap: z.toJSONSchema(bootstrapSchema),
         Meta: z.toJSONSchema(metaSchema),
         ErrorEnvelope: z.toJSONSchema(errorSchema),
+        DemoEnvelope: {
+          type: "object",
+          description: "A server-generated evaluator demo projection or action result.",
+          additionalProperties: true,
+        },
       },
     },
   };

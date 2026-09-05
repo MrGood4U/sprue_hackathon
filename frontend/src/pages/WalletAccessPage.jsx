@@ -19,11 +19,14 @@ import { Field } from "../components/ui/Field.jsx";
 import { Modal } from "../components/ui/Modal.jsx";
 import { Status } from "../components/ui/Status.jsx";
 import { useI18n } from "../i18n/I18nProvider.jsx";
+import { useDemoRuntime } from "../features/runtime/DemoRuntimeProvider.jsx";
 
 export function WalletAccessPage() {
   const { t } = useI18n();
+  const { state } = useDemoRuntime();
+  const { wallet } = state;
   const [modal, setModal] = useState(null);
-  const [mode, setMode] = useState("x402");
+  const [mode, setMode] = useState(wallet.access.defaultMode);
 
   return (
     <div className="page">
@@ -37,10 +40,10 @@ export function WalletAccessPage() {
         <section className="panel wallet-hero">
           <div className="panel-kicker"><Wallet size={18} /> {t("wallet.embeddedWallet")}</div>
           <div className="wallet-address-row">
-            <div><span>{t("wallet.creatorWallet")}</span><strong>0x71F2…9C84</strong></div>
+            <div><span>{t("wallet.creatorWallet")}</span><strong>{wallet.displayAddress}</strong></div>
             <IconButton label={t("wallet.copyAddress")}><Copy size={18} /></IconButton>
           </div>
-          <div className="wallet-balance"><span>{t("wallet.availableSpend")}</span><strong>3.12 USDC</strong></div>
+          <div className="wallet-balance"><span>{t("wallet.availableSpend")}</span><strong>{wallet.balance.amount} {wallet.balance.asset}</strong></div>
           <div className="wallet-actions">
             <Button variant="primary" icon={CreditCard} onClick={() => setModal("fund")}>{t("wallet.fund")}</Button>
             <Button icon={ArrowSquareOut}>{t("wallet.view")}</Button>
@@ -52,12 +55,12 @@ export function WalletAccessPage() {
         </section>
 
         <section className="panel policy-card">
-          <div className="panel-title"><ShieldCheck size={19} /><h3>{t("wallet.spendAuthority")}</h3><Status>{t("common.active")}</Status></div>
+          <div className="panel-title"><ShieldCheck size={19} /><h3>{t("wallet.spendAuthority")}</h3><Status>{wallet.spendAuthority.status}</Status></div>
           <dl className="detail-list">
-            <div><dt>{t("wallet.perRequest")}</dt><dd>0.05 USDC</dd></div>
-            <div><dt>{t("wallet.dailyCeiling")}</dt><dd>5.00 USDC</dd></div>
-            <div><dt>{t("wallet.allowedPayee")}</dt><dd>The Graph x402</dd></div>
-            <div><dt>{t("wallet.expires")}</dt><dd>{t("wallet.expiryDate")}</dd></div>
+            <div><dt>{t("wallet.perRequest")}</dt><dd>{wallet.spendAuthority.perRequest}</dd></div>
+            <div><dt>{t("wallet.dailyCeiling")}</dt><dd>{wallet.spendAuthority.dailyCeiling}</dd></div>
+            <div><dt>{t("wallet.allowedPayee")}</dt><dd>{wallet.spendAuthority.allowedPayee}</dd></div>
+            <div><dt>{t("wallet.expires")}</dt><dd>{wallet.spendAuthority.expires}</dd></div>
           </dl>
           <Button icon={SlidersHorizontal} onClick={() => setModal("policy")}>{t("wallet.editPolicy")}</Button>
         </section>
@@ -87,12 +90,12 @@ export function WalletAccessPage() {
 
       <section className="panel">
         <div className="panel-toolbar"><div><h2>{t("wallet.credentials")}</h2><p>{t("wallet.credentialsDetail")}</p></div></div>
-        <div className="credential-row">
+        {wallet.credentials.map((credential) => <div className="credential-row" key={credential.name}>
           <span className="credential-icon"><Key size={19} /></span>
-          <span><strong>graph-production-01</strong><small>{t("wallet.credentialMeta")}</small></span>
-          <Status tone="violet">{t("wallet.vaulted")}</Status>
+          <span><strong>{credential.name}</strong><small>{credential.detail}</small></span>
+          <Status tone="violet">{credential.status}</Status>
           <IconButton label={t("wallet.credentialActions")}><DotsThree size={21} /></IconButton>
-        </div>
+        </div>)}
       </section>
 
       {modal === "credential" && (

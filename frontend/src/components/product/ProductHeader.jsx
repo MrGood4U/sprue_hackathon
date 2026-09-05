@@ -1,15 +1,13 @@
 import { ArrowLeft, CaretDown, CheckCircle } from "@phosphor-icons/react";
-import { product, productSlug } from "../../services/demo/fixtures/product.js";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
 
-const tabs = [
-  ["build", "productHeader.build", `/app/products/${productSlug}/build`],
-  ["api", "productHeader.api", `/app/products/${productSlug}/api`],
-  ["monetize", "productHeader.monetize", `/app/products/${productSlug}/monetize`],
-];
-
-export function ProductHeader({ active, navigate, buildStatus }) {
+export function ProductHeader({ product, active, navigate, buildStatus }) {
   const { t } = useI18n();
+  const tabs = [
+    ["build", "productHeader.build", `/app/products/${product.slug}/build`],
+    ["api", "productHeader.api", `/app/products/${product.slug}/api`],
+    ["monetize", "productHeader.monetize", `/app/products/${product.slug}/monetize`],
+  ];
 
   return (
     <header className="product-header">

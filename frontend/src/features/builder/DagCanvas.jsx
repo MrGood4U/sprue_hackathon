@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Code, Database, Stack, Function as FunctionIcon } from "@phosphor-icons/react";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
-import { nodeLabels } from "../../services/demo/fixtures/builder.js";
+import { getNodeLabelKey } from "./nodeLabels.js";
 import { projectGraph } from "./graphView.js";
 import "./builder.css";
 
@@ -36,7 +36,7 @@ export function DagCanvas({ draft, onSelectNode }) {
                 aria-controls={isTemplate ? `${node.id}-details` : undefined}
                 onClick={() => isTemplate ? setExpanded(expanded === node.id ? null : node.id) : onSelectNode(node.id)}>
                 <Icon size={26} aria-hidden="true" />
-                <strong>{t(node.labelKey ?? nodeLabels[node.id])}</strong>
+                <strong>{t(getNodeLabelKey(node))}</strong>
                 <small>{isTemplate ? t("dag.templateVersion", { version: node.templateVersion }) : node.type}</small>
                 <code>{node.id}</code>
               </button>
@@ -55,7 +55,7 @@ export function DagCanvas({ draft, onSelectNode }) {
           <ol>{group.nodeIds.map((id) => {
             const node = draft.specification.dag.nodes.find((item) => item.id === id);
             const inputs = draft.specification.dag.edges.filter((edge) => edge.toNode === id);
-            return <li key={id}><button className="text-link" onClick={() => onSelectNode(id)}>{t(nodeLabels[id])} <code>{node.type}</code></button><small>{inputs.map((edge) => `${edge.fromNode}.rows -> ${id}.rows`).join(", ")}</small></li>;
+            return <li key={id}><button className="text-link" onClick={() => onSelectNode(id)}>{t(getNodeLabelKey(node))} <code>{node.type}</code></button><small>{inputs.map((edge) => `${edge.fromNode}.${edge.fromPort} -> ${id}.${edge.toPort}`).join(", ")}</small></li>;
           })}</ol>
         </section>
       ))}

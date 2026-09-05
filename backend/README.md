@@ -2,7 +2,7 @@
 
 For the complete Windows browser stack and Vercel/Railway packaging, see [deployment.md](../deployment.md). The root Compose/PowerShell entry coordinates frontend, API, worker, PostgreSQL, and explicit one-off migrations. Railway API/worker manifests share this Dockerfile but use different commands; only the API release applies migrations. No platform-specific domain code or live business integration is added by these profiles.
 
-This directory owns the Sprue API, worker, deterministic DAG runtime, persistence, and external-service adapters. Implemented foundations include the [database foundation](database.md), with data-model 1.5, 51 tables, domain-split SQL migrations and Drizzle mappings, and the offline [DAG runtime](src/modules/dag/runtime.ts), with schema-driven canonical Swap normalization, Union, Aggregate, Join, and exact arithmetic. The [backend framework](framework.md) adds runnable API/standby-worker processes, shared security/transport middleware, 100 domain-owned route registrations, public app configuration, a verifier-gated identity read service and generated OpenAPI. Business commands, compiler/Agent, queue dispatch, provider adapters, business handlers and live integrations remain unimplemented.
+This directory owns the Sprue API, worker, deterministic DAG runtime, persistence, and external-service adapters. Implemented foundations include the [database foundation](database.md), with data-model 1.5, 51 tables, domain-split SQL migrations and Drizzle mappings, the offline [DAG runtime](src/modules/dag/runtime.ts), with schema-driven canonical Swap normalization, Union, Aggregate, Join, and exact arithmetic, and a bounded mock Agent harness. The [backend framework](framework.md) adds runnable API/standby-worker processes, shared security/transport middleware, public app configuration, a verifier-gated identity read service and generated OpenAPI. The explicit evaluator bridge under [demo-runtime.md](../docs/api/demo-runtime.md) lets the frontend request server-generated state and actions without browser fixtures. Durable business commands, compiler/Agent provider calls, queue dispatch, provider adapters, business handlers and live integrations remain unimplemented.
 
 ## Deployable Roles
 
@@ -22,9 +22,11 @@ backend/
 │   ├── app/                # Bootstrap, validated configuration, and process composition
 │   ├── http/
 │   │   ├── control/        # Domain route catalogs and implemented identity controller
+│   │   ├── demo/           # Explicit evaluator-only state/action transport
 │   │   └── products/       # Reserved public/recovery/generated data routes
 │   ├── modules/
 │   │   ├── identity/       # Privy identity and workspace authorization
+│   │   ├── demo/           # Server-generated evaluator state over the harness/runtime
 │   │   ├── products/       # Product lifecycle and versioning
 │   │   ├── agent/          # Intent planning and structured proposal orchestration
 │   │   ├── dag/            # Allowlisted validation, compilation, and execution

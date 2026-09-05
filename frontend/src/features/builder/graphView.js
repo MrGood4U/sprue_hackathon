@@ -26,7 +26,7 @@ export function projectGraph(dag, groups = []) {
   const nodes = [...dag.nodes.filter((node) => !memberships.has(node.id)), ...groups.map((group) => ({ ...group, type: "template" }))];
   const projected = new Map();
   for (const edge of dag.edges) {
-    if (!original.has(edge.fromNode) || !original.has(edge.toNode) || edge.fromPort !== "rows" || edge.toPort !== "rows") throw new Error("INVALID_EDGE");
+    if (!original.has(edge.fromNode) || !original.has(edge.toNode) || typeof edge.fromPort !== "string" || typeof edge.toPort !== "string" || !edge.fromPort || !edge.toPort) throw new Error("INVALID_EDGE");
     const fromNode = memberships.get(edge.fromNode) ?? edge.fromNode;
     const toNode = memberships.get(edge.toNode) ?? edge.toNode;
     if (fromNode === toNode && memberships.has(edge.fromNode)) continue;

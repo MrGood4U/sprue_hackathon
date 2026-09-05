@@ -16,8 +16,8 @@ import { Button, IconButton } from "../components/ui/Button.jsx";
 import { Field } from "../components/ui/Field.jsx";
 import { Modal } from "../components/ui/Modal.jsx";
 import { Status } from "../components/ui/Status.jsx";
-import { product, productSlug } from "../services/demo/fixtures/product.js";
 import { useI18n } from "../i18n/I18nProvider.jsx";
+import { useDemoRuntime } from "../features/runtime/DemoRuntimeProvider.jsx";
 
 function Metric({ label, value, note, tone }) {
   return (
@@ -31,7 +31,10 @@ function Metric({ label, value, note, tone }) {
 
 export function DashboardPage({ navigate }) {
   const { locale, t } = useI18n();
+  const { state } = useDemoRuntime();
   const [showCreate, setShowCreate] = useState(false);
+  const { dashboard, product } = state;
+  const [demoProduct] = dashboard.products;
 
   return (
     <div className="page">
@@ -46,10 +49,10 @@ export function DashboardPage({ navigate }) {
       />
 
       <div className="metrics-row">
-        <Metric label={t("dashboard.metric.activeProducts")} value="1" note={t("dashboard.metric.activeProductsNote")} />
-        <Metric label={t("dashboard.metric.requests")} value="1,284" note={t("dashboard.metric.requestsNote")} />
-        <Metric label={t("dashboard.metric.graphSpend")} value="$2.84" note={t("dashboard.metric.graphSpendNote")} tone="amber" />
-        <Metric label={t("dashboard.metric.revenue")} value="18.42 HBAR" note={t("dashboard.metric.revenueNote")} tone="green" />
+        <Metric label={t("dashboard.metric.activeProducts")} value={dashboard.metrics.activeProducts.value} note={dashboard.metrics.activeProducts.note} />
+        <Metric label={t("dashboard.metric.requests")} value={dashboard.metrics.requests.value} note={dashboard.metrics.requests.note} />
+        <Metric label={t("dashboard.metric.graphSpend")} value={dashboard.metrics.graphSpend.value} note={dashboard.metrics.graphSpend.note} tone="amber" />
+        <Metric label={t("dashboard.metric.revenue")} value={dashboard.metrics.revenue.value} note={dashboard.metrics.revenue.note} tone="green" />
       </div>
 
       <section className="panel product-list-panel">
@@ -72,15 +75,15 @@ export function DashboardPage({ navigate }) {
             <span>{t("dashboard.column.product")}</span><span>{t("dashboard.column.source")}</span><span>{t("dashboard.column.version")}</span><span>API</span><span>{t("dashboard.column.lastRun")}</span>
             <span aria-label={t("dashboard.column.actions")} />
           </div>
-          <button className="table-row product-row" onClick={() => navigate(`/app/products/${productSlug}/build`)}>
+          <button className="table-row product-row" onClick={() => navigate(`/app/products/${demoProduct.slug}/build`)}>
             <span className="product-cell">
               <span className="product-icon"><Graph size={20} /></span>
-              <span><strong>{product.name}</strong><small>{t("product.shortDescription")}</small></span>
+              <span><strong>{demoProduct.name}</strong><small>{demoProduct.description}</small></span>
             </span>
-            <span><Status>The Graph</Status><small>{t("dashboard.baseMainnet")}</small></span>
-            <span><strong>v1</strong><small>{t("dashboard.proposed")}</small></span>
-            <span><Status tone="violet">{t("common.ready")}</Status><small>{t("dashboard.hostedEndpoint")}</small></span>
-            <span><strong>{t("dashboard.minutesAgo")}</strong><small>{t("dashboard.rows")}</small></span>
+            <span><Status>{dashboard.sponsorProof[0].name}</Status><small>{demoProduct.sourceLabel}</small></span>
+            <span><strong>{demoProduct.version}</strong><small>{t("dashboard.proposed")}</small></span>
+            <span><Status tone="violet">{t("common.ready")}</Status><small>{demoProduct.apiStatus}</small></span>
+            <span><strong>{demoProduct.lastRun}</strong><small>{demoProduct.rows} rows</small></span>
             <span><ArrowRight size={18} /></span>
           </button>
           <div className="table-empty-row"><Plus size={16} /> {t("dashboard.createAnother")}</div>
@@ -91,17 +94,17 @@ export function DashboardPage({ navigate }) {
         <div className="panel compact-panel">
           <div className="panel-title"><CalendarBlank size={19} /><h3>{t("dashboard.recentActivity")}</h3></div>
           <ul className="activity-list">
-            <li><CheckCircle size={17} className="green-text" /><span><strong>{t("dashboard.schemaValidated")}</strong><small>{t("dashboard.schemaActivity")}</small></span></li>
-            <li><Database size={17} className="violet-text" /><span><strong>{t("dashboard.snapshotPinned")}</strong><small>{t("dashboard.snapshotActivity")}</small></span></li>
-            <li><ShieldCheck size={17} className="amber-text" /><span><strong>{t("dashboard.policyAuthorized")}</strong><small>{t("dashboard.policyActivity")}</small></span></li>
+            {dashboard.activities.map((activity) => {
+              const Icon = activity.kind === "schema" ? CheckCircle : activity.kind === "snapshot" ? Database : ShieldCheck;
+              const iconClass = activity.kind === "schema" ? "green-text" : activity.kind === "snapshot" ? "violet-text" : "amber-text";
+              return <li key={activity.kind}><Icon size={17} className={iconClass} /><span><strong>{activity.title}</strong><small>{activity.detail}</small></span></li>;
+            })}
           </ul>
         </div>
         <div className="panel compact-panel">
           <div className="panel-title"><ShieldCheck size={19} /><h3>{t("dashboard.sponsorProof")}</h3></div>
           <div className="proof-grid">
-            <div><span>The Graph</span><Status>{t("dashboard.sourceVerified")}</Status></div>
-            <div><span>Privy</span><Status>{t("dashboard.walletReady")}</Status></div>
-            <div><span>Hedera</span><Status>{t("dashboard.x402Ready")}</Status></div>
+            {dashboard.sponsorProof.map((proof) => <div key={proof.name}><span>{proof.name}</span><Status>{proof.status}</Status></div>)}
           </div>
         </div>
       </section>
@@ -119,7 +122,7 @@ export function DashboardPage({ navigate }) {
                 icon={Sparkle}
                 onClick={() => {
                   setShowCreate(false);
-                  navigate(`/app/products/${productSlug}/build`);
+                  navigate(`/app/products/${product.slug}/build`);
                 }}
               >
                 {t("dashboard.generatePlan")}
@@ -128,7 +131,7 @@ export function DashboardPage({ navigate }) {
           }
         >
           <Field label={t("dashboard.intent")} hint={t("dashboard.intentHint")}>
-            <textarea key={locale} defaultValue={t(product.intentKey)} rows={5} />
+            <textarea key={locale} defaultValue={product.intent} rows={5} />
           </Field>
           <div className="inline-notice">
             <Sparkle size={18} />

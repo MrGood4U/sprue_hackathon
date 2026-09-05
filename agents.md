@@ -161,3 +161,7 @@ All text records in this repository must be written in English. This includes so
 Runtime localization resources may represent non-English UI copy through escaped Unicode literals so the source record remains English/ASCII while the browser renders the requested language.
 
 Assistant-to-user communication may be in Chinese. This communication rule does not change the English-only rule for repository content.
+
+## Frontend and Backend Demo Boundary
+
+As of 2026-09-06, route-level frontend business data must come from the explicit backend demo runtime documented in [docs/api/demo-runtime.md](docs/api/demo-runtime.md). Historical browser fixtures are test-only and there is no silent fallback when the backend is unavailable. The backend demo projection reuses the bounded mock Agent harness and deterministic multi-source DAG runtime, but it is not live Graph, Privy, Hedera, payment, or durable business evidence.

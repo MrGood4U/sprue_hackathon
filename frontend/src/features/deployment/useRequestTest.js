@@ -1,7 +1,8 @@
 import { useServiceTask } from "../../hooks/useServiceTask.js";
-import { frontendServices } from "../../services/index.js";
+import { useDemoRuntime } from "../runtime/DemoRuntimeProvider.jsx";
 
 export function useRequestTest() {
-  const { status, result, run } = useServiceTask(frontendServices.testRequest);
+  const { runAction } = useDemoRuntime();
+  const { status, result, run } = useServiceTask((options) => runAction("api_request", options));
   return { response: status === "idle" ? null : status, result, runTest: run };
 }

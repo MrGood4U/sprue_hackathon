@@ -5397,6 +5397,92 @@
         "security": []
       }
     },
+    "/api/v1/public/demo/state": {
+      "get": {
+        "operationId": "getApiV1DemoState",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Actual server configuration; capabilities remain disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/DemoEnvelope"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "implemented",
+        "security": []
+      }
+    },
+    "/api/v1/public/demo/actions": {
+      "post": {
+        "operationId": "postApiV1DemoActions",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Actual server configuration; capabilities remain disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/DemoEnvelope"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "implemented",
+        "security": []
+      }
+    },
     "/healthz": {
       "get": {
         "operationId": "healthz",
@@ -5489,8 +5575,7 @@
                 "const": false
               },
               "hostedDemoConsumer": {
-                "type": "boolean",
-                "const": false
+                "type": "boolean"
               },
               "serviceFees": {
                 "type": "boolean",
@@ -5628,7 +5713,10 @@
           },
           "dataSource": {
             "type": "string",
-            "const": "live"
+            "enum": [
+              "live",
+              "demo"
+            ]
           },
           "observedAt": {
             "type": "string",
@@ -5690,7 +5778,10 @@
               },
               "dataSource": {
                 "type": "string",
-                "const": "live"
+                "enum": [
+                  "live",
+                  "demo"
+                ]
               },
               "observedAt": {
                 "type": "string",
@@ -5712,6 +5803,11 @@
           "meta"
         ],
         "additionalProperties": false
+      },
+      "DemoEnvelope": {
+        "type": "object",
+        "description": "A server-generated evaluator demo projection or action result.",
+        "additionalProperties": true
       }
     }
   }

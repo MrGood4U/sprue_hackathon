@@ -4,7 +4,7 @@ export interface RouteDefinition {
   path: string;
   operationId: string;
   audience: "creator" | "public" | "recovery" | "data";
-  implementation: "reserved" | "app-config" | "me";
+  implementation: "reserved" | "app-config" | "me" | "demo-state" | "demo-action";
   idempotency: boolean;
   ifMatch: boolean;
 }

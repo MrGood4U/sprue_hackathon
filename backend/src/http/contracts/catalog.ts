@@ -5,6 +5,7 @@ import { paymentRoutes } from "../control/payment.routes.js";
 import { evidenceRoutes } from "../control/evidence.routes.js";
 import { publicRoutes } from "../products/public.routes.js";
 import { dataRoutes } from "../products/data.routes.js";
+import { demoRoutes } from "../demo/demo.routes.js";
 export const routeCatalog = [
   ...identityRoutes,
   ...builderRoutes,
@@ -13,4 +14,5 @@ export const routeCatalog = [
   ...evidenceRoutes,
   ...publicRoutes,
   ...dataRoutes,
+  ...demoRoutes,
 ];

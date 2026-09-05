@@ -2,11 +2,11 @@
 
 ## Status and Authority
 
-Draft 0.3, authored on 2026-09-05 for human review. This is the target HTTP contract, not a claim that every endpoint is implemented. The frontend still uses demo services. The database and API/standby-worker framework exist; see [backend/framework.md](backend/framework.md) for the exact implemented and reserved boundary.
+Draft 0.3, authored on 2026-09-05 for human review. This is the target HTTP contract, not a claim that every durable endpoint is implemented. The frontend currently uses the explicitly temporary backend demo runtime documented in [demo-runtime.md](docs/api/demo-runtime.md); it does not use browser business-data fixtures. The database and API/standby-worker framework exist; see [backend/framework.md](backend/framework.md) for the exact implemented and reserved boundary.
 
-Inputs: [data model 1.5](data-model.md), [product design 1.3](product-design.md), [current frontend ownership](frontend/README.md), and [implementation status](frontend/implementation-status.md). Database invariants take precedence over fixture behavior. M1-M3 persistence/lifecycle directions were approved on 2026-09-05 and now map to data-model 1.5 and the initial database foundation. Only process probes, public app configuration and verifier-gated identity reads are implemented; other domain routes remain reserved and return 503 without side effects; this draft does not establish provider capability or authorize a fee, funded operation, or deployment.
+Inputs: [data model 1.5](data-model.md), [product design 1.3](product-design.md), [current frontend ownership](frontend/README.md), and [implementation status](frontend/implementation-status.md). Database invariants take precedence over fixture behavior. M1-M3 persistence/lifecycle directions were approved on 2026-09-05 and now map to data-model 1.5 and the initial database foundation. Process probes, public app configuration, verifier-gated identity reads and the explicitly temporary backend demo projection are implemented; durable domain routes remain reserved and return 503 without side effects. The demo projection does not establish provider capability or authorize a fee, funded operation, or deployment.
 
-The specification uses resource-oriented JSON APIs, durable asynchronous commands, and resumable trace reads. HTTP transport is shared by Railway and Docker deployments. No browser calls the database, Graph payment adapter, private Privy signer, or Blocky402 settlement endpoint directly.
+The specification uses resource-oriented JSON APIs, durable asynchronous commands, and resumable trace reads. HTTP transport is shared by Railway and Docker deployments. No browser calls the database, Graph payment adapter, private Privy signer, or Blocky402 settlement endpoint directly. The temporary demo runtime is explicitly non-durable and is not a substitute for the resource contracts below.
 
 ## Document Map
 

@@ -2,7 +2,7 @@
 
 Describe it. Shape it. Sell it.
 
-Sprue is a hosted web product that turns natural-language onchain data logic into persistent, reusable, and optionally monetizable APIs. It is a browser application, not a Windows or macOS native client. Product structure, technical selection, and data-model version 1.5 are approved. MVP implementation now includes the maintained frontend, backend database foundation, API/standby-worker framework, and an offline schema-driven DAG runtime for the cross-chain target. The seven-page application in `frontend/` is the maintained product frontend, using the selected Evidence-First Console design and English/Simplified Chinese localization. It currently runs against demo data while business handlers and provider adapters proceed. The initial downstream payment profile is Hedera testnet with HBAR through Blocky402. No complete live MVP or live payment integration exists yet. See [mvp-flow.md](mvp-flow.md) for the end-to-end flow and support matrix.
+Sprue is a hosted web product that turns natural-language onchain data logic into persistent, reusable, and optionally monetizable APIs. It is a browser application, not a Windows or macOS native client. Product structure, technical selection, and data-model version 1.5 are approved. MVP implementation now includes the maintained frontend, backend database foundation, API/standby-worker framework, an offline schema-driven DAG runtime for the cross-chain target, and an explicit backend demo runtime. The seven-page application in `frontend/` is the maintained product frontend, using the selected Evidence-First Console design and English/Simplified Chinese localization. Route-level pages request server-generated demo data and do not own browser fixtures while durable business handlers and provider adapters proceed. The initial downstream payment profile is Hedera testnet with HBAR through Blocky402. No complete live MVP or live payment integration exists yet. See [mvp-flow.md](mvp-flow.md) for the end-to-end flow and support matrix.
 
 ## Product Boundary
 
@@ -29,7 +29,7 @@ Vercel and Railway are temporary delivery targets, not application dependencies.
 
 ## Product Frontend
 
-The React application under [`frontend/`](frontend/) covers Entry, Dashboard, Wallet and Access, Product Builder, API and Deployment, Monetization and Revenue, and the Public Consumer Demo. It supports English and Simplified Chinese UI copy, persists the user's locale choice in the browser, and uses a demo service adapter for sample workflows. Each route-level page lives in its own file, with shared UI, navigation, feature hooks, services, and locale catalogs separated by responsibility. Continue implementing this frontend directly; remaining integration and interaction work is tracked in [`frontend/implementation-status.md`](frontend/implementation-status.md).
+The React application under [`frontend/`](frontend/) covers Entry, Dashboard, Wallet and Access, Product Builder, API and Deployment, Monetization and Revenue, and the Public Consumer Demo. It supports English and Simplified Chinese UI copy, persists the user's locale choice in the browser, and uses the backend demo client for the current evaluator workflow. Each route-level page lives in its own file, with shared UI, navigation, feature hooks, services, and locale catalogs separated by responsibility. Continue implementing this frontend directly; remaining integration and interaction work is tracked in [`frontend/implementation-status.md`](frontend/implementation-status.md).
 
 ```bash
 cd frontend

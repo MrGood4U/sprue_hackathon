@@ -15,12 +15,14 @@ export function publicConfiguration(config: AppConfig): RequestHandler {
     privyAppId: config.privyAppId,
     consolePublicUrl: config.consolePublicUrl,
     dataPublicBaseUrl: config.dataPublicBaseUrl,
-    demoProductUrl: null,
+    demoProductUrl: config.demoRuntimeEnabled
+      ? "/p/cross-chain-dex-trader-footprint"
+      : null,
     features: {
       graphCustomerApiKey: false,
       graphX402: false,
       hederaPublication: false,
-      hostedDemoConsumer: false,
+      hostedDemoConsumer: config.demoRuntimeEnabled,
       serviceFees: false,
       liveGraphExecution: false,
     },

@@ -25,6 +25,10 @@ const schema = z.object({
   DATA_PUBLIC_BASE_URL: z.url(),
   CORS_ALLOWED_ORIGINS: z.string().min(1),
   PRIVY_APP_ID: z.string().max(200).optional(),
+  DEMO_RUNTIME_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
   AGENT_MODE: z.enum(["mock", "remote"]).default("mock"),
   AGENT_API_URL: z.url().optional(),
   AGENT_API_KEY: z.string().min(1).max(4096).optional(),
@@ -109,6 +113,7 @@ export function parseConfig(environment: NodeJS.ProcessEnv) {
     ),
     allowedOrigins: [...new Set(origins)],
     privyAppId: values.PRIVY_APP_ID?.trim() || null,
+    demoRuntimeEnabled: values.DEMO_RUNTIME_ENABLED,
     agent: {
       mode: values.AGENT_MODE,
       apiUrl: agentApiUrl,

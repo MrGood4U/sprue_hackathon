@@ -6,7 +6,7 @@ export const featureSchema = z.strictObject({
   graphCustomerApiKey: z.literal(false),
   graphX402: z.literal(false),
   hederaPublication: z.literal(false),
-  hostedDemoConsumer: z.literal(false),
+  hostedDemoConsumer: z.boolean(),
   serviceFees: z.literal(false),
   liveGraphExecution: z.literal(false),
 });
@@ -26,7 +26,7 @@ export {
 export const metaSchema = z.strictObject({
   requestId: z.string(),
   apiVersion: z.literal("1"),
-  dataSource: z.literal("live"),
+  dataSource: z.enum(["live", "demo"]),
   observedAt: z.iso.datetime(),
 });
 export const errorSchema = z.strictObject({
@@ -39,11 +39,11 @@ export const errorSchema = z.strictObject({
   }),
   meta: metaSchema,
 });
-export function meta(requestId: string) {
+export function meta(requestId: string, dataSource: "live" | "demo" = "live") {
   return {
     requestId,
     apiVersion: "1" as const,
-    dataSource: "live" as const,
+    dataSource,
     observedAt: new Date().toISOString(),
   };
 }

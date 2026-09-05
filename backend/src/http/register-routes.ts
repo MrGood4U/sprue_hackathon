@@ -2,6 +2,7 @@ import { json, type Express, type RequestHandler } from "express";
 import type { AppConfig } from "../app/config.js";
 import type { IdentityVerifier } from "../modules/identity/ports.js";
 import type { IdentityService } from "../modules/identity/service.js";
+import type { DemoRuntime } from "../modules/demo/runtime.js";
 import { AppError } from "../shared/errors.js";
 import { routeCatalog } from "./contracts/catalog.js";
 import { idSchema } from "./contracts/common.js";
@@ -10,10 +11,12 @@ import {
   publicConfiguration,
   readIdentity,
 } from "./control/identity.controller.js";
+import { demoAction, demoState } from "./demo/demo.controller.js";
 export interface RouteDependencies {
   config: AppConfig;
   verifier: IdentityVerifier;
   identity: IdentityService;
+  demo?: DemoRuntime;
 }
 export function registerRoutes(app: Express, deps: RouteDependencies) {
   const auth = requireIdentity(deps.verifier);
@@ -64,9 +67,13 @@ export function registerRoutes(app: Express, deps: RouteDependencies) {
         ? publicConfiguration(deps.config)
         : route.implementation === "me"
           ? readIdentity(deps.identity)
-          : () => {
-              throw new AppError("CAPABILITY_NOT_IMPLEMENTED");
-            };
+          : route.implementation === "demo-state"
+            ? demoState(deps.demo)
+            : route.implementation === "demo-action"
+              ? demoAction(deps.demo)
+              : () => {
+                  throw new AppError("CAPABILITY_NOT_IMPLEMENTED");
+                };
     app[route.method.toLowerCase() as "get" | "post" | "put" | "patch"](
       path,
       ...middleware,

@@ -1,5 +1,6 @@
-import { demoServices } from "./demo/demoServices.js";
+import { backendServices } from "./api/demo-runtime.js";
 
-// This is the current data source. Add a live adapter only against reviewed API contracts.
-export const frontendServices = demoServices;
+// Business data comes from the backend demo boundary. The backend owns the
+// temporary fixture and mock Agent while the frontend owns no product data.
+export const frontendServices = backendServices;
 export { getPublicAppConfig } from "./api/public-config.js";

@@ -9,6 +9,7 @@ import { IdentityService } from "../modules/identity/service.js";
 import { unavailableIdentity } from "../integrations/unavailable-identity.js";
 import { createHttpApp } from "../http/app.js";
 import { standbyWorker } from "../jobs/worker-runtime.js";
+import { DemoRuntime } from "../modules/demo/runtime.js";
 import { listen, drain } from "./server.js";
 export async function startRuntime(
   config: AppConfig,
@@ -24,6 +25,9 @@ export async function startRuntime(
   pool.on("error", () => logger.write({ event: "pool_error", role }));
   let stopping = false;
   const worker = role === "worker" ? standbyWorker(logger) : null;
+  const demo = role === "api" && config.demoRuntimeEnabled
+    ? new DemoRuntime(config)
+    : undefined;
   let listeningServer: Server | undefined;
   try {
     const app = createHttpApp(
@@ -32,6 +36,7 @@ export async function startRuntime(
         logger,
         verifier: unavailableIdentity,
         identity: new IdentityService(identityRepository(pool)),
+        demo,
         ready: databaseReadiness(pool, migrations),
         stopping: () => stopping,
       },

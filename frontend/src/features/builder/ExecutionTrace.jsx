@@ -3,7 +3,11 @@ import { Button } from "../../components/ui/Button.jsx";
 import { Status } from "../../components/ui/Status.jsx";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
 
-function traceSteps(buildState, t) {
+function traceSteps(buildState, t, backendTrace) {
+  if (backendTrace.length) {
+    const latestByStage = new Map(backendTrace.map((event) => [event.stage, event]));
+    return [...latestByStage.values()].map((event) => [event.stage.replaceAll("_", " "), event.status === "passed", event.summary]);
+  }
   const complete = buildState === "building" || buildState === "complete";
   const transformed = buildState === "complete";
 
@@ -27,7 +31,7 @@ function traceSteps(buildState, t) {
   ];
 }
 
-export function ExecutionTrace({ buildState, onBuild, onOpenDag, onOpenSpec }) {
+export function ExecutionTrace({ buildState, trace = [], onBuild, onOpenDag, onOpenSpec }) {
   const { t } = useI18n();
   const buildLabel = buildState === "building"
     ? t("trace.building")
@@ -39,7 +43,7 @@ export function ExecutionTrace({ buildState, onBuild, onOpenDag, onOpenSpec }) {
     <div className="execution-panel">
       <span className="section-label">{t("trace.title")}</span>
       <div className="trace-row">
-        {traceSteps(buildState, t).map(([name, isComplete, note], index) => (
+        {traceSteps(buildState, t, trace).map(([name, isComplete, note], index) => (
           <div className={`trace-step ${isComplete ? "trace-complete" : ""}`} key={name}>
             <span className="step-index">{index + 1}</span>
             <div>

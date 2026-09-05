@@ -34,6 +34,11 @@ button:disabled { cursor: not-allowed; opacity: var(--button-disabled-opacity); 
 h1, h2, h3, p { margin: 0; }
 code, pre { font-family: var(--mono); }
 .desktop-gate { display: none; }
+.runtime-gate { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: var(--bg); }
+.runtime-gate .panel { width: min(520px, 100%); padding: 28px; display: grid; gap: 12px; }
+.runtime-gate h1 { font-size: 24px; letter-spacing: -.03em; }
+.runtime-gate p { color: var(--muted); font-size: 13px; line-height: 1.6; }
+.runtime-gate code { color: var(--muted-2); font-size: 11px; overflow-wrap: anywhere; }
 
 .app-shell { min-height: 100vh; display: grid; grid-template-columns: var(--sidebar-width) minmax(0, 1fr); }
 .sidebar { position: fixed; inset: 0 auto 0 0; width: var(--sidebar-width); background: var(--sidebar-background); border-right: 1px solid var(--line); padding: 18px 10px 14px; display: flex; flex-direction: column; z-index: var(--z-index-sticky); }
