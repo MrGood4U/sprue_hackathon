@@ -45,6 +45,19 @@ Paths below are relative to the future `backend/harness/scripts/` directory. P-s
 
 These tools do not call each other recursively on behalf of the model. The controller composes them so every network call, validation and repair is visible in the shared budget. A tool may use bounded internal library operations, but cannot hide another model call, source data query, subprocess or payment inside them.
 
+### Graph MCP as a Replaceable Adapter
+
+The Graph MCP exposes provider operations; it does not contain the language model that turns a requirement into GraphQL. Keep the following ownership split when implementing T02-T06 and the worker source handler:
+
+| Internal port | Sprue responsibility | Possible Graph MCP delegation | Control boundary |
+|---|---|---|---|
+| `searchSubgraphs` | Normalize requirements and rank only returned candidates with evidence | `search_subgraphs_by_keyword`, `get_top_subgraph_deployments` | Metadata allowlist, bounded result count, no arbitrary endpoint |
+| `getSubgraphSchema` | Request only the needed schema slice and preserve its hash/provenance | `get_schema_by_subgraph_id` or an equivalent reviewed operation | Immutable source reference, response-size and nesting limits |
+| `generateGraphQL` | Select required fields, compile a static document and typed variables | None; owned by Sprue compiler/model-planning boundary | No string-concatenated model query, no unbounded fields or predicates |
+| `executeGraphQL` | Bind stored query plan to approved access context and normalize evidence | `execute_query_by_subgraph_id` or direct Graph API | Worker/data plane only; budget, payment, pagination and provenance checks |
+
+The planner may call T02-T06 as typed Sprue tools, but it never receives a generic MCP server connection or provider tool catalog. The MCP adapter may be replaced by a direct Graph API adapter without changing SemanticPlan, QueryPlan, DAG compilation or the worker contract. `executeGraphQL` is not a permission grant: sample/build execution remains subject to the selected customer API-key or creator-wallet x402 mode and its independent authorization.
+
 The catalog operates on existing Subgraphs only. Do not add tools or developer-script fallbacks that create upstream Subgraph manifests/indexing mappings, generate or deploy Subgraph Composition, maintain upstream indexes, or start a new ingestion path. Query compilation and Sprue DAG/template expansion are not Subgraph creation. Source selection follows the [confirmed product boundary](../../agents.md#confirmed-existing-subgraph-boundary); candidates supplied by a creator require the same inspection as discovered candidates.
 
 ### T11-T12: Prepare Semantic Templates

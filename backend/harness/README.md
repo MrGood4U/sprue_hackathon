@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft 0.3, 2026-09-05. This directory contains the proposed harness design, not an implemented Agent, executable scripts, or verified provider integrations. The human requested a step-by-step design and an inventory of tools to prepare before implementation.
+Draft 0.4, 2026-09-05. This directory contains the proposed harness design, not an implemented Agent, executable scripts, or verified provider integrations. The human requested a step-by-step design and an inventory of tools to prepare before implementation.
 
 Read the approved [data model 1.4](../../data-model.md), proposed [API contract](../../api-contract.md), [backend ownership](../README.md), and active [Graph reference](../../sponsor/graph.md) alongside this design. M1-M3 and H2 persistence directions were approved and incorporated into model 1.4. The [database foundation](../database.md) implements their tables, not the harness/controller. H1, H3 and E1/E2 remain open. No Graph purchase, wallet authority, subgraph deployment or API publication is enabled.
 
@@ -29,6 +29,21 @@ Human natural language
 "Operators" means machine-readable, versioned nodes such as source, map, filter, aggregate, and output, not decorative canvas symbols or generated executable code. Source discovery and semantic planning may iterate; accepted versions and execution do not silently change.
 
 The user confirmed the [existing-Subgraph-only boundary](../../agents.md#confirmed-existing-subgraph-boundary) on 2026-09-05. The source stage selects among existing Subgraphs using semantic fit, granularity, coverage, freshness, and evidenced query costs within bounded discovery. Unknown coverage or cost stays explicit. A source gap requests requirement revision or another existing source for validation, not a new ingestion path.
+
+### Graph MCP Adapter Boundary
+
+The Graph Subgraph MCP is an infrastructure adapter, not Sprue's planner and not a language model. Its useful capabilities may be extracted behind four provider-neutral internal ports:
+
+```text
+searchSubgraphs(requirements)
+getSubgraphSchema(sourceReference)
+generateGraphQL(schema, queryRequirements)
+executeGraphQL(sourceReference, queryPlan, accessContext)
+```
+
+The first, second and fourth ports may delegate to reviewed Graph MCP operations for subgraph search, schema retrieval and query execution. The third port is owned by Sprue: the planner/compiler selects only the fields, filters, pagination and consistency controls required by the Data Product Spec, then emits and validates a static GraphQL document. The MCP does not generate GraphQL semantics for Sprue and its provider descriptions never become trusted instructions.
+
+Keep these ports behind the Graph module so the upper harness does not depend on MCP tool names, remote URLs or a particular SDK. A direct Graph API adapter may replace the MCP adapter without changing the planner or DAG runtime. Query execution is a data-plane operation, not an unrestricted planner tool: live sample or build requests require the selected Graph access mode, approved budget, bounded query plan and applicable creator authorization. A provider-neutral `executeGraphQL` port must never imply permission to spend.
 
 Creating, generating, deploying, or maintaining new Subgraphs or Subgraph Composition is outside Sprue's product scope, not a future fallback. Reuse supported capabilities of the inspected source query when semantics match, then apply only necessary Sprue transformations. This is query planning over existing indexes, not automatic compilation into a new upstream index. The first runtime remains single-source with five operator types; multi-source/cross-chain execution, Union, and Join are not approved by this clarification. Sprue product/API Build, Deploy, refresh, and optional paid publication remain distinct, authorized operations.
 

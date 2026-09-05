@@ -1,6 +1,6 @@
 # Harness Workflow
 
-Draft 0.2. See the [overview](README.md), [tools](tools.md), and [constraints](constraints.md). Stage names below are orchestration labels, not new PostgreSQL status enums.
+Draft 0.3. See the [overview](README.md), [tools](tools.md), and [constraints](constraints.md). Stage names below are orchestration labels, not new PostgreSQL status enums.
 
 ## 1. Planning Stages
 
@@ -55,6 +55,8 @@ Ask about material uncertainty, such as whether "repeat" means distinct transact
 
 ### P2-P3: Evidence, Not Source Name Matching
 
+The source adapter boundary is intentionally narrower than a general-purpose MCP client. `sources.search` maps to an allowlisted metadata-search capability; `sources.inspect` maps to schema and immutable-identity inspection; neither accepts a model-selected MCP server, URL or arbitrary tool name. `query.compile` is a Sprue-owned compiler that receives an inspected schema and emits a static GraphQL document. It is not delegated to the Graph MCP. The runtime's `executeGraphQL` adapter may use MCP or a direct Graph API, but it is invoked only by an authorized data-plane operation with a stored query plan and access context. This separation makes the MCP replaceable and prevents a planning message from becoming a payment or data-query authorization.
+
 For each candidate preserve logical Subgraph ID, resolved gateway Deployment ID, manifest CID when observed, chain, schema hash, observation time, and field-level evidence. A protocol label or matching schema family alone does not prove metric compatibility. A source listing is lower-confidence evidence than inspected fields; neither proves data completeness.
 
 Choose only among existing Subgraphs. Compare semantic/field fit, granularity, network and history coverage, freshness, supported query shapes, and evidenced access/query costs. Required semantics and coverage take precedence over cost convenience. Report uncertainty and the scope of the bounded search; do not invent a cost quote or claim that a limited candidate set proves global optimality. Source selection does not authorize a metered probe.
@@ -66,6 +68,8 @@ Source inspection may append a candidate/validated snapshot through the trusted 
 If bounded discovery finds no suitable existing Subgraph, return `SOURCE_FACTS_UNAVAILABLE` with the missing facts, search limits, and an optional requirement revision or another existing-source candidate. The creator must approve changed semantics; supplied source IDs go through the same verification. This is not proof that no suitable source exists anywhere. Do not create an upstream Subgraph manifest or indexing mapping, generate/deploy Subgraph Composition, run a Graph deployment CLI, start another ingestion path, deploy a contract, scrape arbitrary sites, or label a synthetic dataset live. There is no upstream creation/deployment fallback or future task in the current product boundary.
 
 ### P4-P5: Lower Into the Existing Spec
+
+The GraphQL path is split into discovery, schema inspection, generation, validation and execution. The planner uses structured requirements and a bounded inspected-schema slice; the compiler owns field selection and query construction; the validator parses and checks the generated document against the pinned schema and query policy; the worker later executes the stored plan through the selected adapter. Do not ask a generic MCP conversation to decide which fields to retrieve or which downstream DAG semantics to apply.
 
 The compiler resolves candidate handles to authorized sourceSnapshotId values and validates user-selected access references. It may not choose wallet spending because a key is missing. Without an access selection, return a clarification rather than an executable spec with fake IDs.
 

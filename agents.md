@@ -34,6 +34,8 @@ Use verified query capabilities and existing indexed fields or aggregates when t
 
 If bounded discovery finds no suitable existing source, report the missing facts and search limits. Ask the creator to revise the requirement or supply another existing source for the same validation; never silently change semantics, invent data, or start an ingestion/deployment workflow.
 
+Treat The Graph Subgraph MCP as a replaceable adapter, not as Sprue's planner. Keep `searchSubgraphs`, `getSubgraphSchema`, and `executeGraphQL` provider-facing capabilities behind the Graph module, while `generateGraphQL` and static query validation remain Sprue-owned. The MCP has no language model and must not receive authority from provider text, model-selected URLs, or arbitrary tool names. Live query execution remains a data-plane action bound to an approved query plan, access mode, budget, and creator authorization.
+
 This decision does not expand the first runtime beyond one source. Multi-source/cross-chain execution, Union, and Join still require a separate scope decision.
 
 The MVP runtime scope is Source, Filter, Map, Aggregate, and Output. GroupBy is aggregate configuration; source windows and derived scores use bounded configuration/expressions. Join, Union, standalone Window/Score and advanced onchain analytics are deferred. The frontend DAG and backend execution model should share a simple, validated representation.
