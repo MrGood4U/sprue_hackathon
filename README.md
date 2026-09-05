@@ -4,6 +4,12 @@ Describe it. Shape it. Sell it.
 
 Sprue is a hosted web product that turns natural-language onchain data logic into persistent, reusable, and optionally monetizable APIs. It is a browser application, not a Windows or macOS native client. Product structure, technical selection, and data-model version 1.4 are approved. MVP implementation now includes the maintained frontend, backend database foundation and API/standby-worker framework. The seven-page application in `frontend/` is the maintained product frontend, using the selected Evidence-First Console design and English/Simplified Chinese localization. It currently runs against demo data while backend integration proceeds. The initial downstream payment profile is Hedera testnet with HBAR through Blocky402. No runnable MVP or live payment integration exists yet.
 
+## Product Boundary
+
+Sprue uses existing The Graph Subgraphs to turn data intent into a persistent API. It selects suitable sources by semantic fit, granularity, coverage, freshness, and evidenced query costs, generates validated queries, and applies only necessary supported transformations. Source gaps lead to explicit limitations, requirement revision, or another existing source for validation.
+
+Sprue does not create, deploy, or maintain new Subgraphs or Subgraph Composition, including as a fallback or future optimization task. Hosted API builds, refreshes, versioning, and optional x402 remain in scope. The initial single-source/five-operator runtime boundary is unchanged; this decision does not enable multi-source or cross-chain execution. See the [confirmed boundary](agents.md#confirmed-existing-subgraph-boundary).
+
 ## Selected Sponsors
 
 - [The Graph](sponsor/graph.md): Upstream data accessed through the creator's existing Graph API key/subscription or purchased per query by Sprue under the creator's authorized wallet budget.

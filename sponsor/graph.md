@@ -43,7 +43,9 @@ Prioritize the AI From Scratch award for the confirmed Start Fresh category. Sti
 
 Preserve Sprue's existing promise: a creator defines a metric, receives an inspectable specification and DAG, and operates a persistent derived-data API. The differentiating work is source-aware compilation, deterministic execution, conversational revision, and product operation.
 
-Keep composability as a conditional stretch target. An internal Sprue DAG is not automatically composition of Graph products, and adding Hedera or Privy should not be counted as another Graph product. Prefer a small, demonstrable shared-schema integration over expanding the runtime merely to chase another award.
+Product-boundary update, 2026-09-05: the user confirmed that Sprue only discovers, selects, inspects, and queries existing Subgraphs, with necessary supported transformations in Sprue. It does not create, deploy, or maintain new Subgraphs or Subgraph Composition, including as a future optimization or source-gap fallback. Select sources by semantic fit, granularity, coverage, freshness, and evidenced query costs; report unknowns explicitly. This changes Sprue's plan, not the official award requirements above, and does not establish new eligibility or live capability.
+
+Keep composability as a conditional stretch target using existing sources only. An internal Sprue DAG is not automatically composition of Graph products, and adding Hedera or Privy should not be counted as another Graph product. Evaluate meaningful existing standardized-schema reuse without planning new index creation. The first runtime remains single-source; multi-source/cross-chain execution and Union/Join require separate scope approval.
 
 ### Technical References and Implications
 
@@ -51,8 +53,8 @@ Keep composability as a conditional stretch target. An internal Sprue DAG is not
 - [Paid Graph queries](https://thegraph.com/docs/en/subgraphs/tooling/x402-payments/): The official Subgraph gateway documents x402 access using USDC on Base or Base Sepolia, alongside its existing API-key route. Sprue's confirmed product model uses the creator account wallet to fund upstream data purchases; validate a Privy-backed signer against the chosen endpoint. This does not establish that every discovery/MCP operation uses the same billing path. Do not export a user wallet's private key merely to copy a CLI example.
 - [Subgraph MCP](https://thegraph.com/docs/en/subgraphs/tooling/subgraph-mcp/introduction/): Supports deployment discovery, schema inspection, and querying. It does not contain the LLM. Proposed boundary: the Sprue planner interprets intent, while a Graph adapter executes constrained discovery and query operations.
 - [Standardized schemas](https://thegraph.com/docs/en/subgraphs/existing-subgraphs/standard-subgraphs/): Common entities and metrics allow query-pattern reuse within a protocol category. Extensions and schema/methodology versions still matter. Proposed stretch: run one metric template against two verified compatible deployments, recording versions and any adaptations. Do not assume that matching category names prove compatibility.
-- [Subgraph skills](https://github.com/graphprotocol/subgraphs-skills): Development, optimization, and testing guidance for subgraphs. Consult if source creation becomes necessary; creating a new indexer is not our default MVP path.
-- [Substreams skills](https://github.com/streamingfast/substreams-skills): Guidance for streaming modules, sinks, testing, and deployment. Evaluate only if event-level coverage or refresh requirements justify the additional integration.
+- [Subgraph skills](https://github.com/graphprotocol/subgraphs-skills): Retained background on development, optimization, and testing. Not a Sprue source-creation task; new Subgraph/Subgraph Composition development is outside the confirmed product boundary.
+- [Substreams skills](https://github.com/streamingfast/substreams-skills): Retained sponsor background on streaming modules, sinks, testing, and deployment, not an active integration or fallback for missing Subgraph data.
 
 ### Source Identity and Reproducibility
 
@@ -78,7 +80,7 @@ The selected mode is explicit and versioned. Credential rotation can preserve th
 
 Draft 1.2 separates one logical `source_requests` row from its physical `source_http_attempts`: the initial `402` and the payment-bearing retry share a request fingerprint. Sprue validates the complete returned requirement before creating the payment intent and exact budget reservation. Confirmed settlement remains an expense even if the subsequent Graph response fails, and no reusable payment authorization is stored.
 
-Other sponsor-linked resources, listed for later investigation rather than verified compatibility: [Agent0](https://thegraph.com/docs/en/subgraphs/existing-subgraphs/agent0/), [chain modules](https://github.com/streamingfast/substreams-chain-modules), and [EVM primitives](https://github.com/pinax-network/substreams-evm).
+Other sponsor-linked resources retained as background rather than active ingestion tasks or verified compatibility: [Agent0](https://thegraph.com/docs/en/subgraphs/existing-subgraphs/agent0/), [chain modules](https://github.com/streamingfast/substreams-chain-modules), and [EVM primitives](https://github.com/pinax-network/substreams-evm).
 
 The downstream monetization plan now uses [Hedera and Blocky402](Hedera.md). That does not change the upstream Graph payment endpoint. Keep network/asset funding and settlement records separate; Hedera API revenue must not be counted as immediately available Base query budget. No automatic bridging is included in the current MVP.
 
@@ -107,7 +109,7 @@ Before committing to the proposed DEX stickiness example:
 2. Check whether wallet identifiers and timestamped activity are available for the requested period. Aggregate daily user counts alone cannot reconstruct distinct active days per wallet.
 3. Define the metric precisely: time boundaries, distinct-day counting, wallet identity, protocol grouping, exclusions, and incomplete-data behavior.
 4. Run a bounded query and manually verify a small output sample. Record pagination completeness and provider limits.
-5. If the required facts are unavailable, revise the example or explicitly approve a new ingestion path; do not invent missing activity.
+5. If no suitable existing source is found within bounded discovery, report missing facts and search limits. Ask the creator to revise the example or supply another existing source for validation; do not create a new ingestion path, Subgraph, or Subgraph Composition, or invent missing activity.
 
 ### Runtime and Hosting Safeguards
 

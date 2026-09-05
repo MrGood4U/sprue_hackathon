@@ -6,9 +6,9 @@ Sprue is a cloud-based developer tool that turns natural-language data logic int
 
 Sprue is not primarily a natural-language blockchain query assistant. The Graph and its MCP tools can answer questions about existing indexed data. Sprue adds the product layer: it lets a user define derived data, transform it through a pipeline, keep it updated, expose it through an API, and optionally sell access through x402.
 
-The central distinction is:
+The division of responsibility is:
 
-- The Graph answers: "What does the existing data say?"
+- The Graph supplies existing indexed data and query capabilities.
 - Sprue builds: "Create a reusable data product that continuously answers this question."
 
 ## Core Workflow
@@ -24,7 +24,17 @@ Natural-language intent
     -> optional x402 monetization
 ```
 
-Sprue should prefer existing The Graph subgraphs as sources. It should generate and deploy a new subgraph only when the required onchain facts are not already indexed.
+### Confirmed Existing-Subgraph Boundary
+
+On 2026-09-05, the user confirmed that Sprue only discovers, inspects, selects, and queries existing The Graph Subgraphs. Sprue does not create, generate, deploy, or maintain new Subgraphs or composed Subgraphs (Subgraph Composition). These are outside the product boundary, not deferred fallback tasks. Automatic compilation into a new upstream index is also out of scope.
+
+Choose suitable sources within bounded discovery using semantic/field fit, data granularity, network and historical coverage, freshness, and evidenced access/query costs. Semantic correctness and required coverage are prerequisites; unknown coverage or cost must remain explicit, not be treated as complete or free. Explain the choice without claiming a globally optimal source after a limited search.
+
+Use verified query capabilities and existing indexed fields or aggregates when they preserve the requested meaning. Apply only the necessary supported Sprue transformations after retrieval; do not add processing merely to populate the DAG. Source validation, output validation, provenance, versioning, refresh, hosted APIs, and optional x402 remain in scope. Build and Deploy refer to Sprue's data product/API, not upstream Subgraph deployment.
+
+If bounded discovery finds no suitable existing source, report the missing facts and search limits. Ask the creator to revise the requirement or supply another existing source for the same validation; never silently change semantics, invent data, or start an ingestion/deployment workflow.
+
+This decision does not expand the first runtime beyond one source. Multi-source/cross-chain execution, Union, and Join still require a separate scope decision.
 
 The MVP runtime scope is Source, Filter, Map, Aggregate, and Output. GroupBy is aggregate configuration; source windows and derived scores use bounded configuration/expressions. Join, Union, standalone Window/Score and advanced onchain analytics are deferred. The frontend DAG and backend execution model should share a simple, validated representation.
 
@@ -110,7 +120,7 @@ Do not infer database fields ad hoc while building endpoints. If implementation 
 
 The proposed frontend/backend HTTP contract is [api-contract.md](api-contract.md) Draft 0.3, with domain details under `docs/api/`. Review it before implementing frontend clients or backend routes. It records proposed authentication, DTOs, commands, concurrency, traces, private deployment, x402 delivery, and financial projections. Model directions M1-M3 (durable command idempotency, anonymous request recovery authorization, and validation/build/activation separation) were approved and incorporated into data-model 1.4. Database structure and the API/standby-worker framework exist. Read backend/framework.md: 100 route registrations include explicit unavailable handlers, not completed business APIs. Process probes/public configuration work; identity reads require an injected verified-identity adapter, and production composition fails closed. Durable command HTTP guarantees, queue dispatch and provider verification still require implementation and tests. Provider and capped-consumer gates E1/E2 remain explicit.
 
-The proposed Agent harness is documented in [backend/harness/README.md](backend/harness/README.md) Draft 0.3. It separates natural-language planning and verified source/query/operator compilation from creator-authorized deterministic execution. Consult its workflow, tool/script catalog, operator semantics, constraints and verification plan before building the planner/runtime. Tools are named typed functions, not unrestricted shell, code, network or wallet access. Existing subgraphs are the default; source gaps require explicit review, not automatic source deployment. H2 persistence directions are approved in model 1.4. H1 executable-language and H3 live-metric/operating-limit choices remain open; none enables payments. Planned scripts are not yet implemented.
+The proposed Agent harness is documented in [backend/harness/README.md](backend/harness/README.md) Draft 0.3. It separates natural-language planning and verified source/query/operator compilation from creator-authorized deterministic execution. Consult its workflow, tool/script catalog, operator semantics, constraints and verification plan before building the planner/runtime. Tools are named typed functions, not unrestricted shell, code, network or wallet access. Only existing Subgraphs are eligible sources; source gaps lead to requirement revision or another existing-source candidate, never source creation or deployment. H2 persistence directions are approved in model 1.4. H1 executable-language and H3 live-metric/operating-limit choices remain open; none enables payments. Planned scripts are not yet implemented.
 
 ## Account Wallet and Revenue Model
 

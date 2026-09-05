@@ -21,6 +21,8 @@ Describe an onchain data product
 
 The interface must keep the Agent useful without hiding product semantics, data lineage, wallet authority, cost, deployment state, or payment evidence.
 
+Product boundary confirmed on 2026-09-05: Sprue selects and queries existing Subgraphs and applies necessary supported transformations; it never creates or deploys new Subgraphs or Subgraph Composition. A source gap explains missing facts and bounded-search limits, then asks for a requirement revision or another existing source. Do not offer an upstream index-creation action. Build and Deploy still refer to the Sprue data product and hosted API. This clarification does not add pages, operators, multi-source/cross-chain execution, or new API fields.
+
 ## MVP Experience Principles
 
 1. **One primary action per view.** Secondary actions remain visible but visually subordinate.

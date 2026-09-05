@@ -15,6 +15,7 @@ The model describes intended behavior. It is not evidence that an external walle
 ## Confirmed Inputs
 
 - A creator uses natural language to define a persistent Graph-backed data product.
+- The user confirmed an existing-Subgraph-only boundary on 2026-09-05. Source snapshots describe externally existing sources, not indexes created by Sprue. Sprue does not create or deploy new Subgraphs or Subgraph Composition; product deployments refer to hosted Sprue APIs. This scope clarification changes no version 1.4 fields, migrations, or approved single-source runtime limits.
 - The Agent dynamically composes predefined, developer-implemented DAG operators. It does not generate arbitrary executable JavaScript or Python for the MVP.
 - Product definitions and execution layouts are separate.
 - Product edits create auditable versions; an unsuccessful edit must not replace the last working version.

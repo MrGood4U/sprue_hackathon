@@ -38,12 +38,14 @@ The selected sponsor integrations are The Graph, Hedera, and Privy. The user rep
 
 ### The Graph: Onchain Data Foundation
 
-- Discover and inspect indexed onchain data sources.
-- Query the raw facts needed by a product.
+- Discover and inspect existing Subgraphs only, comparing semantic fit, granularity, network/history coverage, freshness, and evidenced access/query costs within bounded search.
+- Query the indexed facts or existing derived fields needed by a product; reuse verified query capabilities only when they preserve the requested semantics.
 - Accept the creator's existing Graph API key/subscription as one explicit source-access mode.
 - Receive data payments initiated by Sprue from the creator's funded account wallet, within authorized limits.
-- Reuse existing subgraphs whenever they satisfy the data requirement.
-- Generate a new subgraph only when the required facts are not already indexed and the hackathon scope allows it.
+- Report missing facts and search limits when no suitable existing source is found; propose a requirement revision or inspect another existing source supplied by the creator.
+- Do not create, generate, deploy, or maintain new Subgraphs or Subgraph Composition. New indexing/ingestion and automatic compilation into a new upstream index are outside the product boundary, not future fallback tasks.
+
+The user confirmed this boundary on 2026-09-05; see [agents.md](agents.md#confirmed-existing-subgraph-boundary). Apply only necessary supported Sprue transformations after retrieval. Sprue still builds, refreshes, and deploys its own data products and hosted APIs. The first runtime remains single-source; multi-source/cross-chain execution, Union, and Join require separate scope approval.
 
 ### Hedera and Blocky402: Optional Paid API Access
 
@@ -326,9 +328,9 @@ The data plane executes and serves the product.
 ### Graph Data Adapter
 
 - Connect to The Graph and selected MCP or API interfaces.
-- Resolve source and schema references from the product definition.
+- Resolve existing source and schema references from the product definition; this adapter has no upstream index creation or deployment responsibility.
 - Keep logical Subgraph IDs, gateway Deployment IDs, and manifest IPFS CIDs distinct. Validate an immutable deployment/schema snapshot before publication; do not let a moving Subgraph ID silently change a deployed product.
-- Fetch raw indexed onchain facts.
+- Fetch indexed facts or existing derived fields with verified granularity, units, and methodology.
 - Execute each source through the creator-selected mode: a customer-supplied Graph API key backed by their existing subscription, or x402 through the creator-wallet authorization adapter.
 - Keep customer API keys in server-side secret storage, record their credential version/fingerprint and provider usage, and create no wallet expense for externally billed subscription requests.
 - For x402, link expense and payment status to the corresponding build/refresh job. Never switch from a failed API key to x402 without an explicit versioned creator choice.

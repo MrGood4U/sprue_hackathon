@@ -45,6 +45,8 @@ Paths below are relative to the future `backend/harness/scripts/` directory. P-s
 
 These tools do not call each other recursively on behalf of the model. The controller composes them so every network call, validation and repair is visible in the shared budget. A tool may use bounded internal library operations, but cannot hide another model call, source data query, subprocess or payment inside them.
 
+The catalog operates on existing Subgraphs only. Do not add tools or developer-script fallbacks that create upstream Subgraph manifests/indexing mappings, generate or deploy Subgraph Composition, maintain upstream indexes, or start a new ingestion path. Query compilation and Sprue DAG/template expansion are not Subgraph creation. Source selection follows the [confirmed product boundary](../../agents.md#confirmed-existing-subgraph-boundary); candidates supplied by a creator require the same inspection as discovered candidates.
+
 ### T11-T12: Prepare Semantic Templates
 
 Implement the [semantic template contract](semantic-templates.md) as a pinned, developer-owned catalog and pure compiler functions. T11 exposes only templates whose primitive dependencies are implemented in the selected worker registry. T12 checks input facts/types, unknown fields, parameter bounds and stable instance IDs, then emits ordinary nodes/edges. The controller still invokes T07 and T08; expansion cannot self-certify semantic correctness. Missing versions and incompatible input return precise diagnostics, not a generated-code fallback. Both tools, including repairs, consume the existing shared tool-call budget; they add no model calls, paid queries or independent budget. The frontend sample is not these backend handlers.

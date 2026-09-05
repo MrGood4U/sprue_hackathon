@@ -34,6 +34,8 @@ Output sorting is for deterministic serving, not an undeclared top-k operation. 
 
 ### Registry Implementation Contract
 
+The confirmed existing-Subgraph boundary applies to every operator. A source queries an already available deployment; no operator or compilation target may create or deploy a Subgraph or Subgraph Composition. Prefer supported source-query filters/projections and existing derived fields only after verifying equivalent semantics. Do not invent query capabilities, silently rewrite accepted versions, or add unnecessary transforms; source and output validation remain required. The initial single-source profile and five-type allowlist are unchanged.
+
 Each entry contains configSchema, inputPorts, outputPorts, inferOutputSchema, validateSemantics, estimateResources, and execute, plus type/version and determinism guarantees. Functions are developer-owned code resolved by a frozen registry, never names dynamically imported from a user path. Changes to semantics require a new operatorVersion; do not keep version 1 while changing rounding, null behavior or aggregation meaning.
 
 The registry hash covers versioned definitions and implementation identity. Executions pin runtimeVersion and registryHash; a worker missing the pinned version returns RUNTIME_VERSION_UNAVAILABLE instead of substituting its newest operator. Compiler output may be cached by specHash/registryHash but is not an independent editable source of truth.

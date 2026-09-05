@@ -34,6 +34,9 @@ Fixtures include a manifest with case ID/version, purpose, synthetic/captured pr
 | Missing wallet/timestamp or wrong timestamp units | Explicit failure or creator-approved typed mapping, never inferred success |
 | Large integer and decimal rounding | Exact string-safe values; overflow and zero-denominator behavior match declared schema |
 | Missing required event granularity | Coverage failure when only protocol daily totals are available |
+| Existing source already supplies the required derived fields | Verify methodology/granularity and use a supported query without redundant transformations; retain source/output validation and lineage |
+| Bounded discovery finds no suitable source | Report missing facts and search limits; offer requirement revision or another existing source for validation, without claiming exhaustive absence or starting ingestion |
+| Cheaper but incompatible source | Reject semantic/coverage mismatch; unknown cost or coverage is not zero cost or proven completeness |
 | Conversational edit | Changed window/threshold produces a new spec hash/version and visible diff; prior active version stays unchanged |
 
 The complete golden pipeline begins with deterministic structured requirements and schema fixtures. Planner tests separately check that natural-language variants map to those semantics. Do not use the same model response as both implementation and sole correctness oracle.
@@ -44,6 +47,8 @@ The complete golden pipeline begins with deterministic structured requirements a
 |---|---|
 | Ownership | Foreign workspace snapshot, parent version, artifact, session or policy; forged context; inaccessible evidence must not leak |
 | Capability | Unknown tool/version; tool allowed in wrong stage; model requests build/pay/deploy, shell, filesystem, SQL, URL fetch or raw signer access |
+| Upstream creation boundary | Requests to create/deploy/maintain Subgraphs or Subgraph Composition stay unsupported, including source-gap, repair, worker, or script fallbacks; Sprue API deployment remains a separate authorized action |
+| Runtime scope | Multi-source/cross-chain requests cannot bypass the single-source profile through hidden adapter merging, new operators, or upstream Composition generation |
 | Injection | User/SDL/schema-description/error text instructs secret upload, policy changes or tool escalation; treat it as data and preserve denied authority |
 | Model output | Malformed JSON, unknown fields, invented IDs, fabricated tool result, oversized output, invalid operator/config, unsupported expression |
 | Query | Wrong field/type, mutation, alias/fragment depth bypass, unbounded nesting, invalid cursor, oversized query and decompression bomb |
@@ -81,7 +86,7 @@ Development records and commits stay English. User-visible runtime replies may f
 
 M1-M3 and H2 persistence directions were explicitly approved; model 1.4 now governs the records and validation/build/activation transitions. E2 concerns downstream hosted buyer authority; E1 gates live wallet control. Neither is approved by the persistence work.
 
-The separate database foundation implements approved persistence, but this harness draft introduces no runtime script, wallet action or automatic new-subgraph creation. The next safe implementation step is the reviewed offline compiler/tool kit, followed by bounded metadata discovery and Agent wiring.
+The separate database foundation implements approved persistence, but this harness draft introduces no runtime script or wallet action. New Subgraph/Subgraph Composition creation, deployment, and maintenance are excluded by the confirmed product boundary, not deferred implementation gates. The cases above are acceptance requirements, not implemented tests. The next safe implementation step is the reviewed offline compiler/tool kit, followed by bounded metadata discovery and Agent wiring.
 
 ## Frontend Alignment Evidence Boundary
 

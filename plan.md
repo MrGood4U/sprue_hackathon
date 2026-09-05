@@ -14,11 +14,21 @@ The user confirmed Start Fresh on 2026-09-05. This resolves the participation-ca
 
 Sprue turns a natural-language description of onchain data logic into a persistent, reusable, and optionally monetizable data product.
 
-The product is deliberately different from a natural-language blockchain query assistant. The Graph provides indexed onchain facts and query capabilities; Sprue turns user-defined transformations into a continuously available API.
+The product is deliberately different from a natural-language blockchain query assistant. Sprue selects suitable existing The Graph Subgraphs, compiles validated queries and necessary supported transformations, and operates the result as a continuously available API. It does not build the upstream indexes.
 
 The primary product promise is:
 
 > Describe it. Shape it. Sell it.
+
+## Confirmed Existing-Subgraph Boundary
+
+On 2026-09-05, the human team confirmed that Sprue only discovers, inspects, selects, and queries existing Subgraphs. Creating, generating, deploying, or maintaining new Subgraphs or Subgraph Composition is outside the product boundary, not an MVP fallback or future optimization task. This supersedes the earlier source-generation idea while preserving the historical contribution log.
+
+Select sources within bounded discovery by semantic/field fit, granularity, network and historical coverage, freshness, and evidenced access/query costs. Required semantics and coverage are prerequisites; unknown coverage or cost stays explicit. Reuse supported source-query capabilities and existing derived fields only when their meaning matches, then apply necessary supported Sprue transformations. Do not add nodes merely for display or claim a globally optimal source from a limited search.
+
+If no suitable existing source is found, report missing facts and search limits, then request requirement revision or another existing source for the same validation. No new ingestion path, index generation, synthetic live-data substitute, or silent change in semantics is an acceptable fallback.
+
+Source/output validation, reproducible versions, scheduled refresh, hosted API Build/Deploy, and optional x402 remain in scope. The initial single-source, five-operator runtime is unchanged; multi-source/cross-chain execution, Union, and Join need a separate decision. H1/H3, E1/E2, and fee decisions remain open. This documentation alignment changes no database fields, migrations, runtime implementation, or HTTP DTOs.
 
 ## Macro Development Plan
 
@@ -130,7 +140,7 @@ On 2026-09-05, the human approved a small node scope and the corresponding repos
 
 ## Target User
 
-The initial user is a Web3 builder, analyst, protocol team, or AI agent creator who wants to create a derived onchain data product without manually implementing the full indexing and API stack.
+The initial user is a Web3 builder, analyst, protocol team, or AI agent creator who wants to create a derived onchain data product without manually wiring existing sources, queries, transformations, scheduling, and API hosting.
 
 Example request:
 
@@ -191,8 +201,6 @@ The demonstration must show creator funding, a real Graph purchase authorized th
 
 ### P2: Future Work Unless the Core Flow Is Stable
 
-- New subgraph generation when an existing source is insufficient.
-- Composition of additional upstream paid providers beyond the required Graph integration.
 - Separate per-product wallets and general-purpose autonomous treasury management.
 - Marketplace discovery.
 - Automatic pricing optimization.
@@ -401,6 +409,7 @@ For each substantial AI-assisted contribution, record the following information 
 | 2026-09-05 | MVP operator and semantic-template alignment | Aligned the five-type scope across guidance, architecture, design, harness and API/model examples; designed two versioned compile-time templates plus bounded read/expand tools; replaced the six-card frontend fixture with a seven-node spec, actual-edge projection, semantic disclosure, constrained local recompilation and consistent output fixtures | Human agreed to small MVP scope and authorized these changes; exact executable schemas, durable provenance, live source/methodology and numerical limits remain H1-H3 review work | Used UI/UX guidance for stable IDs, derived display state and keyboard disclosure while preserving semantic tokens. Build, 26 automated tests and token checks passed; validated 10 JSON examples and 86 local links, and opened a local route after HTTP 200. No new browser interaction/visual QA, backend compiler/runtime, Agent call, migration, provider query, wallet action, payment or cloud deployment. Fixture evaluation is test-only, not integration evidence |
 | 2026-09-05 | Database initialization and approved M1-M3/H2 persistence | Updated data-model to 1.4; designed and implemented 51 domain tables/699 columns, split SQL migrations and Drizzle mappings, command/outbox/recovery/checkpoint/provenance records, migration tooling, public metadata seeds and isolated constraint tests; synchronized API/harness guidance | Human explicitly approved the five proposed persistence/lifecycle directions and database initialization work; H1/H3, E1/E2 and fee decisions remain open | Passed 13 backend tests on Node 24/PGlite, model/schema comparison, backend TypeScript validation, frontend build and 26 frontend tests; native PostgreSQL 17/Docker/Railway and multi-connection behavior remain unverified. No remote DB, API, model/provider call, wallet, funds movement or deployment was created |
 | 2026-09-05 | Backend API and worker framework | Implemented Express 5/TypeScript process composition, validated configuration, domain-split route registrations, safe errors/logging/CORS/transport checks, health/readiness, verifier-gated identity reads, explicit standby worker, generated partial OpenAPI, Docker build/Compose profiles and tests | Human requested backend scaffolding following the existing file layout and API design; no H1/H3, E1/E2 or fee gate was approved | Passed 28 backend tests, TypeScript/build checks, 100-route Markdown/catalog parity, generated OpenAPI freshness, compiled API/worker startup/probes/shutdown and Compose configuration validation. SQL tests used isolated PGlite; no native PostgreSQL/container/cloud deployment, real Privy verification, queue job, provider request or payment was performed |
+| 2026-09-05 | Existing-Subgraph-only product boundary | Aligned project guidance, architecture, source-selection and failure behavior, harness tools/operators/acceptance requirements, model/design scope notes, and Sprue-specific Graph sponsor guidance; removed upstream creation and ingestion fallbacks from the roadmap | Human explicitly excluded creating new Subgraphs or Subgraph Composition and authorized documentation synchronization only; the single-source/five-type MVP and open implementation/payment gates are unchanged | Checked boundary consistency, relative documentation links, English-only additions, whitespace, and unchanged official sponsor rules/historical records. Documentation only; no runtime tests or provider checks were rerun, and no code, schema, routes, paid actions, or deployments changed |
 
 This table must be updated when AI materially influences architecture, implementation, testing, or submission content.
 
@@ -465,3 +474,4 @@ The central explanation for judges is:
 | 2026-09-05 | Confirmed the five-type MVP scope and aligned semantic-template design, canonical examples and maintained Builder frontend | Keep execution primitive-only, distinguish repeat activity from retention, preserve the full denominator and record H1-H3 boundaries without approving new persistence or live integrations |
 | 2026-09-05 | Approved M1-M3 and H2 persistence directions; implemented initial database foundation | Keep commands, recovery credentials, run context and compilation provenance durable without approving executable H1 semantics, H3 limits, live provider compatibility, buyer authority or fees; preserve SQL migration history and separate structural tests from integration evidence |
 | 2026-09-05 | Added backend API/standby-worker framework and executable route registry | Make process, transport and ownership boundaries testable without advertising unimplemented business routes, activating provider capabilities, or accepting non-durable work |
+| 2026-09-05 | Confirmed and synchronized the existing-Subgraph-only product boundary | Select and query suitable existing sources, use only necessary supported processing, and report source gaps without creating Subgraphs, Subgraph Composition, or ingestion fallbacks; retain hosted APIs, optional x402, and the current single-source MVP scope |

@@ -20,6 +20,8 @@ Draft 0.2. These are proposed engineering controls, not sponsor rules or impleme
 
 Do not expose terminal execution, shell strings, filesystem browsing/writes, SQL execution, package installation, arbitrary code evaluation, dynamic imports, generic HTTP requests, arbitrary MCP servers, wallet signing, grant/policy modification, funding, bridging, subgraph deployment, service deployment, publication, or fee-setting as planner tools.
 
+The product-wide existing-Subgraph boundary also excludes creating, generating, deploying, or maintaining new Subgraphs or Subgraph Composition through workers, adapters, or developer-script fallbacks. Upstream creation is not unlocked by a source gap, a natural-language request, or a Build/Deploy approval. Those approvals concern Sprue's own data product/API. Report missing facts and bounded-search limits; any revised requirement or other existing source must be reviewed and validated. Keep the initial single-source profile unchanged; no hidden multi-source merging or new runtime operator is authorized.
+
 Operator expressions must remain the finite typed AST described in [operators.md](operators.md). A field called formula, script, callback or code cannot evade this boundary. No recursive Agent delegation, self-installed tool, unbounded self-repair, self-modified prompt policy or model-controlled budget increase is supported.
 
 Following a user-requested instruction in natural language is not enough to authorize a financial or publication action. Only the explicit authenticated control-plane operation and its reviewed provider grants confer that authority. A source description or tool result cannot approve anything.

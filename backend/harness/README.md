@@ -28,7 +28,9 @@ Human natural language
 
 "Operators" means machine-readable, versioned nodes such as source, map, filter, aggregate, and output, not decorative canvas symbols or generated executable code. Source discovery and semantic planning may iterate; accepted versions and execution do not silently change.
 
-The source stage normally selects an existing subgraph. If the needed indexed facts are unavailable, return a source gap and a supported alternative for human review. Creating or deploying a new subgraph is an explicitly approved future workflow, not an automatic fallback.
+The user confirmed the [existing-Subgraph-only boundary](../../agents.md#confirmed-existing-subgraph-boundary) on 2026-09-05. The source stage selects among existing Subgraphs using semantic fit, granularity, coverage, freshness, and evidenced query costs within bounded discovery. Unknown coverage or cost stays explicit. A source gap requests requirement revision or another existing source for validation, not a new ingestion path.
+
+Creating, generating, deploying, or maintaining new Subgraphs or Subgraph Composition is outside Sprue's product scope, not a future fallback. Reuse supported capabilities of the inspected source query when semantics match, then apply only necessary Sprue transformations. This is query planning over existing indexes, not automatic compilation into a new upstream index. The first runtime remains single-source with five operator types; multi-source/cross-chain execution, Union, and Join are not approved by this clarification. Sprue product/API Build, Deploy, refresh, and optional paid publication remain distinct, authorized operations.
 
 ## Reading Order
 

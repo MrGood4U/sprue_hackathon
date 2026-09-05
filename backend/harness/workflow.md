@@ -57,17 +57,21 @@ Ask about material uncertainty, such as whether "repeat" means distinct transact
 
 For each candidate preserve logical Subgraph ID, resolved gateway Deployment ID, manifest CID when observed, chain, schema hash, observation time, and field-level evidence. A protocol label or matching schema family alone does not prove metric compatibility. A source listing is lower-confidence evidence than inspected fields; neither proves data completeness.
 
+Choose only among existing Subgraphs. Compare semantic/field fit, granularity, network and history coverage, freshness, supported query shapes, and evidenced access/query costs. Required semantics and coverage take precedence over cost convenience. Report uncertainty and the scope of the bounded search; do not invent a cost quote or claim that a limited candidate set proves global optimality. Source selection does not authorize a metered probe.
+
 CoverageReport independently reports schema fit, historical coverage, indexer freshness, and extraction completeness. During planning, coverage may remain `unverified` if proving it needs a metered query. A proposal can be actionable with a clearly disclosed live-coverage check pending Build, but not with a known missing required field. P6 must distinguish passed static checks from these deferred checks; it must not present overall live validation as passed.
 
 Source inspection may append a candidate/validated snapshot through the trusted domain service. That records verified identity/schema facts only; `validated` snapshot status is not a guarantee of all historical rows. An immutable snapshot cannot be edited to conceal schema drift.
 
-If no existing subgraph fits, return `SOURCE_FACTS_UNAVAILABLE` with the missing facts and an optional proposed alternative. Do not create a source manifest, run a Graph deployment CLI, deploy a contract, scrape arbitrary sites, or label a synthetic dataset live.
+If bounded discovery finds no suitable existing Subgraph, return `SOURCE_FACTS_UNAVAILABLE` with the missing facts, search limits, and an optional requirement revision or another existing-source candidate. The creator must approve changed semantics; supplied source IDs go through the same verification. This is not proof that no suitable source exists anywhere. Do not create an upstream Subgraph manifest or indexing mapping, generate/deploy Subgraph Composition, run a Graph deployment CLI, start another ingestion path, deploy a contract, scrape arbitrary sites, or label a synthetic dataset live. There is no upstream creation/deployment fallback or future task in the current product boundary.
 
 ### P4-P5: Lower Into the Existing Spec
 
 The compiler resolves candidate handles to authorized sourceSnapshotId values and validates user-selected access references. It may not choose wallet spending because a key is missing. Without an access selection, return a clarification rather than an executable spec with fake IDs.
 
 The source compiler emits only validated GraphQL queries and typed variable bindings. The operator compiler emits `{id, type, operatorVersion, config}` nodes and explicit fromNode/fromPort/toNode/toPort edges. Preserve the schemaVersion 2 envelope in data-model.md; labels, layout, and localized explanations are separate.
+
+Reuse inspected query capabilities and existing derived fields when they preserve the requested granularity, population, time interval, units, and null behavior. Do not add redundant downstream processing or require every operator type in a plan. This does not permit upstream Subgraph schema/mapping generation, new source deployment, arbitrary GraphQL aggregations, or bypassing source/output validation. The first runtime still supports one source; an unsupported multi-source composition returns a limitation rather than hidden merging inside a query or source adapter.
 
 At each phase the model may submit a bounded structured candidate to the controller. The controller validates its envelope, records it under the proposed checkpoint schema, and assigns a scoped proposalRef/requirementsRef before validation tools use it. This creates neither an accepted product version nor authority. Models cannot invent references to material that was never admitted, and repairs create distinct candidate revisions rather than changing an already accepted spec.
 
