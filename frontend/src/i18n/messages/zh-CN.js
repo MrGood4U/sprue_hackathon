@@ -48,13 +48,11 @@ export const zhCN = {
   "sidebar.workspaceStatus": "\u6f14\u793a\u5de5\u4f5c\u533a \u00b7 \u793a\u4f8b\u6570\u636e",
 
   "appHeader.workspace": "\u5de5\u4f5c\u533a / \u6f14\u793a",
-  "productHeader.version": "v1 \u63d0\u6848",
   "productHeader.sections": "\u4ea7\u54c1\u529f\u80fd\u533a",
   "productHeader.agent": "\u667a\u80fd\u4f53",
   "productHeader.build": "\u6784\u5efa",
   "productHeader.api": "API",
   "productHeader.monetize": "\u53d8\u73b0",
-  "productHeader.readyToBuild": "\u53ef\u4ee5\u6784\u5efa",
 
   "agent.eyebrow": "\u4ea7\u54c1\u89c4\u5212",
   "agent.title": "\u5c06\u4f60\u7684\u610f\u56fe\u8f6c\u5316\u4e3a\u53ef\u5ba1\u67e5\u7684\u65b9\u6848\u3002",
@@ -224,8 +222,6 @@ export const zhCN = {
   "builder.deterministicDetail": "\u56fa\u5b9a\u6570\u636e\u6e90\u3001\u56fa\u5b9a\u65f6\u95f4\u7a97\u53e3\u548c\u7a33\u5b9a\u6392\u5e8f\u3002",
   "builder.estimatedCost": "\u9884\u8ba1\u8d39\u7528",
   "builder.estimatedCostDetail": "\u6bcf\u6b21\u8bf7\u6c42\u4e0d\u8d85\u8fc7 0.05 USDC\uff08\u53d7\u9650\uff09",
-  "builder.buildComplete": "\u793a\u4f8b\u6d41\u7a0b\u5df2\u7ed3\u675f",
-  "builder.readyToBuild": "\u793a\u4f8b\u8349\u7a3f",
   "builder.editIntentTitle": "\u7f16\u8f91\u4ea7\u54c1\u610f\u56fe",
   "builder.naturalLanguageInput": "\u81ea\u7136\u8bed\u8a00\u8f93\u5165",
   "builder.regenerateDraft": "\u91cd\u65b0\u751f\u6210\u8349\u7a3f",

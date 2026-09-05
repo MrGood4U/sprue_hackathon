@@ -40,7 +40,7 @@ export function AgentPage({ navigate }) {
 
   return (
     <div className="product-page agent-page">
-      <ProductHeader product={product} active="agent" navigate={navigate} buildStatus={t(statusKey)} />
+      <ProductHeader product={product} active="agent" navigate={navigate} />
       <main className="agent-layout">
         <section className="agent-conversation">
           <div className="content-heading agent-heading">

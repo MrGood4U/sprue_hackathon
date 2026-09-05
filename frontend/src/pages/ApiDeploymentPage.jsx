@@ -31,7 +31,7 @@ export function ApiDeploymentPage({ navigate }) {
 
   return (
     <div className="product-page">
-      <ProductHeader product={product} active="api" navigate={navigate} buildStatus={t("api.endpointReady")} />
+      <ProductHeader product={product} active="api" navigate={navigate} />
       <main className="product-content">
         <div className="content-heading">
           <div>

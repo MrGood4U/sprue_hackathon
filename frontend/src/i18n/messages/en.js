@@ -45,13 +45,11 @@ export const en = {
   "sidebar.workspaceStatus": "Demo workspace · Sample data",
 
   "appHeader.workspace": "Workspace / Demo",
-  "productHeader.version": "v1 proposed",
   "productHeader.sections": "Product sections",
   "productHeader.agent": "Agent",
   "productHeader.build": "Build",
   "productHeader.api": "API",
   "productHeader.monetize": "Monetize",
-  "productHeader.readyToBuild": "Ready to build",
 
   "agent.eyebrow": "Product planning",
   "agent.title": "Turn your intent into a reviewable plan.",
@@ -221,8 +219,6 @@ export const en = {
   "builder.deterministicDetail": "Pinned sources, fixed window, stable ordering.",
   "builder.estimatedCost": "Estimated cost",
   "builder.estimatedCostDetail": "≤ 0.05 USDC per request (bounded)",
-  "builder.buildComplete": "Sample trace complete",
-  "builder.readyToBuild": "Sample draft",
   "builder.editIntentTitle": "Edit product intent",
   "builder.naturalLanguageInput": "Natural-language input",
   "builder.regenerateDraft": "Regenerate draft",

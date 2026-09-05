@@ -25,8 +25,7 @@ export function ProductBuilderPage({ navigate }) {
   }
   return (
     <div className="product-page">
-      <ProductHeader product={product} active="build" navigate={navigate}
-        buildStatus={t(buildState === "failed" ? "common.operationFailed" : buildState === "building" ? "trace.building" : buildState === "complete" ? "builder.buildComplete" : "builder.readyToBuild")} />
+      <ProductHeader product={product} active="build" navigate={navigate} />
       <div className="builder-layout">
         <aside className="intent-panel">
           <span className="section-label">{t("builder.intent")}</span>

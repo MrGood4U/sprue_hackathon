@@ -1,8 +1,8 @@
-import { ArrowLeft, CaretDown, CheckCircle } from "@phosphor-icons/react";
+import { ArrowLeft } from "@phosphor-icons/react";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
 import { LanguageSwitcher } from "../navigation/LanguageSwitcher.jsx";
 
-export function ProductHeader({ product, active, navigate, buildStatus }) {
+export function ProductHeader({ product, active, navigate }) {
   const { t } = useI18n();
   const tabs = [
     ["agent", "productHeader.agent", `/app/products/${product.slug}/agent`],
@@ -19,8 +19,6 @@ export function ProductHeader({ product, active, navigate, buildStatus }) {
           <span>{product.name}</span>
         </button>
         <div className="product-head-actions">
-          <button className="version-select">{t("productHeader.version")} <CaretDown size={15} /></button>
-          <span className="ready-pill" role="status"><CheckCircle size={18} weight="fill" />{buildStatus ?? t("productHeader.readyToBuild")}</span>
           <LanguageSwitcher />
         </div>
       </div>

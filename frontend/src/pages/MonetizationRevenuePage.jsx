@@ -30,7 +30,6 @@ export function MonetizationRevenuePage({ navigate }) {
         product={product}
         active="monetize"
         navigate={navigate}
-        buildStatus={t(published ? "monetize.published" : "monetize.ready")}
       />
       <main className="product-content">
         <div className="content-heading">
