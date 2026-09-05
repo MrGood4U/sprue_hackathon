@@ -13,6 +13,7 @@ npm run build
 npm run test:structure
 npm run test:i18n
 npm run test:services
+npm run test:builder
 npm run test:tokens
 npm run test:sites
 ```
@@ -108,3 +109,9 @@ Do not create frontend adapters for Graph payments, private wallet signing mater
 Treat `src/design-tokens.json` as the visual source of truth and `src/tokens.css` as generated output. New styles must consume semantic or component tokens for colors and shared contracts. Run `npm run tokens` after changing the JSON source; the build rejects stale generated tokens.
 
 The evidence files under `evidence/` document the approved visual comparison. They are not runtime assets.
+
+## Semantic Builder Sample
+
+The maintained Builder uses `services/demo/fixtures/builder.js` for a synthetic seven-node spec, two display groups and an independently reviewed expected-result fixture. `features/builder/graphView.js` projects actual rows-port edges and topological positions; it is not the backend validator. `DagCanvas.jsx` owns semantic/primitive views and keyboard disclosures, `TemplateParameters.jsx` owns constrained local inputs, and `BuilderInspector.jsx` displays exact read-only node/spec/schema JSON. Route state remains in `ProductBuilderPage.jsx`.
+
+Changing the 7/30-day interval or repeat-day threshold regenerates a local draft and resets its simulated trace. Leaving the page resets it; API/consumer pages use the default fixture, not this unaccepted edit. Both expose protocol/activeWallets/repeatWallets/repeatShare, with exact-value strings and nullable ratio. The metric is repeat activity, not cohort retention. No Agent, Graph query, runtime, version persistence, wallet action or deployment is executed. Run `npm run test:builder` and the full build for changes here. Existing visual evidence predates this update; it does not certify this new canvas.

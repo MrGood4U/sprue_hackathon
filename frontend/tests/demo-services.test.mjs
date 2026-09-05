@@ -27,7 +27,7 @@ test("request results cannot mutate the fixtures used by another request", async
   const first = await demoServices.testRequest();
   first.data[0].protocol = "Changed by caller";
   const second = await demoServices.testRequest();
-  assert.equal(second.data[0].protocol, "Aerodrome");
+  assert.equal(second.data[0].protocol, "alpha");
 });
 
 test("consumer progress completes in order and returns a sample response", async () => {

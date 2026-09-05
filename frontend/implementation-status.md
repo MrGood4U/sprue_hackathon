@@ -17,12 +17,12 @@ Application metadata, entry-page actions, and project instructions identify Spru
 | Entry | Product introduction and navigation into the demo workspace | Privy sign-in, session restoration, and workspace bootstrap |
 | Dashboard | One sample product, static metrics, and a dialog that opens its sample plan | Product list/create APIs, search/filter behavior, actual activity and usage, loading/empty/error states |
 | Wallet and Access | Sample balances and authorization, local access-mode selection, dialogs without durable writes | Wallet identity/funding, credential storage, validated grants, budgets, recipient capability, balance and policy refresh |
-| Builder | Sample DAG and intent, read-only inspection, cancelable demo build | Agent conversation, validated editable DAG/spec, persisted versions and intent, actual run state and evidence |
+| Builder | Seven-node synthetic spec, actual-edge layout, four-card semantic overview, keyboard disclosure, read-only node/spec/schema inspection, constrained local parameter recompilation and resettable simulated trace | Agent conversation, reviewed backend compiler/templates, general structured editing, immutable provenance/versions, real run state and evidence |
 | API and Deployment | Sample endpoint, copied endpoint text, demo request response | Reviewed request parameters, private access, real output, deployment and logs, functional code-example tabs |
 | Monetization and Revenue | Local publication state and illustrative price/5% split | Validated price and confirmed fee policy, creator recipient checks, durable publication state, payment gate, revenue reconciliation |
 | Public product | Sample product and a cancelable four-stage paid-request demonstration | Slug-based product loading, real payment requirements, authorized buyer client, receipts and uncertain-payment recovery |
 
-Some secondary controls still have no implemented action, including wallet viewing, deployment logs, schema/explorer shortcuts, and navigation collapse. New-product and intent dialogs do not create or save definitions. Demo publication does not publish an endpoint, and fee terms are not yet agreed. These are concrete implementation tasks, not evidence of completed functionality.
+Some secondary controls still have no implemented action, including wallet viewing, deployment logs and navigation collapse. The Builder now provides functional source-configuration and full-schema inspection; live Explorer evidence is not available. New-product planning is not connected, and local template edits do not create or save versions. Demo publication does not publish an endpoint, and fee terms are not yet agreed. These are concrete implementation tasks, not evidence of completed functionality.
 
 ## Implementation Order
 
@@ -36,6 +36,14 @@ Some secondary controls still have no implemented action, including wallet viewi
 The approved large-screen browser scope and English/Simplified Chinese localization remain in force. Token decisions DT1-DT4 are review follow-ups; they do not pause the authorized frontend implementation. The capped consumer funding boundary and provider compatibility checks remain prerequisites for live paid actions.
 
 ## Validation of This Transition
+
+### Semantic Builder Update, 2026-09-05
+
+The five-type scope is reflected in a synthetic seven-node spec. The two semantic groups expand read-only, actual edge IDs determine layout/connections, and constrained parameter changes rebuild local config and reset the simulated trace. A test-only evaluator independently checks the fixed expected output, including one-day wallets in the denominator and same-day event deduplication. This is not the backend interpreter. Canonical model, Builder, API and consumer examples share four typed output fields. Durable compilation provenance and backend schemas remain H1/H2; a live metric/source/profile remains H3.
+
+The build, 26 automated tests and token validation passed, including 12 new Builder tests. The existing Sites packaging adapter passed unchanged. A local Builder route returned HTTP 200 and was opened for preview; no new browser interaction, screenshot or visual QA was performed for this canvas. Earlier visual evidence below describes the previous frontend state, not this update. No provider requests, backend runtime, payments, migrations or cloud deployment were performed.
+
+### Earlier Frontend Transition
 
 Run `npm run build` and `npm run test:sites`. The build includes page-ownership, localization, demo-service, and token checks; `npm run test:services` also runs the service checks independently. Service tests cover canceled demo work, detached response objects, and consumer progress without external requests.
 

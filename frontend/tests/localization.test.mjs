@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { glob } from "node:fs/promises";
 import test from "node:test";
-import { dagNodes, product } from "../src/services/demo/fixtures/product.js";
+import { product } from "../src/services/demo/fixtures/product.js";
+import { createDemoDraft, nodeLabels } from "../src/services/demo/fixtures/builder.js";
 import { en } from "../src/i18n/messages/en.js";
 import { zhCN } from "../src/i18n/messages/zh-CN.js";
 
@@ -22,13 +23,8 @@ test("the Chinese catalog explicitly translates every fallback message", async (
 
 test("localized product fixtures reference known messages", () => {
   assert.ok(en[product.intentKey]);
-  for (const node of dagNodes) {
-    assert.ok(en[node.titleKey]);
-    assert.ok(en[node.typeKey]);
-    for (const detail of node.detail) {
-      if (typeof detail !== "string") assert.ok(en[detail.key]);
-    }
-  }
+  for (const key of Object.values(nodeLabels)) assert.ok(en[key]);
+  for (const group of createDemoDraft().groups) assert.ok(en[group.labelKey]);
 });
 
 test("literal translation references exist in the English fallback catalog", async () => {

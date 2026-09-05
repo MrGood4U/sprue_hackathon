@@ -1,112 +1,49 @@
 import { useState } from "react";
-import {
-  CheckCircle,
-  CurrencyDollar,
-  FileText,
-  ListBullets,
-  ShieldCheck,
-  Sparkle,
-} from "@phosphor-icons/react";
+import { CheckCircle, ListBullets, Sparkle } from "@phosphor-icons/react";
 import { ProductHeader } from "../components/product/ProductHeader.jsx";
-import { Button } from "../components/ui/Button.jsx";
-import { Field } from "../components/ui/Field.jsx";
-import { Modal } from "../components/ui/Modal.jsx";
 import { BuildReadiness } from "../features/builder/BuildReadiness.jsx";
 import { DagCanvas } from "../features/builder/DagCanvas.jsx";
 import { ExecutionTrace } from "../features/builder/ExecutionTrace.jsx";
-import { dagNodes, product } from "../services/demo/fixtures/product.js";
+import { TemplateParameters } from "../features/builder/TemplateParameters.jsx";
+import { BuilderInspector } from "../features/builder/BuilderInspector.jsx";
+import { createDemoDraft } from "../services/demo/fixtures/builder.js";
 import { useI18n } from "../i18n/I18nProvider.jsx";
 import { useBuildRun } from "../features/builder/useBuildRun.js";
 
-function modalDetail(modal) {
-  if (modal === "dag") {
-    return JSON.stringify({
-      version: 1,
-      nodes: dagNodes.map((node, index) => ({ id: `n${index + 1}`, op: node.title })),
-    }, null, 2);
-  }
-
-  return `source: graph://base-dex@v1.4.2
-window: 30d
-filters:
-  - repeat_wallets_only
-group_by: protocol
-materialize: hosted_api
-access: x402`;
-}
-
 export function ProductBuilderPage({ navigate }) {
-  const { locale, t } = useI18n();
-  const { buildState, startBuild } = useBuildRun();
+  const { t } = useI18n();
+  const { buildState, startBuild, resetBuild } = useBuildRun();
+  const [draft, setDraft] = useState(() => createDemoDraft());
+  const [change, setChange] = useState(null);
   const [modal, setModal] = useState(null);
-
+  function applyParameters(parameters) {
+    const next = createDemoDraft(parameters);
+    setChange({ oldDays: draft.parameters.windowDays, days: parameters.windowDays, oldThreshold: draft.parameters.minimumActiveDays, threshold: parameters.minimumActiveDays });
+    resetBuild();
+    setDraft(next);
+  }
   return (
     <div className="product-page">
-      <ProductHeader
-        active="build"
-        navigate={navigate}
-        buildStatus={t(buildState === "failed" ? "common.operationFailed" : buildState === "building" ? "trace.building" : buildState === "complete" ? "builder.buildComplete" : "builder.readyToBuild")}
-      />
-
+      <ProductHeader active="build" navigate={navigate}
+        buildStatus={t(buildState === "failed" ? "common.operationFailed" : buildState === "building" ? "trace.building" : buildState === "complete" ? "builder.buildComplete" : "builder.readyToBuild")} />
       <div className="builder-layout">
         <aside className="intent-panel">
           <span className="section-label">{t("builder.intent")}</span>
-          <p className="intent-copy">{t(product.intentKey)}</p>
-          <button className="text-link" onClick={() => setModal("intent")}>
-            <FileText size={15} />{t("builder.edit")}
-          </button>
+          <p className="intent-copy">{t("builder.sampleIntent", { days: draft.parameters.windowDays, threshold: draft.parameters.minimumActiveDays })}</p>
           <div className="agent-summary">
             <div className="summary-title"><Sparkle size={19} className="violet-text" /><span>{t("builder.agentSummary")}</span></div>
-            <div className="summary-item"><CheckCircle size={18} className="green-text" /><span><strong>{t("builder.planValid")}</strong><small>{t("builder.planValidDetail")}</small></span></div>
-            <div className="summary-item"><ListBullets size={18} className="violet-text" /><span><strong>{t("builder.nodes")}</strong><small>{t("builder.nodesDetail")}</small></span></div>
-            <div className="summary-item"><ShieldCheck size={18} className="cyan-text" /><span><strong>{t("builder.deterministic")}</strong><small>{t("builder.deterministicDetail")}</small></span></div>
-            <div className="summary-item"><CurrencyDollar size={18} className="violet-text" /><span><strong>{t("builder.estimatedCost")}</strong><small>{t("builder.estimatedCostDetail")}</small></span></div>
+            <div className="summary-item"><CheckCircle size={18} className="violet-text" /><span><strong>{t("builder.planValid")}</strong><small>{t("builder.planValidDetail")}</small></span></div>
+            <div className="summary-item"><ListBullets size={18} className="violet-text" /><span><strong>{t("builder.nodes")}</strong><small>{t("builder.nodesDetail", { nodes: draft.specification.dag.nodes.length, edges: draft.specification.dag.edges.length })}</small></span></div>
           </div>
+          <TemplateParameters parameters={draft.parameters} disabled={buildState === "building"} onApply={applyParameters} />
+          <p className="builder-change" role="status">{change ? t("builder.parameterChange", change) : t("builder.noLiveAgent")}</p>
         </aside>
-
-        <DagCanvas onSelectNode={setModal} />
-        <BuildReadiness />
+        <DagCanvas draft={draft} onSelectNode={setModal} />
+        <BuildReadiness draft={draft} onInspect={setModal} />
       </div>
-
-      <ExecutionTrace
-        buildState={buildState}
-        onBuild={startBuild}
-        onOpenDag={() => setModal("dag")}
-        onOpenSpec={() => setModal("spec")}
-      />
+      <ExecutionTrace buildState={buildState} onBuild={startBuild} onOpenDag={() => setModal("dag")} onOpenSpec={() => setModal("spec")} />
       {buildState === "failed" && <p className="inline-notice" role="alert">{t("common.operationFailed")}</p>}
-
-      {modal === "intent" && (
-        <Modal
-          title={t("builder.editIntentTitle")}
-          eyebrow={t("builder.naturalLanguageInput")}
-          onClose={() => setModal(null)}
-          footer={
-            <>
-              <Button onClick={() => setModal(null)}>{t("common.cancel")}</Button>
-              <Button variant="primary" icon={Sparkle} onClick={() => setModal(null)}>{t("builder.regenerateDraft")}</Button>
-            </>
-          }
-        >
-          <Field label={t("builder.intent")}><textarea key={locale} defaultValue={t(product.intentKey)} rows={6} /></Field>
-          <div className="inline-notice">
-            <Sparkle size={18} />
-            <span>{t("builder.regenerateNotice")}</span>
-          </div>
-        </Modal>
-      )}
-
-      {modal && modal !== "intent" && (
-        <Modal
-          title={modal === "spec" ? t("builder.specTitle") : modal === "dag" ? t("builder.structuredDag") : t(dagNodes.find((node) => node.title === modal)?.titleKey ?? "builder.structuredDag")}
-          eyebrow={t("builder.readOnlyDetail")}
-          width="640px"
-          onClose={() => setModal(null)}
-          footer={<Button variant="primary" onClick={() => setModal(null)}>{t("common.done")}</Button>}
-        >
-          <pre className="code-block">{modalDetail(modal)}</pre>
-        </Modal>
-      )}
+      {modal && <BuilderInspector selection={modal} draft={draft} onClose={() => setModal(null)} />}
     </div>
   );
 }

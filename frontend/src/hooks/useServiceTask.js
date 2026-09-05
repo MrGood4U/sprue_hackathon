@@ -29,5 +29,11 @@ export function useServiceTask(task) {
     }
   }, [task]);
 
-  return { ...state, run };
+  const reset = useCallback(() => {
+    activeRequest.current?.abort();
+    activeRequest.current = null;
+    setState(initialState);
+  }, []);
+
+  return { ...state, run, reset };
 }
