@@ -4,7 +4,7 @@ Updated on 2026-09-05 after the human team promoted this application to the main
 
 ## Current Baseline
 
-The existing seven pages are the product frontend and will be developed in place. Shared UI, navigation, tokens, localization, and page ownership carry forward. The current runtime has one demo workspace; live backend integration and the complete MVP remain unfinished.
+The existing seven pages are the product frontend and will be developed in place. Shared UI, navigation, tokens, localization, and page ownership carry forward. The backend now has an offline schema-driven DAG runtime for the cross-chain target, but the current frontend still uses one demo workspace and demo services; live backend integration and the complete MVP remain unfinished.
 
 Implemented browser behavior includes route navigation, English/Simplified Chinese selection with a local preference, page composition, dialogs, Graph access-mode selection, DAG inspection, and sample build/request/publication flows. `services/index.js` currently selects the demo adapter. Build and request flows run through feature hooks with cancellation and duplicate-submission protection; sample response objects live in `services/demo/fixtures/`.
 
@@ -28,7 +28,7 @@ Some secondary controls still have no implemented action, including wallet viewi
 
 ## Implementation Order
 
-1. Review [api-contract.md](../api-contract.md) Draft 0.3 against approved data-model version 1.5 before generating typed contracts. M1-M3 and H2 persistence directions are approved and initial tables exist; API/standby-worker scaffolding exists, but business handlers, production identity verification and queue processing remain unimplemented. A registered route returning 503 is not a usable frontend integration. Migrate the current JavaScript source incrementally to the selected TypeScript baseline and add real clients under `services/api/` as the backend becomes available.
+1. Review [api-contract.md](../api-contract.md) Draft 0.3 against approved data-model version 1.5 before generating typed contracts. M1-M3 and H2 persistence directions are approved and initial tables exist; the offline DAG runtime exists, but business handlers, production identity verification, Graph adapters and queue processing remain unimplemented. A registered route returning 503 is not a usable frontend integration. Migrate the current JavaScript source incrementally to the selected TypeScript baseline and add real clients under `services/api/` as the backend becomes available.
 2. Add session/workspace bootstrap, explicit demo-versus-live source selection, route identity resolution and not-found handling. A failed live request must display an error rather than fall back to sample success.
 3. Implement products and Agent planning, editable intent and DAG versions, durable build status, private output, and deployment. Preserve state through navigation using server-backed records.
 4. Integrate Graph credentials, Privy wallet and bounded spending, then Hedera recipient validation and optional x402 publication. Payment and fee evidence must come from the backend.
