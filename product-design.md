@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft 1.8, updated on 2026-09-06. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. Token review remains follow-up work; real backend, identity, wallet, and payment integrations are still pending.
+Draft 1.9, updated on 2026-09-06. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. Token review remains follow-up work; real backend, identity, wallet, and payment integrations are still pending.
 
 This document defines the MVP information architecture, page inventory, interactions, state behavior, desktop layout behavior, accessibility requirements, and screen-to-domain contracts. The decisions are recorded in [Confirmed Design Decisions](#confirmed-design-decisions).
 
@@ -318,10 +318,9 @@ Each step exposes a localized status and a concise evidence description. The pro
 
 **Desktop layout:**
 
-- Center: visual DAG and structured toolbar.
-- Left: concise intent and Agent summary with a link back to Agent.
+- Center: visual DAG and structured toolbar, using the full space left of the evidence inspector.
 - Right: selected-node/source details, validation, and output schema.
-- Bottom drawer: build trace and recent runs.
+- Bottom action bar: `Structured DAG`, `Review spec`, and `Run backend build`.
 
 The DAG is the primary surface on this page. Full specifications, schemas, and sample output are progressive-disclosure details opened from the relevant inspector instead of competing with the canvas by default.
 
@@ -342,7 +341,7 @@ The MVP has no arbitrary JavaScript/Python editor and no unrestricted custom-cod
 - A clear `Back to Agent` path for intent revision and regeneration.
 - Semantic diff between parent and proposed version.
 - Build confirmation summarizes version, source access modes, selected credentials/policies, configured maximum spend, refresh behavior, and known blockers.
-- Build progress uses a durable trace: queued, planning, source request, payment challenge when applicable, payment, transform nodes, validation, materialization, and completion.
+- Durable build progress remains available through run details; the Builder page does not show a simulated progress trace.
 - Output preview shows a bounded row sample, output schema, row count, freshness, provenance, and downloadable JSON only when allowed.
 - Failed and blocked runs retain successful prior deployment pointers.
 
@@ -569,7 +568,7 @@ The human team selected the third visual exploration on 2026-09-05. The directio
 - Inter for interface text and DM Mono for code, identifiers, hashes, JSON, and tabular amounts.
 - A compact 4/8-pixel spacing rhythm, 5-8 pixel radii, thin borders, and minimal elevation.
 - Phosphor icons provide one consistent icon family; emoji, custom inline SVG, and decorative illustration are not structural UI assets.
-- The Agent Planner uses a persistent account sidebar, product tabs, conversation, editable intent, and a backend-driven progress timeline. The DAG Builder uses the same shell with a central DAG canvas, concise intent summary, build-readiness evidence, progressive-disclosure inspectors, and a bottom execution trace.
+- The Agent Planner uses a persistent account sidebar, product tabs, conversation, editable intent, and a backend-driven progress timeline. The DAG Builder uses the same shell with a central DAG canvas, build-readiness evidence, progressive-disclosure inspectors, and a compact bottom action bar.
 - Motion is short, interruptible, and state-explanatory; `prefers-reduced-motion` is respected.
 - Operational text uses flat, high-contrast surfaces rather than glass or ambient animation.
 
@@ -700,3 +699,4 @@ Remaining review and integration work:
 | 2026-09-06 | Recorded Draft 1.6 by removing non-functional version/status controls from the product header and environment/provider readiness content from the persistent sidebar | Product workflows remain deep-linkable; readiness is contextualized in Wallet & Access and relevant pages |
 | 2026-09-06 | Recorded Draft 1.7 with Agent composer states for no plan, planning, and existing plan; added confirmation before aborting or replacing the current plan | Agent action hierarchy and recovery paths approved; durable cancellation remains an implementation concern |
 | 2026-09-06 | Recorded Draft 1.8 by keeping the existing-plan composer focused on `Recreate plan` and `Next`; manual creation remains available before planning or after a confirmed abort | Existing-plan action hierarchy simplified |
+| 2026-09-06 | Recorded Draft 1.9 by removing the Builder's duplicate left rail and simulated bottom progress trace while retaining the right evidence inspector and three build actions | Builder hierarchy simplified around the DAG and evidence |

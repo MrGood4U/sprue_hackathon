@@ -164,7 +164,7 @@
       "product-tabs": { "$value": "40px", "$type": "dimension", "$description": "Product tab strip height." },
       "builder-intent": { "$value": "190px", "$type": "dimension", "$description": "Builder intent and Agent-summary rail width." },
       "builder-evidence": { "$value": "270px", "$type": "dimension", "$description": "Builder readiness-evidence rail width." },
-      "builder-trace": { "$value": "189px", "$type": "dimension", "$description": "Builder execution-trace height." },
+      "builder-actions": { "$value": "76px", "$type": "dimension", "$description": "Builder bottom action-bar height." },
       "dag-node-width": { "$value": "94px", "$type": "dimension", "$description": "Canonical DAG node width." },
       "dag-node-height": { "$value": "128px", "$type": "dimension", "$description": "Canonical DAG node height." },
       "content-max": { "$value": "1164px", "$type": "dimension", "$description": "Maximum public consumer console width." },
@@ -312,7 +312,7 @@
       "product-tabs": { "$value": "{primitive.dimension.product-tabs}", "$type": "dimension", "$description": "Product tab strip height." },
       "builder-intent": { "$value": "{primitive.dimension.builder-intent}", "$type": "dimension", "$description": "Builder intent rail width." },
       "builder-evidence": { "$value": "{primitive.dimension.builder-evidence}", "$type": "dimension", "$description": "Builder evidence rail width." },
-      "builder-trace": { "$value": "{primitive.dimension.builder-trace}", "$type": "dimension", "$description": "Builder execution trace height." },
+      "builder-actions": { "$value": "{primitive.dimension.builder-actions}", "$type": "dimension", "$description": "Builder bottom action-bar height." },
       "dag-node-width": { "$value": "{primitive.dimension.dag-node-width}", "$type": "dimension", "$description": "DAG node width." },
       "dag-node-height": { "$value": "{primitive.dimension.dag-node-height}", "$type": "dimension", "$description": "DAG node height." },
       "content-max": { "$value": "{primitive.dimension.content-max}", "$type": "dimension", "$description": "Maximum public console width." },
@@ -385,9 +385,9 @@
     "builder": {
       "intent-width": { "$value": "{semantic.size.builder-intent}", "$type": "dimension", "$description": "Builder intent rail width." },
       "evidence-width": { "$value": "{semantic.size.builder-evidence}", "$type": "dimension", "$description": "Builder evidence rail width." },
-      "trace-height": { "$value": "{semantic.size.builder-trace}", "$type": "dimension", "$description": "Builder execution trace height." },
+      "actions-height": { "$value": "{semantic.size.builder-actions}", "$type": "dimension", "$description": "Builder bottom action-bar height." },
       "rail-background": { "$value": "{semantic.color.background.rail}", "$type": "color", "$description": "Builder side-rail background." },
-      "trace-background": { "$value": "{semantic.color.background.panel-subtle}", "$type": "color", "$description": "Execution trace background." }
+      "actions-background": { "$value": "{semantic.color.background.panel-subtle}", "$type": "color", "$description": "Builder action-bar background." }
     },
     "dag": {
       "node-width": { "$value": "{semantic.size.dag-node-width}", "$type": "dimension", "$description": "DAG node width." },

@@ -245,8 +245,8 @@
   --primitive-dimension-builder-intent: 190px;
   /* Builder readiness-evidence rail width. */
   --primitive-dimension-builder-evidence: 270px;
-  /* Builder execution-trace height. */
-  --primitive-dimension-builder-trace: 189px;
+  /* Builder bottom action-bar height. */
+  --primitive-dimension-builder-actions: 76px;
   /* Canonical DAG node width. */
   --primitive-dimension-dag-node-width: 94px;
   /* Canonical DAG node height. */
@@ -481,8 +481,8 @@
   --size-builder-intent: var(--primitive-dimension-builder-intent);
   /* Builder evidence rail width. */
   --size-builder-evidence: var(--primitive-dimension-builder-evidence);
-  /* Builder execution trace height. */
-  --size-builder-trace: var(--primitive-dimension-builder-trace);
+  /* Builder bottom action-bar height. */
+  --size-builder-actions: var(--primitive-dimension-builder-actions);
   /* DAG node width. */
   --size-dag-node-width: var(--primitive-dimension-dag-node-width);
   /* DAG node height. */
@@ -591,12 +591,12 @@
   --builder-intent-width: var(--size-builder-intent);
   /* Builder evidence rail width. */
   --builder-evidence-width: var(--size-builder-evidence);
-  /* Builder execution trace height. */
-  --builder-trace-height: var(--size-builder-trace);
+  /* Builder bottom action-bar height. */
+  --builder-actions-height: var(--size-builder-actions);
   /* Builder side-rail background. */
   --builder-rail-background: var(--color-background-rail);
-  /* Execution trace background. */
-  --builder-trace-background: var(--color-background-panel-subtle);
+  /* Builder action-bar background. */
+  --builder-actions-background: var(--color-background-panel-subtle);
   /* DAG node width. */
   --dag-node-width: var(--size-dag-node-width);
   /* DAG node height. */
