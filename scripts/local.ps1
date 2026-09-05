@@ -75,7 +75,7 @@ function Test-LocalStack {
         throw 'Public configuration or CORS validation failed.'
     }
     Invoke-Compose -Arguments @('exec', '-T', 'worker', 'node', '-e', "fetch('http://127.0.0.1:3002/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))")
-    Write-Output "Local framework ready: $consoleUrl (business pages still use labeled demo data)."
+    Write-Output "Local framework ready: $consoleUrl (business pages use the backend demo runtime)."
 }
 
 # Prevent inherited shell values from silently overriding the reviewed local file.
