@@ -5,6 +5,14 @@
   "type": "module",
   "engines": { "node": ">=24 <25" },
   "scripts": {
+    "dev:api": "node --import tsx --watch src/app/api.ts",
+    "dev:worker": "node --import tsx --watch src/app/worker.ts",
+    "build": "tsc -p tsconfig.build.json && node --import tsx scripts/copy-build-assets.ts",
+    "start:api": "node dist/src/app/api.js",
+    "start:worker": "node dist/src/app/worker.js",
+    "api:spec": "node --import tsx scripts/generate-openapi.ts",
+    "api:spec:check": "node --import tsx scripts/generate-openapi.ts --check",
+    "test:build": "node --import tsx scripts/smoke-build.ts",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
     "db:migrate": "node --import tsx scripts/migrate.ts",
@@ -14,10 +22,11 @@
     "db:up": "docker compose -f compose.db.yml up -d --wait",
     "db:stop": "docker compose -f compose.db.yml stop"
   },
-  "dependencies": { "drizzle-orm": "0.45.2", "pg": "8.23.0" },
+  "dependencies": { "drizzle-orm": "0.45.2", "pg": "8.23.0", "express": "5.2.1", "zod": "4.5.4" },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",
     "@types/node": "24.13.3",
+    "@types/express": "5.0.6",
     "@types/pg": "8.23.1",
     "tsx": "4.23.13",
     "typescript": "7.0.2"

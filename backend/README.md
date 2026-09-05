@@ -1,17 +1,17 @@
 # Sprue Backend
 
-This directory owns the Sprue API, worker, deterministic DAG runtime, persistence, and external-service adapters. The first implemented slice is the [database foundation](database.md): data-model 1.4, 51 tables, domain-split SQL migrations and Drizzle mappings, setup scripts and isolated tests. API/worker processes, the compiler/Agent, queue dispatch and live integrations are not implemented yet.
+This directory owns the Sprue API, worker, deterministic DAG runtime, persistence, and external-service adapters. The first implemented slice is the [database foundation](database.md): data-model 1.4, 51 tables, domain-split SQL migrations and Drizzle mappings, setup scripts and isolated tests. The [backend framework](framework.md) now adds runnable API/standby-worker processes, shared security/transport middleware, 100 domain-owned route registrations, public app configuration, a verifier-gated identity read service and generated OpenAPI. Business commands, compiler/Agent, queue dispatch and live integrations remain unimplemented.
 
-## Planned Deployable Roles
+## Deployable Roles
 
-One backend codebase will expose at least two process commands:
+One backend codebase now exposes two process commands:
 
-- `api`: public control-plane endpoints and hosted product API routes;
-- `worker`: private builds, validation, materialization, refreshes, and reconciliation jobs.
+- `npm run dev:api` / `npm run start:api`: public API framework;
+- `npm run dev:worker` / `npm run start:worker`: private standby worker with probes, no task consumption yet.
 
 The evaluator profile runs these roles on Railway with PostgreSQL. The self-hosted profile runs equivalent roles through Docker Compose. Provider configuration must not alter domain behavior.
 
-## Planned Source Layout
+## Source Layout and Ownership
 
 ```text
 backend/
@@ -19,8 +19,8 @@ backend/
 ├── src/
 │   ├── app/                # Bootstrap, validated configuration, and process composition
 │   ├── http/
-│   │   ├── control/        # Authenticated Creator Console API
-│   │   └── products/       # Hosted product and x402-gated routes
+│   │   ├── control/        # Domain route catalogs and implemented identity controller
+│   │   └── products/       # Reserved public/recovery/generated data routes
 │   ├── modules/
 │   │   ├── identity/       # Privy identity and workspace authorization
 │   │   ├── products/       # Product lifecycle and versioning
@@ -31,14 +31,18 @@ backend/
 │   │   ├── deployments/    # Active version and materialization management
 │   │   ├── payments/       # Upstream expenses and downstream x402 settlement
 │   │   └── evidence/       # Trace, receipt, and reconciliation projections
-│   ├── jobs/               # Worker dispatch, handlers, retries, and schedules
+│   ├── jobs/               # Standby lifecycle; durable runner remains planned
 │   ├── db/                 # Implemented client, migration runner, seeds, and typed schema
 │   ├── integrations/       # Replaceable provider adapters
 │   └── shared/             # Narrow cross-cutting primitives only
 ├── migrations/             # Implemented ordered SQL, authoritative constraints
 ├── scripts/                # Implemented migration/status/seed/schema-check CLIs
 ├── tests/                  # Implemented isolated database contract tests
-├── compose.db.yml          # Local database only; full app Compose remains planned
+├── compose.db.yml          # Local database
+├── compose.backend.yml     # API + standby worker + explicit migration task
+├── Dockerfile              # Shared compiled API/worker image
+├── openapi.json            # Generated framework contract; reserved routes identified
+├── framework.md
 ├── database.md
 └── README.md
 ```
@@ -55,11 +59,11 @@ backend/
 - Keep upstream Graph expenses, downstream Hedera sales, creator proceeds, and Sprue fees separately auditable by network and asset.
 - Add code only after checking the approved `data-model.md` and the corresponding sponsor reference.
 
-The selected runtime baseline is Node.js 24 LTS, Express, and TypeScript, with PostgreSQL, pg/Drizzle, and pg-boss as recorded in the root plan. Database packages are pinned in package.json/package-lock.json; Express and pg-boss will be installed with their implementation. Follow database.md for configuration, commands and verification limits.
+The selected runtime baseline is Node.js 24 LTS, Express, and TypeScript, with PostgreSQL, pg/Drizzle, and pg-boss as recorded in the root plan. Database, Express 5 and Zod packages are pinned in package.json/package-lock.json; pg-boss will be installed with its durable runner. Follow database.md for configuration, commands and verification limits.
 
 ## Proposed HTTP Contract
 
-See [api-contract.md](../api-contract.md) Draft 0.2 and its domain documents under `docs/api/` for route, request/response, authorization, idempotency, concurrency, trace, and payment boundaries. M1-M3 directions were approved and mapped into data-model 1.4; the endpoints and command services are not implemented. Provider and capped-buyer gates remain prerequisites for live financial behavior.
+See [api-contract.md](../api-contract.md) Draft 0.3 and its domain documents under `docs/api/` for route, request/response, authorization, idempotency, concurrency, trace, and payment boundaries. M1-M3 directions were approved and mapped into data-model 1.4; only the documented framework surfaces are implemented; reserved handlers and all command services remain unavailable. Provider and capped-buyer gates remain prerequisites for live financial behavior.
 
 ## Proposed Agent Harness
 

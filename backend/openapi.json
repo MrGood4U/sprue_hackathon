@@ -1,0 +1,5718 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Sprue Backend Framework",
+    "version": "0.2.0",
+    "description": "Route reservations are not implemented business APIs. No configured production identity verifier, queue consumers or payments."
+  },
+  "paths": {
+    "/api/v1/app-config": {
+      "get": {
+        "operationId": "getApiV1AppConfig",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Actual server configuration; capabilities remain disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AppConfig"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "implemented",
+        "security": []
+      }
+    },
+    "/api/v1/bootstrap": {
+      "post": {
+        "operationId": "postApiV1Bootstrap",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "operationId": "getApiV1Me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Existing identity, only with a configured verified identity adapter",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Bootstrap"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "adapter-gated",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/overview": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdOverview",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/wallet-access": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdWalletAccess",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/wallets": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdWallets",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/wallets/{walletId}": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdWalletsWalletId",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "walletId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/wallets/synchronize": {
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdWalletsSynchronize",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/wallets/{walletId}/refresh-balances": {
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdWalletsWalletIdRefreshBalances",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "walletId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/wallets/{walletId}/funding-instructions": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdWalletsWalletIdFundingInstructions",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "walletId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/graph-credentials": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdGraphCredentials",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdGraphCredentials",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/graph-credentials/{credentialId}": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdGraphCredentialsCredentialId",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "credentialId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/graph-credentials/{credentialId}/validate": {
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdGraphCredentialsCredentialIdValidate",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "credentialId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/graph-credentials/{credentialId}/rotate": {
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdGraphCredentialsCredentialIdRotate",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "credentialId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/graph-credentials/{credentialId}/revoke": {
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdGraphCredentialsCredentialIdRevoke",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "credentialId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/graph-delegation-config": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdGraphDelegationConfig",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/wallets/{walletId}/synchronize-grants": {
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdWalletsWalletIdSynchronizeGrants",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "walletId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/signer-grants/{grantId}": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdSignerGrantsGrantId",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "grantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/signer-grants/{grantId}/block": {
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdSignerGrantsGrantIdBlock",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "grantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/spending-policies": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdSpendingPolicies",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdSpendingPolicies",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/spending-policies/{policyId}": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdSpendingPoliciesPolicyId",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "policyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "patchApiV1WorkspacesWorkspaceIdSpendingPoliciesPolicyId",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "policyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/spending-policies/{policyId}/activate": {
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdSpendingPoliciesPolicyIdActivate",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "policyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/recipient-capabilities": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdRecipientCapabilities",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/wallets/{walletId}/resolve-hedera": {
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdWalletsWalletIdResolveHedera",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "walletId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/wallet-addresses/{addressId}/refresh-capabilities": {
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdWalletAddressesAddressIdRefreshCapabilities",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "addressId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/products": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdProducts",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdProducts",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/products/{productId}": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdProductsProductId",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "patchApiV1WorkspacesWorkspaceIdProductsProductId",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/products/{productId}/runs": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdProductsProductIdRuns",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdProductsProductIdRuns",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/products/{productId}/versions": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdProductsProductIdVersions",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdProductsProductIdVersions",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/agent-sessions": {
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdAgentSessions",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdAgentSessions",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/agent-sessions/{sessionId}": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdAgentSessionsSessionId",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/agent-sessions/{sessionId}/messages": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdAgentSessionsSessionIdMessages",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdAgentSessionsSessionIdMessages",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/agent-sessions/{sessionId}/proposals/{messageId}/discard": {
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdAgentSessionsSessionIdProposalsMessageIdDiscard",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "messageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/agent-sessions/{sessionId}/planning/{commandId}/cancel": {
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdAgentSessionsSessionIdPlanningCommandIdCancel",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "commandId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/agent-sessions/{sessionId}/proposals/{messageId}": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdAgentSessionsSessionIdProposalsMessageId",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "messageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/operator-registry": {
+      "get": {
+        "operationId": "getApiV1OperatorRegistry",
+        "parameters": [],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/source-snapshots/{snapshotId}": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdSourceSnapshotsSnapshotId",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "snapshotId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/source-snapshots/{snapshotId}/schema": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdSourceSnapshotsSnapshotIdSchema",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "snapshotId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/products/{productId}/versions/{versionId}": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdProductsProductIdVersionsVersionId",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "versionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/products/{productId}/versions/{versionId}/diff": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdProductsProductIdVersionsVersionIdDiff",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "versionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/products/{productId}/versions/{versionId}/validate": {
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdProductsProductIdVersionsVersionIdValidate",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "versionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/products/{productId}/versions/{versionId}/layout": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdProductsProductIdVersionsVersionIdLayout",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "versionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      },
+      "put": {
+        "operationId": "putApiV1WorkspacesWorkspaceIdProductsProductIdVersionsVersionIdLayout",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "versionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/products/{productId}/build-preflight": {
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdProductsProductIdBuildPreflight",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/runs/{runId}": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdRunsRunId",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/runs/{runId}/cancel": {
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdRunsRunIdCancel",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/runs/{runId}/resume": {
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdRunsRunIdResume",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/runs/{runId}/attempts": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdRunsRunIdAttempts",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/runs/{runId}/nodes": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdRunsRunIdNodes",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/runs/{runId}/source-requests": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdRunsRunIdSourceRequests",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/source-requests/{sourceRequestId}": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdSourceRequestsSourceRequestId",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sourceRequestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/runs/{runId}/output": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdRunsRunIdOutput",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/artifacts/{artifactId}": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdArtifactsArtifactId",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "artifactId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/artifacts/{artifactId}/content": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdArtifactsArtifactIdContent",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "artifactId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/products/{productId}/deployments": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdProductsProductIdDeployments",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdProductsProductIdDeployments",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/deployments/{deploymentId}": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdDeploymentsDeploymentId",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deploymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/deployments/{deploymentId}/activation-preflight": {
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdDeploymentsDeploymentIdActivationPreflight",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deploymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/deployments/{deploymentId}/activate": {
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdDeploymentsDeploymentIdActivate",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deploymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/deployments/{deploymentId}/contract": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdDeploymentsDeploymentIdContract",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deploymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/deployments/{deploymentId}/trace-streams": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdDeploymentsDeploymentIdTraceStreams",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deploymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/deployments/{deploymentId}/access-requests": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdDeploymentsDeploymentIdAccessRequests",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deploymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/deployments/{deploymentId}/private-requests": {
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdDeploymentsDeploymentIdPrivateRequests",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deploymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/access-requests/{accessRequestId}": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdAccessRequestsAccessRequestId",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "accessRequestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/deployments/{deploymentId}/api-credentials": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdDeploymentsDeploymentIdApiCredentials",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deploymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdDeploymentsDeploymentIdApiCredentials",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deploymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/deployments/{deploymentId}/api-credentials/{credentialId}/revoke": {
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdDeploymentsDeploymentIdApiCredentialsCredentialIdRevoke",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deploymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "credentialId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/deployments/{deploymentId}/refresh-schedule": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdDeploymentsDeploymentIdRefreshSchedule",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deploymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "patchApiV1WorkspacesWorkspaceIdDeploymentsDeploymentIdRefreshSchedule",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deploymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/deployments/{deploymentId}/refresh-preflight": {
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdDeploymentsDeploymentIdRefreshPreflight",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deploymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/deployments/{deploymentId}/refreshes": {
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdDeploymentsDeploymentIdRefreshes",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deploymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/deployments/{deploymentId}/publications": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdDeploymentsDeploymentIdPublications",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deploymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdDeploymentsDeploymentIdPublications",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deploymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/deployments/{deploymentId}/publication-preflight": {
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdDeploymentsDeploymentIdPublicationPreflight",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deploymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/deployments/{deploymentId}/publications/{publicationId}": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdDeploymentsDeploymentIdPublicationsPublicationId",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deploymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "publicationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/deployments/{deploymentId}/publications/{publicationId}/activate": {
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdDeploymentsDeploymentIdPublicationsPublicationIdActivate",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deploymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "publicationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/deployments/{deploymentId}/publications/{publicationId}/retire": {
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdDeploymentsDeploymentIdPublicationsPublicationIdRetire",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deploymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "publicationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/payments/{paymentIntentId}": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdPaymentsPaymentIntentId",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "paymentIntentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/payments/{paymentIntentId}/reconcile": {
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdPaymentsPaymentIntentIdReconcile",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "paymentIntentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/financial-summary": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdFinancialSummary",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/ledger": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdLedger",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/payments": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdPayments",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/deployments/{deploymentId}/sales": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdDeploymentsDeploymentIdSales",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deploymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/commands/{commandId}": {
+      "get": {
+        "operationId": "getApiV1CommandsCommandId",
+        "parameters": [
+          {
+            "name": "commandId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/trace-streams/{streamId}": {
+      "get": {
+        "operationId": "getApiV1TraceStreamsStreamId",
+        "parameters": [
+          {
+            "name": "streamId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/trace-streams/{streamId}/events": {
+      "get": {
+        "operationId": "getApiV1TraceStreamsStreamIdEvents",
+        "parameters": [
+          {
+            "name": "streamId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/trace-streams/{streamId}/events/stream": {
+      "get": {
+        "operationId": "getApiV1TraceStreamsStreamIdEventsStream",
+        "parameters": [
+          {
+            "name": "streamId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/public/products/{endpointSlug}": {
+      "get": {
+        "operationId": "getApiV1PublicProductsEndpointSlug",
+        "parameters": [
+          {
+            "name": "endpointSlug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": []
+      }
+    },
+    "/api/v1/public/requests/{correlationId}/receipt": {
+      "get": {
+        "operationId": "getApiV1PublicRequestsCorrelationIdReceipt",
+        "parameters": [
+          {
+            "name": "correlationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "requestAccess": []
+          }
+        ]
+      }
+    },
+    "/api/v1/public/requests/{correlationId}/retry-delivery": {
+      "post": {
+        "operationId": "postApiV1PublicRequestsCorrelationIdRetryDelivery",
+        "parameters": [
+          {
+            "name": "correlationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": [
+          {
+            "requestAccess": []
+          }
+        ]
+      }
+    },
+    "/data/v1/{endpointSlug}": {
+      "get": {
+        "operationId": "getDataV1EndpointSlug",
+        "parameters": [
+          {
+            "name": "endpointSlug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "503": {
+            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "reserved",
+        "security": []
+      }
+    },
+    "/healthz": {
+      "get": {
+        "operationId": "healthz",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Minimal process/database status"
+          }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "operationId": "readyz",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Minimal process/database status"
+          },
+          "503": {
+            "description": "Database migrations unavailable or process stopping"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "privyBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Privy access token"
+      },
+      "requestAccess": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Sprue-Request-Access"
+      }
+    },
+    "schemas": {
+      "AppConfig": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "const": "1"
+          },
+          "environment": {
+            "type": "string",
+            "enum": [
+              "local",
+              "demo",
+              "self_hosted"
+            ]
+          },
+          "privyAppId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "consolePublicUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "dataPublicBaseUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "demoProductUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "features": {
+            "type": "object",
+            "properties": {
+              "graphCustomerApiKey": {
+                "type": "boolean",
+                "const": false
+              },
+              "graphX402": {
+                "type": "boolean",
+                "const": false
+              },
+              "hederaPublication": {
+                "type": "boolean",
+                "const": false
+              },
+              "hostedDemoConsumer": {
+                "type": "boolean",
+                "const": false
+              },
+              "serviceFees": {
+                "type": "boolean",
+                "const": false
+              },
+              "liveGraphExecution": {
+                "type": "boolean",
+                "const": false
+              }
+            },
+            "required": [
+              "graphCustomerApiKey",
+              "graphX402",
+              "hederaPublication",
+              "hostedDemoConsumer",
+              "serviceFees",
+              "liveGraphExecution"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "apiVersion",
+          "environment",
+          "privyAppId",
+          "consolePublicUrl",
+          "dataPublicBaseUrl",
+          "demoProductUrl",
+          "features"
+        ],
+        "additionalProperties": false
+      },
+      "Bootstrap": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "displayName": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "active",
+                  "suspended",
+                  "closed"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "displayName",
+              "status"
+            ],
+            "additionalProperties": false
+          },
+          "workspaces": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "slug": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "suspended",
+                    "archived"
+                  ]
+                },
+                "role": {
+                  "type": "string",
+                  "const": "owner"
+                },
+                "lockVersion": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "id",
+                "slug",
+                "name",
+                "status",
+                "role",
+                "lockVersion"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "defaultWorkspaceId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "user",
+          "workspaces",
+          "defaultWorkspaceId"
+        ],
+        "additionalProperties": false
+      },
+      "Meta": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string"
+          },
+          "apiVersion": {
+            "type": "string",
+            "const": "1"
+          },
+          "dataSource": {
+            "type": "string",
+            "const": "live"
+          },
+          "observedAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "required": [
+          "requestId",
+          "apiVersion",
+          "dataSource",
+          "observedAt"
+        ],
+        "additionalProperties": false
+      },
+      "ErrorEnvelope": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "retryAction": {
+                "type": "string"
+              },
+              "fields": {
+                "type": "array",
+                "items": {}
+              },
+              "blockers": {
+                "type": "array",
+                "items": {}
+              }
+            },
+            "required": [
+              "code",
+              "message",
+              "retryAction",
+              "fields",
+              "blockers"
+            ],
+            "additionalProperties": false
+          },
+          "meta": {
+            "type": "object",
+            "properties": {
+              "requestId": {
+                "type": "string"
+              },
+              "apiVersion": {
+                "type": "string",
+                "const": "1"
+              },
+              "dataSource": {
+                "type": "string",
+                "const": "live"
+              },
+              "observedAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              }
+            },
+            "required": [
+              "requestId",
+              "apiVersion",
+              "dataSource",
+              "observedAt"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "error",
+          "meta"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}

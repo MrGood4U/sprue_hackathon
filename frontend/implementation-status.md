@@ -26,7 +26,7 @@ Some secondary controls still have no implemented action, including wallet viewi
 
 ## Implementation Order
 
-1. Review [api-contract.md](../api-contract.md) Draft 0.2 against approved data-model version 1.4 before generating typed contracts. M1-M3 and H2 persistence directions are approved and initial tables exist; API/worker services remain unimplemented. Migrate the current JavaScript source incrementally to the selected TypeScript baseline and add real clients under `services/api/` as the backend becomes available.
+1. Review [api-contract.md](../api-contract.md) Draft 0.3 against approved data-model version 1.4 before generating typed contracts. M1-M3 and H2 persistence directions are approved and initial tables exist; API/standby-worker scaffolding exists, but business handlers, production identity verification and queue processing remain unimplemented. A registered route returning 503 is not a usable frontend integration. Migrate the current JavaScript source incrementally to the selected TypeScript baseline and add real clients under `services/api/` as the backend becomes available.
 2. Add session/workspace bootstrap, explicit demo-versus-live source selection, route identity resolution and not-found handling. A failed live request must display an error rather than fall back to sample success.
 3. Implement products and Agent planning, editable intent and DAG versions, durable build status, private output, and deployment. Preserve state through navigation using server-backed records.
 4. Integrate Graph credentials, Privy wallet and bounded spending, then Hedera recipient validation and optional x402 publication. Payment and fee evidence must come from the backend.

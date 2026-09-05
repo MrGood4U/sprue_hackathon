@@ -1,0 +1,10 @@
+export type Method = "GET" | "POST" | "PUT" | "PATCH";
+export interface RouteDefinition {
+  method: Method;
+  path: string;
+  operationId: string;
+  audience: "creator" | "public" | "recovery" | "data";
+  implementation: "reserved" | "app-config" | "me";
+  idempotency: boolean;
+  ifMatch: boolean;
+}

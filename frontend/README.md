@@ -50,7 +50,7 @@ src/
 
 As real services replace the demo adapter, extend these boundaries by responsibility:
 
-The proposed HTTP mapping is [api-contract.md](../api-contract.md) Draft 0.2. Its page-to-API matrix and domain DTOs guide client implementation after review. Do not treat the present no-argument demo service methods or fixture IDs as a production contract.
+The proposed HTTP mapping is [api-contract.md](../api-contract.md) Draft 0.3. Its page-to-API matrix and domain DTOs guide client implementation after review. Do not treat the present no-argument demo service methods or fixture IDs as a production contract.
 
 ```text
 src/

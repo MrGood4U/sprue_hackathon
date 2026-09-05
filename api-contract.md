@@ -2,9 +2,9 @@
 
 ## Status and Authority
 
-Draft 0.2, authored on 2026-09-05 for human review. This is a proposed HTTP contract, not a description of implemented endpoints. The frontend currently uses demo services; the database foundation exists, but API/worker services have not been implemented.
+Draft 0.3, authored on 2026-09-05 for human review. This is the target HTTP contract, not a claim that every endpoint is implemented. The frontend still uses demo services. The database and API/standby-worker framework exist; see [backend/framework.md](backend/framework.md) for the exact implemented and reserved boundary.
 
-Inputs: [data model 1.4](data-model.md), [product design 1.3](product-design.md), [current frontend ownership](frontend/README.md), and [implementation status](frontend/implementation-status.md). Database invariants take precedence over fixture behavior. M1-M3 persistence/lifecycle directions were approved on 2026-09-05 and now map to data-model 1.4 and the initial database foundation. Endpoints remain unimplemented; this draft does not establish provider capability or authorize a fee, funded operation, or deployment.
+Inputs: [data model 1.4](data-model.md), [product design 1.3](product-design.md), [current frontend ownership](frontend/README.md), and [implementation status](frontend/implementation-status.md). Database invariants take precedence over fixture behavior. M1-M3 persistence/lifecycle directions were approved on 2026-09-05 and now map to data-model 1.4 and the initial database foundation. Only process probes, public app configuration and verifier-gated identity reads are implemented; other domain routes remain reserved and return 503 without side effects; this draft does not establish provider capability or authorize a fee, funded operation, or deployment.
 
 The specification uses resource-oriented JSON APIs, durable asynchronous commands, and resumable trace reads. HTTP transport is shared by Railway and Docker deployments. No browser calls the database, Graph payment adapter, private Privy signer, or Blocky402 settlement endpoint directly.
 
@@ -106,6 +106,8 @@ Error response:
 | 401 | `AUTH_REQUIRED`, `AUTH_EXPIRED`, `API_CREDENTIAL_INVALID`, `REQUEST_ACCESS_REQUIRED` |
 | 403 | `WORKSPACE_SUSPENDED`, `CAPABILITY_DISABLED`; never suggest bypassing a wallet policy |
 | 404 | `RESOURCE_NOT_FOUND`, `PUBLIC_PRODUCT_NOT_FOUND` |
+| 405 | `METHOD_NOT_ALLOWED`; data HEAD never invokes GET |
+| 415 | `UNSUPPORTED_MEDIA_TYPE`; require uncompressed JSON for JSON-body operations |
 | 409 | `IDEMPOTENCY_CONFLICT`, `OPERATION_IN_PROGRESS`, `INVALID_STATE`, `READINESS_BLOCKED`, `PAYMENT_UNCERTAIN`, `PAYMENT_REPLAY_CONFLICT` |
 | 410 | `REQUEST_ACCESS_EXPIRED`, `PINNED_RESULT_UNAVAILABLE`; no automatic new charge |
 | 412 | `RESOURCE_CHANGED`; reload and ask the user to review the new state |
@@ -113,7 +115,8 @@ Error response:
 | 422 | `VALIDATION_FAILED`, `UNSUPPORTED_OPERATOR`, `SOURCE_ACCESS_INVALID`, `PRICE_INVALID`, `SERVICE_FEE_NOT_ENABLED` |
 | 428 | `PRECONDITION_REQUIRED` for a missing required If-Match |
 | 429 | `RATE_LIMITED`; include Retry-After, retain the logical command key |
-| 502 / 503 | `DEPENDENCY_UNAVAILABLE`, `MATERIALIZATION_UNAVAILABLE`, `SETTLEMENT_PENDING`; distinguish definite pre-submit failure from uncertain side effects |
+| 500 | `INTERNAL_ERROR`; sanitized message, never stack/provider/SQL details |
+| 502 / 503 | `DEPENDENCY_UNAVAILABLE`, `MATERIALIZATION_UNAVAILABLE`, `SETTLEMENT_PENDING`; distinguish definite pre-submit failure from uncertain side effects. Reserved framework handlers use `CAPABILITY_NOT_IMPLEMENTED` with retryAction none |
 
 402 belongs only to the downstream x402 data protocol. Insufficient upstream Graph budget appears as a control-plane blocker, not a browser payment challenge. Accepted background commands report subsequent failures in their resource state rather than changing the original 202 response.
 
@@ -131,7 +134,7 @@ Buttons disable while submitting, but the server enforces deduplication. Preserv
 
 ## 4. Durable Commands and Traces
 
-Long-running mutations return 202 only after durable acceptance and transactional queue dispatch. Synchronous creates return 201; synchronous updates/read commands return 200. Resource creates include Location. No 202 is a success claim for a wallet action, build, deployment, or settlement.
+Long-running mutations return 202 only after durable acceptance and transactional queue dispatch. Synchronous creates return 201; synchronous updates/read commands return 200. Resource creates include Location. In the current framework, no route returns 202: asynchronous acceptance is reserved until a durable command service and queue handoff are implemented. No 202 is a success claim for a wallet action, build, deployment, or settlement.
 
 ```json
 {
@@ -197,7 +200,7 @@ Default fee remains disabled. UI sample price, 5% fee, five-minute cadence, API 
 
 ## 7. Verification and Implementation Handoff
 
-Before endpoint implementation, review the DTO/runtime schemas and implement the approved M1-M3 service transactions against data-model 1.4. E1/E2 gate only the corresponding live provider/buyer capabilities, not non-paid product development. Add OpenAPI and validated runtime/TypeScript schemas from the reviewed contract, then generate or implement typed frontend clients. This Markdown draft is intentionally not advertised as an executable OpenAPI specification.
+Before endpoint implementation, review the DTO/runtime schemas and implement the approved M1-M3 service transactions against data-model 1.4. E1/E2 gate only the corresponding live provider/buyer capabilities, not non-paid product development. The generated [framework OpenAPI](backend/openapi.json) now covers route reservations and implemented transport/identity schemas only. Add reviewed business request/response schemas with each handler before generating complete frontend clients. Reserved operations intentionally declare no successful business response.
 
 The endpoint catalog maps the complete designed UI; it is not a requirement to implement every convenience read before the first vertical slice. Use this order:
 
@@ -210,4 +213,4 @@ Convenience read endpoints may initially compose existing read models internally
 
 Acceptance tests must include cross-workspace object access, unknown fields, stale If-Match, concurrent duplicate commands, queue-crash recovery, trace reconnect, immutable version edits, no build-triggered activation, refresh/activation races, secret redaction, credential rotation with no x402 fallback, string-safe monetary arithmetic, revoked/drifted authority, separate network totals, pinned 402 retries, replay rejection, facilitator uncertainty, and payment-confirmed/delivery-failed recovery without a second charge. Test both Vercel/Railway and Docker networking; do not rely on a Vercel serverless request lasting for an entire build.
 
-This contract creates no runtime endpoints; its approved M1-M3 persistence is implemented separately in backend/migrations. Current provider references were checked only for authentication and x402 wire conventions; live interoperability is still unverified.
+Framework implementation now reserves all cataloged routes; its approved M1-M3 persistence remains in backend/migrations. No reserved handler accepts a command, verifies a payment or returns simulated business success. Current provider references were checked only for authentication and x402 wire conventions; live interoperability is still unverified.

@@ -1,0 +1,6 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "rootDir": ".", "outDir": "dist", "noEmitOnError": true },
+  "include": ["src/**/*.ts", "scripts/migrate.ts", "scripts/seed.ts", "scripts/check-schema.ts"],
+  "exclude": ["tests", "dist", "node_modules"]
+}

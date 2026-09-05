@@ -2,7 +2,7 @@
 
 Describe it. Shape it. Sell it.
 
-Sprue is a hosted web product that turns natural-language onchain data logic into persistent, reusable, and optionally monetizable APIs. It is a browser application, not a Windows or macOS native client. Product structure, technical selection, and data-model version 1.4 are approved. MVP implementation now includes the maintained frontend and initial backend database foundation. The seven-page application in `frontend/` is the maintained product frontend, using the selected Evidence-First Console design and English/Simplified Chinese localization. It currently runs against demo data while backend integration proceeds. The initial downstream payment profile is Hedera testnet with HBAR through Blocky402. No runnable MVP or live payment integration exists yet.
+Sprue is a hosted web product that turns natural-language onchain data logic into persistent, reusable, and optionally monetizable APIs. It is a browser application, not a Windows or macOS native client. Product structure, technical selection, and data-model version 1.4 are approved. MVP implementation now includes the maintained frontend, backend database foundation and API/standby-worker framework. The seven-page application in `frontend/` is the maintained product frontend, using the selected Evidence-First Console design and English/Simplified Chinese localization. It currently runs against demo data while backend integration proceeds. The initial downstream payment profile is Hedera testnet with HBAR through Blocky402. No runnable MVP or live payment integration exists yet.
 
 ## Selected Sponsors
 
@@ -33,7 +33,7 @@ Open `http://127.0.0.1:4173`. Use a browser window at least 1024 CSS pixels wide
 
 ## Database Foundation
 
-The backend now has 51 domain tables, 15 ordered SQL migrations, typed Drizzle query mappings, explicit reference seeds and isolated tests. Read [backend/database.md](backend/database.md) for local PostgreSQL setup, commands, schema authority and remaining verification. Database structure is implemented; API/worker and live integrations are not. Native PostgreSQL 17/Docker/Railway and multi-connection behavior remain unverified.
+The backend now has 51 domain tables, 15 ordered SQL migrations, typed Drizzle query mappings, explicit reference seeds and isolated tests. Read [backend/database.md](backend/database.md) for local PostgreSQL setup, commands, schema authority and remaining verification. Database structure and the API/standby-worker framework are implemented; business handlers and live integrations are not. See [backend/framework.md](backend/framework.md) for startup commands, security boundaries, generated OpenAPI and reserved routes. Native PostgreSQL 17/Docker/Railway and multi-connection behavior remain unverified.
 
 ## Project Records
 
