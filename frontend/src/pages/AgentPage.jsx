@@ -58,8 +58,6 @@ export function AgentPage({ navigate }) {
   };
 
   const trace = isPlanning ? [] : result?.trace ?? agent.trace;
-  const statusKey = isPlanning ? "agent.status.planning" : planState === "failed" ? "agent.status.failed" : hasAgentPlan ? "agent.status.ready" : "agent.status.idle";
-  const statusTone = isPlanning ? "violet" : planState === "failed" ? "amber" : hasAgentPlan ? "green" : "neutral";
 
   return (
     <div className="product-page agent-page">
@@ -72,7 +70,6 @@ export function AgentPage({ navigate }) {
               <h1>{t("agent.title")}</h1>
               <p>{t("agent.description")}</p>
             </div>
-            <Status tone={statusTone}>{t(statusKey)}</Status>
           </div>
 
           <div className="agent-chat" role="log" aria-label={t("agent.conversationLabel")}>

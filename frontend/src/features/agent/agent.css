@@ -1,6 +1,6 @@
 .agent-layout { min-height: calc(100vh - var(--product-header-height)); display: grid; grid-template-columns: minmax(0, 1fr) 380px; }
-.agent-conversation { min-width: 0; display: flex; flex-direction: column; padding: 30px 34px 32px; }
-.agent-heading { align-items: flex-start; margin-bottom: 20px; }
+.agent-conversation { min-width: 0; display: flex; flex-direction: column; align-items: center; padding: 30px 34px 32px; }
+.agent-heading { width: min(1100px, 100%); align-items: flex-start; margin-bottom: 20px; }
 .agent-heading h1 { font-size: 25px; }
 .agent-heading p { max-width: 680px; line-height: 1.55; }
 .agent-heading > .status { margin-top: 4px; }
