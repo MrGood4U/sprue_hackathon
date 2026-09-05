@@ -26,7 +26,7 @@ Some secondary controls still have no implemented action, including wallet viewi
 
 ## Implementation Order
 
-1. Establish typed frontend/backend contracts against data-model version 1.3. Migrate the current JavaScript source incrementally to the selected TypeScript baseline and add real clients under `services/api/` as the backend becomes available.
+1. Review [api-contract.md](../api-contract.md) Draft 0.1 and resolve its model gates against data-model version 1.3 before generating typed contracts. Migrate the current JavaScript source incrementally to the selected TypeScript baseline and add real clients under `services/api/` as the backend becomes available.
 2. Add session/workspace bootstrap, explicit demo-versus-live source selection, route identity resolution and not-found handling. A failed live request must display an error rather than fall back to sample success.
 3. Implement products and Agent planning, editable intent and DAG versions, durable build status, private output, and deployment. Preserve state through navigation using server-backed records.
 4. Integrate Graph credentials, Privy wallet and bounded spending, then Hedera recipient validation and optional x402 publication. Payment and fee evidence must come from the backend.

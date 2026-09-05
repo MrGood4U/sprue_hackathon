@@ -51,4 +51,8 @@ backend/
 - Keep upstream Graph expenses, downstream Hedera sales, creator proceeds, and Sprue fees separately auditable by network and asset.
 - Add code only after checking the approved `data-model.md` and the corresponding sponsor reference.
 
-The concrete backend runtime and package choices will be recorded before the first implementation scaffold is committed.
+The selected runtime baseline is Node.js 24 LTS, Express, and TypeScript, with PostgreSQL, pg/Drizzle, and pg-boss as recorded in the root plan. Pin concrete package versions before the first implementation scaffold.
+
+## Proposed HTTP Contract
+
+See [api-contract.md](../api-contract.md) Draft 0.1 and its domain documents under `docs/api/` for route, request/response, authorization, idempotency, concurrency, trace, and payment boundaries. The draft is not implemented. Resolve its model gates M1-M3 before creating dependent persistence or endpoints; provider and capped-buyer gates remain prerequisites for live financial behavior.

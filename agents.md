@@ -106,6 +106,8 @@ The data model includes workspace membership and roles for forward compatibility
 
 Do not infer database fields ad hoc while building endpoints. If implementation reveals a missing concept, update the reviewed data model and record the decision before adding the migration or dependent behavior.
 
+The proposed frontend/backend HTTP contract is [api-contract.md](api-contract.md) Draft 0.1, with domain details under `docs/api/`. Review it before implementing frontend clients or backend routes. It records proposed authentication, DTOs, commands, concurrency, traces, private deployment, x402 delivery, and financial projections. Model gaps M1-M3 (durable command idempotency, anonymous request recovery authorization, and validation/build/activation lifecycle clarification) are proposals, not amendments to approved data-model version 1.3. Resolve them through human review and model change control before implementing dependent guarantees. Provider and capped-consumer gates E1/E2 remain explicit.
+
 ## Account Wallet and Revenue Model
 
 The user confirmed this model on 2026-09-05: for each Graph source, the creator may select either a customer-supplied Graph API key backed by their existing Graph subscription or creator-wallet x402 pay-per-query access. In x402 mode, the creator funds an account wallet and Sprue handles Graph purchases within the authorized budget. If the creator opts into downstream x402 publication, API sales produce creator revenue, with a Sprue service fee deducted from those sales if enabled and disclosed. Top-ups are user funds, not platform revenue.

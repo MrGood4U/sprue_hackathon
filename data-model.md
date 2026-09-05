@@ -1738,6 +1738,8 @@ Provider-specific metadata that proves necessary should first be added to valida
 
 ## Change Control
 
+The proposed [frontend/backend API contract](api-contract.md#6-review-gates-and-data-model-gaps) identifies review items M1-M3 for command idempotency, anonymous request recovery authorization, and validation/build/deployment transitions. These are not yet approved changes to this version 1.3 model; no corresponding fields, tables, or transition changes are introduced by the interface draft.
+
 After human approval, changes to this model require:
 
 1. An English update to this document explaining the invariant or workflow change.

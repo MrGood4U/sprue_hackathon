@@ -37,6 +37,7 @@ Open `http://127.0.0.1:4173`. Use a browser window at least 1024 CSS pixels wide
 - [Plan, decisions, and AI contribution log](plan.md)
 - [Proposed project structure and financial model](project-structure.md)
 - [Approved MVP data model version 1.3 and validation gates](data-model.md)
+- [Proposed frontend/backend API contract and review gates](api-contract.md)
 - [Approved page architecture and interaction design](product-design.md)
 - [Proposed Evidence-First Console design tokens](design-tokens.md)
 - [Historical design QA and visual evidence](design-qa.md)

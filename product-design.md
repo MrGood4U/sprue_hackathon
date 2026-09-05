@@ -562,7 +562,7 @@ The formal token proposal is in [`design-tokens.md`](design-tokens.md). It defin
 
 ## Screen-to-Backend Contract Summary
 
-These are logical UI contracts, not final HTTP endpoint names.
+These are logical UI contracts. Proposed HTTP paths, DTOs, authorization, and state behavior are now mapped in [api-contract.md](api-contract.md) Draft 0.1; that interface draft and its model review gates are not yet an implemented backend.
 
 | Contract | Consumer pages | Required outcome |
 |---|---|---|
