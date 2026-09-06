@@ -57,7 +57,7 @@ test("identity reads remain authenticated and reject malformed live projections"
   );
 });
 
-test("creator authentication exposes the approved providers and keeps wallet creation explicit", async () => {
+test("creator authentication exposes only the approved OAuth providers and redirects after bootstrap", async () => {
   const provider = await readFile(
     new URL("../src/features/auth/AuthProvider.jsx", import.meta.url),
     "utf8",
@@ -74,8 +74,8 @@ test("creator authentication exposes the approved providers and keeps wallet cre
     new URL("../src/app/App.jsx", import.meta.url),
     "utf8",
   );
-  assert.match(provider, /loginMethods: \["google", "github", "wallet"\]/);
-  assert.match(provider, /walletList: \["metamask"\]/);
+  assert.match(provider, /loginMethods: \["google", "github"\]/);
+  assert.doesNotMatch(provider, /walletList:/);
   assert.match(provider, /createOnLogin: "off"/);
   assert.match(provider, /bootstrapIdentity\(\{ accessToken, signal \}\)/);
   assert.doesNotMatch(entry, /loginWith\(/);
@@ -84,7 +84,10 @@ test("creator authentication exposes the approved providers and keeps wallet cre
   assert.match(entry, /t\("entry\.enterConsole"\)/);
   assert.match(login, /loginWith\("google"\)/);
   assert.match(login, /loginWith\("github"\)/);
-  assert.match(login, /loginWith\("wallet"\)/);
+  assert.doesNotMatch(login, /loginWith\("wallet"\)/);
+  assert.match(login, /if \(authenticated\) navigate\("\/app"\)/);
+  assert.match(login, /if \(authenticated\) return null/);
+  assert.doesNotMatch(login, /auth\.signedInTitle/);
   assert.match(app, /path === "\/login"/);
   assert.match(app, /path\.startsWith\("\/app"\)/);
   assert.match(app, /<CreatorRoute/);

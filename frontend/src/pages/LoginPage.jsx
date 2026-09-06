@@ -1,10 +1,5 @@
-import {
-  ArrowLeft,
-  ArrowRight,
-  GithubLogo,
-  GoogleLogo,
-  Wallet,
-} from "@phosphor-icons/react";
+import { ArrowLeft, GithubLogo, GoogleLogo } from "@phosphor-icons/react";
+import { useEffect } from "react";
 import { LanguageSwitcher } from "../components/navigation/LanguageSwitcher.jsx";
 import { Button } from "../components/ui/Button.jsx";
 import { useAuth } from "../features/auth/AuthProvider.jsx";
@@ -16,13 +11,17 @@ export function LoginPage({ navigate }) {
     status,
     configured,
     authenticated,
-    accountLabel,
     error,
     loginWith,
-    signOut,
   } = useAuth();
   const loginDisabled =
     !configured || status === "loading" || status === "initializing";
+
+  useEffect(() => {
+    if (authenticated) navigate("/app");
+  }, [authenticated, navigate]);
+
+  if (authenticated) return null;
 
   return (
     <main className="login-page">
@@ -39,30 +38,14 @@ export function LoginPage({ navigate }) {
           </button>
           <div className="login-copy">
             <span className="section-label">{t("auth.eyebrow")}</span>
-            <h1 id="creator-sign-in-title">
-              {authenticated ? t("auth.signedInTitle") : t("auth.signInTitle")}
-            </h1>
-            <p>
-              {authenticated
-                ? t("auth.signedInDetail", {
-                    account: accountLabel ?? t("auth.accountFallback"),
-                  })
-                : t("auth.signInDetail")}
-            </p>
+            <h1 id="creator-sign-in-title">{t("auth.signInTitle")}</h1>
+            <p>{t("auth.signInDetail")}</p>
           </div>
 
-          {authenticated ? (
-            <div className="auth-actions">
-              <Button variant="primary" icon={ArrowRight} onClick={() => navigate("/app")}>{t("auth.openConsole")}</Button>
-              <Button onClick={() => signOut()}>{t("auth.signOut")}</Button>
-            </div>
-          ) : (
-            <div className="auth-provider-list" aria-label={t("auth.methodsLabel")}>
-              <Button icon={GoogleLogo} disabled={loginDisabled} onClick={() => loginWith("google")}>{t("auth.google")}</Button>
-              <Button icon={GithubLogo} disabled={loginDisabled} onClick={() => loginWith("github")}>{t("auth.github")}</Button>
-              <Button icon={Wallet} disabled={loginDisabled} onClick={() => loginWith("wallet")}>{t("auth.metamask")}</Button>
-            </div>
-          )}
+          <div className="auth-provider-list" aria-label={t("auth.methodsLabel")}>
+            <Button icon={GoogleLogo} disabled={loginDisabled} onClick={() => loginWith("google")}>{t("auth.google")}</Button>
+            <Button icon={GithubLogo} disabled={loginDisabled} onClick={() => loginWith("github")}>{t("auth.github")}</Button>
+          </div>
 
           {!configured && status !== "loading" && <span className="auth-note">{t("auth.unavailable")}</span>}
           {status === "loading" && <span className="auth-note" role="status">{t("auth.preparing")}</span>}

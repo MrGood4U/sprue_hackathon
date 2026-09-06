@@ -79,10 +79,7 @@ function PrivySession({ children, appConfig }) {
   const loginWith = useCallback(
     (method) => {
       setAuthError(null);
-      login({
-        loginMethods: [method],
-        ...(method === "wallet" ? { walletChainType: "ethereum-only" } : {}),
-      });
+      login({ loginMethods: [method] });
     },
     [login],
   );
@@ -180,11 +177,9 @@ export function AuthProvider({ children }) {
     <PrivyProvider
       appId={configuration.appConfig.privyAppId}
       config={{
-        loginMethods: ["google", "github", "wallet"],
+        loginMethods: ["google", "github"],
         appearance: {
           theme: "dark",
-          walletList: ["metamask"],
-          walletChainType: "ethereum-only",
         },
         embeddedWallets: {
           ethereum: { createOnLogin: "off" },

@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft 1.26, updated on 2026-09-07. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. The public Entry page now contains only product explanation plus clear `Log in` and `Enter console` routes; Google, GitHub, and MetaMask authentication is concentrated on a dedicated Login page. Provider subjects resolve to stable Sprue user IDs, creator routes require completed bootstrap, and public product access remains unauthenticated. A dedicated Model Service page lets the creator configure and explicitly test the OpenAI-compatible language model used by Agent planning. Graph credential management is disclosed only when API-key access is selected and keeps its primary action next to the credential list. The Product Dashboard is focused on summary metrics and the product list; the redundant Recent Activity and Sponsor Proof panels are removed. The API view prioritizes an explicit request-parameter contract and always-visible response schema/example, while omitting the standalone deployment-evidence panel. Token review remains follow-up work; account-linking UI, durable model-secret storage, Graph, account-wallet, and payment integrations are still pending.
+Draft 1.27, updated on 2026-09-07. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. The public Entry page now contains only product explanation plus clear `Log in` and `Enter console` routes; Google and GitHub authentication is concentrated on a dedicated Login page. A completed Privy session is not an intermediate destination: after server-verified identity bootstrap succeeds, the Login route immediately enters the Product Dashboard without rendering a signed-in confirmation card. Provider subjects resolve to stable Sprue user IDs, creator routes require completed bootstrap, and public product access remains unauthenticated. A dedicated Model Service page lets the creator configure and explicitly test the OpenAI-compatible language model used by Agent planning. Graph credential management is disclosed only when API-key access is selected and keeps its primary action next to the credential list. The Product Dashboard is focused on summary metrics and the product list; the redundant Recent Activity and Sponsor Proof panels are removed. The API view prioritizes an explicit request-parameter contract and always-visible response schema/example, while omitting the standalone deployment-evidence panel. Token review remains follow-up work; account-linking UI, durable model-secret storage, Graph, account-wallet, and payment integrations are still pending.
 
 This document defines the MVP information architecture, page inventory, interactions, state behavior, desktop layout behavior, accessibility requirements, and screen-to-domain contracts. The decisions are recorded in [Confirmed Design Decisions](#confirmed-design-decisions).
 
@@ -195,13 +195,13 @@ If payment confirms but response delivery fails, the UI offers delivery retry ag
 
 **Purpose:** Present authentication as one focused step after the creator has chosen to enter the console.
 
-**Primary actions:** `Google`, `GitHub`, and `MetaMask`.
+**Primary actions:** `Google` and `GitHub`.
 
 **Content and interaction elements:**
 
 - Sprue wordmark, language selector, and a predictable `Back to Sprue` route.
-- Three explicit Privy authentication choices: Google OAuth, GitHub OAuth, and MetaMask wallet login.
-- Signed-in account summary, `Open console`, and `Sign out` actions when a session is already complete.
+- Two explicit Privy authentication choices: Google OAuth and GitHub OAuth.
+- Automatic navigation to `/app` only after provider authentication and server-side Sprue identity bootstrap both complete.
 - Provider-safe loading, configuration, and error messages in the same stable card.
 
 **States:**
@@ -211,9 +211,9 @@ If payment confirms but response delivery fails, the UI offers delivery retry ag
 - Signed out and ready to select a provider.
 - Authentication failed with a provider-safe error.
 - Signed in and bootstrapping the local user/default owner workspace.
-- Signed in and ready, with an explicit path into `/app` and session sign-out.
+- Authenticated and bootstrapped, which redirects directly to `/app` without a persistent success card.
 
-Each provider resolves through Privy to a server-verified subject, which the backend maps through an authentication binding to a stable Sprue user UUID. The provider subject is never displayed or used as the application user ID. Sprue does not infer account linking across different provider subjects and does not accept a browser-provided local user/workspace identifier. MetaMask login proves control of the login address for authentication only; the page must not expose that address as proof that the separate account wallet exists, is funded, or grants Sprue payment authority.
+Each provider resolves through Privy to a server-verified subject, which the backend maps through an authentication binding to a stable Sprue user UUID. The provider subject is never displayed or used as the application user ID. Sprue does not infer account linking across different provider subjects and does not accept a browser-provided local user/workspace identifier. Authentication remains separate from the creator account wallet, funding, and delegated payment authority.
 
 ### 3. Product Dashboard
 
@@ -772,3 +772,4 @@ Remaining review and integration work:
 | 2026-09-07 | Recorded Draft 1.24 with explicit Google, GitHub, and MetaMask creator login through Privy, fail-closed creator routes, transactional account/workspace bootstrap, and unchanged public product access | Authentication is separated from account-wallet creation, funding, and delegated payment authority; live provider evidence still requires configured credentials and origins |
 | 2026-09-07 | Recorded Draft 1.25 with provider subjects mapped to stable Sprue user UUIDs and future explicit multi-identity binding | Provider replacement must not change domain ownership; account linking, unlinking, conflicts, and recovery remain unimplemented and cannot use heuristic merges |
 | 2026-09-07 | Recorded Draft 1.26 by separating public Entry from Creator Login and routing both landing-page creator actions through `/login` while signed out | Keep product explanation and authentication as distinct decisions; provider choices appear only after the creator explicitly chooses to enter |
+| 2026-09-07 | Recorded Draft 1.27 by narrowing Creator Login to Google and GitHub and redirecting a bootstrapped session directly to the Product Dashboard | Remove an unnecessary post-login decision and keep wallet authentication outside the current MVP login surface |

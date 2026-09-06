@@ -1,6 +1,6 @@
 # Backend Framework
 
-Status: framework and creator-authentication implementation scope, updated 2026-09-07. The user authorized API/worker scaffolding and Google, GitHub, and MetaMask creator login through Privy. This does not approve H1/H3 semantics/limits, E1/E2 wallet/payment authority, or fees.
+Status: framework and creator-authentication implementation scope, updated 2026-09-07. The user authorized API/worker scaffolding and Google and GitHub creator login through Privy. This does not approve H1/H3 semantics/limits, E1/E2 wallet/payment authority, or fees.
 
 ## Scope and Contract Refinements
 
@@ -81,6 +81,6 @@ SIGINT/SIGTERM stops admission, drains connections within a bounded grace period
 
 The initial framework tests used real local HTTP sockets with injected ports and isolated PGlite SQL; they did not use external credentials, queues or live providers. 28 tests passed, covering route/catalog parity with all five Markdown API documents, security/error behavior, identity ownership and readiness. The compiled API and worker both passed local startup/probe/idempotent-shutdown smoke tests; migration assets were unchanged and test output was excluded. Compose configuration validation passed. Those initial checks did not start a native PostgreSQL server or container.
 
-The subsequent Windows-local deployment checks passed native PostgreSQL 17 schema/migration validation, Docker API/worker/frontend startup, native Node API/worker readiness and shutdown, exact-origin CORS and frontend deep-link probes. The authentication slice adds injected verification tests and isolated PostgreSQL bootstrap coverage. See [deployment.md](../deployment.md) and the current [plan record](../plan.md). Live Google/GitHub/MetaMask login, Railway networking, multi-connection bootstrap races and pg-boss recovery remain unverified until real Privy credentials and approved origins are configured; the worker remains standby and other business handlers remain unavailable.
+The subsequent Windows-local deployment checks passed native PostgreSQL 17 schema/migration validation, Docker API/worker/frontend startup, native Node API/worker readiness and shutdown, exact-origin CORS and frontend deep-link probes. The authentication slice adds injected verification tests and isolated PostgreSQL bootstrap coverage. See [deployment.md](../deployment.md) and the current [plan record](../plan.md). Google and GitHub are the only current creator login methods. A local Google login and bootstrap was user-observed on 2026-09-07; repeatable GitHub evidence, Railway networking, multi-connection bootstrap races and pg-boss recovery remain unverified. The worker remains standby and other business handlers remain unavailable.
 
 Implementation references: [Express 5 asynchronous errors](https://expressjs.com/en/guide/error-handling/), [Express 5 migration notes](https://expressjs.com/en/guide/migrating-5/), and [Node HTTP server lifecycle](https://nodejs.org/docs/latest-v24.x/api/http.html).
