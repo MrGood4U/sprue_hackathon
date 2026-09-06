@@ -10,6 +10,7 @@ export function useWorkflowEditor(sourceDraft) {
 
   const setTool = useCallback((tool) => dispatch({ type: "set_tool", tool }), []);
   const selectNode = useCallback((id) => dispatch({ type: "select_node", id }), []);
+  const selectEdge = useCallback((id) => dispatch({ type: "select_edge", id }), []);
   const onNodesChange = useCallback((changes) => dispatch({ type: "nodes_change", changes }), []);
   const onEdgesChange = useCallback((changes) => dispatch({ type: "edges_change", changes }), []);
   const onConnect = useCallback((connection) => dispatch({ type: "connect", connection }), []);
@@ -24,6 +25,7 @@ export function useWorkflowEditor(sourceDraft) {
     ...state,
     setTool,
     selectNode,
+    selectEdge,
     onNodesChange,
     onEdgesChange,
     onConnect,

@@ -1,6 +1,6 @@
 .workflow-editor {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-columns: 188px minmax(0, 1fr);
   min-height: 0;
   height: 100%;
   background: var(--color-background-canvas);
@@ -9,7 +9,7 @@
 .workflow-palette {
   min-width: 0;
   overflow-y: auto;
-  padding: 18px 14px;
+  padding: 18px 10px;
   border-right: 1px solid var(--color-border-default);
   background: var(--color-background-panel);
 }
@@ -44,7 +44,7 @@
 
 .workflow-palette-item {
   display: grid;
-  grid-template-columns: 26px minmax(0, 1fr) 14px;
+  grid-template-columns: 26px minmax(0, 1fr);
   align-items: center;
   gap: 8px;
   width: 100%;
@@ -216,6 +216,16 @@
   stroke-width: 1.8;
 }
 
+.workflow-canvas .react-flow__edge.selected .react-flow__edge-path {
+  stroke: var(--color-accent-agent);
+  stroke-width: 3;
+}
+
+.workflow-canvas .react-flow__edge.selected marker path {
+  fill: var(--color-accent-agent);
+  stroke: var(--color-accent-agent);
+}
+
 .workflow-canvas .react-flow__edge marker path {
   fill: var(--color-accent-data);
   stroke: var(--color-accent-data);
@@ -275,13 +285,6 @@
 .workflow-node-title {
   font-size: 12px;
   font-weight: 650;
-}
-
-.workflow-node-type {
-  margin-top: 5px;
-  color: var(--color-foreground-secondary);
-  font-family: var(--typography-family-code);
-  font-size: 9px;
 }
 
 .workflow-node-status {

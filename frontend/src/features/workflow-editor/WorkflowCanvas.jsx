@@ -43,6 +43,16 @@ export function WorkflowCanvas({ editor, onSelectNode, onEditNode }) {
     if (payload.kind === "operator") editor.addOperator(payload.id, position);
   }, [editor, screenToFlowPosition]);
 
+  const onNodesChange = useCallback((changes) => {
+    const nextChanges = editor.tool === "pan" ? changes.filter((change) => change.type !== "select") : changes;
+    if (nextChanges.length > 0) editor.onNodesChange(nextChanges);
+  }, [editor]);
+
+  const onEdgesChange = useCallback((changes) => {
+    const nextChanges = editor.tool === "pan" ? changes.filter((change) => change.type !== "select") : changes;
+    if (nextChanges.length > 0) editor.onEdgesChange(nextChanges);
+  }, [editor]);
+
   return (
     <div
       ref={canvasRef}
@@ -58,20 +68,31 @@ export function WorkflowCanvas({ editor, onSelectNode, onEditNode }) {
         nodes={editor.nodes}
         edges={editor.edges}
         nodeTypes={nodeTypes}
-        onNodesChange={editor.onNodesChange}
-        onEdgesChange={editor.onEdgesChange}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
         onConnect={editor.onConnect}
         onNodeClick={(_, node) => {
+          if (editor.tool !== "select") return;
           editor.selectNode(node.id);
           onSelectNode?.(node.id);
         }}
         onNodeDoubleClick={(_, node) => {
+          if (editor.tool !== "select") return;
           editor.selectNode(node.id);
           onEditNode?.(node.id);
         }}
-        onPaneClick={() => editor.selectNode(null)}
+        onEdgeClick={(_, edge) => {
+          if (editor.tool !== "select") return;
+          editor.selectEdge(edge.id);
+        }}
+        onPaneClick={() => {
+          if (editor.tool === "select") editor.selectNode(null);
+        }}
+        nodesSelectable={editor.tool === "select"}
         nodesDraggable={editor.tool === "select"}
         nodesConnectable={editor.tool === "select"}
+        edgesFocusable={editor.tool === "select"}
+        elementsSelectable={editor.tool === "select"}
         panOnDrag={editor.tool === "pan"}
         selectionOnDrag={false}
         zoomOnDoubleClick={false}

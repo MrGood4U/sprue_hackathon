@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft 1.14, updated on 2026-09-06. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. Token review remains follow-up work; real backend, identity, wallet, and payment integrations are still pending.
+Draft 1.15, updated on 2026-09-06. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. Token review remains follow-up work; real backend, identity, wallet, and payment integrations are still pending.
 
 This document defines the MVP information architecture, page inventory, interactions, state behavior, desktop layout behavior, accessibility requirements, and screen-to-domain contracts. The decisions are recorded in [Confirmed Design Decisions](#confirmed-design-decisions).
 
@@ -708,3 +708,4 @@ Remaining review and integration work:
 | 2026-09-06 | Recorded Draft 1.12 by making the Builder an editable workflow surface with a reviewed template/operator palette and live derived evidence | Workflow creation and refinement share one working draft without mutating active versions |
 | 2026-09-06 | Recorded Draft 1.13 by moving node configuration into a centered modal, reducing palette items to one-line labels with hover/focus details, adding distinctive editor icons, and adding an explicit demo-only `Save draft` control | Node editing remains progressive disclosure without permanently narrowing the canvas; durable save remains a backend task |
 | 2026-09-06 | Recorded Draft 1.14 by separating node selection from editing: single click selects and enables deletion, while double click opens a transactional modal with Confirm and Cancel | Node edits are explicit and reversible until Confirm; close, Escape, backdrop, and Cancel discard the temporary configuration |
+| 2026-09-06 | Recorded Draft 1.15 by making hand mode pan-only, adding edge selection/deletion, removing redundant palette plus controls and native title tooltips, narrowing the palette, and reducing canvas nodes to icon/name/status | Canvas gestures have one clear purpose per tool and node cards prioritize the workflow's semantic identity |

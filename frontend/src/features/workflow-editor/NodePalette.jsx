@@ -5,7 +5,6 @@ import {
   Database,
   Funnel,
   GitMerge,
-  Plus,
   Stack,
 } from "@phosphor-icons/react";
 import { useState } from "react";
@@ -52,7 +51,6 @@ function PaletteItem({ item, kind, onInsert }) {
         className="workflow-palette-item"
         type="button"
         draggable="true"
-        title={t("workflowEditor.palette.insert", { name: label })}
         aria-describedby={tooltipPosition ? tooltipId : undefined}
         data-palette-operator={item.type}
         onClick={() => onInsert(item)}
@@ -70,7 +68,6 @@ function PaletteItem({ item, kind, onInsert }) {
         <span className="workflow-palette-item-copy">
           <strong>{label}</strong>
         </span>
-        <Plus size={14} weight="bold" aria-hidden="true" />
       </button>
       {tooltipPosition && (
         <span

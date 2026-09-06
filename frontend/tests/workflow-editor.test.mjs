@@ -39,6 +39,20 @@ test("removing the output connection marks the draft invalid and clears derived 
   assert.ok(next.validation.some((error) => error.code === "MISSING_OUTPUT_INPUT"));
 });
 
+test("selecting an edge enables selection deletion without deleting its nodes", () => {
+  const state = createEditorState(draftFixture());
+  const edge = state.edges[0];
+  const selected = editorReducer(state, { type: "select_edge", id: edge.id });
+  assert.equal(selected.selectedNodeId, null);
+  assert.equal(selected.selectedEdgeId, edge.id);
+  assert.equal(selected.edges.filter((item) => item.selected).length, 1);
+
+  const next = editorReducer(selected, { type: "delete_selection" });
+  assert.equal(next.nodes.length, state.nodes.length);
+  assert.equal(next.edges.length, state.edges.length - 1);
+  assert.equal(next.selectedEdgeId, null);
+});
+
 test("templates insert namespaced nodes and remain undoable", () => {
   const state = createEditorState(draftFixture());
   const inserted = editorReducer(state, { type: "add_template", templateId: "filter-and-aggregate", position: { x: 500, y: 200 } });

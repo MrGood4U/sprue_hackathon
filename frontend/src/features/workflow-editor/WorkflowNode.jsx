@@ -52,7 +52,6 @@ export function WorkflowNode({ data, selected }) {
       ))}
       <div className="workflow-node-icon"><Icon size={20} weight="bold" aria-hidden="true" /></div>
       <div className="workflow-node-title">{t(operator.labelKey)}</div>
-      <div className="workflow-node-type">{node.type} · v{node.operatorVersion ?? "1"}</div>
       <div className={`workflow-node-status ${configured ? "is-configured" : "needs-config"}`}>
         <span className="status-dot" aria-hidden="true" />
         {configured ? t("workflowEditor.node.configured") : t("workflowEditor.node.needsConfig")}

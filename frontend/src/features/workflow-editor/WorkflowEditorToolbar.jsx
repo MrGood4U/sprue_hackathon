@@ -56,7 +56,7 @@ export function WorkflowEditorToolbar({ editor }) {
         <IconButton label={t("workflowEditor.toolbar.fit")} onClick={() => fitView({ padding: 0.24, duration: 220 })}>
           <ArrowsOut size={17} weight="bold" aria-hidden="true" />
         </IconButton>
-        <IconButton label={t("workflowEditor.toolbar.delete")} disabled={!editor.selectedNodeId} onClick={editor.deleteSelection}>
+        <IconButton label={t("workflowEditor.toolbar.delete")} disabled={!editor.selectedNodeId && !editor.selectedEdgeId} onClick={editor.deleteSelection}>
           <Trash size={17} weight="bold" aria-hidden="true" />
         </IconButton>
       </div>
