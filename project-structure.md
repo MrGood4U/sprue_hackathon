@@ -18,7 +18,7 @@ Creator account wallet funding and bounded spending authorization
     -> Sprue-managed Graph payment, validation, and execution
     -> hosted data API
     -> optional Sprue-hosted x402 access with Hedera/Blocky402 settlement
-    -> creator revenue and any disclosed platform fee
+    -> creator revenue with no Sprue service fee in the hackathon profile
 ```
 
 The platform should hide the operational complexity of agent execution, data transformation, scheduling, API hosting, caching, and payment verification from the customer.
@@ -60,10 +60,10 @@ Sprue Data Product
     -> external buyer authorizes a Hedera payment
     -> Blocky402 verifies and settles the payment
     -> Sprue returns the paid API response
-    -> creator revenue and any agreed Sprue fee
+    -> creator revenue with no Sprue service fee
 ```
 
-See [the Hedera reference](sponsor/Hedera.md) for official award rules, the documented protocol profile, and proposed integration gates. The target is a real paid data service with a working consumer, not a Recipe. The MVP payment asset is HBAR; exact package versions, Privy-to-Hedera account mapping, creator access to receipts, live failure/replay behavior, and service-fee settlement remain unverified.
+See [the Hedera reference](sponsor/Hedera.md) for official award rules, the documented protocol profile, and proposed integration gates. The target is a real paid data service with a working consumer, not a Recipe. The MVP payment asset is HBAR; exact package versions, Privy-to-Hedera account mapping, creator access to receipts, and live failure/replay behavior remain unverified.
 
 ### Privy: Creator Account Wallet Layer
 
@@ -87,7 +87,6 @@ Graph source -> customer-owned Graph API key/subscription -> build/refresh data
 External buyer -> Sprue x402 gate -> Blocky402 -> Hedera API sale
                      |
                      +-> validated creator-controlled Hedera recipient
-                     +-> Sprue service fee, only if enabled and validated
 ```
 
 The branches represent economic allocation, not a claim that Blocky402 supports an atomic split. The creator account remains the intended ownership identity. Resolve any EVM address to a complete creator-controlled Hedera account ID, validate capability for the selected HBAR/HTS asset, and reconcile the facilitator transaction through Mirror Node. Any separate account or settlement address must be justified explicitly. Never silently change to platform custody or export a user key to fit a sample integration.
@@ -96,9 +95,9 @@ The [Graph payment documentation](https://thegraph.com/docs/en/subgraphs/tooling
 
 - Top-ups remain creator funds, not Sprue sales. Keep upstream Graph costs separate from downstream revenue.
 - Record network, asset identifier, units, and recipient on balances and payments; never sum unlike balances into an immediately spendable budget.
-- Record gross sale amount, provider/network deductions, creator proceeds, and any platform fee independently. Account-level balances and per-product profitability are different views.
-- No fee rate or nonzero default is selected. Confirm its basis, rounding, minimums, recipient, timing, and refund handling before enabling collection; do not silently charge top-ups or data purchases.
-- Evaluate native splitting versus an explicitly authorized later settlement step. An accounting entry alone is not evidence that a fee or creator payout settled.
+- Record gross sale amount, provider/network deductions, and creator proceeds independently. Account-level balances and per-product profitability are different views. Future-compatible platform-fee fields remain zero.
+- The hackathon profile has no Sprue service fee and no fee-allocation step; do not silently charge top-ups, data purchases, or API sales.
+- An accounting entry alone is not evidence that creator proceeds settled.
 - Reserve budget before concurrent paid jobs, enforce spend/recipient/network limits, and stop on insufficient funds, exhaustion, or revoked authorization. Reconcile uncertain payment outcomes before retrying.
 - Funding alone is not permission for unlimited spending. Once a bounded recurring policy is approved, routine queries should not need individual manual payment.
 
@@ -106,7 +105,7 @@ The [Graph payment documentation](https://thegraph.com/docs/en/subgraphs/tooling
 
 ### Product Creator
 
-The customer who defines and owns a data product. They supply an existing Graph API key or fund the account wallet and authorize bounded Graph x402 spending, and they control the specification, visibility, refresh policy, price, budget, and acceptance of any service-fee terms.
+The customer who defines and owns a data product. They supply an existing Graph API key or fund the account wallet and authorize bounded Graph x402 spending, and they control the specification, visibility, refresh policy, price, and budget.
 
 ### Builder Agent
 
@@ -440,7 +439,7 @@ External buyer requests the Sprue-hosted paid endpoint
     -> Sprue uses Blocky402 for verification and settlement
     -> Sprue returns the product response after the payment gate succeeds
     -> Hedera settlement and creator receipt are reconciled
-    -> any enabled service fee is allocated/settled by the validated mechanism
+    -> the full sale proceeds are attributed to the creator; no Sprue service fee is allocated
 ```
 
 ### Conversational Edit Flow

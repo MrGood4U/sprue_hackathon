@@ -61,7 +61,7 @@ backend/
 - PostgreSQL is the durable source of truth. Do not make local files or process memory authoritative for jobs, versions, budgets, or payments.
 - Every retryable side effect requires a logical intent, provider attempt, idempotency key, and reconciliation path.
 - Graph API keys, wallet signer material, database credentials, and facilitator credentials remain server-side and outside repository history.
-- Keep upstream Graph expenses, downstream Hedera sales, creator proceeds, and Sprue fees separately auditable by network and asset.
+- Keep upstream Graph expenses, downstream Hedera sales, creator proceeds, and provider/network costs separately auditable by network and asset. The hackathon profile charges no Sprue service fee.
 - Add code only after checking the approved `data-model.md` and the corresponding sponsor reference.
 
 The selected runtime baseline is Node.js 24 LTS, Express, and TypeScript, with PostgreSQL, pg/Drizzle, and pg-boss as recorded in the root plan. Database, Express 5 and Zod packages are pinned in package.json/package-lock.json; pg-boss will be installed with its durable runner. Follow database.md for configuration, commands and verification limits.

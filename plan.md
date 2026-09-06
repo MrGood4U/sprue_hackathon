@@ -80,7 +80,7 @@ The user selected Hedera to replace Bazantic for the x402 step on 2026-09-05. [s
 
 Privy's conditions, wallet-action evidence gates, and x402/control references are recorded in [sponsor/privy.md](sponsor/privy.md). The user has clarified that the core wallet belongs to the creator account, not primarily an external buyer. Funding, bounded upstream data purchases, and downstream income are the intended workflow; final award selection and technical validation remain pending.
 
-The creator tops up the account wallet and grants limited spending authority; Sprue handles individual Graph purchases without requiring manual payment for every query. Optional API publication may include a disclosed platform fee deducted from sales revenue. The fee rate, calculation basis, collection method, and settlement timing are open decisions, not authorization to charge. See [the financial model](project-structure.md#account-wallet-and-money-flows).
+The creator tops up the account wallet and grants limited spending authority; Sprue handles individual Graph purchases without requiring manual payment for every query. Optional API publication produces creator revenue, and the hackathon product charges no Sprue service fee. See [the financial model](project-structure.md#account-wallet-and-money-flows).
 
 The current payment plan spans two networks: Graph spending on Base or Base Sepolia and API-sale settlement on Hedera. Keep network/asset balances and authorization scopes separate. Do not assume revenue replenishes the Graph budget, add automatic bridging, or substitute a platform-custodial recipient without an explicit decision. Prefer test environments for the first bounded spike; confirm the exact assets and account prerequisites before any funded action.
 
@@ -200,10 +200,10 @@ Creator account wallet funding and spending authorization
     -> optional Hedera x402 access (exercised in the demo)
     -> real consumer payment settled through Blocky402
     -> paid data response and creator revenue
-    -> disclosed service-fee allocation, if enabled
+    -> full creator proceeds with no Sprue service fee
 ```
 
-The demonstration must show creator funding, a real Graph purchase authorized through the creator wallet, and a separate downstream paid API request settled on Hedera through Blocky402. The API must also work in its authenticated private mode without paid publication. Simulated UI states must not replace these integrations; any enabled service fee must reconcile to real settlement evidence. A successful consumer payment does not by itself prove the creator can control or access the receiving account's funds.
+The demonstration must show creator funding, a real Graph purchase authorized through the creator wallet, and a separate downstream paid API request settled on Hedera through Blocky402. The API must also work in its authenticated private mode without paid publication. Simulated UI states must not replace these integrations, and the hackathon path must not deduct a Sprue service fee. A successful consumer payment does not by itself prove the creator can control or access the receiving account's funds.
 
 ## Scope Priorities
 
@@ -275,7 +275,7 @@ This is a demo delivery decision, not a commitment to permanent managed hosting.
 - Build trace and status timeline.
 - API preview, schema, refresh policy, and monetization controls.
 - Revenue and request status for the demo product.
-- Account top-up, available Graph budget, and Hedera sales/proceeds shown by network and asset, with any disclosed platform fees. Do not present an aggregate value as a shared spendable balance.
+- Account top-up, available Graph budget, and Hedera sales/proceeds shown by network and asset. The hackathon profile has no Sprue service fee. Do not present an aggregate value as a shared spendable balance.
 
 ### Backend
 
@@ -363,7 +363,7 @@ Implementation checkpoint (2026-09-06): the first provider-independent DAG runti
 2. Deploy the Creator Console to Vercel and the API, worker, and PostgreSQL to Railway; run migrations, health checks, and evaluator-path smoke tests.
 3. Add a publish action that configures the selected product's Sprue-hosted x402 v2 `exact` gate, Hedera atomic price/fungible asset/resolved account-ID recipient/timeout, and Blocky402 capability.
 4. Run a real consumer-agent paid request and correlate the returned data with facilitator and Hedera Mirror Node settlement evidence.
-5. Show Graph expenses, gross API sales, creator proceeds, and any enabled platform fee as distinct records in the workspace.
+5. Show Graph expenses, gross API sales, creator proceeds, and provider/network costs as distinct records in the workspace; keep Sprue service fees disabled and zero for the hackathon profile.
 6. Add caching, rate limits, and bounded demo budgets.
 7. Record a reliable 2-4-minute end-to-end demo covering both sponsor paths; this proposed duration also fits Hedera's five-minute ceiling. Verify the public repository history and final award-specific evidence.
 
@@ -379,7 +379,7 @@ Implementation checkpoint (2026-09-06): the first provider-independent DAG runti
 - Test Blocky402 integration with capability drift, unpaid/invalid requests, verify failure, settle failure, replay/duplicate retries, and payment-success/data-delivery-failure reconciliation.
 - Verify creator control of a resolved Hedera account ID and HBAR receive/access capability; distinguish its balance from Base Graph-spending funds. A display-only EVM address mapping is insufficient evidence.
 - Test delegated Graph spending limits, revocation, concurrent budget reservations, and payment retry reconciliation.
-- Reconcile deposits, upstream expenses, sales, creator proceeds, and any platform fee; never count deposits as earned revenue.
+- Reconcile deposits, upstream expenses, sales, creator proceeds, and provider/network costs; never count deposits as earned revenue or introduce a Sprue service fee in the hackathon profile.
 - Keep a manual fallback demo path if an external service is temporarily unavailable, while clearly labeling it as a fallback.
 - Never commit API keys, private keys, wallet seed phrases, or other secrets.
 

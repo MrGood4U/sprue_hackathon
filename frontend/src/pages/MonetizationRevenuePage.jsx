@@ -47,22 +47,12 @@ export function MonetizationRevenuePage({ navigate }) {
               <span>1</span><div><strong>{t("monetize.endpointSelected")}</strong><small>{product.endpoint}</small></div><CheckCircle size={19} weight="fill" />
             </div>
             <div className="publish-step active">
-              <span>2</span><div><strong>{t("monetize.priceSplit")}</strong><small>{t("monetize.priceSplitDetail")}</small></div>
+              <span>2</span><div><strong>{t("monetize.pricing")}</strong><small>{t("monetize.pricingDetail")}</small></div>
             </div>
             <div className="pricing-editor">
-              <div className="field-grid">
-                <Field label={t("monetize.buyerPrice")}>
-                  <div className="input-suffix"><input value={price} onChange={(event) => setPrice(event.target.value)} /><span>HBAR</span></div>
-                </Field>
-                <Field label={t("monetize.sprueFee")}>
-                  <div className="input-suffix"><input defaultValue={monetization.feePercent} /><span>%</span></div>
-                </Field>
-              </div>
-              <div className="split-bar"><span style={{ width: "95%" }} /><i /></div>
-              <div className="split-legend">
-                <span><i className="creator-color" />{t("monetize.creatorReceivesPercent")}</span>
-                <span><i className="sprue-color" />{t("monetize.sprueReceivesPercent")}</span>
-              </div>
+              <Field label={t("monetize.buyerPrice")}>
+                <div className="input-suffix"><input value={price} onChange={(event) => setPrice(event.target.value)} /><span>HBAR</span></div>
+              </Field>
             </div>
             <div className="publish-step">
               <span>3</span><div><strong>{t("monetize.revenueDestination")}</strong><small>{monetization.recipient}</small></div><Status>{t("common.verified")}</Status>
@@ -88,15 +78,10 @@ export function MonetizationRevenuePage({ navigate }) {
               <div><Wallet size={20} /><span>{t("monetize.creator")}</span></div>
             </div>
             <dl className="detail-list">
-              <div><dt>{t("monetize.creatorReceives")}</dt><dd>{(numericPrice * (1 - Number(monetization.feePercent) / 100)).toFixed(3)} {monetization.asset}</dd></div>
-              <div><dt>{t("monetize.serviceFee")}</dt><dd>{(numericPrice * (Number(monetization.feePercent) / 100)).toFixed(3)} {monetization.asset}</dd></div>
+              <div><dt>{t("monetize.creatorReceives")}</dt><dd>{numericPrice.toFixed(3)} {monetization.asset}</dd></div>
               <div><dt>{t("monetize.network")}</dt><dd>{monetization.network}</dd></div>
               <div><dt>{t("monetize.asset")}</dt><dd>{monetization.asset}</dd></div>
             </dl>
-            <div className="evidence-callout">
-              <ShieldCheck size={19} />
-              <div><strong>{t("monetize.evidenceRetained")}</strong><span>{t("monetize.evidenceDetail")}</span></div>
-            </div>
             {published && <Button icon={Eye} onClick={() => navigate(`/p/${product.slug}`)}>{t("monetize.openPublic")}</Button>}
           </aside>
         </div>

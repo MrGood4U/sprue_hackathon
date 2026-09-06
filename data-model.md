@@ -28,7 +28,7 @@ The model describes intended behavior. It is not evidence that an external walle
 - A product can remain private or be published behind Sprue's x402 gate, using x402 v2's Hedera `exact` scheme and Hedera settlement through Blocky402.
 - The initial downstream integration and default demo path use `hedera:testnet` with HBAR (`0.0.0`, eight decimals). HTS remains modeled but is deferred until explicitly selected later.
 - The creator controls the intended sales recipient. Privy-to-Hedera compatibility remains unverified and must be represented as a verification state.
-- A Sprue service fee is disabled unless explicit terms and a working settlement mechanism are approved.
+- The hackathon MVP charges no Sprue service fee. Future-compatible fee fields remain disabled and zero; enabling them is outside the active product profile and would require a new reviewed decision and settlement mechanism.
 - The evaluator deployment uses Vercel plus Railway; the same application must run through Docker Compose without source changes.
 - PostgreSQL is the source of truth. Service and container filesystems are ephemeral.
 

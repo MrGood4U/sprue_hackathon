@@ -1,6 +1,6 @@
 # Frontend Implementation Status
 
-Updated on 2026-09-07 after separating wallet balances and adding working address-copy feedback plus fail-closed transfer entry points.
+Updated on 2026-09-07 after removing service-fee and retained-evidence presentation from the hackathon Monetization page.
 
 ## Current Baseline
 
@@ -30,10 +30,10 @@ Deployment infrastructure now includes public API-origin validation, a read-only
 | Agent Planner | Backend-generated intent, source summary, proposal facts, six-stage planning trace, and three-state action composer with a focused existing-plan state plus confirmation dialogs | Durable Agent sessions/messages, live provider discovery, streaming trace, proposal history, and unsupported-intent recovery |
 | Builder | Backend-generated cross-chain proposal rendered in an editable semantic DAG; floating operator/template palette and toolbar inside the canvas; select/hand tools with pan-only hand mode; typed connections; single-click node/edge selection with toolbar/keyboard deletion; double-click node editor with Confirm/Cancel transaction boundary; undo/redo; structural validation; current-draft schema/preview projection; collapsible evidence inspector; compact three-action bar with an explicit demo-only save boundary; bounded backend build action | Durable structured-edit command, immutable provenance/versions, revision conflicts, server validation, real run state and evidence |
 | API and Deployment | Backend-generated endpoint, request parameter definition, response field paths, labeled example body, copied endpoint text, and a bounded `limit` test response; the standalone deployment-evidence panel is intentionally omitted | Private access, real output and response headers, deployment lifecycle, credentials, refresh controls, recent requests, and functional code-example tabs |
-| Monetization and Revenue | Backend-generated publication state and price/split projection; publication button remains a demo action | Validated price and confirmed fee policy, creator recipient checks, durable publication state, payment gate, revenue reconciliation |
+| Monetization and Revenue | Backend-generated publication state and fee-free buyer-price projection; the full configured price is shown as creator proceeds, fee controls and the retained-evidence callout are omitted, and publication remains a demo action | Validated price, creator recipient checks, durable publication state, payment gate, and revenue reconciliation |
 | Public product | Backend-generated product metadata and a backend consumer action response; no browser payment is performed | Slug-based product loading, real payment requirements, authorized buyer client, receipts and uncertain-payment recovery |
 
-Some secondary controls still have no implemented action, including deployment logs and navigation collapse. The Builder editor is functional for the bounded in-memory slice, but it cannot yet save a durable version, discover new live sources, execute a changed DAG, or show live Explorer evidence. The evaluator new-product and rename behaviors reuse one session-scoped product projection; durable creation, persistence, and revision conflicts are not connected. Demo publication does not publish an endpoint, and fee terms are not yet agreed. These are concrete implementation tasks, not evidence of completed functionality.
+Some secondary controls still have no implemented action, including deployment logs and navigation collapse. The Builder editor is functional for the bounded in-memory slice, but it cannot yet save a durable version, discover new live sources, execute a changed DAG, or show live Explorer evidence. The evaluator new-product and rename behaviors reuse one session-scoped product projection; durable creation, persistence, and revision conflicts are not connected. Demo publication does not publish an endpoint; the hackathon profile has no Sprue service fee. These are concrete implementation tasks, not evidence of completed functionality.
 
 ## Implementation Order
 
