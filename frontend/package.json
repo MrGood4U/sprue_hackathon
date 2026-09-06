@@ -10,10 +10,11 @@
     "test:structure": "node --test tests/source-structure.test.mjs",
     "test:i18n": "node --test tests/localization.test.mjs",
     "test:builder": "node --test tests/builder.test.mjs",
+    "test:wallet": "node --test tests/wallet-access.test.mjs",
     "test:services": "node --test tests/backend-services.test.mjs",
     "test:workflow-editor": "node --test tests/workflow-editor.test.mjs",
     "test:config": "node --test tests/public-config.test.mjs",
-    "build": "npm run test:structure && npm run test:i18n && npm run test:services && npm run test:builder && npm run test:workflow-editor && npm run build:app",
+    "build": "npm run test:structure && npm run test:i18n && npm run test:services && npm run test:wallet && npm run test:builder && npm run test:workflow-editor && npm run build:app",
     "build:app": "npm run test:config && npm run test:tokens && vite build && node scripts/prepare-sites-build.mjs",
     "preview": "vite preview",
     "test:sites": "node --test tests/sites-worker.test.mjs"

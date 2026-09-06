@@ -20,6 +20,7 @@ import { Modal } from "../components/ui/Modal.jsx";
 import { Status } from "../components/ui/Status.jsx";
 import { useI18n } from "../i18n/I18nProvider.jsx";
 import { useDemoRuntime } from "../features/runtime/DemoRuntimeProvider.jsx";
+import { GRAPH_ACCESS_MODE, showsGraphCredentials } from "../features/wallet/graphAccessMode.js";
 
 export function WalletAccessPage() {
   const { t } = useI18n();
@@ -27,13 +28,13 @@ export function WalletAccessPage() {
   const { wallet } = state;
   const [modal, setModal] = useState(null);
   const [mode, setMode] = useState(wallet.access.defaultMode);
+  const credentialsVisible = showsGraphCredentials(mode);
 
   return (
     <div className="page">
       <AppHeader
         title={t("wallet.title")}
         subtitle={t("wallet.subtitle")}
-        actions={<Button icon={Plus} onClick={() => setModal("credential")}>{t("wallet.addCredential")}</Button>}
       />
 
       <div className="wallet-grid">
@@ -71,16 +72,28 @@ export function WalletAccessPage() {
           <div><h2>{t("wallet.graphAccess")}</h2><p>{t("wallet.graphAccessDetail")}</p></div>
           <Status>{t("common.configured")}</Status>
         </div>
-        <div className="segmented" role="group" aria-label={t("wallet.accessMode")}>
-          <button className={mode === "api" ? "active" : ""} onClick={() => setMode("api")}>
+        <div className="segmented" role="radiogroup" aria-label={t("wallet.accessMode")}>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={mode === GRAPH_ACCESS_MODE.API_KEY}
+            className={mode === GRAPH_ACCESS_MODE.API_KEY ? "active" : ""}
+            onClick={() => setMode(GRAPH_ACCESS_MODE.API_KEY)}
+          >
             <Key size={18} /><span><strong>{t("wallet.apiKey")}</strong><small>{t("wallet.apiKeyDetail")}</small></span>
           </button>
-          <button className={mode === "x402" ? "active" : ""} onClick={() => setMode("x402")}>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={mode === GRAPH_ACCESS_MODE.X402}
+            className={mode === GRAPH_ACCESS_MODE.X402 ? "active" : ""}
+            onClick={() => setMode(GRAPH_ACCESS_MODE.X402)}
+          >
             <CurrencyDollar size={18} /><span><strong>{t("wallet.x402")}</strong><small>{t("wallet.x402Detail")}</small></span>
           </button>
         </div>
         <div className="access-detail">
-          {mode === "x402" ? (
+          {mode === GRAPH_ACCESS_MODE.X402 ? (
             <><Status tone="amber">{t("wallet.costProtected")}</Status><p>{t("wallet.costProtectedDetail")}</p></>
           ) : (
             <><Status tone="violet">{t("wallet.credentialVault")}</Status><p>{t("wallet.credentialVaultDetail")}</p></>
@@ -88,15 +101,20 @@ export function WalletAccessPage() {
         </div>
       </section>
 
-      <section className="panel">
-        <div className="panel-toolbar"><div><h2>{t("wallet.credentials")}</h2><p>{t("wallet.credentialsDetail")}</p></div></div>
-        {wallet.credentials.map((credential) => <div className="credential-row" key={credential.name}>
-          <span className="credential-icon"><Key size={19} /></span>
-          <span><strong>{credential.name}</strong><small>{credential.detail}</small></span>
-          <Status tone="violet">{credential.status}</Status>
-          <IconButton label={t("wallet.credentialActions")}><DotsThree size={21} /></IconButton>
-        </div>)}
-      </section>
+      {credentialsVisible && (
+        <section className="panel">
+          <div className="panel-toolbar">
+            <div><h2>{t("wallet.credentials")}</h2><p>{t("wallet.credentialsDetail")}</p></div>
+            <Button icon={Plus} onClick={() => setModal("credential")}>{t("wallet.addCredential")}</Button>
+          </div>
+          {wallet.credentials.map((credential) => <div className="credential-row" key={credential.name}>
+            <span className="credential-icon"><Key size={19} /></span>
+            <span><strong>{credential.name}</strong><small>{credential.detail}</small></span>
+            <Status tone="violet">{credential.status}</Status>
+            <IconButton label={t("wallet.credentialActions")}><DotsThree size={21} /></IconButton>
+          </div>)}
+        </section>
+      )}
 
       {modal === "credential" && (
         <Modal
