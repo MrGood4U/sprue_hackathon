@@ -70,6 +70,10 @@ test("creator authentication exposes only the approved OAuth providers and redir
     new URL("../src/pages/LoginPage.jsx", import.meta.url),
     "utf8",
   );
+  const brandMarks = await readFile(
+    new URL("../src/features/auth/BrandMarks.jsx", import.meta.url),
+    "utf8",
+  );
   const app = await readFile(
     new URL("../src/app/App.jsx", import.meta.url),
     "utf8",
@@ -84,6 +88,11 @@ test("creator authentication exposes only the approved OAuth providers and redir
   assert.match(entry, /t\("entry\.enterConsole"\)/);
   assert.match(login, /loginWith\("google"\)/);
   assert.match(login, /loginWith\("github"\)/);
+  assert.match(login, /icon=\{GoogleBrandMark\}/);
+  assert.match(login, /icon=\{GitHubBrandMark\}/);
+  assert.doesNotMatch(login, /GoogleLogo|GithubLogo/);
+  assert.match(brandMarks, /data:image\/png;base64/);
+  assert.match(brandMarks, /fill="#ffffff"/);
   assert.doesNotMatch(login, /loginWith\("wallet"\)/);
   assert.match(login, /if \(authenticated\) navigate\("\/app"\)/);
   assert.match(login, /if \(authenticated\) return null/);

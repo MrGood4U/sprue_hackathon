@@ -1,8 +1,9 @@
-import { ArrowLeft, GithubLogo, GoogleLogo } from "@phosphor-icons/react";
+import { ArrowLeft } from "@phosphor-icons/react";
 import { useEffect } from "react";
 import { LanguageSwitcher } from "../components/navigation/LanguageSwitcher.jsx";
 import { Button } from "../components/ui/Button.jsx";
 import { useAuth } from "../features/auth/AuthProvider.jsx";
+import { GitHubBrandMark, GoogleBrandMark } from "../features/auth/BrandMarks.jsx";
 import { useI18n } from "../i18n/I18nProvider.jsx";
 
 export function LoginPage({ navigate }) {
@@ -43,8 +44,8 @@ export function LoginPage({ navigate }) {
           </div>
 
           <div className="auth-provider-list" aria-label={t("auth.methodsLabel")}>
-            <Button icon={GoogleLogo} disabled={loginDisabled} onClick={() => loginWith("google")}>{t("auth.google")}</Button>
-            <Button icon={GithubLogo} disabled={loginDisabled} onClick={() => loginWith("github")}>{t("auth.github")}</Button>
+            <Button icon={GoogleBrandMark} disabled={loginDisabled} onClick={() => loginWith("google")}>{t("auth.google")}</Button>
+            <Button icon={GitHubBrandMark} disabled={loginDisabled} onClick={() => loginWith("github")}>{t("auth.github")}</Button>
           </div>
 
           {!configured && status !== "loading" && <span className="auth-note">{t("auth.unavailable")}</span>}
