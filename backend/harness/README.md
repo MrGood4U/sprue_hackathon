@@ -4,7 +4,7 @@
 
 Draft 0.6, 2026-09-06. The first provider-neutral harness slice is now implemented under `backend/src/modules/agent/harness/`. It uses a mock model by default and can call a creator-configured OpenAI-compatible Chat Completions endpoint for the evaluator session. Both paths validate untrusted proposals, apply schema-provided mappings, and execute the bounded cross-chain runtime. This directory remains the design and operating contract; it does not contain provider credentials or a generic model SDK.
 
-Read the approved [data model 1.5](../../data-model.md), proposed [API contract](../../api-contract.md), [backend ownership](../README.md), and active [Graph reference](../../sponsor/graph.md) alongside this design. M1-M3 and H2 persistence directions were approved and incorporated into model 1.5; multi-source composition is the 1.5 scope extension. The [database foundation](../database.md) implements their tables, not the harness/controller. H1, H3 and E1/E2 remain open. No Graph purchase, wallet authority, subgraph deployment or API publication is enabled.
+Read the approved [data model 1.6](../../data-model.md), proposed [API contract](../../api-contract.md), [backend ownership](../README.md), and active [Graph reference](../../sponsor/graph.md) alongside this design. M1-M3 and H2 persistence directions were approved and incorporated into model 1.5; multi-source composition is the 1.5 scope extension. Model 1.6 separates stable Sprue users from replaceable login identities. The [database foundation](../database.md) implements their tables, not the harness/controller. H1, H3 and E1/E2 remain open. No Graph purchase, wallet authority, subgraph deployment or API publication is enabled.
 
 ## What the Harness Does
 

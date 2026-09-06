@@ -27,6 +27,7 @@ test("Privy access-token verification accepts only signed provider claims", asyn
     },
   });
   assert.deepEqual(await verifier.verify("valid"), {
+    provider: "privy",
     subject: "did:privy:test-user",
   });
   await assert.rejects(
@@ -40,7 +41,7 @@ test("Privy access-token verification accepts only signed provider claims", asyn
     );
 });
 
-test("first login creates one local account and owner workspace idempotently", async () => {
+test("provider identities resolve to a stable Sprue account and owner workspace", async () => {
   const db = new PGlite();
   const client: SqlClient = {
     query: (sql, parameters) => db.query(sql, parameters),
@@ -54,27 +55,87 @@ test("first login creates one local account and owner workspace idempotently", a
         release() {},
       })),
     );
-    const first = await auth.bootstrap("did:privy:first-login");
-    const second = await auth.bootstrap("did:privy:first-login");
+    const firstIdentity = {
+      provider: "privy",
+      subject: "did:privy:first-login",
+    };
+    const first = await auth.bootstrap(firstIdentity);
+    const second = await auth.bootstrap(firstIdentity);
     assert.deepEqual(second, first);
     assert.match(first.workspaces[0]!.slug, /^workspace-[0-9a-f]{12}$/);
     const counts = await db.query<{
       users: number;
+      identities: number;
       workspaces: number;
       members: number;
     }>(`SELECT
       (SELECT count(*)::integer FROM users) AS users,
+      (SELECT count(*)::integer FROM auth_identities) AS identities,
       (SELECT count(*)::integer FROM workspaces) AS workspaces,
       (SELECT count(*)::integer FROM workspace_members) AS members`);
-    assert.deepEqual(counts.rows[0], { users: 1, workspaces: 1, members: 1 });
+    assert.deepEqual(counts.rows[0], {
+      users: 1,
+      identities: 1,
+      workspaces: 1,
+      members: 1,
+    });
+
+    await db.query(
+      `INSERT INTO auth_identities(user_id,provider,provider_subject,status)
+      VALUES ($1,'privy','did:privy:linked-login','active')`,
+      [first.user.id],
+    );
+    const linked = await auth.bootstrap({
+      provider: "privy",
+      subject: "did:privy:linked-login",
+    });
+    assert.deepEqual(linked, first);
+    const linkedCounts = await db.query<{ users: number; identities: number }>(
+      `SELECT
+      (SELECT count(*)::integer FROM users) AS users,
+      (SELECT count(*)::integer FROM auth_identities) AS identities`,
+    );
+    assert.deepEqual(linkedCounts.rows[0], { users: 1, identities: 2 });
+
+    const conflictingUserId = randomUUID();
+    await db.query("INSERT INTO users(id,status) VALUES ($1,'active')", [
+      conflictingUserId,
+    ]);
+    await assert.rejects(
+      db.query(
+        `INSERT INTO auth_identities(user_id,provider,provider_subject,status)
+        VALUES ($1,'privy','did:privy:linked-login','active')`,
+        [conflictingUserId],
+      ),
+      (error: unknown) =>
+        typeof error === "object" && error !== null && "code" in error && error.code === "23505",
+    );
+
+    const revokedId = randomUUID();
+    await db.query("INSERT INTO users(id,status) VALUES ($1,'active')", [revokedId]);
+    await db.query(
+      `INSERT INTO auth_identities(user_id,provider,provider_subject,status,revoked_at)
+      VALUES ($1,'privy','did:privy:revoked','revoked',now())`,
+      [revokedId],
+    );
+    await assert.rejects(
+      auth.bootstrap({ provider: "privy", subject: "did:privy:revoked" }),
+      (error: unknown) =>
+        error instanceof AppError && error.code === "AUTH_REQUIRED",
+    );
 
     const blockedId = randomUUID();
     await db.query(
-      "INSERT INTO users(id,auth_provider,auth_subject,status) VALUES ($1,'privy','did:privy:blocked','suspended')",
+      "INSERT INTO users(id,status) VALUES ($1,'suspended')",
+      [blockedId],
+    );
+    await db.query(
+      `INSERT INTO auth_identities(user_id,provider,provider_subject,status)
+      VALUES ($1,'privy','did:privy:blocked','active')`,
       [blockedId],
     );
     await assert.rejects(
-      auth.bootstrap("did:privy:blocked"),
+      auth.bootstrap({ provider: "privy", subject: "did:privy:blocked" }),
       (error: unknown) =>
         error instanceof AppError && error.code === "USER_SUSPENDED",
     );

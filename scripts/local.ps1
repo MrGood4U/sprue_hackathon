@@ -18,7 +18,7 @@ if ($Action -eq 'init') {
     $randomSource = [Security.Cryptography.RandomNumberGenerator]::Create()
     try { $randomSource.GetBytes($randomBytes) } finally { $randomSource.Dispose() }
     $localPassword = [BitConverter]::ToString($randomBytes).Replace('-', '').ToLowerInvariant()
-    $contents = "# Local-only settings. Never commit this file.`nPOSTGRES_PASSWORD=$localPassword`nPOSTGRES_PORT=15432`nAPI_PORT=3001`nFRONTEND_PORT=4173`n"
+    $contents = "# Local-only settings. Never commit this file.`nPOSTGRES_PASSWORD=$localPassword`nPOSTGRES_PORT=15432`nAPI_PORT=3001`nFRONTEND_PORT=4173`n# Set both values to enable creator login.`nPRIVY_APP_ID=`nPRIVY_APP_SECRET=`n"
     # CreateNew prevents an initialization race from overwriting existing credentials.
     $stream = [IO.File]::Open($localEnvPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write)
     $writer = New-Object IO.StreamWriter($stream, (New-Object Text.UTF8Encoding($false)))
@@ -29,16 +29,23 @@ if ($Action -eq 'init') {
 
 if (-not (Test-Path -LiteralPath $localEnvPath)) { throw 'Run scripts/local.ps1 init first.' }
 $settings = @{}
+$allowedKeys = @('POSTGRES_PASSWORD', 'POSTGRES_PORT', 'API_PORT', 'FRONTEND_PORT', 'PRIVY_APP_ID', 'PRIVY_APP_SECRET')
 foreach ($line in [IO.File]::ReadAllLines($localEnvPath)) {
     if ($line.Trim() -eq '' -or $line.Trim().StartsWith('#')) { continue }
-    if ($line -notmatch '^(POSTGRES_PASSWORD|POSTGRES_PORT|API_PORT|FRONTEND_PORT)=([^\s]+)$') {
-        throw 'Invalid local configuration. Only the four documented local keys are supported.'
+    if ($line -notmatch '^([A-Z_]+)=([^\s]*)$' -or $allowedKeys -notcontains $Matches[1]) {
+        throw 'Invalid local configuration. Only the documented local keys are supported.'
     }
     if ($settings.ContainsKey($Matches[1])) { throw 'Duplicate local configuration key.' }
     $settings[$Matches[1]] = $Matches[2]
 }
-if ($settings.Count -ne 4 -or $settings['POSTGRES_PASSWORD'] -notmatch '^[a-fA-F0-9]{64}$') {
-    throw 'Local configuration needs four keys and a 64-character hex database password.'
+$requiredKeys = @('POSTGRES_PASSWORD', 'POSTGRES_PORT', 'API_PORT', 'FRONTEND_PORT')
+if (@($requiredKeys | Where-Object { -not $settings.ContainsKey($_) }).Count -ne 0 -or $settings['POSTGRES_PASSWORD'] -notmatch '^[a-fA-F0-9]{64}$') {
+    throw 'Local configuration needs the four required keys and a 64-character hex database password.'
+}
+$privyAppId = if ($settings.ContainsKey('PRIVY_APP_ID')) { $settings['PRIVY_APP_ID'] } else { '' }
+$privyAppSecret = if ($settings.ContainsKey('PRIVY_APP_SECRET')) { $settings['PRIVY_APP_SECRET'] } else { '' }
+if ([string]::IsNullOrEmpty($privyAppId) -ne [string]::IsNullOrEmpty($privyAppSecret)) {
+    throw 'PRIVY_APP_ID and PRIVY_APP_SECRET must be configured together.'
 }
 foreach ($key in @('POSTGRES_PORT', 'API_PORT', 'FRONTEND_PORT')) {
     $parsedPort = 0

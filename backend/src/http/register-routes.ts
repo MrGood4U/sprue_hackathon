@@ -51,7 +51,7 @@ export function registerRoutes(app: Express, deps: RouteDependencies) {
       }
       if (route.audience === "creator" && req.params.workspaceId)
         await deps.identity.requireOwner(
-          res.locals.identity.subject,
+          res.locals.identity,
           String(req.params.workspaceId),
         );
       if (

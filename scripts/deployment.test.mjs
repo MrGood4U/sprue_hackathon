@@ -97,6 +97,8 @@ test("packaging preserves Sites outputs and excludes local environment files", (
   );
   assert.match(read(".gitignore"), /^\.env.local$/m);
   assert.match(read("scripts/local.ps1"), /FileMode\]::CreateNew/);
+  assert.match(read("scripts/local.ps1"), /PRIVY_APP_ID/);
+  assert.match(read("scripts/local.ps1"), /must be configured together/);
   assert.doesNotMatch(
     read("scripts/local.ps1"),
     /down.*--volumes|volume\s+rm|docker\s+system\s+prune|Set-ExecutionPolicy/,

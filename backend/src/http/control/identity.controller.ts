@@ -39,7 +39,7 @@ export function readIdentity(identity: IdentityService): RequestHandler {
     if (!emptyObjectSchema.safeParse(req.query).success)
       throw new AppError("INVALID_REQUEST");
     const data = bootstrapSchema.parse(
-      await identity.me(res.locals.identity.subject),
+      await identity.me(res.locals.identity),
     );
     res.json({ data, meta: meta(res.locals.requestId) });
   };
@@ -50,7 +50,7 @@ export function bootstrapIdentity(auth: AuthService): RequestHandler {
     if (!emptyObjectSchema.safeParse(req.body).success)
       throw new AppError("INVALID_REQUEST");
     const data = bootstrapSchema.parse(
-      await auth.bootstrap(res.locals.identity.subject),
+      await auth.bootstrap(res.locals.identity),
     );
     res.json({ data, meta: meta(res.locals.requestId) });
   };

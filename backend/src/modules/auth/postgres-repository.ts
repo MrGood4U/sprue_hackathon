@@ -15,22 +15,54 @@ export function postgresAuthRepository(
   connect: AuthConnectionFactory,
 ): AuthRepository {
   return {
-    async bootstrap(subject) {
+    async bootstrap(identity) {
       const client = await connect();
       let transactionOpen = false;
       try {
         await client.query("BEGIN");
         transactionOpen = true;
-        const { rows: userRows } = await client.query(
-          `INSERT INTO users(auth_provider,auth_subject,status,last_seen_at)
-          VALUES ('privy',$1,'active',now())
-          ON CONFLICT (auth_provider,auth_subject)
-          DO UPDATE SET last_seen_at=EXCLUDED.last_seen_at
-          RETURNING id,display_name,status`,
-          [subject],
+        const bindingKey = `${identity.provider}:${identity.subject}`;
+        await client.query(
+          "SELECT pg_advisory_xact_lock(hashtextextended($1,0))",
+          [bindingKey],
         );
-        const user = userRows[0];
-        if (!user) throw new Error("AUTH_BOOTSTRAP_USER_MISSING");
+        let { rows: userRows } = await client.query(
+          `SELECT u.id,u.display_name,u.status,ai.status AS identity_status
+          FROM auth_identities ai
+          JOIN users u ON u.id=ai.user_id
+          WHERE ai.provider=$1 AND ai.provider_subject=$2
+          FOR UPDATE OF ai,u`,
+          [identity.provider, identity.subject],
+        );
+        let user = userRows[0];
+        if (user?.identity_status === "revoked") {
+          await client.query("ROLLBACK");
+          transactionOpen = false;
+          return { kind: "identity_revoked" };
+        }
+        if (!user) {
+          const created = await client.query(
+            `INSERT INTO users(status,last_seen_at)
+            VALUES ('active',now())
+            RETURNING id,display_name,status`,
+          );
+          user = created.rows[0];
+          if (!user) throw new Error("AUTH_BOOTSTRAP_USER_MISSING");
+          await client.query(
+            `INSERT INTO auth_identities(user_id,provider,provider_subject,status,last_seen_at)
+            VALUES ($1,$2,$3,'active',now())`,
+            [user.id, identity.provider, identity.subject],
+          );
+        } else {
+          await client.query(
+            `UPDATE auth_identities SET last_seen_at=now()
+            WHERE provider=$1 AND provider_subject=$2`,
+            [identity.provider, identity.subject],
+          );
+          await client.query("UPDATE users SET last_seen_at=now() WHERE id=$1", [
+            user.id,
+          ]);
+        }
         if (user.status !== "active") {
           await client.query("ROLLBACK");
           transactionOpen = false;

@@ -1,8 +1,8 @@
 # Database Foundation
 
-Status: initial persistence implementation for data-model 1.5, 2026-09-05.
+Status: persistence implementation for data-model 1.6, updated 2026-09-07.
 
-The human approved M1, M2, M3 and the two H2 persistence directions (planning/run recovery and semantic compilation provenance). This foundation contains 51 domain tables and 699 columns, 15 ordered SQL migrations, typed Drizzle query mappings, a migration journal, public reference seeds and offline tests. It is not an API, queue relay, Agent, payment system or deployed database.
+The human approved M1, M2, M3, the two H2 persistence directions (planning/run recovery and semantic compilation provenance), and the provider-independent Sprue user identity boundary. This foundation contains 52 domain tables and 705 columns, 16 ordered SQL migrations, typed Drizzle query mappings, a migration journal, public reference seeds and offline tests. Migration 0016 preserves each existing Sprue user UUID while moving provider subjects into the many-to-one `auth_identities` table. It is not an account-linking API, queue relay, Agent, payment system or deployed database.
 
 ## Ownership and Schema Authority
 
@@ -15,6 +15,7 @@ The human approved M1, M2, M3 and the two H2 persistence directions (planning/ru
 | `migrations/0012_ownership_immutability.sql` | Workspace link consistency and immutable history |
 | `migrations/0013_lifecycle_lineage.sql`, `0014_register_guards.sql` | Lifecycle, lineage, planner reservation and recovery retention guards |
 | `migrations/0015_financial_and_evidence_guards.sql` | Network/asset consistency, settlement links and evidence protection |
+| `migrations/0016_auth_identities.sql` | Provider-independent users, existing-subject backfill and multi-identity bindings |
 | `src/db/schema/` | Nine domain-specific Drizzle query mappings; SQL remains authoritative for relational constraints |
 | `src/db/client.ts` | Standard pg connection, environment validation and TLS handling |
 | `src/db/migrations.ts` | Dedicated-client lock, checksummed journal and transaction per migration |
@@ -60,7 +61,7 @@ There are no users, wallets, signer grants, API keys, balances, payments, produc
 
 | Concern | Implemented structural protection | Still required in services |
 |---|---|---|
-| Ownership | Foreign keys, one active owner, workspace consistency for scoped links | Privy authentication, every read/write authorization, polymorphic command subjects; no RLS policy is installed |
+| Ownership | Foreign keys, stable Sprue user UUIDs, unique provider bindings, one active owner, workspace consistency for scoped links | Account linking/unlinking/recovery, every read/write authorization, polymorphic command subjects; no RLS policy is installed |
 | M1 commands | Null-safe actor/workspace/operation/key uniqueness, immutable fingerprints, required transactional outbox, terminal-state guard | Keyed canonical fingerprint generation/comparison, HTTP 409/replay behavior, registered operation dispatch, queue relay, worker leases, serialized proposal acceptance/discard |
 | M2 recovery | Unique hashed capability, key version/expiry fields, frozen request identity, unique proof binding, one sale per logical request, retained immutable output | Capability generation/constant-time verification, key retention, cryptographic proof checks, authorized receipts, browser restoration, expiry profile and cleanup |
 | M3 lifecycle | Validation/build state guard, source projections, ready version/output pairing; no build trigger moves deployment pointers | Explicit human commands, complete compiler validation, successful build transaction, refresh/activation compare-and-swap race handling |
@@ -82,7 +83,7 @@ npm run typecheck
 npm test
 ```
 
-Tests always create isolated, in-memory PGlite databases and ignore `DATABASE_URL`; they never migrate an existing database. They verify empty initialization, repeated migration/seed, checksum drift rejection, failed-migration rollback, all 51 tables/699 fields, and representative negative transaction/retry/ownership/money/provenance cases. Fixture DAGs test relational structure only and are deliberately not executable H1 schemas.
+Tests always create isolated, in-memory PGlite databases and ignore `DATABASE_URL`; they never migrate an existing database. They verify empty initialization, repeated migration/seed, checksum drift rejection, failed-migration rollback, all 52 tables/705 fields, provider-binding resolution, multiple identities for one stable user, and representative negative transaction/retry/ownership/money/provenance cases. Fixture DAGs test relational structure only and are deliberately not executable H1 schemas.
 
 The recorded run used Node 24.20.0 and PGlite 0.5.8 (PostgreSQL 18.3 compiled to WASM). Docker was installed but its engine was unavailable. Therefore native PostgreSQL 17, multi-connection races, pg-boss behavior, Docker service startup and Railway compatibility are **not yet verified**. PGlite is a test dependency, not the production database or proof of distributed locking.
 

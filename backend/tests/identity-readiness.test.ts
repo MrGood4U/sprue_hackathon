@@ -26,7 +26,12 @@ test("identity projection and owner authorization read real isolated SQL without
       workspace = randomUUID();
     await db.exec("BEGIN");
     await db.query(
-      "INSERT INTO users(id,auth_provider,auth_subject,display_name,status) VALUES ($1,'privy','test-subject','Test creator','active')",
+      "INSERT INTO users(id,display_name,status) VALUES ($1,'Test creator','active')",
+      [user],
+    );
+    await db.query(
+      `INSERT INTO auth_identities(user_id,provider,provider_subject,status)
+      VALUES ($1,'privy','test-subject','active')`,
       [user],
     );
     await db.query(
@@ -39,19 +44,28 @@ test("identity projection and owner authorization read real isolated SQL without
     );
     await db.exec("COMMIT");
     const identity = new IdentityService(identityRepository(client));
-    const result = await identity.me("test-subject");
+    const result = await identity.me({
+      provider: "privy",
+      subject: "test-subject",
+    });
     assert.equal(result.user.id, user);
     assert.equal(result.defaultWorkspaceId, workspace);
     assert.equal(result.workspaces[0]!.role, "owner");
     assert.equal(JSON.stringify(result).includes("test-subject"), false);
-    await identity.requireOwner("test-subject", workspace);
+    await identity.requireOwner(
+      { provider: "privy", subject: "test-subject" },
+      workspace,
+    );
     await assert.rejects(
-      identity.requireOwner("different-subject", workspace),
+      identity.requireOwner(
+        { provider: "privy", subject: "different-subject" },
+        workspace,
+      ),
       (error: unknown) =>
         error instanceof AppError && error.code === "RESOURCE_NOT_FOUND",
     );
     await assert.rejects(
-      identity.me("unknown"),
+      identity.me({ provider: "privy", subject: "unknown" }),
       (error: unknown) =>
         error instanceof AppError && error.code === "BOOTSTRAP_REQUIRED",
     );
@@ -59,7 +73,10 @@ test("identity projection and owner authorization read real isolated SQL without
       workspace,
     ]);
     await assert.rejects(
-      identity.requireOwner("test-subject", workspace),
+      identity.requireOwner(
+        { provider: "privy", subject: "test-subject" },
+        workspace,
+      ),
       (error: unknown) =>
         error instanceof AppError && error.code === "WORKSPACE_SUSPENDED",
     );

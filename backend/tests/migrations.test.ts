@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { PGlite } from "@electric-sql/pglite";
@@ -9,6 +10,47 @@ import { seedReferenceData } from "../src/db/seed.js";
 import { databaseConfig } from "../src/db/client.js";
 import * as schema from "../src/db/schema/index.js";
 
+test("auth identity migration preserves existing Sprue user IDs", async () => {
+  const db = new PGlite();
+  const client: SqlClient = { query: (sql, parameters) => db.query(sql, parameters), exec: (sql) => db.exec(sql) };
+  try {
+    const migrations = await readMigrations();
+    const identityMigration = migrations.at(-1);
+    assert.equal(identityMigration?.name, "0016_auth_identities.sql");
+    await migrate(client, migrations.slice(0, -1));
+
+    const userId = randomUUID();
+    await db.query(
+      `INSERT INTO users(id,auth_provider,auth_subject,status)
+      VALUES ($1,'privy','did:privy:existing','active')`,
+      [userId],
+    );
+    await migrate(client, migrations);
+
+    const users = await db.query<{ id: string }>("SELECT id FROM users");
+    assert.deepEqual(users.rows, [{ id: userId }]);
+    const identities = await db.query<{
+      user_id: string;
+      provider: string;
+      provider_subject: string;
+    }>("SELECT user_id,provider,provider_subject FROM auth_identities");
+    assert.deepEqual(identities.rows, [{
+      user_id: userId,
+      provider: "privy",
+      provider_subject: "did:privy:existing",
+    }]);
+    const oldColumns = await db.query<{ count: number }>(
+      `SELECT count(*)::integer AS count
+      FROM information_schema.columns
+      WHERE table_schema='public' AND table_name='users'
+        AND column_name IN ('auth_provider','auth_subject')`,
+    );
+    assert.equal(oldColumns.rows[0]!.count, 0);
+  } finally {
+    await db.close();
+  }
+});
+
 test("all migrations initialize empty isolated PostgreSQL, repeat safely and match Drizzle", async () => {
   const db = new PGlite();
   const client: SqlClient = { query: (sql, parameters) => db.query(sql, parameters), exec: (sql) => db.exec(sql) };
@@ -18,7 +60,7 @@ test("all migrations initialize empty isolated PostgreSQL, repeat safely and mat
     await migrate(client, migrations);
     assert.equal((await migrate(client, migrations)).pending.length, 0);
     const checked = await checkSchema(client);
-    assert.equal(checked.tables, 51);
+    assert.equal(checked.tables, 52);
     console.log(`Verified ${checked.tables} tables and ${checked.columns} columns on ${(await db.query<{version:string}>("SELECT version() AS version")).rows[0]?.version}`);
     await seedReferenceData(client);
     await seedReferenceData(client);

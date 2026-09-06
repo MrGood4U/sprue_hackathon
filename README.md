@@ -2,7 +2,7 @@
 
 Describe it. Shape it. Sell it.
 
-Sprue is a hosted web product that turns natural-language onchain data logic into persistent, reusable, and optionally monetizable APIs. It is a browser application, not a Windows or macOS native client. Product structure, technical selection, and data-model version 1.5 are approved. MVP implementation now includes the maintained frontend, backend database foundation, API/standby-worker framework, Privy creator authentication and account/workspace bootstrap, an offline schema-driven DAG runtime for the cross-chain target, and an explicit backend demo runtime. The nine-page application in `frontend/` is the maintained product frontend, using the selected Evidence-First Console design and English/Simplified Chinese localization. Route-level pages request server-generated demo data and do not own browser fixtures while durable business handlers and provider adapters proceed. The initial downstream payment profile is Hedera testnet with HBAR through Blocky402. No complete live MVP or live payment integration exists yet. See [mvp-flow.md](mvp-flow.md) for the end-to-end flow and support matrix.
+Sprue is a hosted web product that turns natural-language onchain data logic into persistent, reusable, and optionally monetizable APIs. It is a browser application, not a Windows or macOS native client. Product structure, technical selection, and data-model version 1.6 are approved. MVP implementation now includes the maintained frontend, backend database foundation, API/standby-worker framework, Privy creator authentication with provider-independent Sprue user IDs, an offline schema-driven DAG runtime for the cross-chain target, and an explicit backend demo runtime. The nine-page application in `frontend/` is the maintained product frontend, using the selected Evidence-First Console design and English/Simplified Chinese localization. Route-level pages request server-generated demo data and do not own browser fixtures while durable business handlers and provider adapters proceed. The initial downstream payment profile is Hedera testnet with HBAR through Blocky402. No complete live MVP or live payment integration exists yet. See [mvp-flow.md](mvp-flow.md) for the end-to-end flow and support matrix.
 
 ## Product Boundary
 
@@ -41,14 +41,14 @@ Open `http://127.0.0.1:4173`. Use a browser window at least 1024 CSS pixels wide
 
 ## Database Foundation
 
-The backend now has 51 domain tables, 15 ordered SQL migrations, typed Drizzle query mappings, explicit reference seeds and isolated tests. Read [backend/database.md](backend/database.md) for local PostgreSQL setup, commands, schema authority and remaining verification. Database structure, the API/standby-worker framework, Privy access-token verification, and transactional account/workspace bootstrap are implemented; other business handlers and live integrations are not. See [backend/framework.md](backend/framework.md) for startup commands, security boundaries, generated OpenAPI and reserved routes. Native PostgreSQL 17 schema/migrations and Docker service startup now pass the Windows-local checks in [deployment.md](deployment.md); real provider login, Railway deployment and multi-connection behavior remain unverified.
+The backend now has 52 domain tables, 16 ordered SQL migrations, typed Drizzle query mappings, explicit reference seeds and isolated tests. Read [backend/database.md](backend/database.md) for local PostgreSQL setup, commands, schema authority and remaining verification. Database structure, the API/standby-worker framework, Privy access-token verification, provider-identity resolution, and transactional account/workspace bootstrap are implemented; account linking, other business handlers, and live integrations are not. See [backend/framework.md](backend/framework.md) for startup commands, security boundaries, generated OpenAPI and reserved routes. Native PostgreSQL 17 schema/migrations and Docker service startup now pass the Windows-local checks in [deployment.md](deployment.md); real provider login, Railway deployment and multi-connection behavior remain unverified.
 
 ## Project Records
 
 - [Product intent and repository rules](agents.md)
 - [Plan, decisions, and AI contribution log](plan.md)
 - [Proposed project structure and financial model](project-structure.md)
-- [Approved MVP data model version 1.5 and validation gates](data-model.md)
+- [Approved MVP data model version 1.6 and validation gates](data-model.md)
 - [Proposed frontend/backend API contract and review gates](api-contract.md)
 - [Proposed Agent harness workflow, tools, operators, and constraints](backend/harness/README.md)
 - [Approved page architecture and interaction design](product-design.md)
@@ -57,6 +57,6 @@ The backend now has 51 domain tables, 15 ordered SQL migrations, typed Drizzle q
 - [Frontend structure and file-ownership plan](frontend/README.md)
 - [Backend boundary and source-layout plan](backend/README.md)
 
-Product-design Draft 1.24 records the maintained frontend, nine page families, route ownership, interactions, accessibility, and screen-to-data contracts. Token review remains follow-up work; durable model-secret storage, the capped consumer's funding boundary, and real provider compatibility remain integration gates.
+Product-design Draft 1.25 records the maintained frontend, nine page families, route ownership, interactions, accessibility, and screen-to-data contracts. Token review remains follow-up work; durable model-secret storage, the capped consumer's funding boundary, and real provider compatibility remain integration gates.
 
 Participation: Start Fresh. All repository text is written in English; team communication may use Chinese. Preserve meaningful Git history and update the AI contribution record as work progresses. Runnable setup and verified demo evidence will be added with implementation.

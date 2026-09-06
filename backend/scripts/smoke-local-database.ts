@@ -43,7 +43,7 @@ try {
       applied: 15,
       pending: [],
     });
-    assert.deepEqual(await checkSchema(sql), { tables: 51, columns: 699 });
+    assert.deepEqual(await checkSchema(sql), { tables: 52, columns: 705 });
   } finally {
     client.release();
   }
@@ -73,5 +73,5 @@ for (const role of ["api", "worker"] as const) {
   assert.equal(runtime.server.listening, false);
 }
 console.log(
-  "Native Node API/worker, PostgreSQL 17 schema, 15 migrations, readiness and shutdown passed. No database writes or provider calls were made.",
+  "Native Node API/worker, PostgreSQL 17 schema, 16 migrations, readiness and shutdown passed. No database writes or provider calls were made.",
 );

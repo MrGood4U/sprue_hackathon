@@ -24,7 +24,7 @@ test("database transaction, lineage and recovery contracts", async (t) => {
   const now = new Date().toISOString();
   const later = new Date(Date.now() + 3600_000).toISOString();
   const owner = async () => {
-    const user = await insert("users", {auth_provider:"privy", auth_subject:`test:${randomUUID()}`, status:"active"});
+    const user = await insert("users", {status:"active"});
     const id = randomUUID();
     await transaction(async () => {
       await insert("workspaces", {id, owner_user_id:user.id, slug:id, name:"Test workspace", status:"active"});

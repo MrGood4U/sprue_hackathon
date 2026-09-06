@@ -9,6 +9,8 @@ export function requireIdentity(verifier: IdentityVerifier): RequestHandler {
     const identity = await verifier.verify(value.slice(7));
     if (
       !identity ||
+      typeof identity.provider !== "string" ||
+      !/^[a-z][a-z0-9_]{0,31}$/.test(identity.provider) ||
       typeof identity.subject !== "string" ||
       !identity.subject.trim()
     )

@@ -48,7 +48,7 @@ test("HTTP framework boundaries through real local sockets", async (t) => {
       if (token === "expired") throw new AppError("AUTH_EXPIRED");
       if (token === "leak")
         throw new Error("private-key-and-database-url-must-not-leak");
-      return { subject: "test-provider-subject" };
+      return { provider: "privy", subject: "test-provider-subject" };
     },
   };
   const identity = new IdentityService({

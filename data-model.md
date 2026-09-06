@@ -2,11 +2,11 @@
 
 ## Status
 
-Version: 1.5
+Version: 1.6
 
-Date: 2026-09-05
+Date: 2026-09-07
 
-Stage: Approved MVP design baseline. Version 1.5 incorporates the user's multi-Subgraph composition decision: a product version may reference multiple existing source snapshots and combine their normalized results through explicit Union/Join DAG operators. Version 1.4 incorporated the user-approved durable command, anonymous recovery, lifecycle, checkpoint and compilation-provenance directions into the initial persistence specification. Version 1.3 included Draft 1.2's The Graph source and dual-access refinements plus Draft 1.3's Hedera x402 v2 `exact`, account/asset capability, facilitator-capability, and normalized settlement-reconciliation refinements. The human team approved the combined model and selected Hedera testnet with HBAR for the initial downstream integration on 2026-09-05. External integration and implementation validation remain open.
+Stage: Approved MVP design baseline. Version 1.6 separates Sprue's permanent user identity from replaceable authentication-provider subjects: `users.id` is the application-owned identifier and `auth_identities` binds one or more provider accounts to it. Version 1.5 incorporated the user's multi-Subgraph composition decision: a product version may reference multiple existing source snapshots and combine their normalized results through explicit Union/Join DAG operators. Version 1.4 incorporated the user-approved durable command, anonymous recovery, lifecycle, checkpoint and compilation-provenance directions into the initial persistence specification. Version 1.3 included Draft 1.2's The Graph source and dual-access refinements plus Draft 1.3's Hedera x402 v2 `exact`, account/asset capability, facilitator-capability, and normalized settlement-reconciliation refinements. External integration and implementation validation remain open.
 
 This document is the source of truth for Sprue's MVP domain model, PostgreSQL persistence model, lifecycle rules, financial separation, and runtime records. It translates the product and architecture decisions in [agents.md](agents.md), [plan.md](plan.md), and [project-structure.md](project-structure.md) into an implementation-ready model.
 
@@ -15,6 +15,7 @@ The model describes intended behavior. It is not evidence that an external walle
 ## Confirmed Inputs
 
 - A creator uses natural language to define a persistent Graph-backed data product.
+- A creator has a stable Sprue-owned user UUID. Privy and any future authentication provider supply replaceable login identities that resolve to this user; provider subjects are not application user IDs. One user may have multiple explicitly linked identities, but provider-account linking, conflict resolution, and recovery require a separate authenticated flow and must never merge accounts by email or wallet heuristics.
 - The user confirmed an existing-Subgraph-only boundary on 2026-09-05. Source snapshots describe externally existing sources, not indexes created by Sprue. Sprue does not create or deploy new Subgraphs or Subgraph Composition; product deployments refer to hosted Sprue APIs. A product version may now reference multiple validated source snapshots and combine their results through explicit Union/Join operators. This scope change requires no new relational fields or migration at the planning stage because source projections, source requests and multi-input node artifacts are already modeled; exact JSON/operator schemas remain an H1 implementation gate.
 - The Agent dynamically composes predefined, developer-implemented DAG operators. It does not generate arbitrary executable JavaScript or Python for the MVP.
 - Product definitions and execution layouts are separate.
@@ -571,8 +572,6 @@ Rules:
 | Column | Type | Null | Rules and purpose |
 |---|---|---:|---|
 | `id` | `uuid` | no | Primary key |
-| `auth_provider` | `text` | no | Initially `privy`; check-constrained |
-| `auth_subject` | `text` | no | Stable provider user ID; never an access token |
 | `display_name` | `text` | yes | Optional user-facing name |
 | `status` | `text` | no | `active`, `suspended`, `closed` |
 | `created_at` | `timestamptz` | no | Immutable creation time |
@@ -580,8 +579,29 @@ Rules:
 
 Constraints and indexes:
 
-- Unique `(auth_provider, auth_subject)`.
 - Index `(status, created_at)`.
+- `id` is the only Sprue user identifier referenced by workspaces and domain records. It does not encode or change with an authentication provider.
+
+#### `auth_identities`
+
+| Column | Type | Null | Rules and purpose |
+|---|---|---:|---|
+| `id` | `uuid` | no | Primary key for the login binding |
+| `user_id` | `uuid` | no | FK to the stable Sprue `users.id` |
+| `provider` | `text` | no | Normalized adapter name; initially `privy` |
+| `provider_subject` | `text` | no | Provider-issued stable subject; never an access token |
+| `status` | `text` | no | `active`, `revoked` |
+| `created_at` | `timestamptz` | no | Binding creation time |
+| `last_seen_at` | `timestamptz` | yes | Last successful provider-authenticated use |
+| `revoked_at` | `timestamptz` | yes | Required exactly when revoked |
+
+Constraints and indexes:
+
+- Unique `(provider, provider_subject)` prevents one provider identity from resolving to multiple Sprue users.
+- Index `(user_id, status)` supports account-management and active-binding reads.
+- Multiple active identities, including multiple subjects from the same provider, may reference one user only after an explicit account-linking flow proves control of the current Sprue account and the new provider identity.
+- Revoked bindings remain reserved for their original user and cannot be silently rebound. Re-authentication does not reactivate them.
+- Authentication lookup returns `user_id`; all authorization, ownership, products, wallets, and audit records continue to reference the Sprue UUID.
 
 #### `workspaces`
 
@@ -2183,7 +2203,7 @@ User + Workspace
 - [ ] The DAG JSON schema and operator configuration schemas are versioned and testable.
 - [ ] All statuses have explicit transition tests, including uncertain payment and revoked authorization paths.
 - [ ] The 5 MiB inline artifact proposal is tested against the representative DEX result.
-- [x] All 51 tables and 699 columns match Drizzle query mappings and model 1.5 in isolated SQL tests; SQL migrations own foreign keys, checks, indexes and triggers that are intentionally not duplicated in Drizzle metadata.
+- [x] All 52 tables and 705 columns match Drizzle query mappings and model 1.6 in isolated SQL tests; SQL migrations own foreign keys, checks, indexes and triggers that are intentionally not duplicated in Drizzle metadata.
 - [ ] Indexes are checked against expected creator dashboard, worker polling, API, and reconciliation queries.
 - [ ] Migration and fixture plans run identically on Railway PostgreSQL and Docker PostgreSQL.
 - [ ] No table or JSON document provides a place for raw secrets or hidden model reasoning.
@@ -2203,7 +2223,7 @@ Provider-specific metadata that proves necessary should first be added to valida
 
 ## Change Control
 
-On 2026-09-05 the human approved items 1-5: M1 durable commands, M2 anonymous request recovery, M3 lifecycle clarification, and H2 durable planning/run recovery plus immutable compilation provenance. Version 1.5 records their persistence implementation above together with the multi-Subgraph composition boundary. The HTTP contract remains a draft for endpoint implementation, and H1 exact executable schemas, H3 live methodology/limits, E1/E2 provider and buyer capabilities, and fee policy remain open. No runtime, funds movement or deployed provider capability is approved merely by creating these tables.
+On 2026-09-05 the human approved items 1-5: M1 durable commands, M2 anonymous request recovery, M3 lifecycle clarification, and H2 durable planning/run recovery plus immutable compilation provenance. Version 1.5 recorded their persistence implementation together with the multi-Subgraph composition boundary. On 2026-09-07 the human approved the version 1.6 identity boundary: stable Sprue users are independent from one-or-more provider login bindings. The HTTP contract remains a draft for endpoint implementation, and account linking, H1 exact executable schemas, H3 live methodology/limits, E1/E2 provider and buyer capabilities, and fee policy remain open. No runtime, funds movement or deployed provider capability is approved merely by creating these tables.
 
 After human approval, changes to this model require:
 
@@ -2212,4 +2232,4 @@ After human approval, changes to this model require:
 3. Tests for affected transitions, constraints, and derived views.
 4. An AI contribution and project change-log entry in [plan.md](plan.md) when AI materially influenced the change.
 
-The human team approved the version 1.3 baseline, the version 1.4 persistence directions, and the version 1.5 multi-Subgraph composition boundary on 2026-09-05. This retains Draft 1.2's Graph source/customer-credential/per-query x402 refinements and Draft 1.3's Hedera x402/recipient-capability/settlement refinements. The initial migrations and typed schema now implement the persistence baseline; see backend/database.md for tested structural guards and remaining service/native-database verification. The initial downstream profile is Hedera testnet with HBAR; Union/Join schemas and all other open checklist items remain implementation and external-integration validation gates.
+The human team approved the version 1.3 baseline, version 1.4 persistence directions, and version 1.5 multi-Subgraph composition boundary on 2026-09-05, followed by the version 1.6 provider-independent user identity boundary on 2026-09-07. This retains Draft 1.2's Graph source/customer-credential/per-query x402 refinements and Draft 1.3's Hedera x402/recipient-capability/settlement refinements. The forward migrations and typed schema implement the current persistence baseline; see backend/database.md for tested structural guards and remaining service/native-database verification. The initial downstream profile is Hedera testnet with HBAR; account linking, Union/Join schemas, and all other open checklist items remain implementation and external-integration validation gates.

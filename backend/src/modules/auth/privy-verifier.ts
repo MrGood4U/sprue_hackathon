@@ -29,7 +29,7 @@ export function privyIdentityVerifier(
           claims.user_id.length > 500
         )
           throw new AppError("AUTH_REQUIRED");
-        return { subject: claims.user_id };
+        return { provider: "privy", subject: claims.user_id };
       } catch (error) {
         if (error instanceof AppError) throw error;
         if (error instanceof InvalidAuthTokenError) {

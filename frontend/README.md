@@ -59,7 +59,7 @@ src/
 
 As durable business handlers replace the evaluator runtime, extend these boundaries by responsibility:
 
-The proposed HTTP mapping is [api-contract.md](../api-contract.md) Draft 0.5. Its page-to-API matrix and domain DTOs guide client implementation after review. The temporary `/api/v1/public/demo/*` contract is documented in [demo-runtime.md](../docs/api/demo-runtime.md) and is not a production resource contract.
+The proposed HTTP mapping is [api-contract.md](../api-contract.md) Draft 0.6. Its page-to-API matrix and domain DTOs guide client implementation after review. The temporary `/api/v1/public/demo/*` contract is documented in [demo-runtime.md](../docs/api/demo-runtime.md) and is not a production resource contract.
 
 ```text
 src/

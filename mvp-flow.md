@@ -307,7 +307,7 @@ This matrix is based on the current source tree and test/build evidence, not on 
 | Public app configuration transport | Implemented | Read-only server configuration route; feature flags remain false |
 | Health and readiness probes | Implemented | Process and database/migration readiness only |
 | Privy creator authentication | Implemented, live evidence pending | Google/GitHub/MetaMask frontend paths and server SDK verification exist; missing configuration fails closed, but no real Privy credentials are configured on the development host |
-| Workspace bootstrap | Implemented | Verified subject transactionally reuses or creates the local user, default owner workspace, and membership; isolated SQL tests cover idempotency |
+| Workspace bootstrap | Implemented | Verified provider identity resolves to or transactionally creates a stable Sprue user UUID, default owner workspace, and membership; isolated SQL tests cover idempotency and multiple bindings to one user |
 | Product CRUD handlers | Not implemented | Routes are registered reservations and return `503 CAPABILITY_NOT_IMPLEMENTED` |
 | Graph API-key persistence and validation | Not implemented | Data model and route catalog exist; secret storage/provider adapter is absent |
 | Privy wallet synchronization and spending policy | Not implemented | Persistence and contracts exist; live provider control is gated by E1 |

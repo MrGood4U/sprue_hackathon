@@ -4,12 +4,21 @@ import { pgTable, uuid, text, integer, smallint, bigint, numeric, timestamp, boo
 
 export const users = pgTable("users", {
   id: uuid("id").notNull().primaryKey().defaultRandom(),
-  auth_provider: text("auth_provider").notNull(),
-  auth_subject: text("auth_subject").notNull(),
   display_name: text("display_name"),
   status: text("status").notNull(),
   created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   last_seen_at: timestamp("last_seen_at", { withTimezone: true, mode: "date" }),
+});
+
+export const authIdentities = pgTable("auth_identities", {
+  id: uuid("id").notNull().primaryKey().defaultRandom(),
+  user_id: uuid("user_id").notNull(),
+  provider: text("provider").notNull(),
+  provider_subject: text("provider_subject").notNull(),
+  status: text("status").notNull().default("active"),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  last_seen_at: timestamp("last_seen_at", { withTimezone: true, mode: "date" }),
+  revoked_at: timestamp("revoked_at", { withTimezone: true, mode: "date" }),
 });
 
 export const workspaces = pgTable("workspaces", {

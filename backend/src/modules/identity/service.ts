@@ -1,16 +1,17 @@
 import { AppError } from "../../shared/errors.js";
+import type { AuthIdentityKey } from "../auth/ports.js";
 import type { IdentityRepository } from "./ports.js";
 export class IdentityService {
   constructor(private readonly repository: IdentityRepository) {}
-  async me(subject: string) {
-    const result = await this.repository.findBootstrap(subject);
+  async me(identity: AuthIdentityKey) {
+    const result = await this.repository.findBootstrap(identity);
     if (!result) throw new AppError("BOOTSTRAP_REQUIRED");
     if (result.user.status !== "active") throw new AppError("USER_SUSPENDED");
     return result;
   }
-  async requireOwner(subject: string, workspaceId: string) {
+  async requireOwner(identity: AuthIdentityKey, workspaceId: string) {
     const result = await this.repository.findOwnedWorkspace(
-      subject,
+      identity,
       workspaceId,
     );
     if (!result) throw new AppError("RESOURCE_NOT_FOUND");

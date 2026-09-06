@@ -1,9 +1,12 @@
 import type { Bootstrap } from "../identity/contracts.js";
 
-// Provider-signed identity is the only authority for a local account subject.
-export interface VerifiedIdentity {
+// Provider-signed identity locates a login binding, never a Sprue user ID.
+export interface AuthIdentityKey {
+  provider: string;
   subject: string;
 }
+
+export type VerifiedIdentity = AuthIdentityKey;
 
 export interface IdentityVerifier {
   verify(accessToken: string): Promise<VerifiedIdentity>;
@@ -11,8 +14,9 @@ export interface IdentityVerifier {
 
 export type AuthBootstrapResult =
   | { kind: "ready"; bootstrap: Bootstrap }
-  | { kind: "blocked"; userStatus: "suspended" | "closed" };
+  | { kind: "blocked"; userStatus: "suspended" | "closed" }
+  | { kind: "identity_revoked" };
 
 export interface AuthRepository {
-  bootstrap(subject: string): Promise<AuthBootstrapResult>;
+  bootstrap(identity: AuthIdentityKey): Promise<AuthBootstrapResult>;
 }
