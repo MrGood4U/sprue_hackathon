@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft 1.20, updated on 2026-09-06. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. A dedicated Model Service page now lets the creator configure the OpenAI-compatible language model used by Agent planning. Graph credential management is disclosed only when API-key access is selected and keeps its primary action next to the credential list. Token review remains follow-up work; durable identity, secret storage, Graph, wallet, and payment integrations are still pending.
+Draft 1.21, updated on 2026-09-06. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. A dedicated Model Service page now lets the creator configure the OpenAI-compatible language model used by Agent planning. Graph credential management is disclosed only when API-key access is selected and keeps its primary action next to the credential list. The Product Dashboard is focused on summary metrics and the product list; the redundant Recent Activity and Sponsor Proof panels are removed. Token review remains follow-up work; durable identity, secret storage, Graph, wallet, and payment integrations are still pending.
 
 This document defines the MVP information architecture, page inventory, interactions, state behavior, desktop layout behavior, accessibility requirements, and screen-to-domain contracts. The decisions are recorded in [Confirmed Design Decisions](#confirmed-design-decisions).
 
@@ -203,11 +203,9 @@ The page must not expose a wallet address as proof that authentication or wallet
 **Content and interaction elements:**
 
 - Welcome and workspace heading.
-- Readiness checklist for Privy wallet, one Graph access path, first build, private deployment, and optional x402 publication.
 - Product list using cards for one to three products and a table when the list grows.
 - Per-product facts: name, lifecycle status, active version, last successful build, data freshness, API access mode, deployment health, and last updated time.
 - Per-product actions: `Open builder`, `Open API`, and `Resume setup` when blocked.
-- Recent run summary with status and recovery link.
 - Empty state with the example DEX-stickiness intent and one creation action.
 
 **States:**
@@ -744,3 +742,4 @@ Remaining review and integration work:
 | 2026-09-06 | Recorded Draft 1.18 by moving the template/operator palette into the DAG canvas and removing the workflow summary strip | The canvas gains the space formerly reserved for a palette column and status header while keeping insertion controls spatially associated with the workflow |
 | 2026-09-06 | Recorded Draft 1.19 by adding a top-level Model Service page for a creator-supplied OpenAI-compatible API URL, API key, and model name | The next explicit Agent plan uses the configured model; the evaluator profile is backend-memory-only and redacted until verified identity and durable secret storage are implemented |
 | 2026-09-06 | Recorded Draft 1.20 by moving `Add API key` into the credential section and showing credential management only for API-key Graph access | Access-mode selection now reveals only the resources required by the selected path and keeps related content and actions together |
+| 2026-09-06 | Recorded Draft 1.21 by removing the Dashboard's Recent Activity and Sponsor Proof panels | Summary metrics and the product list already expose the useful overview; removing repeated evidence keeps the Dashboard focused on finding or creating a product |

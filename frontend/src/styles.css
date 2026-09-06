@@ -93,10 +93,7 @@ code, pre { font-family: var(--mono); }
 .product-cell { display: flex; align-items: center; gap: 11px; }.product-cell > span:last-child { display: grid; gap: 5px; }
 .product-icon, .credential-icon { width: 38px; height: 38px; display: grid; place-items: center; border: 1px solid var(--color-border-agent); color: var(--violet); border-radius: 6px; background: var(--color-background-agent-subtle); }
 .table-empty-row { min-height: 52px; color: var(--muted); font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 7px; }
-.dashboard-lower { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }.compact-panel { padding: 18px; }
 .panel-title { display: flex; align-items: center; gap: 9px; }.panel-title h3 { font-size: 14px; font-weight: 600; }.panel-title .status { margin-left: auto; }
-.activity-list { list-style: none; padding: 0; margin: 18px 0 0; display: grid; gap: 15px; }.activity-list li { display: flex; gap: 10px; align-items: start; }.activity-list li span { display: grid; gap: 4px; }.activity-list strong { font-size: 12px; font-weight: 500; }.activity-list small { color: var(--muted); font-size: 10px; }
-.proof-grid { display: grid; gap: 12px; margin-top: 17px; }.proof-grid > div { display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px; border-bottom: 1px solid var(--line); font-size: 12px; }.proof-grid > div:last-child { border-bottom: 0; padding-bottom: 0; }
 
 .modal-backdrop { position: fixed; inset: 0; z-index: var(--z-index-modal); background: var(--modal-backdrop); display: grid; place-items: center; padding: 24px; }
 .modal { width: 100%; border: 1px solid var(--modal-border); border-radius: var(--modal-radius); background: var(--modal-background); box-shadow: var(--modal-shadow); }

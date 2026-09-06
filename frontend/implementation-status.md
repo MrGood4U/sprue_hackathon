@@ -1,6 +1,6 @@
 # Frontend Implementation Status
 
-Updated on 2026-09-06 after adding the configurable Agent model service.
+Updated on 2026-09-06 after simplifying the Product Dashboard.
 
 ## Current Baseline
 
@@ -21,7 +21,7 @@ Deployment infrastructure now includes public API-origin validation, a read-only
 | Page | Current behavior | Needed for the integrated MVP |
 |---|---|---|
 | Entry | Product introduction and navigation into the demo workspace | Privy sign-in, session restoration, and workspace bootstrap |
-| Dashboard | Backend-generated product projection, metrics, activity, sponsor proof, and a dialog that opens its plan | Product list/create APIs, search/filter behavior, durable activity and usage, creator loading/empty/error states |
+| Dashboard | Backend-generated summary metrics and product projection, plus a dialog that opens its plan; redundant activity and sponsor-proof panels are intentionally omitted | Product list/create APIs, search/filter behavior, durable usage summaries, creator loading/empty/error states |
 | Wallet and Access | Sample balances and authorization, local access-mode selection, dialogs without durable writes | Wallet identity/funding, credential storage, validated grants, budgets, recipient capability, balance and policy refresh |
 | Model Service | Session-scoped OpenAI-compatible URL/key/model form with redacted backend reads and next-plan wiring | Verified creator identity, workspace-owned profile persistence, secret-manager storage/rotation, provider capability validation, usage limits, and recovery |
 | Agent Planner | Backend-generated intent, source summary, proposal facts, six-stage planning trace, and three-state action composer with a focused existing-plan state plus confirmation dialogs | Durable Agent sessions/messages, live provider discovery, streaming trace, proposal history, and unsupported-intent recovery |

@@ -1,13 +1,9 @@
 import { useState } from "react";
 import {
   ArrowRight,
-  CalendarBlank,
-  CheckCircle,
-  Database,
   Graph,
   MagnifyingGlass,
   Plus,
-  ShieldCheck,
   SlidersHorizontal,
   Sparkle,
 } from "@phosphor-icons/react";
@@ -87,25 +83,6 @@ export function DashboardPage({ navigate }) {
             <span><ArrowRight size={18} /></span>
           </button>
           <div className="table-empty-row"><Plus size={16} /> {t("dashboard.createAnother")}</div>
-        </div>
-      </section>
-
-      <section className="dashboard-lower">
-        <div className="panel compact-panel">
-          <div className="panel-title"><CalendarBlank size={19} /><h3>{t("dashboard.recentActivity")}</h3></div>
-          <ul className="activity-list">
-            {dashboard.activities.map((activity) => {
-              const Icon = activity.kind === "schema" ? CheckCircle : activity.kind === "snapshot" ? Database : ShieldCheck;
-              const iconClass = activity.kind === "schema" ? "green-text" : activity.kind === "snapshot" ? "violet-text" : "amber-text";
-              return <li key={activity.kind}><Icon size={17} className={iconClass} /><span><strong>{activity.title}</strong><small>{activity.detail}</small></span></li>;
-            })}
-          </ul>
-        </div>
-        <div className="panel compact-panel">
-          <div className="panel-title"><ShieldCheck size={19} /><h3>{t("dashboard.sponsorProof")}</h3></div>
-          <div className="proof-grid">
-            {dashboard.sponsorProof.map((proof) => <div key={proof.name}><span>{proof.name}</span><Status>{proof.status}</Status></div>)}
-          </div>
         </div>
       </section>
 

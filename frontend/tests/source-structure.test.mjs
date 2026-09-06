@@ -35,3 +35,11 @@ test("keeps page implementations out of application composition", async () => {
   assert.doesNotMatch(shellSource, /export function \w+Page\b/);
   await assert.rejects(access(new URL("App.jsx", sourceRoot)));
 });
+
+test("keeps the Dashboard focused on metrics and the product list", async () => {
+  const source = await readFile(new URL("pages/DashboardPage.jsx", sourceRoot), "utf8");
+  const styles = await readFile(new URL("styles.css", sourceRoot), "utf8");
+
+  assert.doesNotMatch(source, /dashboard-lower|dashboard\.activities\.map|dashboard\.sponsorProof\.map/);
+  assert.doesNotMatch(styles, /\.dashboard-lower|\.activity-list|\.proof-grid/);
+});
