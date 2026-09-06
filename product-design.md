@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft 1.17, updated on 2026-09-06. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. Token review remains follow-up work; real backend, identity, wallet, and payment integrations are still pending.
+Draft 1.18, updated on 2026-09-06. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. Token review remains follow-up work; real backend, identity, wallet, and payment integrations are still pending.
 
 This document defines the MVP information architecture, page inventory, interactions, state behavior, desktop layout behavior, accessibility requirements, and screen-to-domain contracts. The decisions are recorded in [Confirmed Design Decisions](#confirmed-design-decisions).
 
@@ -320,6 +320,7 @@ Each step exposes a localized status and a concise evidence description. The pro
 
 - Center: editable semantic DAG with expandable template details and structured controls, using the full space left of the evidence inspector.
 - Canvas overlay: a compact top-centered floating editor toolbar that does not consume a separate layout row or visually detach from the DAG surface.
+- Canvas overlay: a compact top-left floating template/operator palette with its own bounded scroll area. It does not consume a permanent page column or obscure the centered toolbar.
 - Right: build-readiness evidence and output schema; the evidence inspector can collapse into a narrow restore rail when more canvas space is needed.
 - Center modal: selected-node/source configuration with a dimmed backdrop, close control, Escape dismissal, and backdrop dismissal so node editing does not permanently consume canvas width.
 - Bottom action bar: `Save draft`, `Structured DAG`, and `Run backend build`, aligned to the right edge of the DAG canvas rather than the evidence inspector.
@@ -713,3 +714,4 @@ Remaining review and integration work:
 | 2026-09-06 | Recorded Draft 1.15 by making hand mode pan-only, adding edge selection/deletion, removing redundant palette plus controls and native title tooltips, narrowing the palette, and reducing canvas nodes to icon/name/status | Canvas gestures have one clear purpose per tool and node cards prioritize the workflow's semantic identity |
 | 2026-09-06 | Recorded Draft 1.16 by colocating discovered-source selection and existing-Subgraph discovery/import inside the Source node modal | Source selection and source acquisition remain one coherent configuration task; live provider validation is still required before a source can be confirmed |
 | 2026-09-06 | Recorded Draft 1.17 by moving the editor controls into a compact top-centered floating toolbar inside the DAG canvas | Canvas tools are spatially associated with the surface they manipulate and no longer consume a detached page row |
+| 2026-09-06 | Recorded Draft 1.18 by moving the template/operator palette into the DAG canvas and removing the workflow summary strip | The canvas gains the space formerly reserved for a palette column and status header while keeping insertion controls spatially associated with the workflow |

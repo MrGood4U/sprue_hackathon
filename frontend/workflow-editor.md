@@ -2,14 +2,14 @@
 
 ## Status
 
-Draft 0.7, 2026-09-06. The workflow editor is an editable mode inside the existing Builder page, not a separate route. This document records the approved interaction direction and the current implementation boundary.
+Draft 0.8, 2026-09-06. The workflow editor is an editable mode inside the existing Builder page, not a separate route. This document records the approved interaction direction and the current implementation boundary.
 
 ## Product Decisions
 
 - The Builder page is both the workflow preview and the workflow editor.
 - A single `workingDraft` is the source of truth for the canvas, node configuration, derived output schema, expected preview, readiness evidence, and Structured DAG inspection.
 - The editor has a select tool for node interaction and a hand tool for canvas panning.
-- A left palette provides reviewed, predefined templates and the seven MVP runtime operators: Source, Filter, Map, Aggregate, Union, Join, and Output.
+- A compact top-left palette floats inside the DAG canvas and provides reviewed, predefined templates and the seven MVP runtime operators: Source, Filter, Map, Aggregate, Union, Join, and Output.
 - Templates are developer-owned, versioned insertion recipes. The Agent may select and configure them, but it does not invent executable template definitions.
 - Clicking a template inserts its complete node and edge subgraph into the working draft. Inserted nodes are ordinary editable nodes; template origin is metadata for explanation and provenance, not an editing lock.
 - A new Source node references an existing The Graph Subgraph. It does not create or deploy an upstream Subgraph. Its modal owns both selection from already discovered product sources and acquisition of another existing Subgraph through search or an explicit Graph identifier. The creator configures the source query, schema mapping, pagination, time window, and Graph access mode after the source is verified.
@@ -26,7 +26,7 @@ The current predefined templates are Filter + Aggregate and Cross-chain Union. T
 
 ### Builder surface
 
-The existing Builder layout keeps the product header, editable DAG canvas, collapsible readiness inspector, and bottom action bar. The canvas is no longer a read-only SVG projection.
+The existing Builder layout keeps the product header, editable DAG canvas, collapsible readiness inspector, and bottom action bar. The canvas is no longer a read-only SVG projection. It begins directly below the product tabs without a separate workflow-name, node-count, or draft-status summary strip.
 
 The editor toolbar floats at the top center of the React Flow canvas. It belongs to the canvas overlay layer, does not consume a separate Builder layout row, and blocks canvas pan/drag gestures within its own bounds. It contains:
 
@@ -36,7 +36,7 @@ The editor toolbar floats at the top center of the React Flow canvas. It belongs
 - Zoom controls and fit-to-view.
 - Delete selection. In select mode it removes the selected node or edge; in hand mode it does not change the current selection.
 
-The left palette contains two sections:
+The palette floats at the top left of the React Flow canvas, blocks canvas gestures within its own bounds, and has a bounded internal scroll area. It does not consume a permanent Builder layout column. The palette contains two sections:
 
 1. Templates: reviewed recipes such as Filter + Aggregate and Cross-chain Union. Additional semantic recipes can be added without changing the editor contract.
 2. Operators: Source, Filter, Map, Aggregate, Union, Join, and Output.

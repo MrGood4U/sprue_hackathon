@@ -1,17 +1,35 @@
 .workflow-editor {
   display: grid;
-  grid-template-columns: 188px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   min-height: 0;
   height: 100%;
   background: var(--color-background-canvas);
 }
 
 .workflow-palette {
-  min-width: 0;
+  width: 176px;
+  max-height: 100%;
   overflow-y: auto;
-  padding: 18px 10px;
-  border-right: 1px solid var(--color-border-default);
-  background: var(--color-background-panel);
+  padding: 14px 10px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 9px;
+  background: var(--color-background-raised);
+  box-shadow: var(--shadow-modal);
+  scrollbar-color: var(--color-border-strong) transparent;
+  scrollbar-width: thin;
+}
+
+.workflow-palette::-webkit-scrollbar {
+  width: 6px;
+}
+
+.workflow-palette::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.workflow-palette::-webkit-scrollbar-thumb {
+  border-radius: var(--radius-control);
+  background: var(--color-border-strong);
 }
 
 .workflow-palette-heading {
@@ -20,8 +38,7 @@
   padding: 0 4px 12px;
 }
 
-.workflow-palette-heading p,
-.workflow-editor-main-header p {
+.workflow-palette-heading p {
   margin: 0;
   color: var(--color-foreground-secondary);
   font-size: 11px;
@@ -108,7 +125,7 @@
 
 .workflow-editor-main {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   position: relative;
   min-width: 0;
   min-height: 0;
@@ -118,40 +135,6 @@
   position: relative;
   min-width: 0;
   min-height: 0;
-}
-
-.workflow-editor-main-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 14px 18px 10px;
-  border-bottom: 1px solid var(--color-border-default);
-  background: var(--color-background-panel);
-}
-
-.workflow-editor-main-header > div {
-  display: grid;
-  gap: 5px;
-}
-
-.workflow-draft-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--color-accent-success);
-  font-size: 11px;
-  white-space: nowrap;
-}
-
-.workflow-draft-status-dirty,
-.workflow-draft-status-invalid {
-  color: var(--color-accent-warning);
-}
-
-.workflow-draft-status-dirty .status-dot,
-.workflow-draft-status-invalid .status-dot {
-  background: var(--color-accent-warning);
 }
 
 .workflow-editor-toolbar {
@@ -168,6 +151,13 @@
 .workflow-canvas-toolbar-panel {
   z-index: var(--z-index-sticky);
   margin-top: 14px;
+}
+
+.react-flow__panel.workflow-canvas-palette-panel {
+  top: 66px;
+  bottom: 14px;
+  z-index: var(--z-index-sticky);
+  margin: 0 14px;
 }
 
 .workflow-tool-group {
