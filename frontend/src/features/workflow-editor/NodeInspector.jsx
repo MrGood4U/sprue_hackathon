@@ -1,4 +1,5 @@
 import { X } from "@phosphor-icons/react";
+import { useEffect, useRef } from "react";
 import { IconButton } from "../../components/ui/Button.jsx";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
 import { getOperator } from "./nodeCatalog.js";
@@ -148,31 +149,81 @@ function OutputConfig({ node, update }) {
 export function NodeInspector({ editor }) {
   const { t } = useI18n();
   const node = editor.nodes.find((item) => item.id === editor.selectedNodeId)?.data?.node;
+  const inspectorRef = useRef(null);
+  const selectedNodeId = editor.selectedNodeId;
+  const selectNode = editor.selectNode;
+
+  useEffect(() => {
+    if (!selectedNodeId) return undefined;
+    const previouslyFocusedElement = document.activeElement;
+    inspectorRef.current?.focus();
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        selectNode(null);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = [...(inspectorRef.current?.querySelectorAll("button, input, select, textarea, [href], [tabindex]:not([tabindex='-1'])") ?? [])]
+        .filter((element) => !element.hasAttribute("disabled") && element.getAttribute("aria-hidden") !== "true");
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      previouslyFocusedElement?.focus?.();
+    };
+  }, [selectedNodeId, selectNode]);
+
   if (!node) return null;
   const operator = getOperator(node.type);
   const update = (config) => editor.updateConfig(node.id, config);
 
   return (
-    <aside className="workflow-node-inspector" aria-label={t("workflowEditor.inspector.title")}>
-      <div className="workflow-inspector-header">
-        <div>
-          <span className="section-label">{t("workflowEditor.inspector.eyebrow")}</span>
-          <strong>{t(operator.labelKey)}</strong>
+    <div
+      className="workflow-node-modal-backdrop"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) selectNode(null);
+      }}
+    >
+      <section
+        ref={inspectorRef}
+        className="workflow-node-inspector"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="workflow-node-inspector-title"
+        tabIndex={-1}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="workflow-inspector-header">
+          <div>
+            <span className="section-label">{t("workflowEditor.inspector.eyebrow")}</span>
+            <strong id="workflow-node-inspector-title">{t(operator.labelKey)}</strong>
+          </div>
+          <IconButton label={t("common.close")} onClick={() => selectNode(null)}>
+            <X size={17} weight="bold" aria-hidden="true" />
+          </IconButton>
         </div>
-        <IconButton label={t("common.close")} onClick={() => editor.selectNode(null)}>
-          <X size={17} weight="bold" aria-hidden="true" />
-        </IconButton>
-      </div>
-      <p className="workflow-inspector-node-id">{node.id} · v{node.operatorVersion ?? "1"}</p>
-      <div className="workflow-inspector-form">
-        {node.type === "source" && <SourceConfig node={node} draft={editor.draft} update={update} />}
-        {node.type === "filter" && <FilterConfig node={node} update={update} />}
-        {node.type === "map" && <MapConfig node={node} update={update} />}
-        {node.type === "aggregate" && <AggregateConfig node={node} update={update} />}
-        {node.type === "union" && <UnionConfig node={node} update={update} />}
-        {node.type === "join" && <JoinConfig node={node} update={update} />}
-        {node.type === "output" && <OutputConfig node={node} update={update} />}
-      </div>
-    </aside>
+        <p className="workflow-inspector-node-id">{node.id} · v{node.operatorVersion ?? "1"}</p>
+        <div className="workflow-inspector-form">
+          {node.type === "source" && <SourceConfig node={node} draft={editor.draft} update={update} />}
+          {node.type === "filter" && <FilterConfig node={node} update={update} />}
+          {node.type === "map" && <MapConfig node={node} update={update} />}
+          {node.type === "aggregate" && <AggregateConfig node={node} update={update} />}
+          {node.type === "union" && <UnionConfig node={node} update={update} />}
+          {node.type === "join" && <JoinConfig node={node} update={update} />}
+          {node.type === "output" && <OutputConfig node={node} update={update} />}
+        </div>
+      </section>
+    </div>
   );
 }

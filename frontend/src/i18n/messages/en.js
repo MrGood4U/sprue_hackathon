@@ -269,6 +269,8 @@ export const en = {
   "trace.building": "Building...",
   "trace.buildComplete": "Build complete",
   "trace.buildVersion": "Run backend build",
+  "trace.saveDraft": "Save draft",
+  "trace.saveDraftDemo": "Demo only: durable draft save is not connected yet.",
 
   "api.endpointReady": "Endpoint ready",
   "api.eyebrow": "Hosted data API",

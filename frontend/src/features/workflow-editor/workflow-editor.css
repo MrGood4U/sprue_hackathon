@@ -37,6 +37,11 @@
   gap: 7px;
 }
 
+.workflow-palette-item-wrap {
+  position: relative;
+  min-width: 0;
+}
+
 .workflow-palette-item {
   display: grid;
   grid-template-columns: 26px minmax(0, 1fr) 14px;
@@ -74,9 +79,8 @@
 }
 
 .workflow-palette-item-copy {
-  display: grid;
+  display: block;
   min-width: 0;
-  gap: 3px;
 }
 
 .workflow-palette-item-copy strong {
@@ -87,13 +91,19 @@
   white-space: nowrap;
 }
 
-.workflow-palette-item-copy small {
-  overflow: hidden;
-  color: var(--color-foreground-secondary);
+.workflow-palette-tooltip {
+  position: fixed;
+  z-index: var(--z-index-modal);
+  max-width: 264px;
+  padding: 9px 11px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  color: var(--color-foreground-primary);
+  background: var(--modal-background);
+  box-shadow: var(--shadow-modal);
   font-size: 10px;
-  line-height: 1.35;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.45;
+  pointer-events: none;
 }
 
 .workflow-editor-main {
@@ -105,8 +115,6 @@
 }
 
 .workflow-editor-viewport {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
   position: relative;
   min-width: 0;
   min-height: 0;
@@ -165,14 +173,24 @@
 .workflow-editor-toolbar .icon-button {
   width: 31px;
   height: 31px;
-  color: var(--color-foreground-secondary);
+  color: var(--color-foreground-secondary) !important;
+  background: var(--color-background-input);
 }
 
 .workflow-editor-toolbar .icon-button:hover:not(:disabled),
 .workflow-editor-toolbar .icon-button.is-active {
   border-color: var(--color-accent-agent);
-  color: var(--color-accent-agent);
+  color: var(--color-accent-agent) !important;
   background: var(--color-background-raised);
+}
+
+.workflow-editor-toolbar .icon-button:focus-visible {
+  color: var(--color-accent-agent) !important;
+}
+
+.workflow-editor-toolbar .icon-button svg {
+  color: currentColor;
+  fill: currentColor;
 }
 
 .workflow-toolbar-divider {
@@ -303,20 +321,31 @@
   pointer-events: none;
 }
 
+.workflow-node-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-index-modal);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--modal-backdrop);
+}
+
 .workflow-node-inspector {
   display: grid;
   align-content: start;
-  width: 276px;
-  max-width: 276px;
-  height: 100%;
-  max-height: 100%;
+  width: min(420px, calc(100vw - 48px));
+  max-width: 420px;
+  max-height: min(720px, calc(100vh - 48px));
   overflow-y: auto;
-  border-top: 0;
-  border-right: 0;
-  border-bottom: 0;
-  border-left: 1px solid var(--color-border-strong);
-  border-radius: 0;
-  background: var(--color-background-panel);
+  border: 1px solid var(--modal-border);
+  border-radius: var(--modal-radius);
+  background: var(--modal-background);
+  box-shadow: var(--modal-shadow);
+}
+
+.workflow-node-inspector:focus {
+  outline: none;
 }
 
 .workflow-inspector-header {

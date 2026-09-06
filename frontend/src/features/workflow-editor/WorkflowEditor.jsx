@@ -29,8 +29,8 @@ export function WorkflowEditor({ editor, onSelectNode }) {
           <WorkflowEditorToolbar editor={editor} />
           <div className="workflow-editor-viewport">
             <WorkflowCanvas editor={editor} onSelectNode={onSelectNode} />
-            <NodeInspector editor={editor} />
           </div>
+          <NodeInspector editor={editor} />
         </div>
       </section>
     </ReactFlowProvider>

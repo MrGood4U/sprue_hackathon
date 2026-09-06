@@ -272,6 +272,8 @@ export const zhCN = {
   "trace.building": "\u6784\u5efa\u4e2d...",
   "trace.buildComplete": "\u6784\u5efa\u5b8c\u6210",
   "trace.buildVersion": "\u8fd0\u884c\u540e\u7aef\u6784\u5efa",
+  "trace.saveDraft": "\u4fdd\u5b58\u8349\u7a3f",
+  "trace.saveDraftDemo": "\u5f53\u524d\u4e3a\u6f14\u793a\u6a21\u5f0f\uff1a\u8349\u7a3f\u6301\u4e45\u4fdd\u5b58\u5c1a\u672a\u63a5\u5165\u3002",
 
   "api.endpointReady": "\u7aef\u70b9\u5df2\u5c31\u7eea",
   "api.eyebrow": "\u6258\u7ba1\u6570\u636e API",

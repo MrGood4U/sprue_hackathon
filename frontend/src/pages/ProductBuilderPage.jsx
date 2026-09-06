@@ -15,10 +15,13 @@ export function ProductBuilderPage({ navigate }) {
   const { buildState, startBuild } = useBuildRun();
   const [modal, setModal] = useState(null);
   const [readinessCollapsed, setReadinessCollapsed] = useState(false);
+  const [draftSaveState, setDraftSaveState] = useState("idle");
   const { product } = state;
   const { draft } = product;
   const editor = useWorkflowEditor(draft);
   const workingDraft = editor.draft;
+  const canSaveDraft = editor.dirty && editor.validation.length === 0;
+  const saveDraft = () => setDraftSaveState("demo");
   return (
     <div className="product-page">
       <ProductHeader product={product} active="build" navigate={navigate} />
@@ -26,7 +29,14 @@ export function ProductBuilderPage({ navigate }) {
         <WorkflowEditor editor={editor} />
         <BuildReadiness draft={workingDraft} validation={editor.validation} onInspect={setModal} collapsed={readinessCollapsed} onToggle={() => setReadinessCollapsed((value) => !value)} />
       </div>
-      <ExecutionTrace buildState={buildState} onBuild={startBuild} onOpenDag={() => setModal("dag")} />
+      <ExecutionTrace
+        buildState={buildState}
+        onBuild={startBuild}
+        onOpenDag={() => setModal("dag")}
+        onSaveDraft={saveDraft}
+        canSaveDraft={canSaveDraft}
+        saveState={draftSaveState}
+      />
       {buildState === "failed" && <p className="inline-notice" role="alert">{t("common.operationFailed")}</p>}
       {modal && <BuilderInspector selection={modal} draft={workingDraft} onClose={() => setModal(null)} />}
     </div>

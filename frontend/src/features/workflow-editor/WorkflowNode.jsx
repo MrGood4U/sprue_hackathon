@@ -1,14 +1,25 @@
 import { Handle, Position } from "@xyflow/react";
-import { Database, Function as FunctionIcon, Stack } from "@phosphor-icons/react";
+import {
+  ArrowsClockwise,
+  BracketsCurly,
+  ChartBar,
+  Database,
+  Funnel,
+  GitMerge,
+  Stack,
+} from "@phosphor-icons/react";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
 import { getOperator } from "./nodeCatalog.js";
 import { getInputPorts, getOutputPorts } from "./connectionRules.js";
 
 const icons = {
   source: Database,
+  filter: Funnel,
+  map: ArrowsClockwise,
+  aggregate: ChartBar,
   union: Stack,
-  join: FunctionIcon,
-  output: FunctionIcon,
+  join: GitMerge,
+  output: BracketsCurly,
 };
 
 function isConfigured(node) {
@@ -29,13 +40,13 @@ export function WorkflowNode({ data, selected }) {
   const { t } = useI18n();
   const node = data.node;
   const operator = getOperator(node.type);
-  const Icon = icons[node.type] ?? FunctionIcon;
+  const Icon = icons[node.type] ?? ArrowsClockwise;
   const inputPorts = getInputPorts(node.type);
   const outputPorts = getOutputPorts(node.type);
   const configured = isConfigured(node);
 
   return (
-    <div className={`workflow-node ${selected ? "is-selected" : ""}`} role="group" aria-label={t(operator.labelKey)}>
+    <div className={`workflow-node ${selected ? "is-selected" : ""}`} role="group" aria-label={t(operator.labelKey)} data-operator-type={node.type}>
       {inputPorts.map((port, index) => (
         <Handle key={`target-${port}`} id={port} type="target" position={Position.Left} style={portStyle(index, inputPorts.length)} />
       ))}

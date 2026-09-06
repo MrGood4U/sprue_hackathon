@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft 0.2, 2026-09-06. The workflow editor is an editable mode inside the existing Builder page, not a separate route. This document records the approved interaction direction and the first implementation boundary.
+Draft 0.3, 2026-09-06. The workflow editor is an editable mode inside the existing Builder page, not a separate route. This document records the approved interaction direction and the current implementation boundary.
 
 ## Product Decisions
 
@@ -18,7 +18,7 @@ Draft 0.2, 2026-09-06. The workflow editor is an editable mode inside the existi
 
 ## Current Implementation
 
-The first frontend slice is implemented under `frontend/src/features/workflow-editor/`. It includes the select and hand tools, node dragging, typed connections, node deletion, undo/redo, zoom and fit-to-view, operator and template insertion, operator-specific configuration forms, client-side structural validation, and a side-by-side node inspector. The current working draft feeds the Builder readiness evidence and Structured DAG modal. The frontend derives an empty schema and preview when the output path is disconnected or no cross-chain output view is selected; it does not claim a live recomputation for provider-backed data.
+The first frontend slice is implemented under `frontend/src/features/workflow-editor/`. It includes the select and hand tools, node dragging, typed connections, node deletion, undo/redo, zoom and fit-to-view, operator and template insertion, operator-specific configuration forms, client-side structural validation, and a centered modal node inspector with a dimmed backdrop. Palette entries use one-line labels; their longer descriptions appear in a mouse-following tooltip and on keyboard focus. The current working draft feeds the Builder readiness evidence and Structured DAG modal. The frontend derives an empty schema and preview when the output path is disconnected or no cross-chain output view is selected; it does not claim a live recomputation for provider-backed data.
 
 The current predefined templates are Filter + Aggregate and Cross-chain Union. Their inserted nodes remain ordinary editable nodes. A durable save command, server-side validation, revision conflict handling, live source discovery, and execution of changed definitions remain backend work.
 
@@ -62,7 +62,7 @@ Delete and reconnect operations are undoable. Source and Output nodes remain del
 
 ### Inspector and derived evidence
 
-Selecting a node opens its configuration in the existing right-side inspector. Forms are operator-specific and schema-driven; raw executable code and arbitrary JSON editing are not allowed.
+Selecting a node opens its configuration in a centered modal inspector over the canvas. The modal dims the surrounding workspace, closes through its close control, Escape, or a backdrop click, and returns focus when dismissed. Forms are operator-specific and schema-driven; raw executable code and arbitrary JSON editing are not allowed.
 
 Every semantic edit runs the same frontend derivation pipeline:
 
@@ -77,6 +77,8 @@ workingDraft
 ```
 
 The output schema is recalculated from the final reachable Output node. A preview is recalculated for supported deterministic demo operators. If a source or query changes and a local preview cannot be trusted, the UI shows an explicit stale or unavailable state and requests a backend preview; it never presents the previous output as current.
+
+The bottom action bar exposes `Save draft`, `Structured DAG`, and `Run backend build`. `Save draft` is currently an explicit demo-mode boundary: it is enabled only for a valid dirty draft and reports that durable persistence is not connected. It must be replaced by the reviewed durable version command before it can claim a save.
 
 The Structured DAG action reads the current canonical working draft. Layout coordinates are excluded from the execution JSON unless the user is explicitly viewing layout details.
 
@@ -141,7 +143,7 @@ frontend/src/features/workflow-editor/
 5. Add schema-driven node inspectors and live output-schema derivation.
 6. Add deterministic preview derivation for supported operations and explicit stale/unavailable preview states.
 7. Make Structured DAG and BuildReadiness consume the current working draft.
-8. Add backend validation and working-draft save with revision conflict handling.
+8. Add backend validation and working-draft save with revision conflict handling; then replace the demo-only `Save draft` feedback with the durable command.
 
 ## Non-Goals
 
@@ -155,5 +157,5 @@ frontend/src/features/workflow-editor/
 
 - Pure graph tests cover insertion, namespaced template IDs, move-only changes, add/remove/reconnect, cycle detection, port compatibility, Join and Union rules, and undo/redo.
 - Schema tests cover Filter, Map, Aggregate, Union, Join, and Output changes against changing upstream fields.
-- Browser tests cover select versus hand mode, palette insertion, node dragging, port connections, delete/undo, current Structured DAG output, readiness updates, keyboard alternatives, localization, and the 1024/1440-pixel layouts.
+- Browser tests cover select versus hand mode, palette insertion and hover/focus descriptions, distinctive operator icons, node dragging, port connections, delete/undo, the centered modal inspector and Escape/backdrop dismissal, current Structured DAG output, draft-save boundary feedback, readiness updates, keyboard alternatives, localization, and the 1024/1440-pixel layouts.
 - Backend tests must repeat all structural checks and verify that invalid or stale working-draft saves cannot replace the active version.

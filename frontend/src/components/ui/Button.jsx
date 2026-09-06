@@ -1,6 +1,6 @@
-export function IconButton({ label, children, ...props }) {
+export function IconButton({ label, children, className = "", ...props }) {
   return (
-    <button className="icon-button" aria-label={label} title={label} {...props}>
+    <button {...props} className={`icon-button ${className}`.trim()} aria-label={label} title={label}>
       {children}
     </button>
   );
