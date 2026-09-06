@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft 0.6, 2026-09-06. The first provider-neutral harness slice is now implemented under `backend/src/modules/agent/harness/`. It uses a mock model by default and can call a creator-configured OpenAI-compatible Chat Completions endpoint for the evaluator session. Both paths validate untrusted proposals, apply schema-provided mappings, and execute the bounded cross-chain runtime. This directory remains the design and operating contract; it does not contain provider credentials or a generic model SDK.
+Draft 0.7, 2026-09-07. The first provider-neutral harness slice is now implemented under `backend/src/modules/agent/harness/`. It uses a mock model by default and can call a creator-configured OpenAI-compatible Chat Completions endpoint for the evaluator session. Both paths validate untrusted proposals, apply schema-provided mappings, and execute the bounded cross-chain runtime. The target multi-stage controller and Builder handoff are now specified in [planner-orchestration.md](planner-orchestration.md); they are design-only and do not replace the current one-call evaluator slice. This directory remains the design and operating contract; it does not contain provider credentials or a generic model SDK.
 
 Read the approved [data model 1.6](../../data-model.md), proposed [API contract](../../api-contract.md), [backend ownership](../README.md), and active [Graph reference](../../sponsor/graph.md) alongside this design. M1-M3 and H2 persistence directions were approved and incorporated into model 1.5; multi-source composition is the 1.5 scope extension. Model 1.6 separates stable Sprue users from replaceable login identities. The [database foundation](../database.md) implements their tables, not the harness/controller. H1, H3 and E1/E2 remain open. No Graph purchase, wallet authority, subgraph deployment or API publication is enabled.
 
@@ -51,6 +51,7 @@ Creating, generating, deploying, or maintaining new Subgraphs or Subgraph Compos
 
 | Document | Purpose |
 |---|---|
+| [Planner orchestration and Builder handoff](planner-orchestration.md) | Concrete model passes, deterministic stage controller, intermediate artifacts, source/operator decisions, canonical DAG assembly, and frontend projection |
 | [Workflow](workflow.md) | Every stage, inputs/outputs, transitions, approvals, persistence, and frontend mapping |
 | [Tool and script catalog](tools.md) | Exact Sprue-owned tool contracts, proposed script files, permissions, and developer prerequisites |
 | [Operator contract](operators.md) | Query compilation, typed operator semantics, expression restrictions, and a worked metric example |
@@ -94,7 +95,7 @@ This directory remains design-only; the database implementation lives in backend
 
 ```text
 backend/harness/
-  README.md, workflow.md, tools.md, operators.md, semantic-templates.md, constraints.md, verification.md
+  README.md, planner-orchestration.md, workflow.md, tools.md, operators.md, semantic-templates.md, constraints.md, verification.md
   schemas/       # Versioned tool, semantic-plan, expression, and checkpoint schemas
   prompts/       # Small versioned prompts per planning phase; no secrets or authority
   catalogs/      # Reviewed query recipes and metadata-adapter capability declarations
