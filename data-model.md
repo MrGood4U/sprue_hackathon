@@ -43,6 +43,32 @@ The human team confirmed these defaults on 2026-09-05.
 
 The existing fee decision is not reopened here: the default fee remains zero/disabled.
 
+## Proposed Model Service Extension (M4)
+
+The user approved a workspace-level Model Service UI on 2026-09-06: a creator supplies an OpenAI-compatible API URL, API key, and model name, and the next explicit Agent-plan operation uses that model. The current evaluator implementation is deliberately process-memory-only and does not change the approved relational baseline. The following durable shape is proposed for review before any migration or authenticated handler is added.
+
+`agent_model_profiles` would represent one creator-selected planning service per workspace:
+
+| Column | Type | Null | Rules and purpose |
+|---|---|---:|---|
+| `id` | `uuid` | no | Primary key |
+| `workspace_id` | `uuid` | no | FK to `workspaces`; unique for the single-profile MVP |
+| `created_by_user_id` | `uuid` | no | FK to the creator who configured the profile |
+| `protocol` | `text` | no | MVP `openai_compatible_chat_completions` |
+| `api_url` | `text` | no | Validated HTTPS endpoint without credentials, query parameters, or fragments |
+| `model_name` | `text` | no | Exact provider model identifier |
+| `secret_ref` | `text` | no | Secret-manager reference, never the raw API key |
+| `secret_version` | `text` | no | Non-secret version used for rotation/audit |
+| `credential_fingerprint` | `text` | no | One-way fingerprint for correlation and rotation checks |
+| `status` | `text` | no | Proposed `pending_validation`, `active`, `invalid`, or `revoked` |
+| `validated_at` | `timestamptz` | yes | Last bounded capability validation |
+| `last_used_at` | `timestamptz` | yes | Last attempted model use |
+| `created_at` | `timestamptz` | no | Creation time |
+| `updated_at` | `timestamptz` | no | Profile or secret-rotation update time |
+| `lock_version` | `integer` | no | Optimistic concurrency for update/revocation |
+
+Proposed constraints: raw keys and credential-bearing URLs have no persistence field; profile reads expose only redacted key presence; rotation replaces secret reference/version/fingerprint atomically; revocation blocks new planning calls; and model use requires the same-workspace active profile selected by the authenticated creator. `planning_calls` for `call_kind = 'model'` should pin `agent_model_profile_id`, profile revision, secret version, and credential fingerprint so later profile edits cannot rewrite historical evidence. Exact validation, allowlist/private-network policy, rate limits, cost accounting, and deletion behavior remain part of M4 review.
+
 ## Confirmed Hedera MVP Integration Profile
 
 The human team approved this initial implementation profile on 2026-09-05:

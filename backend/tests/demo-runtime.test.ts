@@ -4,6 +4,8 @@ import { parseConfig } from "../src/app/config.js";
 import { createHttpApp } from "../src/http/app.js";
 import { listen, drain } from "../src/app/server.js";
 import { DemoRuntime } from "../src/modules/demo/runtime.js";
+import { createMockMvpProposal } from "../src/modules/agent/harness/mock-model.js";
+import type { AgentModelConfig, AgentModelPort } from "../src/modules/agent/harness/types.js";
 import { IdentityService } from "../src/modules/identity/service.js";
 import { unavailableIdentity } from "../src/integrations/unavailable-identity.js";
 import type { LogEvent } from "../src/shared/logger.js";
@@ -18,6 +20,7 @@ const environment = {
   CORS_ALLOWED_ORIGINS: "http://127.0.0.1:4173",
   DEMO_RUNTIME_ENABLED: "true",
 };
+const sessionId = "7ff7ec9e-1bc4-48ae-bac1-e7703d021834";
 
 test("backend demo runtime returns the harness proposal and cross-chain output", async () => {
   const config = parseConfig(environment);
@@ -30,6 +33,37 @@ test("backend demo runtime returns the harness proposal and cross-chain output",
   assert.equal(state.product.draft.referenceResult.length, 1);
   assert.equal(state.product.draft.referenceResult[0]?.combinedVolumeUsd, "456.50");
   assert.equal(state.api.endpoint, "http://127.0.0.1:3001/data/v1/cross-chain-dex-trader-footprint");
+});
+
+test("session model profiles never echo keys and drive the next Agent plan", async () => {
+  const config = parseConfig(environment);
+  const observedConfigs: AgentModelConfig[] = [];
+  const modelFactory = (modelConfig: AgentModelConfig): AgentModelPort => {
+    observedConfigs.push(modelConfig);
+    return {
+      async complete(request) {
+        return {
+          provider: modelConfig.mode,
+          model: modelConfig.model,
+          output: createMockMvpProposal(request.intent),
+        };
+      },
+    };
+  };
+  const runtime = new DemoRuntime(config, modelFactory);
+  const saved = runtime.saveModelProfile(sessionId, {
+    apiUrl: "https://models.example/v1/chat/completions",
+    apiKey: "session-secret-key",
+    model: "judge-model",
+  });
+  assert.equal(saved.hasApiKey, true);
+  assert.equal(JSON.stringify(saved).includes("session-secret-key"), false);
+
+  const result = await runtime.run({action: "agent_plan", intent: "Find cross-chain traders."}, sessionId);
+  assert.equal(result.state.agent.provider, "remote");
+  assert.equal(result.state.agent.model, "judge-model");
+  assert.equal(observedConfigs.at(-1)?.apiUrl, "https://models.example/v1/chat/completions");
+  assert.equal(observedConfigs.at(-1)?.apiKey, "session-secret-key");
 });
 
 test("enabled demo HTTP routes are the only frontend business-data boundary in this slice", async () => {
@@ -57,6 +91,27 @@ test("enabled demo HTTP routes are the only frontend business-data boundary in t
     const stateBody = await stateResponse.json();
     assert.equal(stateBody.meta.dataSource, "demo");
     assert.equal(stateBody.data.dataSource, "backend_demo");
+
+    const unconfiguredProfile = await fetch(`${baseUrl}/api/v1/public/demo/model-profile`, {
+      headers: {"X-Sprue-Demo-Session": sessionId},
+    });
+    assert.equal(unconfiguredProfile.status, 200);
+    assert.equal((await unconfiguredProfile.json()).data.configured, false);
+
+    const savedProfile = await fetch(`${baseUrl}/api/v1/public/demo/model-profile`, {
+      method: "PUT",
+      headers: {"Content-Type": "application/json", "X-Sprue-Demo-Session": sessionId},
+      body: JSON.stringify({
+        apiUrl: "https://models.example/v1/chat/completions",
+        apiKey: "http-secret-key",
+        model: "judge-model",
+      }),
+    });
+    assert.equal(savedProfile.status, 200);
+    const savedProfileBody = await savedProfile.json();
+    assert.equal(savedProfileBody.data.configured, true);
+    assert.equal(savedProfileBody.data.hasApiKey, true);
+    assert.equal(JSON.stringify(savedProfileBody).includes("http-secret-key"), false);
 
     const actionResponse = await fetch(`${baseUrl}/api/v1/public/demo/actions`, {
       method: "POST",

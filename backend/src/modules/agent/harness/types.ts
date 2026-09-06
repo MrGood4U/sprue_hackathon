@@ -14,6 +14,7 @@ export interface AgentModelRequest {
     sourceKey: string;
     chain: string;
     schemaHash: string;
+    fields: Readonly<Record<string, string>>;
   }[];
 }
 

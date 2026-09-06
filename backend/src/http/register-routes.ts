@@ -11,7 +11,12 @@ import {
   publicConfiguration,
   readIdentity,
 } from "./control/identity.controller.js";
-import { demoAction, demoState } from "./demo/demo.controller.js";
+import {
+  demoAction,
+  demoModelProfile,
+  demoState,
+  updateDemoModelProfile,
+} from "./demo/demo.controller.js";
 export interface RouteDependencies {
   config: AppConfig;
   verifier: IdentityVerifier;
@@ -69,8 +74,12 @@ export function registerRoutes(app: Express, deps: RouteDependencies) {
           ? readIdentity(deps.identity)
           : route.implementation === "demo-state"
             ? demoState(deps.demo)
-            : route.implementation === "demo-action"
+          : route.implementation === "demo-action"
               ? demoAction(deps.demo)
+              : route.implementation === "demo-model-profile-read"
+                ? demoModelProfile(deps.demo)
+                : route.implementation === "demo-model-profile-write"
+                  ? updateDemoModelProfile(deps.demo)
               : () => {
                   throw new AppError("CAPABILITY_NOT_IMPLEMENTED");
                 };

@@ -4,7 +4,7 @@ For Windows local browser testing, complete Docker hosting, and Vercel/Railway d
 
 This directory is the maintained Sprue product frontend: the Creator Console, public consumer page, localization, design tokens, build, and deployment adapter. The user promoted this source to the product frontend on 2026-09-05. Continue implementation here.
 
-The currently available workspace uses a server-generated evaluator projection backed by the mock Agent harness and deterministic DAG runtime. The browser owns no product fixtures and has no silent fallback when the backend is unavailable. Authentication, durable product operations, live Graph queries, wallets, and payments remain pending. See [implementation-status.md](implementation-status.md) for concrete gaps and their implementation order.
+The currently available workspace uses a server-generated evaluator projection backed by the Agent harness and deterministic DAG runtime. The Model Service page can configure an OpenAI-compatible planner for the current browser session; the mock planner remains the default. The browser owns no product fixtures and has no silent fallback when the backend is unavailable. Authentication, durable model-profile storage, durable product operations, live Graph queries, wallets, and payments remain pending. See [implementation-status.md](implementation-status.md) for concrete gaps and their implementation order.
 
 ## Current Commands
 
@@ -36,6 +36,7 @@ src/
 ├── features/
 │   ├── builder/            # Readiness, execution trace, and build-run hook
 │   ├── workflow-editor/    # Editable DAG canvas, palette, inspector, and editor state
+│   ├── model-settings/     # Redacted session model profile and form lifecycle
 │   ├── deployment/         # API request-test hook
 │   ├── consumer/           # Consumer request-flow hook
 │   └── runtime/            # Backend demo projection provider and connection boundary
@@ -55,7 +56,7 @@ src/
 
 As durable business handlers replace the evaluator runtime, extend these boundaries by responsibility:
 
-The proposed HTTP mapping is [api-contract.md](../api-contract.md) Draft 0.3. Its page-to-API matrix and domain DTOs guide client implementation after review. The temporary `/api/v1/public/demo/*` contract is documented in [demo-runtime.md](../docs/api/demo-runtime.md) and is not a production resource contract.
+The proposed HTTP mapping is [api-contract.md](../api-contract.md) Draft 0.4. Its page-to-API matrix and domain DTOs guide client implementation after review. The temporary `/api/v1/public/demo/*` contract is documented in [demo-runtime.md](../docs/api/demo-runtime.md) and is not a production resource contract.
 
 ```text
 src/
@@ -104,6 +105,7 @@ Do not create frontend adapters for Graph payments, private wallet signing mater
 | `/` | `pages/EntryPage.jsx` | Entry and navigation |
 | `/app` | `pages/DashboardPage.jsx` | Product summaries |
 | `/app/wallet` | `pages/WalletAccessPage.jsx` | Wallet and Graph access |
+| `/app/model` | `pages/ModelServicePage.jsx` | Agent model service configuration |
 | `/app/products/:id/agent` | `pages/AgentPage.jsx` | Agent conversation and planning progress |
 | `/app/products/:id/build` | `pages/ProductBuilderPage.jsx` | Builder DAG and execution evidence |
 | `/app/products/:id/api` | `pages/ApiDeploymentPage.jsx` | Deployment and private testing |

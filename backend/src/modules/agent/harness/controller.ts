@@ -62,7 +62,7 @@ function addTrace(trace: HarnessTraceEvent[], stage: HarnessTraceEvent["stage"],
 
 function validateProposal(output: unknown): MockAgentProposal {
   const result = proposalSchema.safeParse(output);
-  if (!result.success) fail(`mock Agent response failed schema validation: ${result.error.issues[0]?.message ?? "invalid proposal"}`);
+  if (!result.success) fail(`Agent response failed schema validation: ${result.error.issues[0]?.message ?? "invalid proposal"}`);
   const proposal = result.data;
   const sourceKeys = new Set(proposal.sources.map((source) => source.sourceKey));
   if (sourceKeys.size !== proposal.sources.length) fail("proposal contains duplicate source keys");
@@ -120,14 +120,18 @@ export class AgentHarness {
 
     const modelRequest = {
       intent,
-      sourceSummaries: request.sources.map((source) => ({sourceKey: source.schema.sourceKey, chain: source.schema.chain, schemaHash: source.schema.schemaHash})),
+      sourceSummaries: request.sources.map((source) => ({
+        sourceKey: source.schema.sourceKey,
+        chain: source.schema.chain,
+        schemaHash: source.schema.schemaHash,
+        fields: source.schema.fieldTypes,
+      })),
     };
-    addTrace(trace, "model", "started", "mock planner invoked with intent and bounded schema summaries");
+    addTrace(trace, "model", "started", "planner invoked with intent and bounded schema summaries");
     const response: AgentModelResponse = await this.model.complete(modelRequest, signal);
     const responseBytes = new TextEncoder().encode(JSON.stringify(response.output)).byteLength;
     if (responseBytes > this.limits.maxProposalBytes) fail("Agent proposal exceeds harness output limit");
-    if (response.provider !== "mock") fail("only the mock model is enabled in this harness slice");
-    addTrace(trace, "model", "passed", `mock planner returned one bounded ${response.model} response`);
+    addTrace(trace, "model", "passed", `${response.provider} planner returned one bounded ${response.model} response`);
 
     const proposal = validateProposal(response.output);
     addTrace(trace, "proposal_validation", "passed", "proposal schema, source keys, node IDs, edges, and output cardinality validated");

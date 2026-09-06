@@ -3,8 +3,9 @@ import test from "node:test";
 import {ConfigError, parseConfig} from "../src/app/config.js";
 import {
   AgentHarness,
-  AgentModelUnavailableError,
+  createMockMvpProposal,
   createAgentModel,
+  RemoteAgentModel,
 } from "../src/modules/agent/harness/index.js";
 import type {SourceInput} from "../src/modules/dag/runtime.js";
 
@@ -65,7 +66,7 @@ function source(sourceKey: string, chain: string, id: string, timestamp: string,
   };
 }
 
-test("agent configuration supports mock and future remote credentials without exposing them publicly", () => {
+test("agent configuration supports mock and remote credentials without exposing them publicly", () => {
   const mock = parseConfig({...baseEnvironment, AGENT_MODE: "mock", AGENT_MODEL: "test-mock"});
   assert.deepEqual(mock.agent, {mode: "mock", apiUrl: null, apiKey: null, model: "test-mock", timeoutMs: 30000});
 
@@ -99,7 +100,27 @@ test("mock Agent harness executes the non-model cross-chain flow", async () => {
   ]);
 });
 
-test("remote mode is configured but remains fail-closed until its provider adapter is reviewed", () => {
+test("remote Agent model sends an OpenAI-compatible request and parses the bounded proposal", async () => {
   const config = parseConfig({...baseEnvironment, AGENT_MODE: "remote", AGENT_API_URL: "https://agent.example/v1", AGENT_API_KEY: "server-only-key"});
-  assert.throws(() => createAgentModel(config.agent), (error: unknown) => error instanceof AgentModelUnavailableError);
+  let observedBody: Record<string, unknown> | undefined;
+  const model = new RemoteAgentModel(config.agent, async (_url, options) => {
+    assert.equal(options?.method, "POST");
+    assert.equal((options?.headers as Record<string, string>).Authorization, "Bearer server-only-key");
+    observedBody = JSON.parse(String(options?.body));
+    return Response.json({
+      choices: [{message: {content: JSON.stringify(createMockMvpProposal("Find cross-chain traders."))}}],
+    });
+  });
+  const result = await model.complete({
+    intent: "Find cross-chain traders.",
+    sourceSummaries: [{
+      sourceKey: "uniswap-v3-ethereum",
+      chain: "ethereum",
+      schemaHash: "schema-v1",
+      fields: {"account.id": "address"},
+    }],
+  });
+  assert.equal(observedBody?.model, config.agent.model);
+  assert.equal(result.provider, "remote");
+  assert.equal((result.output as {kind: string}).kind, "proposal");
 });

@@ -5,7 +5,7 @@ import {
   MVP_ARBITRUM_SOURCE_KEY,
   MVP_ETHEREUM_SOURCE_KEY,
 } from "../agent/harness/mock-model.js";
-import type { HarnessResult } from "../agent/harness/types.js";
+import type { AgentModelConfig, AgentModelPort, HarnessResult } from "../agent/harness/types.js";
 import type {
   ProviderFieldType,
   SourceInput,
@@ -353,28 +353,138 @@ export interface DemoAction {
   parameters?: {windowDays: 30; minimumActiveDays: 2};
 }
 
+export interface DemoModelProfileInput {
+  apiUrl: string;
+  apiKey?: string;
+  model: string;
+}
+
+export interface DemoModelProfileView {
+  configured: boolean;
+  protocol: "openai_compatible_chat_completions";
+  apiUrl: string;
+  model: string;
+  hasApiKey: boolean;
+  updatedAt: string | null;
+}
+
+interface DemoModelProfileSecret {
+  apiUrl: string;
+  apiKey: string;
+  model: string;
+  updatedAt: string;
+}
+
+interface DemoSessionState {
+  profile?: DemoModelProfileSecret;
+  lastHarness?: HarnessResult;
+  touchedAt: number;
+}
+
+const maxDemoSessions = 64;
+type AgentModelFactory = (config: AgentModelConfig) => AgentModelPort;
+
+function normalizeModelProfile(input: DemoModelProfileInput, existing?: DemoModelProfileSecret): DemoModelProfileSecret {
+  let url: URL;
+  try {
+    url = new URL(input.apiUrl.trim());
+  } catch {
+    throw new Error("INVALID_AGENT_MODEL_API_URL");
+  }
+  if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash) {
+    throw new Error("INVALID_AGENT_MODEL_API_URL");
+  }
+  const apiKey = input.apiKey?.trim() || existing?.apiKey;
+  const model = input.model.trim();
+  if (!apiKey || apiKey.length > 4096 || model.length === 0 || model.length > 200) {
+    throw new Error("INVALID_AGENT_MODEL_PROFILE");
+  }
+  return {
+    apiUrl: url.href,
+    apiKey,
+    model,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function profileView(profile?: DemoModelProfileSecret): DemoModelProfileView {
+  return {
+    configured: Boolean(profile),
+    protocol: "openai_compatible_chat_completions",
+    apiUrl: profile?.apiUrl ?? "",
+    model: profile?.model ?? "",
+    hasApiKey: Boolean(profile?.apiKey),
+    updatedAt: profile?.updatedAt ?? null,
+  };
+}
+
 export class DemoRuntime {
   private readonly sources = createSources();
-  private readonly harness: AgentHarness;
+  private readonly defaultHarness: AgentHarness;
+  private readonly sessions = new Map<string, DemoSessionState>();
 
-  constructor(private readonly config: AppConfig) {
-    this.harness = new AgentHarness(createAgentModel(config.agent));
+  constructor(
+    private readonly config: AppConfig,
+    private readonly modelFactory: AgentModelFactory = createAgentModel,
+  ) {
+    this.defaultHarness = new AgentHarness(this.modelFactory(config.agent));
   }
 
-  private async runHarness(intent = DEMO_INTENT): Promise<HarnessResult> {
-    return this.harness.run({
+  private touchSession(sessionId: string): DemoSessionState {
+    const existing = this.sessions.get(sessionId);
+    if (existing) {
+      existing.touchedAt = Date.now();
+      return existing;
+    }
+    if (this.sessions.size >= maxDemoSessions) {
+      const oldest = [...this.sessions.entries()].sort((left, right) => left[1].touchedAt - right[1].touchedAt)[0];
+      if (oldest) this.sessions.delete(oldest[0]);
+    }
+    const created = {touchedAt: Date.now()};
+    this.sessions.set(sessionId, created);
+    return created;
+  }
+
+  private async runHarness(intent = DEMO_INTENT, profile?: DemoModelProfileSecret): Promise<HarnessResult> {
+    const harness = profile
+      ? new AgentHarness(this.modelFactory({
+          mode: "remote",
+          apiUrl: profile.apiUrl,
+          apiKey: profile.apiKey,
+          model: profile.model,
+          timeoutMs: this.config.agent.timeoutMs,
+        }))
+      : this.defaultHarness;
+    return harness.run({
       intent,
       sources: this.sources,
       executionWindow: {startInclusive, endExclusive},
     });
   }
 
-  async getState(): Promise<DemoState> {
-    return buildState(this.config, await this.runHarness());
+  getModelProfile(sessionId: string): DemoModelProfileView {
+    return profileView(this.sessions.get(sessionId)?.profile);
   }
 
-  async run(action: DemoAction): Promise<{state: DemoState; result: Record<string, unknown>}> {
-    const harness = await this.runHarness(action.intent);
+  saveModelProfile(sessionId: string, input: DemoModelProfileInput): DemoModelProfileView {
+    const session = this.touchSession(sessionId);
+    session.profile = normalizeModelProfile(input, session.profile);
+    return profileView(session.profile);
+  }
+
+  async getState(sessionId?: string): Promise<DemoState> {
+    const cached = sessionId ? this.sessions.get(sessionId)?.lastHarness : undefined;
+    return buildState(this.config, cached ?? await this.runHarness());
+  }
+
+  async run(action: DemoAction, sessionId?: string): Promise<{state: DemoState; result: Record<string, unknown>}> {
+    const session = sessionId ? this.touchSession(sessionId) : undefined;
+    let harness = session?.lastHarness;
+    if (action.action === "agent_plan") {
+      harness = await this.runHarness(action.intent, session?.profile);
+      if (session) session.lastHarness = harness;
+    }
+    harness ??= await this.runHarness(action.intent);
     const state = buildState(this.config, harness);
     const responseData = serializeOutput(harness.execution);
     if (action.action === "agent_plan") {

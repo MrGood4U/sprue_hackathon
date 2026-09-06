@@ -302,7 +302,8 @@ This matrix is based on the current source tree and test/build evidence, not on 
 
 | Capability | Current support | Evidence or limitation |
 |---|---|---|
-| Browser application, seven page families, routing, English/Chinese localization | Implemented | Maintained frontend under `frontend/`; demo data and local services are still used |
+| Browser application, nine page families, routing, English/Chinese localization | Implemented | Maintained frontend under `frontend/`; route-level product data comes from the backend demo runtime |
+| Session-scoped Agent model configuration | Implemented for evaluator demo | OpenAI-compatible URL/key/model are retained in bounded API-process memory; no durable identity, secret manager, rotation, metering, or production profile exists |
 | Builder DAG display, keyboard inspection, local sample edits | Implemented as demo behavior | Does not call the backend or create a product version |
 | Public app configuration transport | Implemented | Read-only server configuration route; feature flags remain false |
 | Health and readiness probes | Implemented | Process and database/migration readiness only |

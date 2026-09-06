@@ -4,7 +4,7 @@ The same Sprue source supports Windows browser testing, Docker self-hosting, and
 
 ## Current Capability Boundary
 
-The frontend requests a labeled server-generated projection from the explicit backend demo runtime. API health/readiness, public configuration and the evaluator demo routes are implemented; durable business routes, verified Privy authentication, queue consumption, live Agent/Graph execution and payments remain unavailable. Starting all four services is infrastructure readiness, not a completed live product. The public-config transport remains read-only; `DEMO_RUNTIME_ENABLED=true` explicitly enables the temporary evaluator path.
+The frontend requests a labeled server-generated projection from the explicit backend demo runtime. API health/readiness, public configuration, evaluator demo routes, and a session-scoped OpenAI-compatible Agent model adapter are implemented; durable business routes, verified Privy authentication, durable model-secret storage, queue consumption, live Graph execution and payments remain unavailable. Starting all four services is infrastructure readiness, not a completed live product. The public-config transport remains read-only; `DEMO_RUNTIME_ENABLED=true` explicitly enables the temporary evaluator path.
 
 ## Windows: Complete Local Docker Stack
 
@@ -106,7 +106,7 @@ The Dockerfile path is `Dockerfile` within the backend build root. Set these run
 | `DATA_PUBLIC_BASE_URL` | API origin plus `/data/v1` |
 | `CORS_ALLOWED_ORIGINS` | Exact console origin(s), comma-separated |
 | `DEMO_RUNTIME_ENABLED` | `true` for the temporary evaluator-facing backend projection; otherwise `false` |
-| `AGENT_MODE` | `mock` for the current evaluator projection; `remote` remains fail-closed until its adapter is implemented |
+| `AGENT_MODE` | `mock` for the default evaluator projection; `remote` enables the configured OpenAI-compatible Chat Completions endpoint after all Agent variables are supplied |
 
 Only the API needs a public Railway domain. The worker and database remain private. Both services use `/readyz` as a deployment check; worker readiness currently means compatible database access, not implemented job execution. Privy/provider secrets and approved capability configuration must be added separately as those integrations are implemented. A public Privy app ID alone does not enable login.
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft 1.18, updated on 2026-09-06. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. Token review remains follow-up work; real backend, identity, wallet, and payment integrations are still pending.
+Draft 1.19, updated on 2026-09-06. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. A dedicated Model Service page now lets the creator configure the OpenAI-compatible language model used by Agent planning. Token review remains follow-up work; durable identity, secret storage, Graph, wallet, and payment integrations are still pending.
 
 This document defines the MVP information architecture, page inventory, interactions, state behavior, desktop layout behavior, accessibility requirements, and screen-to-domain contracts. The decisions are recorded in [Confirmed Design Decisions](#confirmed-design-decisions).
 
@@ -52,18 +52,19 @@ The MVP implements one active owner per workspace. Invitations, role management,
 
 ## Approved Page Count
 
-The MVP contains **eight route-level page families**. Parameterized routes and create/edit variants within one family do not increase this count. Privy callbacks, generic errors, and not-found routes are utility routes rather than product pages.
+The MVP contains **nine route-level page families**. Parameterized routes and create/edit variants within one family do not increase this count. Privy callbacks, generic errors, and not-found routes are utility routes rather than product pages.
 
 | No. | Page family | Proposed route | Audience | Primary outcome |
 |---:|---|---|---|---|
 | 1 | Entry and Sign In | `/` | Public | Understand Sprue and enter the Creator Console or public demo |
 | 2 | Product Dashboard | `/app` | Creator | Start or resume a data product |
 | 3 | Wallet and Access | `/app/wallet` | Creator | Prepare Graph credentials, wallet funding, and bounded authority |
-| 4 | Agent Planner | `/app/products/new`, `/app/products/:productId/agent` | Creator | Describe intent, discover sources, and review Agent progress |
-| 5 | DAG Builder | `/app/products/:productId/build` | Creator | Inspect, refine, validate, and build the generated DAG |
-| 6 | API and Deployment | `/app/products/:productId/api` | Creator | Deploy and privately test a persistent API |
-| 7 | Monetization and Revenue | `/app/products/:productId/monetize` | Creator | Validate Hedera receipt, enable x402, and reconcile sales |
-| 8 | Public Product and Consumer Demo | `/p/:slug` | Public | Understand and exercise the paid API flow |
+| 4 | Model Service | `/app/model` | Creator | Configure the language model used for Agent plan generation |
+| 5 | Agent Planner | `/app/products/new`, `/app/products/:productId/agent` | Creator | Describe intent, discover sources, and review Agent progress |
+| 6 | DAG Builder | `/app/products/:productId/build` | Creator | Inspect, refine, validate, and build the generated DAG |
+| 7 | API and Deployment | `/app/products/:productId/api` | Creator | Deploy and privately test a persistent API |
+| 8 | Monetization and Revenue | `/app/products/:productId/monetize` | Creator | Validate Hedera receipt, enable x402, and reconcile sales |
+| 9 | Public Product and Consumer Demo | `/p/:slug` | Public | Understand and exercise the paid API flow |
 
 There is no separate MVP page for run history, global settings, team management, or marketplace discovery. Agent progress belongs inside Agent Planner; build trace and recent runs belong inside DAG Builder; API usage belongs inside API and Deployment; payment history belongs inside Monetization and Revenue.
 
@@ -75,10 +76,11 @@ The public header contains the Sprue wordmark, a `View demo` link, and one prima
 
 ### Creator Console Navigation
 
-Supported desktop layouts use a persistent application sidebar with two top-level destinations:
+Supported desktop layouts use a persistent application sidebar with three top-level destinations:
 
 - `Products`
 - `Wallet & Access`
+- `Model Service`
 
 The account control contains the authenticated identity, workspace name, and sign-out action. Environment and provider readiness are not persistent sidebar content; they belong in the Wallet & Access page or the relevant product workflow. Destructive actions do not belong in primary navigation.
 
@@ -266,7 +268,30 @@ The page must not expose a wallet address as proof that authentication or wallet
 
 **Domain reads and writes:** `account_wallets`, `wallet_addresses`, `wallet_asset_capabilities`, `wallet_policies`, `wallet_signer_grants`, `spending_policies`, `budget_reservations`, `wallet_balance_snapshots`, `provider_credentials`, `payment_intents`, and `financial_ledger_entries`.
 
-### 4. Agent Planner
+### 4. Model Service
+
+**Purpose:** Configure the creator-selected language-model service used when Sprue generates an Agent plan.
+
+**Primary action:** `Save configuration`.
+
+**Content and interaction elements:**
+
+- A complete HTTPS OpenAI-compatible Chat Completions URL.
+- A masked API-key input with an explicit show/hide control. A submitted key is server-bound secret input: it is never written to browser storage or returned by a read response.
+- An exact provider model name/ID.
+- Visible labels, field-level validation, disabled duplicate submission while saving, and explicit loading, success, and failure feedback.
+- A concise execution-boundary explanation: the selected model receives the creator intent plus bounded source/schema summaries and may return only a structured proposal. It receives no wallet authority, unrestricted network tools, or arbitrary code execution.
+- A clear temporary-runtime notice when durable authenticated secret storage is unavailable.
+
+**Behavior:** Saving a valid profile does not call the model. The next explicit `Generate plan` action uses the selected URL, key, and model. The returned JSON remains untrusted and must pass the same proposal schema, source binding, operator allowlist, acyclicity, and resource validation as mock output. Build, API test, and payment actions do not invoke the model implicitly.
+
+**Current evaluator boundary:** The demo runtime retains one redacted profile per random browser-session ID in bounded backend process memory. It returns only URL, model, configured state, key-present state, and update time; the raw key is never returned. API restart clears the profile. This UUID is session scoping, not production authentication. Durable product behavior requires verified creator identity, a workspace-owned model profile, and a server-side secret-manager reference before implementation.
+
+**States:** Loading, not configured, saving, configured, saved, invalid field, and backend unavailable.
+
+**Future domain reads and writes:** A reviewed workspace model-profile resource and secret-manager reference. No raw model API key has a valid persistence field. Agent messages and planning calls retain the non-secret provider/model identity actually used.
+
+### 5. Agent Planner
 
 **Purpose:** Turn a natural-language request into an inspectable source and DAG proposal without hiding the Agent's work.
 
@@ -310,7 +335,7 @@ Each step exposes a localized status and a concise evidence description. The pro
 
 **Domain reads and writes:** `agent_sessions`, `agent_messages`, `source_snapshots`, `provider_credentials`, `spending_policies`, and proposal/version records. The demo runtime remains non-durable and does not write these records.
 
-### 5. DAG Builder
+### 6. DAG Builder
 
 **Purpose:** Inspect and make bounded refinements to the Agent-generated DAG before building a data-product version.
 
@@ -355,7 +380,7 @@ The MVP has no arbitrary JavaScript/Python editor and no unrestricted custom-cod
 
 **Domain reads and writes:** `agent_sessions`, `agent_messages`, `source_snapshots`, `data_products`, `data_product_versions`, `data_product_version_sources`, `product_version_layouts`, `execution_runs`, `run_attempts`, `node_runs`, `source_requests`, `source_http_attempts`, `artifacts`, `materializations`, `trace_streams`, `trace_events`, `budget_reservations`, and upstream payment records.
 
-### 6. API and Deployment
+### 7. API and Deployment
 
 **Purpose:** Activate a ready version, test the private endpoint, and manage refresh and API credentials.
 
@@ -390,7 +415,7 @@ The MVP has no arbitrary JavaScript/Python editor and no unrestricted custom-cod
 
 **Domain reads and writes:** `deployments`, `publication_versions`, `api_credentials`, `refresh_schedules`, `materializations`, `execution_runs`, `api_access_requests`, `api_http_attempts`, `usage_events`, and `active_product_view`.
 
-### 7. Monetization and Revenue
+### 8. Monetization and Revenue
 
 **Purpose:** Turn an already healthy private API into an optional Hedera x402 product and show evidence-backed sales.
 
@@ -437,7 +462,7 @@ Each step is deep-linkable within the page and preserves completed state. Failed
 
 **Domain reads and writes:** `wallet_addresses`, `wallet_asset_capabilities`, `deployments`, `publication_versions`, `api_access_requests`, `api_http_attempts`, `payment_intents`, `payment_attempts`, `payment_settlements`, `payment_allocations`, `financial_ledger_entries`, `usage_events`, `product_sales`, and `creator_proceeds`.
 
-### 8. Public Product and Consumer Demo
+### 9. Public Product and Consumer Demo
 
 **Purpose:** Give evaluators and external developers a public-safe product description, integration reference, and real x402 request path.
 
@@ -578,19 +603,20 @@ The human team selected the third visual exploration on 2026-09-05. The directio
 - Motion is short, interruptible, and state-explanatory; `prefers-reduced-motion` is respected.
 - Operational text uses flat, high-contrast surfaces rather than glass or ambient animation.
 
-The maintained product frontend is in [`frontend/`](frontend/). It includes all eight page families, shared components, locale catalogs, and feature hooks. The evaluator path uses a server-generated demo runtime while durable backend integration remains unfinished. Continue implementing this source directly. [Frontend implementation status](frontend/implementation-status.md) records the remaining behavior and service gaps.
+The maintained product frontend is in [`frontend/`](frontend/). It includes all nine page families, shared components, locale catalogs, and feature hooks. The evaluator path uses a server-generated demo runtime while durable backend integration remains unfinished. Continue implementing this source directly. [Frontend implementation status](frontend/implementation-status.md) records the remaining behavior and service gaps.
 
 The formal token proposal is in [`design-tokens.md`](design-tokens.md). It defines primitive, semantic, and component layers; meaningful color roles; typography and spacing scales; state behavior; accessibility checks; layout contracts; and the JSON-to-CSS generation workflow. The product frontend consumes the generated CSS; DT1-DT4 remain follow-up review items.
 
 ## Screen-to-Backend Contract Summary
 
-These are logical UI contracts. Proposed HTTP paths, DTOs, authorization, and state behavior are now mapped in [api-contract.md](api-contract.md) Draft 0.3; approved M1-M3/H2 directions now map to data-model 1.5 and the database foundation, but API/runtime integration remains unimplemented.
+These are logical UI contracts. Proposed HTTP paths, DTOs, authorization, and state behavior are now mapped in [api-contract.md](api-contract.md) Draft 0.4; approved M1-M3/H2 directions now map to data-model 1.5 and the database foundation, while M4 durable model-profile persistence remains under review. Only the explicitly documented framework and evaluator-demo runtime surfaces are implemented.
 
 | Contract | Consumer pages | Required outcome |
 |---|---|---|
 | Workspace bootstrap | Dashboard, all authenticated pages | Authorized user, workspace, environment, readiness summaries |
 | Product summaries | Dashboard | Products with active version, materialization, publication, freshness, health, and latest run |
 | Wallet and access overview | Wallet, Builder blockers, Monetize | Network/asset balances, control evidence, credentials, grants, policies, capabilities, and recovery links |
+| Agent model profile | Model Service, Agent Planner | Workspace-owned OpenAI-compatible endpoint, model identity, redacted key state, secret reference, validation state, and model identity used for each planning call |
 | Agent session stream | Builder | Durable visible messages and structured proposals with resumable operation status |
 | Product version detail | Builder, API | Canonical spec, source snapshots, DAG, layout, output schema, validation, parent diff, and status |
 | Run and trace stream | Builder, API | Logical run, attempts, node progress, source/payment facts, artifacts, and terminal state |
@@ -607,7 +633,7 @@ Every state-changing contract needs authorization, idempotency, a stable correla
 
 ### P0 Implementation
 
-- All eight page families.
+- All nine page families.
 - Desktop Creator Console support from 1024 CSS pixels, optimized for the 1440-pixel judge-demo viewport.
 - One owner workspace.
 - One representative Graph-backed product.
@@ -646,7 +672,7 @@ Every state-changing contract needs authorization, idempotency, a stable correla
 
 The operator-controlled live demonstration should fit within four minutes:
 
-1. Open a prepared workspace and show separated Graph-spending and Hedera-receipt readiness.
+1. Open a prepared workspace and briefly show the configured Agent model plus separated Graph-spending and Hedera-receipt readiness.
 2. Create or open the DEX-stickiness product and submit the natural-language request.
 3. Show source discovery, explicit Graph x402 mode, DAG, schema, and bounded Build confirmation.
 4. Run the live build and open its Graph payment/source/transform trace.
@@ -662,7 +688,7 @@ A prebuilt fallback product may protect the presentation from a slow live build,
 
 ### D1. Page Architecture
 
-**Approved:** Eight route-level page families with shared product views for Agent, Build, API, and Monetize. Separating Agent conversation/progress from DAG review keeps each page focused while preserving a clear product workflow and shared product context.
+**Approved:** Nine route-level page families with shared product views for Agent, Build, API, and Monetize. Model Service is a top-level creator resource because its configuration is reused across Agent planning sessions. Separating Agent conversation/progress from DAG review keeps each page focused while preserving a clear product workflow and shared product context.
 
 ### D2. Evaluator Paid-Request Method
 
@@ -715,3 +741,4 @@ Remaining review and integration work:
 | 2026-09-06 | Recorded Draft 1.16 by colocating discovered-source selection and existing-Subgraph discovery/import inside the Source node modal | Source selection and source acquisition remain one coherent configuration task; live provider validation is still required before a source can be confirmed |
 | 2026-09-06 | Recorded Draft 1.17 by moving the editor controls into a compact top-centered floating toolbar inside the DAG canvas | Canvas tools are spatially associated with the surface they manipulate and no longer consume a detached page row |
 | 2026-09-06 | Recorded Draft 1.18 by moving the template/operator palette into the DAG canvas and removing the workflow summary strip | The canvas gains the space formerly reserved for a palette column and status header while keeping insertion controls spatially associated with the workflow |
+| 2026-09-06 | Recorded Draft 1.19 by adding a top-level Model Service page for a creator-supplied OpenAI-compatible API URL, API key, and model name | The next explicit Agent plan uses the configured model; the evaluator profile is backend-memory-only and redacted until verified identity and durable secret storage are implemented |

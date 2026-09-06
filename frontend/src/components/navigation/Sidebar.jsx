@@ -1,6 +1,7 @@
 import {
   ArrowLeft,
   Books,
+  Brain,
   Gear,
   SquaresFour,
   Wallet,
@@ -27,6 +28,10 @@ export function Sidebar({ path, navigate }) {
         <button className={path === "/app/wallet" ? "active" : ""} onClick={() => navigate("/app/wallet")}>
           <Wallet size={20} />
           <span>{t("sidebar.walletAccess")}</span>
+        </button>
+        <button className={path === "/app/model" ? "active" : ""} onClick={() => navigate("/app/model")}>
+          <Brain size={20} />
+          <span>{t("sidebar.modelService")}</span>
         </button>
       </nav>
 

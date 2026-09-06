@@ -2,7 +2,7 @@
 
 ## Status
 
-This document records the completed project-structure conception and selected technical/deployment boundaries. [Data-model version 1.5](data-model.md) is the approved implementation baseline, with Hedera testnet HBAR through Blocky402 as the initial downstream profile. The seven-page application under `frontend/` is now the maintained product frontend. The initial database foundation is implemented (see [database.md](backend/database.md)); API/standby-worker scaffolding is implemented, while business/provider integration remains pending, and [api-contract.md](api-contract.md) Draft 0.3 defines the proposed HTTP boundary and model review gates. Frontend/backend ownership, the Evidence-First Console direction, and the browser-only product boundary remain in force.
+This document records the completed project-structure conception and selected technical/deployment boundaries. [Data-model version 1.5](data-model.md) is the approved implementation baseline, with Hedera testnet HBAR through Blocky402 as the initial downstream profile. The nine-page application under `frontend/` is the maintained product frontend. The initial database foundation and API/standby-worker scaffolding are implemented (see [database.md](backend/database.md)); the temporary evaluator runtime also supports a process-memory OpenAI-compatible model profile. Durable business/provider integration remains pending, and [api-contract.md](api-contract.md) Draft 0.4 defines the proposed HTTP boundary and M4 model-profile review gate. Frontend/backend ownership, the Evidence-First Console direction, and the browser-only product boundary remain in force.
 
 ## Product Model
 

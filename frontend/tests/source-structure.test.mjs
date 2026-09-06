@@ -8,6 +8,7 @@ const expectedPages = [
   "ApiDeploymentPage.jsx",
   "DashboardPage.jsx",
   "EntryPage.jsx",
+  "ModelServicePage.jsx",
   "MonetizationRevenuePage.jsx",
   "ProductBuilderPage.jsx",
   "PublicProductPage.jsx",

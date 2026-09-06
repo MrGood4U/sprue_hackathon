@@ -2,7 +2,7 @@
 
 Describe it. Shape it. Sell it.
 
-Sprue is a hosted web product that turns natural-language onchain data logic into persistent, reusable, and optionally monetizable APIs. It is a browser application, not a Windows or macOS native client. Product structure, technical selection, and data-model version 1.5 are approved. MVP implementation now includes the maintained frontend, backend database foundation, API/standby-worker framework, an offline schema-driven DAG runtime for the cross-chain target, and an explicit backend demo runtime. The seven-page application in `frontend/` is the maintained product frontend, using the selected Evidence-First Console design and English/Simplified Chinese localization. Route-level pages request server-generated demo data and do not own browser fixtures while durable business handlers and provider adapters proceed. The initial downstream payment profile is Hedera testnet with HBAR through Blocky402. No complete live MVP or live payment integration exists yet. See [mvp-flow.md](mvp-flow.md) for the end-to-end flow and support matrix.
+Sprue is a hosted web product that turns natural-language onchain data logic into persistent, reusable, and optionally monetizable APIs. It is a browser application, not a Windows or macOS native client. Product structure, technical selection, and data-model version 1.5 are approved. MVP implementation now includes the maintained frontend, backend database foundation, API/standby-worker framework, an offline schema-driven DAG runtime for the cross-chain target, and an explicit backend demo runtime. The nine-page application in `frontend/` is the maintained product frontend, using the selected Evidence-First Console design and English/Simplified Chinese localization. Route-level pages request server-generated demo data and do not own browser fixtures while durable business handlers and provider adapters proceed. The initial downstream payment profile is Hedera testnet with HBAR through Blocky402. No complete live MVP or live payment integration exists yet. See [mvp-flow.md](mvp-flow.md) for the end-to-end flow and support matrix.
 
 ## Product Boundary
 
@@ -29,7 +29,7 @@ Vercel and Railway are temporary delivery targets, not application dependencies.
 
 ## Product Frontend
 
-The React application under [`frontend/`](frontend/) covers Entry, Dashboard, Wallet and Access, Product Builder, API and Deployment, Monetization and Revenue, and the Public Consumer Demo. It supports English and Simplified Chinese UI copy, persists the user's locale choice in the browser, and uses the backend demo client for the current evaluator workflow. Each route-level page lives in its own file, with shared UI, navigation, feature hooks, services, and locale catalogs separated by responsibility. Continue implementing this frontend directly; remaining integration and interaction work is tracked in [`frontend/implementation-status.md`](frontend/implementation-status.md).
+The React application under [`frontend/`](frontend/) covers Entry, Dashboard, Wallet and Access, Model Service, Agent Planner, Product Builder, API and Deployment, Monetization and Revenue, and the Public Consumer Demo. It supports English and Simplified Chinese UI copy, persists the user's locale choice in the browser, and uses the backend demo client for the current evaluator workflow. Model Service may configure an OpenAI-compatible Agent planner for the current backend process session; its API key is never stored in the browser or returned by the backend. Each route-level page lives in its own file, with shared UI, navigation, feature hooks, services, and locale catalogs separated by responsibility. Continue implementing this frontend directly; remaining integration and interaction work is tracked in [`frontend/implementation-status.md`](frontend/implementation-status.md).
 
 ```bash
 cd frontend
@@ -57,6 +57,6 @@ The backend now has 51 domain tables, 15 ordered SQL migrations, typed Drizzle q
 - [Frontend structure and file-ownership plan](frontend/README.md)
 - [Backend boundary and source-layout plan](backend/README.md)
 
-Product-design Draft 1.3 records the maintained frontend, seven page families, route ownership, interactions, accessibility, and screen-to-data contracts. Token review remains follow-up work; the capped consumer's funding boundary and real provider compatibility remain integration gates.
+Product-design Draft 1.19 records the maintained frontend, nine page families, route ownership, interactions, accessibility, and screen-to-data contracts. Token review remains follow-up work; durable model-secret storage, the capped consumer's funding boundary, and real provider compatibility remain integration gates.
 
 Participation: Start Fresh. All repository text is written in English; team communication may use Chinese. Preserve meaningful Git history and update the AI contribution record as work progresses. Runnable setup and verified demo evidence will be added with implementation.

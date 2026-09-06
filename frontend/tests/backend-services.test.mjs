@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getDemoState, runDemoAction } from "../src/services/api/demo-runtime.js";
+import {
+  getDemoModelProfile,
+  getDemoState,
+  runDemoAction,
+  saveDemoModelProfile,
+} from "../src/services/api/demo-runtime.js";
 
 const state = {
   dataSource: "backend_demo",
@@ -18,10 +23,47 @@ test("frontend requests backend demo state without a fixture fallback", async ()
       assert.equal(url, "http://127.0.0.1:3001/api/v1/public/demo/state");
       assert.equal(options.method, "GET");
       assert.equal(options.credentials, "omit");
+      assert.match(options.headers["X-Sprue-Demo-Session"], /^[0-9a-f-]{36}$/i);
       return response(state);
     },
   });
   assert.deepEqual(result, state);
+});
+
+test("model profile client sends the key once and accepts only a redacted response", async () => {
+  const profile = {
+    configured: true,
+    protocol: "openai_compatible_chat_completions",
+    apiUrl: "https://models.example/v1/chat/completions",
+    model: "judge-model",
+    hasApiKey: true,
+    updatedAt: "2026-09-06T00:00:00.000Z",
+  };
+  const saved = await saveDemoModelProfile({
+    apiUrl: profile.apiUrl,
+    apiKey: "browser-input-only",
+    model: profile.model,
+  }, {
+    apiBaseUrl: "https://api.example.test",
+    fetchImpl: async (url, options) => {
+      assert.equal(url, "https://api.example.test/api/v1/public/demo/model-profile");
+      assert.equal(options.method, "PUT");
+      assert.equal(JSON.parse(options.body).apiKey, "browser-input-only");
+      assert.match(options.headers["X-Sprue-Demo-Session"], /^[0-9a-f-]{36}$/i);
+      return response(profile);
+    },
+  });
+  assert.deepEqual(saved, profile);
+  assert.equal(JSON.stringify(saved).includes("browser-input-only"), false);
+
+  const loaded = await getDemoModelProfile({
+    apiBaseUrl: "https://api.example.test",
+    fetchImpl: async (_url, options) => {
+      assert.equal(options.method, "GET");
+      return response(profile);
+    },
+  });
+  assert.deepEqual(loaded, profile);
 });
 
 test("frontend action client sends strict backend actions and returns server state", async () => {

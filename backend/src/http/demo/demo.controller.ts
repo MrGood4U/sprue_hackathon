@@ -18,9 +18,26 @@ const actionSchema = z
     parameters: parametersSchema,
   });
 
+const sessionIdSchema = z.uuid();
+const modelProfileSchema = z.strictObject({
+  apiUrl: z.url().max(2048),
+  apiKey: z.string().trim().min(1).max(4096).optional(),
+  model: z.string().trim().min(1).max(200),
+});
+
 function requireRuntime(runtime: DemoRuntime | undefined): DemoRuntime {
   if (!runtime) throw new AppError("CAPABILITY_DISABLED");
   return runtime;
+}
+
+function readSessionId(value: string | undefined, required = false): string | undefined {
+  if (!value) {
+    if (required) throw new AppError("INVALID_REQUEST");
+    return undefined;
+  }
+  const parsed = sessionIdSchema.safeParse(value);
+  if (!parsed.success) throw new AppError("INVALID_REQUEST");
+  return parsed.data;
 }
 
 export function demoState(runtime?: DemoRuntime): RequestHandler {
@@ -28,7 +45,7 @@ export function demoState(runtime?: DemoRuntime): RequestHandler {
     if (!emptyObjectSchema.safeParse(req.query).success)
       throw new AppError("INVALID_REQUEST");
     try {
-      const data = await requireRuntime(runtime).getState();
+      const data = await requireRuntime(runtime).getState(readSessionId(req.get("X-Sprue-Demo-Session")));
       res.json({ data, meta: meta(res.locals.requestId, "demo") });
     } catch (error) {
       if (error instanceof AppError) throw error;
@@ -42,11 +59,35 @@ export function demoAction(runtime?: DemoRuntime): RequestHandler {
     const parsed = actionSchema.safeParse(req.body);
     if (!parsed.success) throw new AppError("INVALID_REQUEST");
     try {
-      const data = await requireRuntime(runtime).run(parsed.data);
+      const data = await requireRuntime(runtime).run(parsed.data, readSessionId(req.get("X-Sprue-Demo-Session")));
       res.json({ data, meta: meta(res.locals.requestId, "demo") });
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw new AppError("INTERNAL_ERROR");
+    }
+  };
+}
+
+export function demoModelProfile(runtime?: DemoRuntime): RequestHandler {
+  return (req, res) => {
+    if (!emptyObjectSchema.safeParse(req.query).success) throw new AppError("INVALID_REQUEST");
+    const sessionId = readSessionId(req.get("X-Sprue-Demo-Session"), true)!;
+    const data = requireRuntime(runtime).getModelProfile(sessionId);
+    res.json({data, meta: meta(res.locals.requestId, "demo")});
+  };
+}
+
+export function updateDemoModelProfile(runtime?: DemoRuntime): RequestHandler {
+  return (req, res) => {
+    const parsed = modelProfileSchema.safeParse(req.body);
+    if (!parsed.success) throw new AppError("INVALID_REQUEST");
+    const sessionId = readSessionId(req.get("X-Sprue-Demo-Session"), true)!;
+    try {
+      const data = requireRuntime(runtime).saveModelProfile(sessionId, parsed.data);
+      res.json({data, meta: meta(res.locals.requestId, "demo")});
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError("INVALID_REQUEST");
     }
   };
 }

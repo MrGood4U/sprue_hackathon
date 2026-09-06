@@ -21,4 +21,22 @@ export const demoRoutes: readonly RouteDefinition[] = [
     idempotency: false,
     ifMatch: false,
   },
+  {
+    method: "GET",
+    path: "/api/v1/public/demo/model-profile",
+    operationId: "getApiV1DemoModelProfile",
+    audience: "public",
+    implementation: "demo-model-profile-read",
+    idempotency: false,
+    ifMatch: false,
+  },
+  {
+    method: "PUT",
+    path: "/api/v1/public/demo/model-profile",
+    operationId: "putApiV1DemoModelProfile",
+    audience: "public",
+    implementation: "demo-model-profile-write",
+    idempotency: false,
+    ifMatch: false,
+  },
 ];
