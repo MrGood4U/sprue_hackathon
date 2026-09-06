@@ -6,6 +6,7 @@ import {
   createMockMvpProposal,
   createAgentModel,
   RemoteAgentModel,
+  testOpenAICompatibleModel,
 } from "../src/modules/agent/harness/index.js";
 import type {SourceInput} from "../src/modules/dag/runtime.js";
 
@@ -123,4 +124,25 @@ test("remote Agent model sends an OpenAI-compatible request and parses the bound
   assert.equal(observedBody?.model, config.agent.model);
   assert.equal(result.provider, "remote");
   assert.equal((result.output as {kind: string}).kind, "proposal");
+});
+
+test("model connection testing sends one minimal request and returns no provider content", async () => {
+  const config = parseConfig({...baseEnvironment, AGENT_MODE: "remote", AGENT_API_URL: "https://api.openai.com/v1/chat/completions", AGENT_API_KEY: "server-only-key", AGENT_MODEL: "gpt-5.6-sol"});
+  let observedBody: Record<string, unknown> | undefined;
+  const result = await testOpenAICompatibleModel(config.agent, async (url, options) => {
+    assert.equal(url, "https://api.openai.com/v1/chat/completions");
+    assert.equal((options?.headers as Record<string, string>).Authorization, "Bearer server-only-key");
+    observedBody = JSON.parse(String(options?.body));
+    return Response.json({choices: [{message: {content: "OK"}}]});
+  });
+  assert.equal(observedBody?.model, "gpt-5.6-sol");
+  assert.deepEqual(observedBody?.messages, [
+    {role: "system", content: "This is a connectivity check. Reply with exactly OK and nothing else."},
+    {role: "user", content: "OK"},
+  ]);
+  assert.equal(result.available, true);
+  assert.equal(result.model, "gpt-5.6-sol");
+  assert.equal(result.latencyMs >= 0, true);
+  assert.equal(JSON.stringify(result).includes("server-only-key"), false);
+  assert.equal(JSON.stringify(result).includes("OK"), false);
 });

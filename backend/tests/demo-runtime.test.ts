@@ -56,6 +56,7 @@ test("backend demo runtime returns the harness proposal and cross-chain output",
 test("session model profiles never echo keys and drive the next Agent plan", async () => {
   const config = parseConfig(environment);
   const observedConfigs: AgentModelConfig[] = [];
+  const testedConfigs: AgentModelConfig[] = [];
   const modelFactory = (modelConfig: AgentModelConfig): AgentModelPort => {
     observedConfigs.push(modelConfig);
     return {
@@ -68,7 +69,15 @@ test("session model profiles never echo keys and drive the next Agent plan", asy
       },
     };
   };
-  const runtime = new DemoRuntime(config, modelFactory);
+  const runtime = new DemoRuntime(config, modelFactory, async (modelConfig) => {
+    testedConfigs.push(modelConfig);
+    return {
+      available: true,
+      protocol: "openai_compatible_chat_completions",
+      model: modelConfig.model,
+      latencyMs: 12,
+    };
+  });
   const saved = runtime.saveModelProfile(sessionId, {
     apiUrl: "https://models.example/v1/chat/completions",
     apiKey: "session-secret-key",
@@ -76,6 +85,14 @@ test("session model profiles never echo keys and drive the next Agent plan", asy
   });
   assert.equal(saved.hasApiKey, true);
   assert.equal(JSON.stringify(saved).includes("session-secret-key"), false);
+
+  const tested = await runtime.testModelProfile(sessionId, {
+    apiUrl: "https://probe.example/v1/chat/completions",
+    model: "probe-model",
+  });
+  assert.equal(tested.model, "probe-model");
+  assert.equal(testedConfigs.at(-1)?.apiKey, "session-secret-key");
+  assert.equal(runtime.getModelProfile(sessionId).model, "judge-model");
 
   const result = await runtime.run({action: "agent_plan", intent: "Find cross-chain traders."}, sessionId);
   assert.equal(result.state.agent.provider, "remote");
@@ -95,7 +112,12 @@ test("enabled demo HTTP routes are the only frontend business-data boundary in t
       async findBootstrap() { return null; },
       async findOwnedWorkspace() { return null; },
     }),
-    demo: new DemoRuntime(config),
+    demo: new DemoRuntime(config, undefined, async (modelConfig) => ({
+      available: true,
+      protocol: "openai_compatible_chat_completions",
+      model: modelConfig.model,
+      latencyMs: 9,
+    })),
     ready: async () => true,
     stopping: () => false,
   });
@@ -130,6 +152,24 @@ test("enabled demo HTTP routes are the only frontend business-data boundary in t
     assert.equal(savedProfileBody.data.configured, true);
     assert.equal(savedProfileBody.data.hasApiKey, true);
     assert.equal(JSON.stringify(savedProfileBody).includes("http-secret-key"), false);
+
+    const testedProfile = await fetch(`${baseUrl}/api/v1/public/demo/model-profile/test`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json", "X-Sprue-Demo-Session": sessionId},
+      body: JSON.stringify({
+        apiUrl: "https://models.example/v1/chat/completions",
+        model: "judge-model",
+      }),
+    });
+    assert.equal(testedProfile.status, 200);
+    const testedProfileBody = await testedProfile.json();
+    assert.deepEqual(testedProfileBody.data, {
+      available: true,
+      protocol: "openai_compatible_chat_completions",
+      model: "judge-model",
+      latencyMs: 9,
+    });
+    assert.equal(JSON.stringify(testedProfileBody).includes("http-secret-key"), false);
 
     const actionResponse = await fetch(`${baseUrl}/api/v1/public/demo/actions`, {
       method: "POST",

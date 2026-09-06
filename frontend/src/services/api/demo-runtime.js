@@ -127,10 +127,36 @@ export async function saveDemoModelProfile(profile, { apiBaseUrl: configuredBase
   return data;
 }
 
+export async function testDemoModelProfile(profile, { apiBaseUrl: configuredBaseUrl, fetchImpl = globalThis.fetch, signal } = {}) {
+  const body = {apiUrl: profile.apiUrl, model: profile.model};
+  if (profile.apiKey) body.apiKey = profile.apiKey;
+  const response = await fetchImpl(`${apiBaseUrl(configuredBaseUrl)}/api/v1/public/demo/model-profile/test`, {
+    method: "POST",
+    credentials: "omit",
+    redirect: "error",
+    cache: "no-store",
+    headers: demoHeaders({"Content-Type": "application/json"}),
+    body: JSON.stringify(body),
+    signal: requestSignal(signal),
+  });
+  const data = await readDemoResponse(response);
+  if (
+    data?.available !== true ||
+    data?.protocol !== "openai_compatible_chat_completions" ||
+    typeof data?.model !== "string" ||
+    !Number.isFinite(data?.latencyMs) ||
+    data.latencyMs < 0
+  ) {
+    throw new Error("INVALID_DEMO_MODEL_TEST");
+  }
+  return data;
+}
+
 export const backendServices = {
   getDemoState,
   getModelProfile: getDemoModelProfile,
   saveModelProfile: saveDemoModelProfile,
+  testModelProfile: testDemoModelProfile,
   async generatePlan({ signal, intent } = {}) {
     const response = await runDemoAction("agent_plan", { signal, intent });
     return { ...response.result, state: response.state };

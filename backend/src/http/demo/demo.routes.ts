@@ -39,4 +39,13 @@ export const demoRoutes: readonly RouteDefinition[] = [
     idempotency: false,
     ifMatch: false,
   },
+  {
+    method: "POST",
+    path: "/api/v1/public/demo/model-profile/test",
+    operationId: "postApiV1DemoModelProfileTest",
+    audience: "public",
+    implementation: "demo-model-profile-test",
+    idempotency: false,
+    ifMatch: false,
+  },
 ];

@@ -55,3 +55,14 @@ test("keeps the API page focused on request and response formats", async () => {
   assert.doesNotMatch(source, /deploymentEvidence|api\.deployment|openLogs/);
   assert.doesNotMatch(styles, /\.deployment-table|\.evidence-grid/);
 });
+
+test("keeps Model Service credentials concealed and connection testing explicit", async () => {
+  const source = await readFile(new URL("pages/ModelServicePage.jsx", sourceRoot), "utf8");
+
+  assert.match(source, /type=\{showKey \? "text" : "password"\}/);
+  assert.match(source, /showKey \? <Eye size=\{17\} \/> : <EyeClosed size=\{17\} \/>/);
+  assert.match(source, /https:\/\/api\.openai\.com\/v1\/chat\/completions/);
+  assert.match(source, /placeholder="gpt-5\.6-sol"/);
+  assert.match(source, /modelService\.test/);
+  assert.match(source, /testConnection/);
+});

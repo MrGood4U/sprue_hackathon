@@ -15,6 +15,7 @@ import {
   demoAction,
   demoModelProfile,
   demoState,
+  testDemoModelProfile,
   updateDemoModelProfile,
 } from "./demo/demo.controller.js";
 export interface RouteDependencies {
@@ -80,6 +81,8 @@ export function registerRoutes(app: Express, deps: RouteDependencies) {
                 ? demoModelProfile(deps.demo)
                 : route.implementation === "demo-model-profile-write"
                   ? updateDemoModelProfile(deps.demo)
+                  : route.implementation === "demo-model-profile-test"
+                    ? testDemoModelProfile(deps.demo)
               : () => {
                   throw new AppError("CAPABILITY_NOT_IMPLEMENTED");
                 };

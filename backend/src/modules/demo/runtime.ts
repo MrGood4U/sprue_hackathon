@@ -2,6 +2,10 @@ import type { AppConfig } from "../../app/config.js";
 import { createAgentModel } from "../agent/harness/factory.js";
 import { AgentHarness } from "../agent/harness/controller.js";
 import {
+  testOpenAICompatibleModel,
+  type AgentModelConnectionTestResult,
+} from "../agent/harness/remote-model.js";
+import {
   MVP_ARBITRUM_SOURCE_KEY,
   MVP_ETHEREUM_SOURCE_KEY,
 } from "../agent/harness/mock-model.js";
@@ -436,21 +440,36 @@ interface DemoSessionState {
 
 const maxDemoSessions = 64;
 type AgentModelFactory = (config: AgentModelConfig) => AgentModelPort;
+type AgentModelTester = (config: AgentModelConfig) => Promise<AgentModelConnectionTestResult>;
+
+export class DemoModelProfileInputError extends Error {
+  constructor() {
+    super("The model profile is invalid");
+    this.name = "DemoModelProfileInputError";
+  }
+}
+
+export class DemoModelConnectionError extends Error {
+  constructor() {
+    super("The model service is unavailable");
+    this.name = "DemoModelConnectionError";
+  }
+}
 
 function normalizeModelProfile(input: DemoModelProfileInput, existing?: DemoModelProfileSecret): DemoModelProfileSecret {
   let url: URL;
   try {
     url = new URL(input.apiUrl.trim());
   } catch {
-    throw new Error("INVALID_AGENT_MODEL_API_URL");
+    throw new DemoModelProfileInputError();
   }
   if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash) {
-    throw new Error("INVALID_AGENT_MODEL_API_URL");
+    throw new DemoModelProfileInputError();
   }
   const apiKey = input.apiKey?.trim() || existing?.apiKey;
   const model = input.model.trim();
   if (!apiKey || apiKey.length > 4096 || model.length === 0 || model.length > 200) {
-    throw new Error("INVALID_AGENT_MODEL_PROFILE");
+    throw new DemoModelProfileInputError();
   }
   return {
     apiUrl: url.href,
@@ -479,6 +498,7 @@ export class DemoRuntime {
   constructor(
     private readonly config: AppConfig,
     private readonly modelFactory: AgentModelFactory = createAgentModel,
+    private readonly modelTester: AgentModelTester = testOpenAICompatibleModel,
   ) {
     this.defaultHarness = new AgentHarness(this.modelFactory(config.agent));
   }
@@ -523,6 +543,22 @@ export class DemoRuntime {
     const session = this.touchSession(sessionId);
     session.profile = normalizeModelProfile(input, session.profile);
     return profileView(session.profile);
+  }
+
+  async testModelProfile(sessionId: string, input: DemoModelProfileInput): Promise<AgentModelConnectionTestResult> {
+    const session = this.touchSession(sessionId);
+    const candidate = normalizeModelProfile(input, session.profile);
+    try {
+      return await this.modelTester({
+        mode: "remote",
+        apiUrl: candidate.apiUrl,
+        apiKey: candidate.apiKey,
+        model: candidate.model,
+        timeoutMs: this.config.agent.timeoutMs,
+      });
+    } catch {
+      throw new DemoModelConnectionError();
+    }
   }
 
   async getState(sessionId?: string): Promise<DemoState> {

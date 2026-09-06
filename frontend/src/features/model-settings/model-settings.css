@@ -79,6 +79,12 @@
   padding-top: 4px;
 }
 
+.model-service-feedback-stack {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
 .model-service-feedback {
   display: inline-flex;
   align-items: center;
@@ -89,7 +95,16 @@
   line-height: 1.45;
 }
 
-.model-service-submit .button.is-saving svg {
+.model-service-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.model-service-submit .button.is-saving svg,
+.model-service-submit .button.is-testing svg {
   animation: model-service-spin 0.8s linear infinite;
 }
 
@@ -98,7 +113,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .model-service-submit .button.is-saving svg {
+  .model-service-submit .button.is-saving svg,
+  .model-service-submit .button.is-testing svg {
     animation: none;
   }
 }
@@ -172,5 +188,16 @@
 @media (max-width: 1180px) {
   .model-service-layout {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .model-service-submit {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .model-service-actions {
+    justify-content: flex-start;
   }
 }

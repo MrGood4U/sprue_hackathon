@@ -29,7 +29,7 @@ Vercel and Railway are temporary delivery targets, not application dependencies.
 
 ## Product Frontend
 
-The React application under [`frontend/`](frontend/) covers Entry, Dashboard, Wallet and Access, Model Service, Agent Planner, Product Builder, API and Deployment, Monetization and Revenue, and the Public Consumer Demo. It supports English and Simplified Chinese UI copy, persists the user's locale choice in the browser, and uses the backend demo client for the current evaluator workflow. Model Service may configure an OpenAI-compatible Agent planner for the current backend process session; its API key is never stored in the browser or returned by the backend. Each route-level page lives in its own file, with shared UI, navigation, feature hooks, services, and locale catalogs separated by responsibility. Continue implementing this frontend directly; remaining integration and interaction work is tracked in [`frontend/implementation-status.md`](frontend/implementation-status.md).
+The React application under [`frontend/`](frontend/) covers Entry, Dashboard, Wallet and Access, Model Service, Agent Planner, Product Builder, API and Deployment, Monetization and Revenue, and the Public Consumer Demo. It supports English and Simplified Chinese UI copy, persists the user's locale choice in the browser, and uses the backend demo client for the current evaluator workflow. Model Service may configure an OpenAI-compatible Agent planner for the current backend process session and explicitly test current form values without saving them; its API key is concealed by default, never stored in the browser, and never returned by the backend. Each route-level page lives in its own file, with shared UI, navigation, feature hooks, services, and locale catalogs separated by responsibility. Continue implementing this frontend directly; remaining integration and interaction work is tracked in [`frontend/implementation-status.md`](frontend/implementation-status.md).
 
 ```bash
 cd frontend
@@ -57,6 +57,6 @@ The backend now has 51 domain tables, 15 ordered SQL migrations, typed Drizzle q
 - [Frontend structure and file-ownership plan](frontend/README.md)
 - [Backend boundary and source-layout plan](backend/README.md)
 
-Product-design Draft 1.22 records the maintained frontend, nine page families, route ownership, interactions, accessibility, and screen-to-data contracts. Token review remains follow-up work; durable model-secret storage, the capped consumer's funding boundary, and real provider compatibility remain integration gates.
+Product-design Draft 1.23 records the maintained frontend, nine page families, route ownership, interactions, accessibility, and screen-to-data contracts. Token review remains follow-up work; durable model-secret storage, the capped consumer's funding boundary, and real provider compatibility remain integration gates.
 
 Participation: Start Fresh. All repository text is written in English; team communication may use Chinese. Preserve meaningful Git history and update the AI contribution record as work progresses. Runnable setup and verified demo evidence will be added with implementation.

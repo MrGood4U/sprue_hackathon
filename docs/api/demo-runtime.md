@@ -1,6 +1,6 @@
 # Backend Demo Runtime API
 
-Draft 0.3. This is a temporary evaluator-facing transport for the current frontend integration slice. It is enabled only when `DEMO_RUNTIME_ENABLED=true`, uses backend fixture inputs, and never writes durable product, wallet, payment, or deployment records. It must not be presented as the production business API.
+Draft 0.4. This is a temporary evaluator-facing transport for the current frontend integration slice. It is enabled only when `DEMO_RUNTIME_ENABLED=true`, uses backend fixture inputs, and never writes durable product, wallet, payment, or deployment records. It must not be presented as the production business API.
 
 The frontend uses this boundary so business data no longer lives in browser fixtures. Replacing the demo runtime with the reviewed creator/public APIs is a later implementation step; the page contracts should not depend on this temporary path.
 
@@ -12,6 +12,7 @@ The frontend uses this boundary so business data no longer lives in browser fixt
 | POST | `/api/v1/public/demo/actions` | Run one bounded evaluator action: `agent_plan`, `build`, `api_request`, or `consumer_request`. | 200 |
 | GET | `/api/v1/public/demo/model-profile` | Return the current browser session's redacted OpenAI-compatible model profile. The API key is never returned. | 200 |
 | PUT | `/api/v1/public/demo/model-profile` | Validate and retain an OpenAI-compatible API URL, API key, and model name for the current browser session. | 200 |
+| POST | `/api/v1/public/demo/model-profile/test` | Test the submitted profile with one minimal Chat Completions request without saving it. | 200 |
 
 Action bodies are strict and action-specific. Agent planning accepts an optional intent:
 
@@ -49,11 +50,14 @@ The profile write body is:
 
 The URL is the full HTTPS OpenAI-compatible Chat Completions endpoint. Credentials, query parameters, fragments, and redirects are rejected. A later update may omit `apiKey` to retain the current in-memory value. Successful reads and writes expose only `configured`, `protocol`, `apiUrl`, `model`, `hasApiKey`, and `updatedAt`.
 
+The connection-test body has the same input shape. If it omits `apiKey`, the runtime uses the current session key without returning it. Testing sends one minimal request to the submitted endpoint and may incur provider charges. It does not save the submitted URL, key, or model. A successful response exposes only `available`, `protocol`, `model`, and `latencyMs`; provider content, response identifiers, credentials, and upstream error bodies remain server-side. Upstream failures map to the generic dependency-unavailable envelope.
+
 ## Safety boundary
 
 - The routes are public by design because they power a local evaluator preview; do not expose funded credentials or signer material through the projection.
 - API keys are held only in bounded backend process memory, scoped by a random session identifier, and cleared on API restart. They are never logged, persisted, returned, or written to browser storage. Durable configuration requires verified creator identity plus a secret-manager reference and is not implemented here.
 - Remote model requests send only the natural-language intent and bounded source/schema summaries. Provider output is untrusted and must pass the same structured-proposal, operator-allowlist, and DAG checks as mock output.
+- A connection test is an explicit provider call, not passive validation. It sends only a fixed connectivity prompt, never saves provider content, and remains separate from `Save configuration` and `Generate plan`.
 - The runtime uses the same bounded Agent harness and deterministic Union/Join execution path as the non-HTTP tests.
 - No action performs a Graph request, wallet signature, payment, publication, or database mutation.
 - A disabled runtime returns `CAPABILITY_DISABLED`; it does not silently fall back to browser data.

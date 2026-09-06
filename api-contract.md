@@ -2,7 +2,7 @@
 
 ## Status and Authority
 
-Draft 0.4, updated on 2026-09-06 for human review. This is the target HTTP contract, not a claim that every durable endpoint is implemented. The frontend currently uses the explicitly temporary backend demo runtime documented in [demo-runtime.md](docs/api/demo-runtime.md); it does not use browser business-data fixtures. That runtime now includes a redacted, process-memory Model Service profile used only by an explicit Agent-plan action. The database and API/standby-worker framework exist; see [backend/framework.md](backend/framework.md) for the exact implemented and reserved boundary.
+Draft 0.4, updated on 2026-09-06 for human review. This is the target HTTP contract, not a claim that every durable endpoint is implemented. The frontend currently uses the explicitly temporary backend demo runtime documented in [demo-runtime.md](docs/api/demo-runtime.md); it does not use browser business-data fixtures. That runtime now includes a redacted, process-memory Model Service profile used only by an explicit connection test or Agent-plan action. Testing does not save submitted profile values. The database and API/standby-worker framework exist; see [backend/framework.md](backend/framework.md) for the exact implemented and reserved boundary.
 
 Inputs: [data model 1.5](data-model.md), [product design 1.19](product-design.md), [current frontend ownership](frontend/README.md), and [implementation status](frontend/implementation-status.md). Database invariants take precedence over fixture behavior. M1-M3 persistence/lifecycle directions were approved on 2026-09-05 and now map to data-model 1.5 and the initial database foundation. Process probes, public app configuration, verifier-gated identity reads and the explicitly temporary backend demo projection are implemented; durable domain routes remain reserved and return 503 without side effects. The demo projection and optional model call do not establish durable provider capability or authorize a fee, Graph request, funded operation, or deployment.
 
@@ -173,7 +173,7 @@ SSE IDs are `streamId:sequenceNo`; emit only committed events, accept reconnects
 | EntryPage / auth | App configuration, Privy authentication, identity bootstrap, public demo metadata |
 | DashboardPage | Workspace overview, product list/search, product/session creation, latest run/activity |
 | WalletAccessPage | Wallet/credential/grant/budget/capability reads; explicit lifecycle commands |
-| ModelServicePage | Temporary demo profile read/write; durable authenticated workspace model-profile and secret lifecycle remain an M4 review item |
+| ModelServicePage | Temporary demo profile read/write/connection test; durable authenticated workspace model-profile and secret lifecycle remain an M4 review item |
 | ProductBuilderPage / useBuildRun | Messages and proposals, versions/diffs, sources/operator registry, layout, preflight/build, runs, traces, output |
 | ApiDeploymentPage / useRequestTest | Deployment preflight/activation, private tests, endpoint contract, API credentials, refresh controls, access history |
 | MonetizationRevenuePage | Publication draft/activation/retirement, recipient gates, sales/settlement/allocations |

@@ -7,6 +7,18 @@ import type {
 
 const responseLimitBytes = 1_048_576;
 
+type ChatMessage = {
+  role: "system" | "user";
+  content: string;
+};
+
+export interface AgentModelConnectionTestResult {
+  available: true;
+  protocol: "openai_compatible_chat_completions";
+  model: string;
+  latencyMs: number;
+}
+
 const systemPrompt = `You are the Sprue data-product planner. Return one JSON object and no markdown.
 
 Build a bounded proposal with this exact top-level shape:
@@ -57,6 +69,70 @@ function parseJsonContent(content: string): unknown {
   }
 }
 
+async function requestChatCompletion(
+  config: AgentModelConfig,
+  messages: readonly ChatMessage[],
+  fetchImpl: typeof fetch,
+  signal?: AbortSignal,
+): Promise<unknown> {
+  if (config.mode !== "remote" || !config.apiUrl || !config.apiKey) {
+    throw new AgentModelRequestError();
+  }
+  const requestSignal = signal
+    ? AbortSignal.any([signal, AbortSignal.timeout(config.timeoutMs)])
+    : AbortSignal.timeout(config.timeoutMs);
+  let response: Response;
+  try {
+    response = await fetchImpl(config.apiUrl, {
+      method: "POST",
+      redirect: "error",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${config.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({model: config.model, messages}),
+      signal: requestSignal,
+    });
+  } catch {
+    throw new AgentModelRequestError();
+  }
+  if (!response.ok) throw new AgentModelRequestError(`The Agent model returned HTTP ${response.status}`);
+  try {
+    return JSON.parse(await readBoundedBody(response));
+  } catch (error) {
+    if (error instanceof AgentModelRequestError) throw error;
+    throw new AgentModelRequestError("The Agent model returned an invalid response envelope");
+  }
+}
+
+function messageContent(envelope: unknown): string {
+  const content = (envelope as {choices?: {message?: {content?: unknown}}[]})?.choices?.[0]?.message?.content;
+  if (typeof content !== "string" || content.trim().length === 0) {
+    throw new AgentModelRequestError("The Agent model response did not include message content");
+  }
+  return content;
+}
+
+export async function testOpenAICompatibleModel(
+  config: AgentModelConfig,
+  fetchImpl: typeof fetch = globalThis.fetch,
+  signal?: AbortSignal,
+): Promise<AgentModelConnectionTestResult> {
+  const startedAt = Date.now();
+  const envelope = await requestChatCompletion(config, [
+    {role: "system", content: "This is a connectivity check. Reply with exactly OK and nothing else."},
+    {role: "user", content: "OK"},
+  ], fetchImpl, signal);
+  messageContent(envelope);
+  return {
+    available: true,
+    protocol: "openai_compatible_chat_completions",
+    model: config.model,
+    latencyMs: Math.max(0, Date.now() - startedAt),
+  };
+}
+
 export class RemoteAgentModel implements AgentModelPort {
   constructor(
     private readonly config: AgentModelConfig,
@@ -64,46 +140,14 @@ export class RemoteAgentModel implements AgentModelPort {
   ) {}
 
   async complete(request: AgentModelRequest, signal?: AbortSignal): Promise<AgentModelResponse> {
-    if (!this.config.apiUrl || !this.config.apiKey) throw new AgentModelRequestError();
-    const requestSignal = signal
-      ? AbortSignal.any([signal, AbortSignal.timeout(this.config.timeoutMs)])
-      : AbortSignal.timeout(this.config.timeoutMs);
-    let response: Response;
-    try {
-      response = await this.fetchImpl(this.config.apiUrl, {
-        method: "POST",
-        redirect: "error",
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${this.config.apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: this.config.model,
-          messages: [
-            {role: "system", content: systemPrompt},
-            {role: "user", content: JSON.stringify(request)},
-          ],
-        }),
-        signal: requestSignal,
-      });
-    } catch {
-      throw new AgentModelRequestError();
-    }
-    if (!response.ok) throw new AgentModelRequestError(`The Agent model returned HTTP ${response.status}`);
-    let envelope: unknown;
-    try {
-      envelope = JSON.parse(await readBoundedBody(response));
-    } catch (error) {
-      if (error instanceof AgentModelRequestError) throw error;
-      throw new AgentModelRequestError("The Agent model returned an invalid response envelope");
-    }
-    const content = (envelope as {choices?: {message?: {content?: unknown}}[]})?.choices?.[0]?.message?.content;
-    if (typeof content !== "string") throw new AgentModelRequestError("The Agent model response did not include message content");
+    const envelope = await requestChatCompletion(this.config, [
+      {role: "system", content: systemPrompt},
+      {role: "user", content: JSON.stringify(request)},
+    ], this.fetchImpl, signal);
     return {
       provider: "remote",
       model: this.config.model,
-      output: parseJsonContent(content),
+      output: parseJsonContent(messageContent(envelope)),
     };
   }
 }

@@ -5,6 +5,7 @@ import {
   getDemoState,
   runDemoAction,
   saveDemoModelProfile,
+  testDemoModelProfile,
 } from "../src/services/api/demo-runtime.js";
 
 const state = {
@@ -55,6 +56,32 @@ test("model profile client sends the key once and accepts only a redacted respon
   });
   assert.deepEqual(saved, profile);
   assert.equal(JSON.stringify(saved).includes("browser-input-only"), false);
+
+  const tested = await testDemoModelProfile({
+    apiUrl: profile.apiUrl,
+    apiKey: "browser-input-only",
+    model: profile.model,
+  }, {
+    apiBaseUrl: "https://api.example.test",
+    fetchImpl: async (url, options) => {
+      assert.equal(url, "https://api.example.test/api/v1/public/demo/model-profile/test");
+      assert.equal(options.method, "POST");
+      assert.equal(JSON.parse(options.body).apiKey, "browser-input-only");
+      return response({
+        available: true,
+        protocol: "openai_compatible_chat_completions",
+        model: profile.model,
+        latencyMs: 18,
+      });
+    },
+  });
+  assert.deepEqual(tested, {
+    available: true,
+    protocol: "openai_compatible_chat_completions",
+    model: profile.model,
+    latencyMs: 18,
+  });
+  assert.equal(JSON.stringify(tested).includes("browser-input-only"), false);
 
   const loaded = await getDemoModelProfile({
     apiBaseUrl: "https://api.example.test",

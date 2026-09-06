@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft 1.22, updated on 2026-09-06. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. A dedicated Model Service page now lets the creator configure the OpenAI-compatible language model used by Agent planning. Graph credential management is disclosed only when API-key access is selected and keeps its primary action next to the credential list. The Product Dashboard is focused on summary metrics and the product list; the redundant Recent Activity and Sponsor Proof panels are removed. The API view now prioritizes an explicit request-parameter contract and always-visible response schema/example, while omitting the standalone deployment-evidence panel. Token review remains follow-up work; durable identity, secret storage, Graph, wallet, and payment integrations are still pending.
+Draft 1.23, updated on 2026-09-06. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. A dedicated Model Service page now lets the creator configure and explicitly test the OpenAI-compatible language model used by Agent planning. Graph credential management is disclosed only when API-key access is selected and keeps its primary action next to the credential list. The Product Dashboard is focused on summary metrics and the product list; the redundant Recent Activity and Sponsor Proof panels are removed. The API view now prioritizes an explicit request-parameter contract and always-visible response schema/example, while omitting the standalone deployment-evidence panel. Token review remains follow-up work; durable identity, secret storage, Graph, wallet, and payment integrations are still pending.
 
 This document defines the MVP information architecture, page inventory, interactions, state behavior, desktop layout behavior, accessibility requirements, and screen-to-domain contracts. The decisions are recorded in [Confirmed Design Decisions](#confirmed-design-decisions).
 
@@ -271,22 +271,23 @@ The page must not expose a wallet address as proof that authentication or wallet
 
 **Purpose:** Configure the creator-selected language-model service used when Sprue generates an Agent plan.
 
-**Primary action:** `Save configuration`.
+**Primary action:** `Save configuration`. `Test connection` is a secondary, explicit provider action.
 
 **Content and interaction elements:**
 
 - A complete HTTPS OpenAI-compatible Chat Completions URL.
-- A masked API-key input with an explicit show/hide control. A submitted key is server-bound secret input: it is never written to browser storage or returned by a read response.
-- An exact provider model name/ID.
+- A masked API-key input with a closed-eye control by default. The key is revealed only after the creator activates the control. A configured-but-redacted key is represented by stars; the value is never written to browser storage or returned by a read response.
+- An exact provider model name/ID. Empty API URL and model fields use the official OpenAI Chat Completions endpoint and `gpt-5.6-sol` as examples, not automatically submitted values.
 - Visible labels, field-level validation, disabled duplicate submission while saving, and explicit loading, success, and failure feedback.
+- A secondary `Test connection` control that uses the current form values, shows bounded progress and availability feedback, and discloses that the minimal provider request may incur charges.
 - A concise execution-boundary explanation: the selected model receives the creator intent plus bounded source/schema summaries and may return only a structured proposal. It receives no wallet authority, unrestricted network tools, or arbitrary code execution.
 - A clear temporary-runtime notice when durable authenticated secret storage is unavailable.
 
-**Behavior:** Saving a valid profile does not call the model. The next explicit `Generate plan` action uses the selected URL, key, and model. The returned JSON remains untrusted and must pass the same proposal schema, source binding, operator allowlist, acyclicity, and resource validation as mock output. Build, API test, and payment actions do not invoke the model implicitly.
+**Behavior:** Saving a valid profile does not call the model. `Test connection` sends one minimal fixed Chat Completions request to the current form configuration without saving it; when the key field is blank, it may reuse the current session's already-configured key. Test success exposes only availability, selected model, and latency. The next explicit `Generate plan` action uses the saved URL, key, and model. The returned JSON remains untrusted and must pass the same proposal schema, source binding, operator allowlist, acyclicity, and resource validation as mock output. Build, API test, and payment actions do not invoke the model implicitly.
 
 **Current evaluator boundary:** The demo runtime retains one redacted profile per random browser-session ID in bounded backend process memory. It returns only URL, model, configured state, key-present state, and update time; the raw key is never returned. API restart clears the profile. This UUID is session scoping, not production authentication. Durable product behavior requires verified creator identity, a workspace-owned model profile, and a server-side secret-manager reference before implementation.
 
-**States:** Loading, not configured, saving, configured, saved, invalid field, and backend unavailable.
+**States:** Loading, not configured, saving, configured, saved, testing, test available, test unavailable, invalid field, and backend unavailable.
 
 **Future domain reads and writes:** A reviewed workspace model-profile resource and secret-manager reference. No raw model API key has a valid persistence field. Agent messages and planning calls retain the non-secret provider/model identity actually used.
 
@@ -746,3 +747,4 @@ Remaining review and integration work:
 | 2026-09-06 | Recorded Draft 1.20 by moving `Add API key` into the credential section and showing credential management only for API-key Graph access | Access-mode selection now reveals only the resources required by the selected path and keeps related content and actions together |
 | 2026-09-06 | Recorded Draft 1.21 by removing the Dashboard's Recent Activity and Sponsor Proof panels | Summary metrics and the product list already expose the useful overview; removing repeated evidence keeps the Dashboard focused on finding or creating a product |
 | 2026-09-06 | Recorded Draft 1.22 by replacing the API page's deployment-evidence panel with backend-owned request and response format documentation | The API view now answers how to call the endpoint and what it returns without competing operational provenance content |
+| 2026-09-06 | Recorded Draft 1.23 by concealing Model Service credentials by default, using the official GPT-5.6 Sol endpoint/model examples, and adding explicit connection testing | Make secret state unambiguous and let creators validate current form values without saving or conflating connectivity with Agent-plan generation |

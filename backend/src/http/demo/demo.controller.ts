@@ -1,6 +1,10 @@
 import type { RequestHandler } from "express";
 import { z } from "zod";
-import type { DemoRuntime } from "../../modules/demo/runtime.js";
+import {
+  DemoModelConnectionError,
+  DemoModelProfileInputError,
+  type DemoRuntime,
+} from "../../modules/demo/runtime.js";
 import { AppError } from "../../shared/errors.js";
 import { emptyObjectSchema, meta } from "../contracts/common.js";
 
@@ -95,6 +99,23 @@ export function updateDemoModelProfile(runtime?: DemoRuntime): RequestHandler {
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw new AppError("INVALID_REQUEST");
+    }
+  };
+}
+
+export function testDemoModelProfile(runtime?: DemoRuntime): RequestHandler {
+  return async (req, res) => {
+    const parsed = modelProfileSchema.safeParse(req.body);
+    if (!parsed.success) throw new AppError("INVALID_REQUEST");
+    const sessionId = readSessionId(req.get("X-Sprue-Demo-Session"), true)!;
+    try {
+      const data = await requireRuntime(runtime).testModelProfile(sessionId, parsed.data);
+      res.json({data, meta: meta(res.locals.requestId, "demo")});
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      if (error instanceof DemoModelProfileInputError) throw new AppError("INVALID_REQUEST");
+      if (error instanceof DemoModelConnectionError) throw new AppError("DEPENDENCY_UNAVAILABLE");
+      throw new AppError("INTERNAL_ERROR");
     }
   };
 }
