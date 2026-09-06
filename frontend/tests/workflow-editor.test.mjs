@@ -77,3 +77,9 @@ test("the canvas keeps a larger tokenized dot grid", async () => {
   const source = await readFile(new URL("../src/features/workflow-editor/WorkflowCanvas.jsx", import.meta.url), "utf8");
   assert.match(source, /<Background gap=\{28\} size=\{1\.4\} color="var\(--dag-grid\)" \/>/);
 });
+
+test("hand mode keeps the grab cursor over every canvas element", async () => {
+  const styles = await readFile(new URL("../src/features/workflow-editor/workflow-editor.css", import.meta.url), "utf8");
+  assert.match(styles, /\.workflow-canvas-pan \.react-flow__pane,[\s\S]*?\.workflow-canvas-pan \.react-flow__pane \* \{\s*cursor: grab !important;/);
+  assert.match(styles, /\.workflow-canvas-pan \.react-flow__pane:active,[\s\S]*?\.workflow-canvas-pan \.react-flow__pane:active \* \{\s*cursor: grabbing !important;/);
+});

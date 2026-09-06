@@ -33,7 +33,7 @@ The canvas uses a tokenized dot grid with 28-pixel spacing and slightly enlarged
 The editor toolbar floats at the top center of the React Flow canvas. It belongs to the canvas overlay layer, does not consume a separate Builder layout row, and blocks canvas pan/drag gestures within its own bounds. It contains:
 
 - Select tool: select, move, and connect nodes.
-- Hand tool: pan the canvas without moving nodes.
+- Hand tool: pan the canvas without moving nodes. Its grab cursor remains consistent over the canvas, nodes, ports, and edges, and changes to grabbing while the canvas is actively dragged; floating controls retain their own control cursors.
 - Undo and redo.
 - Zoom controls and fit-to-view.
 - Delete selection. In select mode it removes the selected node or edge; in hand mode it does not change the current selection.

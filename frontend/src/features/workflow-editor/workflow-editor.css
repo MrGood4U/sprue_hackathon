@@ -245,12 +245,14 @@
   cursor: default;
 }
 
-.workflow-canvas-pan .react-flow__pane {
-  cursor: grab;
+.workflow-canvas-pan .react-flow__pane,
+.workflow-canvas-pan .react-flow__pane * {
+  cursor: grab !important;
 }
 
-.workflow-canvas-pan .react-flow__pane:active {
-  cursor: grabbing;
+.workflow-canvas-pan .react-flow__pane:active,
+.workflow-canvas-pan .react-flow__pane:active * {
+  cursor: grabbing !important;
 }
 
 .workflow-node {
