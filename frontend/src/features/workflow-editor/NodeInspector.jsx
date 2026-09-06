@@ -22,20 +22,129 @@ function Field({ id, label, hint, children }) {
   );
 }
 
-function SourceConfig({ node, draft, update }) {
+function SourceConfig({ node, draft, update, mode, onModeChange }) {
   const { t } = useI18n();
+  const [lookupMode, setLookupMode] = useState("search");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [networkSlug, setNetworkSlug] = useState("");
+  const [identifierType, setIdentifierType] = useState("subgraph");
+  const [identifier, setIdentifier] = useState("");
   const sources = draft.specification.sources ?? [];
   const selected = sources.find((source) => source.id === node.config?.sourceKey);
+
   return (
-    <Field id={`source-${node.id}`} label={t("workflowEditor.inspector.source")} hint={t("workflowEditor.inspector.sourceHint")}>
-      <select id={`source-${node.id}`} value={node.config?.sourceKey ?? ""} onChange={(event) => update({ ...node.config, sourceKey: event.target.value })}>
-        <option value="">{t("workflowEditor.inspector.selectSource")}</option>
-        {sources.map((source) => (
-          <option key={source.id} value={source.id}>{source.id} · {source.target?.logicalSubgraphId ?? source.kind ?? "subgraph"}</option>
-        ))}
-      </select>
-      {selected && <div className="workflow-inspector-evidence">{selected.target?.logicalSubgraphId ?? selected.id}<br />{selected.dataNetwork ?? "Existing Graph source"}</div>}
-    </Field>
+    <div className="workflow-source-config">
+      <div className="workflow-source-mode-group">
+        <span className="workflow-inspector-subtitle">{t("workflowEditor.inspector.sourceMode")}</span>
+        <div className="workflow-source-mode" role="group" aria-label={t("workflowEditor.inspector.sourceMode")}>
+          <button
+            type="button"
+            className={mode === "discovered" ? "is-active" : ""}
+            aria-pressed={mode === "discovered"}
+            onClick={() => onModeChange("discovered")}
+          >
+            {t("workflowEditor.inspector.discoveredSources")}
+          </button>
+          <button
+            type="button"
+            className={mode === "add" ? "is-active" : ""}
+            aria-pressed={mode === "add"}
+            onClick={() => onModeChange("add")}
+          >
+            {t("workflowEditor.inspector.addExistingSource")}
+          </button>
+        </div>
+      </div>
+
+      {mode === "discovered" ? (
+        <Field id={`source-${node.id}`} label={t("workflowEditor.inspector.source")} hint={t("workflowEditor.inspector.sourceHint")}>
+          <select id={`source-${node.id}`} value={node.config?.sourceKey ?? ""} onChange={(event) => update({ ...node.config, sourceKey: event.target.value })}>
+            <option value="">{t("workflowEditor.inspector.selectSource")}</option>
+            {sources.map((source) => (
+              <option key={source.id} value={source.id}>{source.id} · {source.target?.logicalSubgraphId ?? source.kind ?? "subgraph"}</option>
+            ))}
+          </select>
+          {selected && (
+            <div className="workflow-inspector-evidence">
+              {selected.target?.logicalSubgraphId ?? selected.id}
+              <br />
+              {selected.dataNetwork ?? t("workflowEditor.inspector.existingSourceEvidence")}
+            </div>
+          )}
+        </Field>
+      ) : (
+        <div className="workflow-source-add">
+          <p className="workflow-inspector-help">{t("workflowEditor.inspector.addExistingHint")}</p>
+          <div className="workflow-source-lookup-tabs" role="tablist" aria-label={t("workflowEditor.inspector.lookupMode")}>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={lookupMode === "search"}
+              aria-controls={`source-search-${node.id}`}
+              className={lookupMode === "search" ? "is-active" : ""}
+              onClick={() => setLookupMode("search")}
+            >
+              {t("workflowEditor.inspector.searchSource")}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={lookupMode === "id"}
+              aria-controls={`source-id-${node.id}`}
+              className={lookupMode === "id" ? "is-active" : ""}
+              onClick={() => setLookupMode("id")}
+            >
+              {t("workflowEditor.inspector.addById")}
+            </button>
+          </div>
+
+          {lookupMode === "search" ? (
+            <div id={`source-search-${node.id}`} className="workflow-source-lookup-panel" role="tabpanel">
+              <Field id={`source-query-${node.id}`} label={t("workflowEditor.inspector.searchQuery")}>
+                <input
+                  id={`source-query-${node.id}`}
+                  value={searchQuery}
+                  placeholder={t("workflowEditor.inspector.searchQueryPlaceholder")}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                />
+              </Field>
+              <Field id={`source-network-${node.id}`} label={t("workflowEditor.inspector.networkSlug")}>
+                <input
+                  id={`source-network-${node.id}`}
+                  value={networkSlug}
+                  placeholder={t("workflowEditor.inspector.networkSlugPlaceholder")}
+                  onChange={(event) => setNetworkSlug(event.target.value)}
+                />
+              </Field>
+              <Button type="button" disabled>{t("workflowEditor.inspector.searchGraph")}</Button>
+            </div>
+          ) : (
+            <div id={`source-id-${node.id}`} className="workflow-source-lookup-panel" role="tabpanel">
+              <Field id={`source-id-type-${node.id}`} label={t("workflowEditor.inspector.identifierType")}>
+                <select id={`source-id-type-${node.id}`} value={identifierType} onChange={(event) => setIdentifierType(event.target.value)}>
+                  <option value="subgraph">{t("workflowEditor.inspector.subgraphId")}</option>
+                  <option value="deployment">{t("workflowEditor.inspector.deploymentId")}</option>
+                  <option value="ipfs">{t("workflowEditor.inspector.ipfsCid")}</option>
+                </select>
+              </Field>
+              <Field id={`source-identifier-${node.id}`} label={t("workflowEditor.inspector.identifier")}>
+                <input
+                  id={`source-identifier-${node.id}`}
+                  value={identifier}
+                  placeholder={t("workflowEditor.inspector.identifierPlaceholder")}
+                  onChange={(event) => setIdentifier(event.target.value)}
+                />
+              </Field>
+              <Button type="button" disabled>{t("workflowEditor.inspector.verifySource")}</Button>
+            </div>
+          )}
+
+          <div className="workflow-source-unavailable" role="status">
+            {t("workflowEditor.inspector.discoveryUnavailable")}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -156,9 +265,13 @@ export function NodeInspector({ editor, nodeId, onClose }) {
   const node = editor.nodes.find((item) => item.id === nodeId)?.data?.node;
   const inspectorRef = useRef(null);
   const [draftConfig, setDraftConfig] = useState({});
+  const [sourceMode, setSourceMode] = useState("discovered");
 
   useEffect(() => {
-    if (nodeId) setDraftConfig(cloneConfig(node?.config));
+    if (nodeId) {
+      setDraftConfig(cloneConfig(node?.config));
+      setSourceMode("discovered");
+    }
   }, [nodeId]);
 
   useEffect(() => {
@@ -195,7 +308,9 @@ export function NodeInspector({ editor, nodeId, onClose }) {
   const operator = getOperator(node.type);
   const draftNode = { ...node, config: draftConfig };
   const update = (config) => setDraftConfig(config);
+  const canConfirm = node.type !== "source" || sourceMode === "discovered";
   const confirm = () => {
+    if (!canConfirm) return;
     editor.updateConfig(node.id, draftConfig);
     onClose();
   };
@@ -228,7 +343,15 @@ export function NodeInspector({ editor, nodeId, onClose }) {
         </div>
         <p className="workflow-inspector-node-id">{node.id} · v{node.operatorVersion ?? "1"}</p>
         <div className="workflow-inspector-form">
-          {node.type === "source" && <SourceConfig node={draftNode} draft={editor.draft} update={update} />}
+          {node.type === "source" && (
+            <SourceConfig
+              node={draftNode}
+              draft={editor.draft}
+              update={update}
+              mode={sourceMode}
+              onModeChange={setSourceMode}
+            />
+          )}
           {node.type === "filter" && <FilterConfig node={draftNode} update={update} />}
           {node.type === "map" && <MapConfig node={draftNode} update={update} />}
           {node.type === "aggregate" && <AggregateConfig node={draftNode} update={update} />}
@@ -237,8 +360,8 @@ export function NodeInspector({ editor, nodeId, onClose }) {
           {node.type === "output" && <OutputConfig node={draftNode} update={update} />}
         </div>
         <div className="workflow-inspector-actions">
-          <Button onClick={onClose}>{t("common.cancel")}</Button>
-          <Button variant="primary" onClick={confirm}>{t("common.confirm")}</Button>
+          <Button type="button" onClick={onClose}>{t("common.cancel")}</Button>
+          <Button type="button" variant="primary" disabled={!canConfirm} onClick={confirm}>{t("common.confirm")}</Button>
         </div>
       </section>
     </div>

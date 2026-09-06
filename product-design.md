@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft 1.15, updated on 2026-09-06. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. Token review remains follow-up work; real backend, identity, wallet, and payment integrations are still pending.
+Draft 1.16, updated on 2026-09-06. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. Token review remains follow-up work; real backend, identity, wallet, and payment integrations are still pending.
 
 This document defines the MVP information architecture, page inventory, interactions, state behavior, desktop layout behavior, accessibility requirements, and screen-to-domain contracts. The decisions are recorded in [Confirmed Design Decisions](#confirmed-design-decisions).
 
@@ -328,6 +328,7 @@ The DAG is the primary surface on this page. Full specifications, schemas, and s
 **DAG elements:**
 
 - Seven allowlisted runtime types: Source, Filter, Map, Aggregate, Union, Join, and Output. GroupBy is aggregate configuration; a source window and derived score are configuration/expressions, not separate MVP operators.
+- The Source node modal colocates selection from already discovered sources with discovery of another existing Subgraph. Discovery supports keyword or contract-plus-network search and direct lookup by Subgraph ID, immutable Deployment ID, or manifest IPFS CID; it never offers source creation or deployment.
 - Directed edges with typed input/output ports and stable node IDs.
 - Bounded node and parameter edits with inline validation.
 - Reviewed templates can insert complete, editable node subgraphs; template origin is explanatory metadata rather than an editing lock.
@@ -709,3 +710,4 @@ Remaining review and integration work:
 | 2026-09-06 | Recorded Draft 1.13 by moving node configuration into a centered modal, reducing palette items to one-line labels with hover/focus details, adding distinctive editor icons, and adding an explicit demo-only `Save draft` control | Node editing remains progressive disclosure without permanently narrowing the canvas; durable save remains a backend task |
 | 2026-09-06 | Recorded Draft 1.14 by separating node selection from editing: single click selects and enables deletion, while double click opens a transactional modal with Confirm and Cancel | Node edits are explicit and reversible until Confirm; close, Escape, backdrop, and Cancel discard the temporary configuration |
 | 2026-09-06 | Recorded Draft 1.15 by making hand mode pan-only, adding edge selection/deletion, removing redundant palette plus controls and native title tooltips, narrowing the palette, and reducing canvas nodes to icon/name/status | Canvas gestures have one clear purpose per tool and node cards prioritize the workflow's semantic identity |
+| 2026-09-06 | Recorded Draft 1.16 by colocating discovered-source selection and existing-Subgraph discovery/import inside the Source node modal | Source selection and source acquisition remain one coherent configuration task; live provider validation is still required before a source can be confirmed |

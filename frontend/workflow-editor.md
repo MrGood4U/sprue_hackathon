@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft 0.5, 2026-09-06. The workflow editor is an editable mode inside the existing Builder page, not a separate route. This document records the approved interaction direction and the current implementation boundary.
+Draft 0.6, 2026-09-06. The workflow editor is an editable mode inside the existing Builder page, not a separate route. This document records the approved interaction direction and the current implementation boundary.
 
 ## Product Decisions
 
@@ -12,13 +12,13 @@ Draft 0.5, 2026-09-06. The workflow editor is an editable mode inside the existi
 - A left palette provides reviewed, predefined templates and the seven MVP runtime operators: Source, Filter, Map, Aggregate, Union, Join, and Output.
 - Templates are developer-owned, versioned insertion recipes. The Agent may select and configure them, but it does not invent executable template definitions.
 - Clicking a template inserts its complete node and edge subgraph into the working draft. Inserted nodes are ordinary editable nodes; template origin is metadata for explanation and provenance, not an editing lock.
-- A new Source node references an existing The Graph Subgraph. It does not create or deploy an upstream Subgraph. The creator configures the source query, schema mapping, pagination, time window, and Graph access mode.
+- A new Source node references an existing The Graph Subgraph. It does not create or deploy an upstream Subgraph. Its modal owns both selection from already discovered product sources and acquisition of another existing Subgraph through search or an explicit Graph identifier. The creator configures the source query, schema mapping, pagination, time window, and Graph access mode after the source is verified.
 - Saving replaces the current working draft after validation. An active, deployed, or published version remains unchanged until an explicit build or activation flow promotes the valid draft.
 - Product version semantics remain separate from visual layout. Moving nodes changes layout only; changing nodes, edges, or configuration changes the execution draft.
 
 ## Current Implementation
 
-The first frontend slice is implemented under `frontend/src/features/workflow-editor/`. It includes the select and hand tools, node dragging, typed connections, node deletion, undo/redo, zoom and fit-to-view, operator and template insertion, operator-specific configuration forms, client-side structural validation, and a centered modal node inspector with a dimmed backdrop. Palette entries use one-line labels; their longer descriptions appear in a mouse-following tooltip and on keyboard focus. The current working draft feeds the Builder readiness evidence and Structured DAG modal. The frontend derives an empty schema and preview when the output path is disconnected or no cross-chain output view is selected; it does not claim a live recomputation for provider-backed data.
+The first frontend slice is implemented under `frontend/src/features/workflow-editor/`. It includes the select and hand tools, node dragging, typed connections, node deletion, undo/redo, zoom and fit-to-view, operator and template insertion, operator-specific configuration forms, client-side structural validation, and a centered modal node inspector with a dimmed backdrop. Palette entries use one-line labels; their longer descriptions appear in a mouse-following tooltip and on keyboard focus. The Source inspector colocates the existing product-source selector with an `Add existing Subgraph` branch. That branch exposes search and direct-ID forms but remains explicitly unavailable until the reviewed Graph discovery adapter is connected; it cannot confirm or label an unverified source as configured. The current working draft feeds the Builder readiness evidence and Structured DAG modal. The frontend derives an empty schema and preview when the output path is disconnected or no cross-chain output view is selected; it does not claim a live recomputation for provider-backed data.
 
 The current predefined templates are Filter + Aggregate and Cross-chain Union. Their inserted nodes remain ordinary editable nodes. A durable save command, server-side validation, revision conflict handling, live source discovery, and execution of changed definitions remain backend work.
 
@@ -63,6 +63,8 @@ Delete and reconnect operations are undoable. Source and Output nodes remain del
 ### Inspector and derived evidence
 
 In select mode, single-clicking a node selects it without opening another surface, and single-clicking an edge selects the edge. The selected node or edge can be removed through the toolbar Delete selection control or the keyboard Delete/Backspace command. In hand mode, nodes and edges are not selectable or editable; pointer interaction is reserved for panning the canvas. Double-clicking a node in select mode opens its configuration in a centered modal inspector over the canvas. The modal dims the surrounding workspace, keeps form changes in a temporary node-edit buffer, and exposes explicit `Cancel` and `Confirm` actions. Its close control, Escape, or a backdrop click behaves like Cancel and discards the temporary changes; only Confirm writes the node configuration to the working draft. Forms are operator-specific and schema-driven; raw executable code and arbitrary JSON editing are not allowed.
+
+The Source form uses progressive disclosure inside that same modal. `Discovered sources` selects a source already attached to the product. `Add existing Subgraph` contains `Search` and `Add by ID` modes. Search accepts a name or contract address plus an optional network slug. Direct lookup distinguishes a logical Subgraph ID, immutable Deployment ID, and manifest IPFS CID. A candidate must pass provider lookup, schema inspection, network/coverage checks, and source authorization before it can enter the product source list or make the Source node configured. Until that backend path exists, the controls expose an honest unavailable state and the modal cannot confirm the add branch.
 
 Every semantic edit runs the same frontend derivation pipeline:
 

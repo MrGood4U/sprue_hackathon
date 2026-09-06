@@ -337,8 +337,8 @@
 .workflow-node-inspector {
   display: grid;
   align-content: start;
-  width: min(420px, calc(100vw - 48px));
-  max-width: 420px;
+  width: min(520px, calc(100vw - 48px));
+  max-width: 520px;
   max-height: min(720px, calc(100vh - 48px));
   overflow-y: auto;
   border: 1px solid var(--modal-border);
@@ -459,6 +459,103 @@
   font-size: 9px;
   line-height: 1.45;
   overflow-wrap: anywhere;
+}
+
+.workflow-source-config,
+.workflow-source-add,
+.workflow-source-lookup-panel,
+.workflow-source-mode-group {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.workflow-source-mode {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-control);
+  background: var(--color-background-input);
+}
+
+.workflow-source-mode button,
+.workflow-source-lookup-tabs button {
+  min-width: 0;
+  border: 1px solid transparent;
+  color: var(--color-foreground-secondary);
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.workflow-source-mode button {
+  min-height: 32px;
+  padding: 0 9px;
+  border-radius: calc(var(--radius-control) - 2px);
+  font-size: 10px;
+}
+
+.workflow-source-mode button:hover,
+.workflow-source-mode button:focus-visible,
+.workflow-source-mode button.is-active {
+  color: var(--color-foreground-primary);
+  background: var(--color-background-raised);
+}
+
+.workflow-source-mode button.is-active {
+  border-color: var(--color-accent-agent);
+}
+
+.workflow-source-mode button:focus-visible,
+.workflow-source-lookup-tabs button:focus-visible {
+  outline: var(--focus-width) solid var(--focus-color);
+  outline-offset: var(--focus-offset);
+}
+
+.workflow-source-add {
+  padding-top: 2px;
+}
+
+.workflow-source-lookup-tabs {
+  display: flex;
+  gap: 18px;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.workflow-source-lookup-tabs button {
+  position: relative;
+  padding: 7px 1px 8px;
+  font-size: 10px;
+}
+
+.workflow-source-lookup-tabs button.is-active {
+  color: var(--color-foreground-primary);
+}
+
+.workflow-source-lookup-tabs button.is-active::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: var(--color-accent-agent);
+  content: "";
+}
+
+.workflow-source-lookup-panel .button {
+  justify-self: start;
+}
+
+.workflow-source-unavailable {
+  padding: 9px 10px;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-control);
+  color: var(--color-foreground-secondary);
+  background: var(--color-background-input);
+  font-size: 10px;
+  line-height: 1.45;
 }
 
 .workflow-inspector-checks legend {
