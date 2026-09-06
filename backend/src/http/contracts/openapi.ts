@@ -54,7 +54,9 @@ export function openApiDocument() {
       responses["200"] = {
         description:
           route.implementation === "me"
-            ? "Existing identity, only with a configured verified identity adapter"
+            ? "Existing verified creator identity and owned workspaces"
+            : route.implementation === "bootstrap"
+              ? "Idempotently initialized creator identity and default workspace"
             : "Actual server configuration; capabilities remain disabled",
         content: {
           "application/json": {
@@ -64,7 +66,7 @@ export function openApiDocument() {
               additionalProperties: false,
               properties: {
                 data: {
-                  $ref: `#/components/schemas/${route.implementation === "me" ? "Bootstrap" : route.implementation === "app-config" ? "AppConfig" : "DemoEnvelope"}`,
+                  $ref: `#/components/schemas/${["me", "bootstrap"].includes(route.implementation) ? "Bootstrap" : route.implementation === "app-config" ? "AppConfig" : "DemoEnvelope"}`,
                 },
                 meta: { $ref: "#/components/schemas/Meta" },
               },
@@ -78,7 +80,7 @@ export function openApiDocument() {
       responses,
       "x-sprue-implementation": reserved
         ? "reserved"
-        : route.implementation === "me"
+        : ["me", "bootstrap"].includes(route.implementation)
           ? "adapter-gated"
           : "implemented",
       security:
@@ -113,7 +115,7 @@ export function openApiDocument() {
       title: "Sprue Backend Framework",
       version: "0.2.0",
       description:
-        "Route reservations are not implemented business APIs. No configured production identity verifier, queue consumers or payments.",
+        "Creator identity bootstrap and reads are adapter-gated. Other route reservations are not implemented business APIs.",
     },
     paths,
     components: {

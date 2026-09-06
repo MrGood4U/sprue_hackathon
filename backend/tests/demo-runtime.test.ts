@@ -7,6 +7,7 @@ import { DemoRuntime } from "../src/modules/demo/runtime.js";
 import { createMockMvpProposal } from "../src/modules/agent/harness/mock-model.js";
 import type { AgentModelConfig, AgentModelPort } from "../src/modules/agent/harness/types.js";
 import { IdentityService } from "../src/modules/identity/service.js";
+import { AuthService } from "../src/modules/auth/service.js";
 import { unavailableIdentity } from "../src/integrations/unavailable-identity.js";
 import type { LogEvent } from "../src/shared/logger.js";
 
@@ -111,6 +112,11 @@ test("enabled demo HTTP routes are the only frontend business-data boundary in t
     identity: new IdentityService({
       async findBootstrap() { return null; },
       async findOwnedWorkspace() { return null; },
+    }),
+    auth: new AuthService({
+      async bootstrap() {
+        return { kind: "blocked", userStatus: "suspended" };
+      },
     }),
     demo: new DemoRuntime(config, undefined, async (modelConfig) => ({
       available: true,

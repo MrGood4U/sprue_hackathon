@@ -3,7 +3,7 @@
   "info": {
     "title": "Sprue Backend Framework",
     "version": "0.2.0",
-    "description": "Route reservations are not implemented business APIs. No configured production identity verifier, queue consumers or payments."
+    "description": "Creator identity bootstrap and reads are adapter-gated. Other route reservations are not implemented business APIs."
   },
   "paths": {
     "/api/v1/app-config": {
@@ -65,12 +65,25 @@
           }
         ],
         "responses": {
-          "503": {
-            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+          "200": {
+            "description": "Idempotently initialized creator identity and default workspace",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Bootstrap"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
                 }
               }
             }
@@ -86,7 +99,7 @@
             }
           }
         },
-        "x-sprue-implementation": "reserved",
+        "x-sprue-implementation": "adapter-gated",
         "security": [
           {
             "privyBearer": []
@@ -100,7 +113,7 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": "Existing identity, only with a configured verified identity adapter",
+            "description": "Existing verified creator identity and owned workspaces",
             "content": {
               "application/json": {
                 "schema": {

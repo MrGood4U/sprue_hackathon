@@ -5,6 +5,7 @@ import { createHttpApp } from "../src/http/app.js";
 import { parseConfig, ConfigError } from "../src/app/config.js";
 import { listen, drain } from "../src/app/server.js";
 import { IdentityService } from "../src/modules/identity/service.js";
+import { AuthService } from "../src/modules/auth/service.js";
 import { AppError } from "../src/shared/errors.js";
 import { unavailableIdentity } from "../src/integrations/unavailable-identity.js";
 import type { LogEvent } from "../src/shared/logger.js";
@@ -61,6 +62,13 @@ test("HTTP framework boundaries through real local sockets", async (t) => {
         : null;
     },
   });
+  let bootstrapCalls = 0;
+  const authService = new AuthService({
+    async bootstrap() {
+      bootstrapCalls++;
+      return { kind: "ready", bootstrap };
+    },
+  });
   const dependencies = {
     config: parseConfig(environment),
     logger: {
@@ -69,6 +77,7 @@ test("HTTP framework boundaries through real local sockets", async (t) => {
       },
     },
     identity,
+    auth: authService,
     verifier,
     ready: async () => ready,
     stopping: () => stopping,
@@ -188,6 +197,24 @@ test("HTTP framework boundaries through real local sockets", async (t) => {
         const result = await call("/api/v1/me", { headers: auth });
         assert.equal(result.status, 200);
         assert.deepEqual((await result.json()).data, bootstrap);
+        const initialized = await call("/api/v1/bootstrap", {
+          method: "POST",
+          headers: jsonHeaders,
+          body: "{}",
+        });
+        assert.equal(initialized.status, 200);
+        assert.deepEqual((await initialized.json()).data, bootstrap);
+        assert.equal(bootstrapCalls, 1);
+        assert.equal(
+          (
+            await call("/api/v1/bootstrap", {
+              method: "POST",
+              headers: jsonHeaders,
+              body: '{"userId":"browser-value"}',
+            })
+          ).status,
+          400,
+        );
         assert.equal(
           (
             await call(
@@ -407,6 +434,14 @@ test("configuration rejects unsafe public URLs and money rejects lossy encodings
   const config = parseConfig(environment);
   assert.equal(config.port, 3001);
   assert.equal(config.privyAppId, null);
+  assert.equal(config.privyAppSecret, null);
+  const privy = parseConfig({
+    ...environment,
+    PRIVY_APP_ID: "test-app-id",
+    PRIVY_APP_SECRET: "server-only-secret",
+  });
+  assert.equal(privy.privyAppId, "test-app-id");
+  assert.equal(privy.privyAppSecret, "server-only-secret");
   for (const changes of [
     { PORT: "0" },
     { DATABASE_URL: "" },
@@ -414,6 +449,8 @@ test("configuration rejects unsafe public URLs and money rejects lossy encodings
     { API_BASE_URL: "https://user:password@example.test" },
     { DEPLOYMENT_ENVIRONMENT: "demo" },
     { API_BASE_URL: "https://example.test/?secret=value" },
+    { PRIVY_APP_ID: "test-app-id" },
+    { PRIVY_APP_SECRET: "server-only-secret" },
   ])
     assert.throws(
       () => parseConfig({ ...environment, ...changes }),

@@ -1,0 +1,20 @@
+.entry-auth { margin-top: 28px; max-width: 650px; padding: 18px; display: grid; gap: 14px; }
+.entry-auth-copy { display: grid; gap: 6px; }
+.entry-auth-copy strong { font-size: 14px; }
+.entry-auth-copy span, .entry-auth-note { color: var(--muted); font-size: 11px; line-height: 1.5; }
+.auth-provider-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.auth-provider-list .button { width: 100%; min-width: 0; padding-inline: 10px; }
+.auth-provider-list .button svg { color: var(--violet); }
+.entry-auth-actions { display: flex; align-items: center; gap: 9px; }
+.auth-error { color: var(--amber); font-size: 11px; line-height: 1.5; }
+.sidebar-account { margin-top: 10px; padding: 10px 12px; border-top: 1px solid var(--line); display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 9px; align-items: center; }
+.sidebar-account > svg { color: var(--violet); }
+.sidebar-account-copy { min-width: 0; display: grid; gap: 3px; }
+.sidebar-account-copy strong { font-size: 10px; font-weight: 600; }
+.sidebar-account-copy span { color: var(--muted-2); font-size: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-sign-out { grid-column: 1 / -1; min-height: 30px; width: 100%; border: 1px solid var(--line); border-radius: var(--button-radius); background: transparent; color: var(--muted); display: flex; align-items: center; justify-content: center; gap: 7px; cursor: pointer; font-size: 9px; }
+.sidebar-sign-out:hover { color: var(--text); background: var(--surface-3); }
+
+@media (max-width: 1180px) {
+  .auth-provider-list { grid-template-columns: 1fr; }
+}

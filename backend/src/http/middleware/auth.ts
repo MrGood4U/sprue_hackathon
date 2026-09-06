@@ -1,5 +1,5 @@
 import type { RequestHandler } from "express";
-import type { IdentityVerifier } from "../../modules/identity/ports.js";
+import type { IdentityVerifier } from "../../modules/auth/ports.js";
 import { AppError } from "../../shared/errors.js";
 export function requireIdentity(verifier: IdentityVerifier): RequestHandler {
   return async (req, res, next) => {

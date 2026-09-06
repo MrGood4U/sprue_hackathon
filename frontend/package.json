@@ -14,13 +14,15 @@
     "test:services": "node --test tests/backend-services.test.mjs",
     "test:workflow-editor": "node --test tests/workflow-editor.test.mjs",
     "test:config": "node --test tests/public-config.test.mjs",
-    "build": "npm run test:structure && npm run test:i18n && npm run test:services && npm run test:wallet && npm run test:builder && npm run test:workflow-editor && npm run build:app",
+    "test:auth": "node --test tests/auth.test.mjs",
+    "build": "npm run test:structure && npm run test:i18n && npm run test:services && npm run test:wallet && npm run test:builder && npm run test:workflow-editor && npm run test:auth && npm run build:app",
     "build:app": "npm run test:config && npm run test:tokens && vite build && node scripts/prepare-sites-build.mjs",
     "preview": "vite preview",
     "test:sites": "node --test tests/sites-worker.test.mjs"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
+    "@privy-io/react-auth": "^3.40.0",
     "@vitejs/plugin-react": "5.0.4",
     "@xyflow/react": "^12.11.6",
     "react": "19.2.0",

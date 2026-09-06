@@ -1,6 +1,7 @@
 import { json, type Express, type RequestHandler } from "express";
 import type { AppConfig } from "../app/config.js";
-import type { IdentityVerifier } from "../modules/identity/ports.js";
+import type { IdentityVerifier } from "../modules/auth/ports.js";
+import type { AuthService } from "../modules/auth/service.js";
 import type { IdentityService } from "../modules/identity/service.js";
 import type { DemoRuntime } from "../modules/demo/runtime.js";
 import { AppError } from "../shared/errors.js";
@@ -9,6 +10,7 @@ import { idSchema } from "./contracts/common.js";
 import { requireIdentity, requireRecovery } from "./middleware/auth.js";
 import {
   publicConfiguration,
+  bootstrapIdentity,
   readIdentity,
 } from "./control/identity.controller.js";
 import {
@@ -21,6 +23,7 @@ import {
 export interface RouteDependencies {
   config: AppConfig;
   verifier: IdentityVerifier;
+  auth: AuthService;
   identity: IdentityService;
   demo?: DemoRuntime;
 }
@@ -71,6 +74,8 @@ export function registerRoutes(app: Express, deps: RouteDependencies) {
     const handler: RequestHandler =
       route.implementation === "app-config"
         ? publicConfiguration(deps.config)
+        : route.implementation === "bootstrap"
+          ? bootstrapIdentity(deps.auth)
         : route.implementation === "me"
           ? readIdentity(deps.identity)
           : route.implementation === "demo-state"

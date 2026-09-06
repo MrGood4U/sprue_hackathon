@@ -1,6 +1,7 @@
 import type { RequestHandler } from "express";
 import type { AppConfig } from "../../app/config.js";
 import type { IdentityService } from "../../modules/identity/service.js";
+import type { AuthService } from "../../modules/auth/service.js";
 import { AppError } from "../../shared/errors.js";
 import {
   appConfigSchema,
@@ -39,6 +40,17 @@ export function readIdentity(identity: IdentityService): RequestHandler {
       throw new AppError("INVALID_REQUEST");
     const data = bootstrapSchema.parse(
       await identity.me(res.locals.identity.subject),
+    );
+    res.json({ data, meta: meta(res.locals.requestId) });
+  };
+}
+
+export function bootstrapIdentity(auth: AuthService): RequestHandler {
+  return async (req, res) => {
+    if (!emptyObjectSchema.safeParse(req.body).success)
+      throw new AppError("INVALID_REQUEST");
+    const data = bootstrapSchema.parse(
+      await auth.bootstrap(res.locals.identity.subject),
     );
     res.json({ data, meta: meta(res.locals.requestId) });
   };

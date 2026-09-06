@@ -25,6 +25,7 @@ const schema = z.object({
   DATA_PUBLIC_BASE_URL: z.url(),
   CORS_ALLOWED_ORIGINS: z.string().min(1),
   PRIVY_APP_ID: z.string().max(200).optional(),
+  PRIVY_APP_SECRET: z.string().max(4096).optional(),
   DEMO_RUNTIME_ENABLED: z
     .enum(["true", "false"])
     .default("false")
@@ -95,6 +96,10 @@ export function parseConfig(environment: NodeJS.ProcessEnv) {
     throw new ConfigError(["AGENT_API_URL"]);
   if (values.AGENT_MODE === "remote" && !values.AGENT_API_KEY)
     throw new ConfigError(["AGENT_API_KEY"]);
+  const privyAppId = values.PRIVY_APP_ID?.trim() || null;
+  const privyAppSecret = values.PRIVY_APP_SECRET?.trim() || null;
+  if (Boolean(privyAppId) !== Boolean(privyAppSecret))
+    throw new ConfigError(["PRIVY_APP_ID", "PRIVY_APP_SECRET"]);
   const agentApiUrl = values.AGENT_API_URL
     ? publicUrl("AGENT_API_URL", values.AGENT_API_URL)
     : null;
@@ -112,7 +117,8 @@ export function parseConfig(environment: NodeJS.ProcessEnv) {
       values.DATA_PUBLIC_BASE_URL,
     ),
     allowedOrigins: [...new Set(origins)],
-    privyAppId: values.PRIVY_APP_ID?.trim() || null,
+    privyAppId,
+    privyAppSecret,
     demoRuntimeEnabled: values.DEMO_RUNTIME_ENABLED,
     agent: {
       mode: values.AGENT_MODE,

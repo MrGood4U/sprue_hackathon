@@ -7,6 +7,9 @@ import { databaseReadiness } from "../db/readiness.js";
 import { identityRepository } from "../db/identity-repository.js";
 import { IdentityService } from "../modules/identity/service.js";
 import { unavailableIdentity } from "../integrations/unavailable-identity.js";
+import { AuthService } from "../modules/auth/service.js";
+import { postgresAuthRepository } from "../modules/auth/postgres-repository.js";
+import { privyIdentityVerifier } from "../modules/auth/privy-verifier.js";
 import { createHttpApp } from "../http/app.js";
 import { standbyWorker } from "../jobs/worker-runtime.js";
 import { DemoRuntime } from "../modules/demo/runtime.js";
@@ -30,11 +33,24 @@ export async function startRuntime(
     : undefined;
   let listeningServer: Server | undefined;
   try {
+    const verifier = config.privyAppId && config.privyAppSecret
+      ? privyIdentityVerifier(config.privyAppId, config.privyAppSecret)
+      : unavailableIdentity;
+    const auth = new AuthService(
+      postgresAuthRepository(async () => {
+        const client = await pool.connect();
+        return {
+          query: (sql, parameters) => client.query(sql, parameters),
+          release: () => client.release(),
+        };
+      }),
+    );
     const app = createHttpApp(
       {
         config,
         logger,
-        verifier: unavailableIdentity,
+        verifier,
+        auth,
         identity: new IdentityService(identityRepository(pool)),
         demo,
         ready: databaseReadiness(pool, migrations),

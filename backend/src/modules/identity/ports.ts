@@ -1,13 +1,6 @@
 import type { Bootstrap } from "./contracts.js";
-// A verified provider subject is not a browser-provided Sprue user or wallet ID.
-export interface VerifiedIdentity {
-  subject: string;
-}
-export interface IdentityVerifier {
-  verify(accessToken: string): Promise<VerifiedIdentity>;
-}
 export interface IdentityRepository {
-  // Null means no local identity or no owner workspace; bootstrap itself is a separate command.
+  // Null means no local identity or no owner workspace.
   findBootstrap(subject: string): Promise<Bootstrap | null>;
   findOwnedWorkspace(
     subject: string,

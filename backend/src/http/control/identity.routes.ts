@@ -1,5 +1,5 @@
 import type { RouteDefinition } from "../contracts/route.js";
-// Reserved operations mirror docs/api/identity-wallet.md; they never accept work or return mock success.
+// Route ownership mirrors docs/api/identity-wallet.md.
 export const identityRoutes: readonly RouteDefinition[] = [
   {
     method: "GET",
@@ -15,7 +15,7 @@ export const identityRoutes: readonly RouteDefinition[] = [
     path: "/api/v1/bootstrap",
     operationId: "postApiV1Bootstrap",
     audience: "creator",
-    implementation: "reserved",
+    implementation: "bootstrap",
     idempotency: true,
     ifMatch: false,
   },

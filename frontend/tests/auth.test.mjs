@@ -1,0 +1,82 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+import {
+  bootstrapIdentity,
+  getIdentity,
+} from "../src/services/api/identity.js";
+
+const bootstrap = {
+  user: { id: "10000000-0000-4000-8000-000000000001" },
+  workspaces: [{ id: "10000000-0000-4000-8000-000000000002" }],
+  defaultWorkspaceId: "10000000-0000-4000-8000-000000000002",
+};
+const envelope = {
+  data: bootstrap,
+  meta: { apiVersion: "1", dataSource: "live" },
+};
+
+test("identity bootstrap sends only a Privy Bearer token and an idempotent empty command", async () => {
+  const data = await bootstrapIdentity({
+    accessToken: "signed-provider-token",
+    idempotencyKey: "test-bootstrap-key",
+    apiBaseUrl: "https://api.example.test",
+    fetchImpl: async (url, options) => {
+      assert.equal(url, "https://api.example.test/api/v1/bootstrap");
+      assert.equal(options.method, "POST");
+      assert.equal(options.credentials, "omit");
+      assert.equal(options.headers.Authorization, "Bearer signed-provider-token");
+      assert.equal(options.headers["Idempotency-Key"], "test-bootstrap-key");
+      assert.equal(options.body, "{}");
+      assert.equal(JSON.stringify(options).includes("userId"), false);
+      assert.equal(JSON.stringify(options).includes("walletAddress"), false);
+      return Response.json(envelope);
+    },
+  });
+  assert.deepEqual(data, bootstrap);
+});
+
+test("identity reads remain authenticated and reject malformed live projections", async () => {
+  const data = await getIdentity({
+    accessToken: "signed-provider-token",
+    apiBaseUrl: "https://api.example.test",
+    fetchImpl: async (_url, options) => {
+      assert.equal(options.headers.Authorization, "Bearer signed-provider-token");
+      return Response.json(envelope);
+    },
+  });
+  assert.deepEqual(data, bootstrap);
+  await assert.rejects(
+    getIdentity({
+      accessToken: "signed-provider-token",
+      apiBaseUrl: "https://api.example.test",
+      fetchImpl: async () =>
+        Response.json({ ...envelope, meta: { ...envelope.meta, dataSource: "demo" } }),
+    }),
+    /INVALID_IDENTITY_RESPONSE/,
+  );
+});
+
+test("creator authentication exposes the approved providers and keeps wallet creation explicit", async () => {
+  const provider = await readFile(
+    new URL("../src/features/auth/AuthProvider.jsx", import.meta.url),
+    "utf8",
+  );
+  const entry = await readFile(
+    new URL("../src/pages/EntryPage.jsx", import.meta.url),
+    "utf8",
+  );
+  const app = await readFile(
+    new URL("../src/app/App.jsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(provider, /loginMethods: \["google", "github", "wallet"\]/);
+  assert.match(provider, /walletList: \["metamask"\]/);
+  assert.match(provider, /createOnLogin: "off"/);
+  assert.match(provider, /bootstrapIdentity\(\{ accessToken, signal \}\)/);
+  assert.match(entry, /loginWith\("google"\)/);
+  assert.match(entry, /loginWith\("github"\)/);
+  assert.match(entry, /loginWith\("wallet"\)/);
+  assert.match(app, /path\.startsWith\("\/app"\)/);
+  assert.match(app, /<CreatorRoute/);
+});
