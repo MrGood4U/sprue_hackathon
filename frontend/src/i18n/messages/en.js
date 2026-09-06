@@ -23,6 +23,9 @@ export const en = {
 
   "auth.signInTitle": "Sign in to the Creator Console",
   "auth.signInDetail": "Choose Google, GitHub, or MetaMask to access your Sprue account.",
+  "auth.eyebrow": "Creator access",
+  "auth.login": "Log in",
+  "auth.backHome": "Back to Sprue",
   "auth.methodsLabel": "Sign-in methods",
   "auth.google": "Google",
   "auth.github": "GitHub",
@@ -176,6 +179,7 @@ export const en = {
 
   "entry.consumerDemo": "View consumer demo",
   "entry.openConsole": "Open console",
+  "entry.enterConsole": "Enter console",
   "entry.productBadge": "Onchain data products",
   "entry.title": "From a data question to a paid API.",
   "entry.description": "Sprue turns natural language into a reviewable data DAG, sources verified data from The Graph, and publishes hosted APIs with optional Hedera x402 payments.",

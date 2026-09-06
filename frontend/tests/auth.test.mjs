@@ -66,6 +66,10 @@ test("creator authentication exposes the approved providers and keeps wallet cre
     new URL("../src/pages/EntryPage.jsx", import.meta.url),
     "utf8",
   );
+  const login = await readFile(
+    new URL("../src/pages/LoginPage.jsx", import.meta.url),
+    "utf8",
+  );
   const app = await readFile(
     new URL("../src/app/App.jsx", import.meta.url),
     "utf8",
@@ -74,9 +78,14 @@ test("creator authentication exposes the approved providers and keeps wallet cre
   assert.match(provider, /walletList: \["metamask"\]/);
   assert.match(provider, /createOnLogin: "off"/);
   assert.match(provider, /bootstrapIdentity\(\{ accessToken, signal \}\)/);
-  assert.match(entry, /loginWith\("google"\)/);
-  assert.match(entry, /loginWith\("github"\)/);
-  assert.match(entry, /loginWith\("wallet"\)/);
+  assert.doesNotMatch(entry, /loginWith\(/);
+  assert.match(entry, /authenticated \? "\/app" : "\/login"/);
+  assert.match(entry, /t\("auth\.login"\)/);
+  assert.match(entry, /t\("entry\.enterConsole"\)/);
+  assert.match(login, /loginWith\("google"\)/);
+  assert.match(login, /loginWith\("github"\)/);
+  assert.match(login, /loginWith\("wallet"\)/);
+  assert.match(app, /path === "\/login"/);
   assert.match(app, /path\.startsWith\("\/app"\)/);
   assert.match(app, /<CreatorRoute/);
 });

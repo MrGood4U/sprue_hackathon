@@ -26,6 +26,9 @@ export const zhCN = {
 
   "auth.signInTitle": "\u767b\u5f55\u521b\u4f5c\u8005\u63a7\u5236\u53f0",
   "auth.signInDetail": "\u9009\u62e9 Google\u3001GitHub \u6216 MetaMask \u8bbf\u95ee\u4f60\u7684 Sprue \u8d26\u53f7\u3002",
+  "auth.eyebrow": "\u521b\u4f5c\u8005\u8bbf\u95ee",
+  "auth.login": "\u767b\u5f55",
+  "auth.backHome": "\u8fd4\u56de Sprue",
   "auth.methodsLabel": "\u767b\u5f55\u65b9\u5f0f",
   "auth.google": "\u4f7f\u7528 Google",
   "auth.github": "\u4f7f\u7528 GitHub",
@@ -179,6 +182,7 @@ export const zhCN = {
 
   "entry.consumerDemo": "\u67e5\u770b\u6d88\u8d39\u8005\u6f14\u793a",
   "entry.openConsole": "\u6253\u5f00\u63a7\u5236\u53f0",
+  "entry.enterConsole": "\u8fdb\u5165\u63a7\u5236\u53f0",
   "entry.productBadge": "\u94fe\u4e0a\u6570\u636e\u4ea7\u54c1",
   "entry.title": "\u4ece\u4e00\u4e2a\u6570\u636e\u95ee\u9898\uff0c\u5230\u4e00\u4e2a\u4ed8\u8d39 API\u3002",
   "entry.description": "Sprue \u5c06\u81ea\u7136\u8bed\u8a00\u8f6c\u5316\u4e3a\u53ef\u5ba1\u67e5\u7684\u6570\u636e DAG\uff0c\u4ece The Graph \u83b7\u53d6\u7ecf\u8fc7\u9a8c\u8bc1\u7684\u6570\u636e\uff0c\u5e76\u53d1\u5e03\u53ef\u9009\u7528 Hedera x402 \u652f\u4ed8\u7684\u6258\u7ba1 API\u3002",

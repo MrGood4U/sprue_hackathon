@@ -1,10 +1,10 @@
 # Frontend Implementation Status
 
-Updated on 2026-09-07 after separating stable Sprue user IDs from provider authentication bindings.
+Updated on 2026-09-07 after separating public Entry from Creator Login.
 
 ## Current Baseline
 
-The existing nine route-level pages are the product frontend and will be developed in place. Shared UI, navigation, tokens, localization, and page ownership carry forward. The frontend now loads its evaluator workspace projection, Agent trace, DAG, product metadata, API response, wallet display state and consumer action result from the backend demo runtime. Creator routes require a configured Privy session; Google, GitHub, and MetaMask login all feed one backend-verified account/bootstrap path, while the public product remains accessible without creator login. Agent planning and DAG review are separate product views under one product header. Other live backend integrations and the complete durable MVP remain unfinished.
+The existing ten route-level pages are the product frontend and will be developed in place. Shared UI, navigation, tokens, localization, and page ownership carry forward. The public Entry page keeps its `Log in` and `Enter console` actions separate from provider selection; signed-out creator actions navigate to the dedicated Login page. The frontend now loads its evaluator workspace projection, Agent trace, DAG, product metadata, API response, wallet display state and consumer action result from the backend demo runtime. Creator routes require a configured Privy session; Google, GitHub, and MetaMask login all feed one backend-verified account/bootstrap path, while the public product remains accessible without creator login. Agent planning and DAG review are separate product views under one product header. Other live backend integrations and the complete durable MVP remain unfinished.
 
 Implemented browser behavior includes route navigation, English/Simplified Chinese selection with a local preference, page composition, dialogs, Graph access-mode selection with API-key-only credential disclosure and a colocated credential action, backend-provided DAG inspection, and backend action flows. `services/index.js` selects the backend demo client. Build and request flows run through feature hooks with cancellation and duplicate-submission protection; no product page imports browser fixture records.
 
@@ -20,7 +20,8 @@ Deployment infrastructure now includes public API-origin validation, a read-only
 
 | Page | Current behavior | Needed for the integrated MVP |
 |---|---|---|
-| Entry | Product introduction, public demo access, Privy Google/GitHub/MetaMask sign-in, session restoration, backend token verification, and idempotent local user/default-workspace bootstrap | Real-provider browser evidence, provider-dashboard origin configuration, account linking/conflict UX, and production abuse/session recovery checks |
+| Entry | Product introduction, public demo access, header `Log in`, and hero `Enter console`; signed-out creator actions navigate to `/login` | Final submission links and public-demo availability handling |
+| Creator Login | Privy Google/GitHub/MetaMask sign-in, session restoration, backend token verification, idempotent local user/default-workspace bootstrap, and signed-in console entry | Real-provider browser evidence, provider-dashboard origin configuration, account linking/conflict UX, and production abuse/session recovery checks |
 | Dashboard | Backend-generated summary metrics and product projection, plus a dialog that opens its plan; redundant activity and sponsor-proof panels are intentionally omitted | Product list/create APIs, search/filter behavior, durable usage summaries, creator loading/empty/error states |
 | Wallet and Access | Sample balances and authorization, local access-mode selection, dialogs without durable writes | Wallet identity/funding, credential storage, validated grants, budgets, recipient capability, balance and policy refresh |
 | Model Service | Session-scoped OpenAI-compatible URL/key/model form with redacted backend reads, explicit non-saving connection test, and next-plan wiring | Workspace-owned profile persistence, secret-manager storage/rotation, provider capability policy, usage limits, and recovery |

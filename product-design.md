@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft 1.25, updated on 2026-09-07. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. The Entry page offers Google, GitHub, and MetaMask creator login through Privy; provider subjects resolve to stable Sprue user IDs, creator routes require completed bootstrap, and public product access remains unauthenticated. A dedicated Model Service page lets the creator configure and explicitly test the OpenAI-compatible language model used by Agent planning. Graph credential management is disclosed only when API-key access is selected and keeps its primary action next to the credential list. The Product Dashboard is focused on summary metrics and the product list; the redundant Recent Activity and Sponsor Proof panels are removed. The API view prioritizes an explicit request-parameter contract and always-visible response schema/example, while omitting the standalone deployment-evidence panel. Token review remains follow-up work; account-linking UI, durable model-secret storage, Graph, account-wallet, and payment integrations are still pending.
+Draft 1.26, updated on 2026-09-07. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. The public Entry page now contains only product explanation plus clear `Log in` and `Enter console` routes; Google, GitHub, and MetaMask authentication is concentrated on a dedicated Login page. Provider subjects resolve to stable Sprue user IDs, creator routes require completed bootstrap, and public product access remains unauthenticated. A dedicated Model Service page lets the creator configure and explicitly test the OpenAI-compatible language model used by Agent planning. Graph credential management is disclosed only when API-key access is selected and keeps its primary action next to the credential list. The Product Dashboard is focused on summary metrics and the product list; the redundant Recent Activity and Sponsor Proof panels are removed. The API view prioritizes an explicit request-parameter contract and always-visible response schema/example, while omitting the standalone deployment-evidence panel. Token review remains follow-up work; account-linking UI, durable model-secret storage, Graph, account-wallet, and payment integrations are still pending.
 
 This document defines the MVP information architecture, page inventory, interactions, state behavior, desktop layout behavior, accessibility requirements, and screen-to-domain contracts. The decisions are recorded in [Confirmed Design Decisions](#confirmed-design-decisions).
 
@@ -52,19 +52,20 @@ The MVP implements one active owner per workspace. Invitations, role management,
 
 ## Approved Page Count
 
-The MVP contains **nine route-level page families**. Parameterized routes and create/edit variants within one family do not increase this count. Privy callbacks, generic errors, and not-found routes are utility routes rather than product pages.
+The MVP contains **ten route-level page families**. Parameterized routes and create/edit variants within one family do not increase this count. Privy callbacks, generic errors, and not-found routes are utility routes rather than product pages.
 
 | No. | Page family | Proposed route | Audience | Primary outcome |
 |---:|---|---|---|---|
-| 1 | Entry and Sign In | `/` | Public | Understand Sprue and enter the Creator Console or public demo |
-| 2 | Product Dashboard | `/app` | Creator | Start or resume a data product |
-| 3 | Wallet and Access | `/app/wallet` | Creator | Prepare Graph credentials, wallet funding, and bounded authority |
-| 4 | Model Service | `/app/model` | Creator | Configure the language model used for Agent plan generation |
-| 5 | Agent Planner | `/app/products/new`, `/app/products/:productId/agent` | Creator | Describe intent, discover sources, and review Agent progress |
-| 6 | DAG Builder | `/app/products/:productId/build` | Creator | Inspect, refine, validate, and build the generated DAG |
-| 7 | API and Deployment | `/app/products/:productId/api` | Creator | Deploy and privately test a persistent API |
-| 8 | Monetization and Revenue | `/app/products/:productId/monetize` | Creator | Validate Hedera receipt, enable x402, and reconcile sales |
-| 9 | Public Product and Consumer Demo | `/p/:slug` | Public | Understand and exercise the paid API flow |
+| 1 | Entry | `/` | Public | Understand Sprue and choose the Creator Console or public demo path |
+| 2 | Creator Login | `/login` | Public | Authenticate with an approved provider before entering the console |
+| 3 | Product Dashboard | `/app` | Creator | Start or resume a data product |
+| 4 | Wallet and Access | `/app/wallet` | Creator | Prepare Graph credentials, wallet funding, and bounded authority |
+| 5 | Model Service | `/app/model` | Creator | Configure the language model used for Agent plan generation |
+| 6 | Agent Planner | `/app/products/new`, `/app/products/:productId/agent` | Creator | Describe intent, discover sources, and review Agent progress |
+| 7 | DAG Builder | `/app/products/:productId/build` | Creator | Inspect, refine, validate, and build the generated DAG |
+| 8 | API and Deployment | `/app/products/:productId/api` | Creator | Deploy and privately test a persistent API |
+| 9 | Monetization and Revenue | `/app/products/:productId/monetize` | Creator | Validate Hedera receipt, enable x402, and reconcile sales |
+| 10 | Public Product and Consumer Demo | `/p/:slug` | Public | Understand and exercise the paid API flow |
 
 There is no separate MVP page for run history, global settings, team management, or marketplace discovery. Agent progress belongs inside Agent Planner; build trace and recent runs belong inside DAG Builder; API usage belongs inside API and Deployment; payment history belongs inside Monetization and Revenue.
 
@@ -72,7 +73,7 @@ There is no separate MVP page for run history, global settings, team management,
 
 ### Public Navigation
 
-The public header contains the Sprue wordmark, a `View demo` link, and one primary `Open Creator Console` action. It must not imitate a large marketing website.
+The public header contains the Sprue wordmark, a `View demo` link, a secondary `Log in` action, and the language selector. The hero contains the page's primary `Enter console` action. When no verified session exists, either creator action navigates to `/login` without opening a provider dialog directly. With a completed session, the actions open `/app`. The Entry page must not imitate a large marketing website or duplicate provider choices.
 
 ### Creator Console Navigation
 
@@ -168,36 +169,53 @@ If payment confirms but response delivery fails, the UI offers delivery retry ag
 
 ## Page Specifications
 
-### 1. Entry and Sign In
+### 1. Entry
 
-**Purpose:** Explain the product in under 30 seconds and provide a reliable path to the console and public demo.
+**Purpose:** Explain the product in under 30 seconds and provide a reliable path to the console, login, and public demo without mixing authentication controls into the product story.
 
-**Primary actions:** `Continue with Google`, `Continue with GitHub`, and `Continue with MetaMask`.
+**Primary action:** `Enter console`. The header also exposes `Log in`.
 
 **Content and interaction elements:**
 
 - Concise hero: `Describe it. Shape it. Sell it.`
 - One-sentence product definition focused on persistent APIs rather than one-off answers.
-- Three-step visual explaining Describe, Shape, and Sell.
-- Three explicit Privy authentication choices: Google OAuth, GitHub OAuth, and MetaMask wallet login.
-- Signed-in account summary, `Open Creator Console`, and `Sign out` actions.
+- Traceable-chain visual explaining intent, DAG, source, API, and payment stages.
+- Header `Log in` action and hero `Enter console` action. Both navigate to `/login` while signed out and `/app` after authentication/bootstrap succeeds.
 - `View public demo` link to the selected demo product.
 - Compact integration explanation for The Graph, Privy, Hedera, and Blocky402.
 - Repository and demo-video links once submission assets exist.
 
 **States:**
 
-- Signed out.
-- Authentication loading with a stable layout.
-- Authentication unavailable when the deployment has no complete Privy configuration; provider actions remain disabled and the public demo stays available.
-- Authentication failed with a retry action and provider-safe error.
-- Signed in and bootstrapping the local user/default owner workspace before `/app` renders.
-- Signed in and ready, with an explicit path into `/app` and session sign-out.
+- Signed out, with both creator actions targeting `/login`.
+- Signed in and ready, with both creator actions targeting `/app`.
 - Public demo unavailable, with the Creator Console action remaining usable.
+
+### 2. Creator Login
+
+**Purpose:** Present authentication as one focused step after the creator has chosen to enter the console.
+
+**Primary actions:** `Google`, `GitHub`, and `MetaMask`.
+
+**Content and interaction elements:**
+
+- Sprue wordmark, language selector, and a predictable `Back to Sprue` route.
+- Three explicit Privy authentication choices: Google OAuth, GitHub OAuth, and MetaMask wallet login.
+- Signed-in account summary, `Open console`, and `Sign out` actions when a session is already complete.
+- Provider-safe loading, configuration, and error messages in the same stable card.
+
+**States:**
+
+- Authentication configuration loading.
+- Authentication unavailable when the deployment has no complete Privy configuration; provider actions remain disabled.
+- Signed out and ready to select a provider.
+- Authentication failed with a provider-safe error.
+- Signed in and bootstrapping the local user/default owner workspace.
+- Signed in and ready, with an explicit path into `/app` and session sign-out.
 
 Each provider resolves through Privy to a server-verified subject, which the backend maps through an authentication binding to a stable Sprue user UUID. The provider subject is never displayed or used as the application user ID. Sprue does not infer account linking across different provider subjects and does not accept a browser-provided local user/workspace identifier. MetaMask login proves control of the login address for authentication only; the page must not expose that address as proof that the separate account wallet exists, is funded, or grants Sprue payment authority.
 
-### 2. Product Dashboard
+### 3. Product Dashboard
 
 **Purpose:** Show product state and make the next useful action obvious.
 
@@ -221,7 +239,7 @@ Each provider resolves through Privy to a server-verified subject, which the bac
 
 **Domain reads:** `data_products`, active `data_product_versions`, `deployments`, `materializations`, latest `execution_runs`, and the `active_product_view` and `product_run_status` read models.
 
-### 3. Wallet and Access
+### 4. Wallet and Access
 
 **Purpose:** Configure the reusable account-level resources required by product builds and optional revenue receipt.
 
@@ -270,7 +288,7 @@ Each provider resolves through Privy to a server-verified subject, which the bac
 
 **Domain reads and writes:** `account_wallets`, `wallet_addresses`, `wallet_asset_capabilities`, `wallet_policies`, `wallet_signer_grants`, `spending_policies`, `budget_reservations`, `wallet_balance_snapshots`, `provider_credentials`, `payment_intents`, and `financial_ledger_entries`.
 
-### 4. Model Service
+### 5. Model Service
 
 **Purpose:** Configure the creator-selected language-model service used when Sprue generates an Agent plan.
 
@@ -294,7 +312,7 @@ Each provider resolves through Privy to a server-verified subject, which the bac
 
 **Future domain reads and writes:** A reviewed workspace model-profile resource and secret-manager reference. No raw model API key has a valid persistence field. Agent messages and planning calls retain the non-secret provider/model identity actually used.
 
-### 5. Agent Planner
+### 6. Agent Planner
 
 **Purpose:** Turn a natural-language request into an inspectable source and DAG proposal without hiding the Agent's work.
 
@@ -338,7 +356,7 @@ Each step exposes a localized status and a concise evidence description. The pro
 
 **Domain reads and writes:** `agent_sessions`, `agent_messages`, `source_snapshots`, `provider_credentials`, `spending_policies`, and proposal/version records. The demo runtime remains non-durable and does not write these records.
 
-### 6. DAG Builder
+### 7. DAG Builder
 
 **Purpose:** Inspect and make bounded refinements to the Agent-generated DAG before building a data-product version.
 
@@ -383,7 +401,7 @@ The MVP has no arbitrary JavaScript/Python editor and no unrestricted custom-cod
 
 **Domain reads and writes:** `agent_sessions`, `agent_messages`, `source_snapshots`, `data_products`, `data_product_versions`, `data_product_version_sources`, `product_version_layouts`, `execution_runs`, `run_attempts`, `node_runs`, `source_requests`, `source_http_attempts`, `artifacts`, `materializations`, `trace_streams`, `trace_events`, `budget_reservations`, and upstream payment records.
 
-### 7. API and Deployment
+### 8. API and Deployment
 
 **Purpose:** Activate a ready version, test the private endpoint, and manage refresh and API credentials.
 
@@ -420,7 +438,7 @@ The MVP has no arbitrary JavaScript/Python editor and no unrestricted custom-cod
 
 **Domain reads and writes:** `deployments`, `publication_versions`, `api_credentials`, `refresh_schedules`, `materializations`, `execution_runs`, `api_access_requests`, `api_http_attempts`, `usage_events`, and `active_product_view`.
 
-### 8. Monetization and Revenue
+### 9. Monetization and Revenue
 
 **Purpose:** Turn an already healthy private API into an optional Hedera x402 product and show evidence-backed sales.
 
@@ -467,7 +485,7 @@ Each step is deep-linkable within the page and preserves completed state. Failed
 
 **Domain reads and writes:** `wallet_addresses`, `wallet_asset_capabilities`, `deployments`, `publication_versions`, `api_access_requests`, `api_http_attempts`, `payment_intents`, `payment_attempts`, `payment_settlements`, `payment_allocations`, `financial_ledger_entries`, `usage_events`, `product_sales`, and `creator_proceeds`.
 
-### 9. Public Product and Consumer Demo
+### 10. Public Product and Consumer Demo
 
 **Purpose:** Give evaluators and external developers a public-safe product description, integration reference, and real x402 request path.
 
@@ -608,7 +626,7 @@ The human team selected the third visual exploration on 2026-09-05. The directio
 - Motion is short, interruptible, and state-explanatory; `prefers-reduced-motion` is respected.
 - Operational text uses flat, high-contrast surfaces rather than glass or ambient animation.
 
-The maintained product frontend is in [`frontend/`](frontend/). It includes all nine page families, shared components, locale catalogs, and feature hooks. The evaluator path uses a server-generated demo runtime while durable backend integration remains unfinished. Continue implementing this source directly. [Frontend implementation status](frontend/implementation-status.md) records the remaining behavior and service gaps.
+The maintained product frontend is in [`frontend/`](frontend/). It includes all ten page families, shared components, locale catalogs, and feature hooks. The evaluator path uses a server-generated demo runtime while durable backend integration remains unfinished. Continue implementing this source directly. [Frontend implementation status](frontend/implementation-status.md) records the remaining behavior and service gaps.
 
 The formal token proposal is in [`design-tokens.md`](design-tokens.md). It defines primitive, semantic, and component layers; meaningful color roles; typography and spacing scales; state behavior; accessibility checks; layout contracts; and the JSON-to-CSS generation workflow. The product frontend consumes the generated CSS; DT1-DT4 remain follow-up review items.
 
@@ -638,7 +656,7 @@ Every state-changing contract needs authorization, idempotency, a stable correla
 
 ### P0 Implementation
 
-- All nine page families.
+- All ten page families.
 - Desktop Creator Console support from 1024 CSS pixels, optimized for the 1440-pixel judge-demo viewport.
 - One owner workspace.
 - One representative Graph-backed product.
@@ -693,7 +711,7 @@ A prebuilt fallback product may protect the presentation from a slow live build,
 
 ### D1. Page Architecture
 
-**Approved:** Nine route-level page families with shared product views for Agent, Build, API, and Monetize. Model Service is a top-level creator resource because its configuration is reused across Agent planning sessions. Separating Agent conversation/progress from DAG review keeps each page focused while preserving a clear product workflow and shared product context.
+**Approved:** Ten route-level page families with a public Entry page separated from Creator Login and shared product views for Agent, Build, API, and Monetize. Model Service is a top-level creator resource because its configuration is reused across Agent planning sessions. Separating Agent conversation/progress from DAG review keeps each page focused while preserving a clear product workflow and shared product context.
 
 ### D2. Evaluator Paid-Request Method
 
@@ -753,3 +771,4 @@ Remaining review and integration work:
 | 2026-09-06 | Recorded Draft 1.23 by concealing Model Service credentials by default, using the official GPT-5.6 Sol endpoint/model examples, and adding explicit connection testing | Make secret state unambiguous and let creators validate current form values without saving or conflating connectivity with Agent-plan generation |
 | 2026-09-07 | Recorded Draft 1.24 with explicit Google, GitHub, and MetaMask creator login through Privy, fail-closed creator routes, transactional account/workspace bootstrap, and unchanged public product access | Authentication is separated from account-wallet creation, funding, and delegated payment authority; live provider evidence still requires configured credentials and origins |
 | 2026-09-07 | Recorded Draft 1.25 with provider subjects mapped to stable Sprue user UUIDs and future explicit multi-identity binding | Provider replacement must not change domain ownership; account linking, unlinking, conflicts, and recovery remain unimplemented and cannot use heuristic merges |
+| 2026-09-07 | Recorded Draft 1.26 by separating public Entry from Creator Login and routing both landing-page creator actions through `/login` while signed out | Keep product explanation and authentication as distinct decisions; provider choices appear only after the creator explicitly chooses to enter |

@@ -1,11 +1,15 @@
-.entry-auth { margin-top: 28px; max-width: 650px; padding: 18px; display: grid; gap: 14px; }
-.entry-auth-copy { display: grid; gap: 6px; }
-.entry-auth-copy strong { font-size: 14px; }
-.entry-auth-copy span, .entry-auth-note { color: var(--muted); font-size: 11px; line-height: 1.5; }
+.login-page { min-height: 100vh; background: var(--color-background-canvas); }
+.login-nav { height: 72px; padding: 0 5vw; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+.login-main { min-height: calc(100vh - 72px); display: grid; place-items: center; padding: 64px 24px; }
+.login-card { width: min(620px, 100%); padding: 32px; display: grid; gap: 24px; }
+.login-back { width: fit-content; display: inline-flex; align-items: center; gap: 7px; }
+.login-copy { display: grid; gap: 10px; }
+.login-copy h1 { font-size: 30px; line-height: 1.2; letter-spacing: -.04em; }
+.login-copy p, .auth-note { color: var(--muted); font-size: 12px; line-height: 1.6; }
 .auth-provider-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .auth-provider-list .button { width: 100%; min-width: 0; padding-inline: 10px; }
 .auth-provider-list .button svg { color: var(--violet); }
-.entry-auth-actions { display: flex; align-items: center; gap: 9px; }
+.auth-actions { display: flex; align-items: center; gap: 9px; }
 .auth-error { color: var(--amber); font-size: 11px; line-height: 1.5; }
 .sidebar-account { margin-top: 10px; padding: 10px 12px; border-top: 1px solid var(--line); display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 9px; align-items: center; }
 .sidebar-account > svg { color: var(--violet); }

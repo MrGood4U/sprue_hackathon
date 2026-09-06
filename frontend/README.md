@@ -107,6 +107,7 @@ Do not create frontend adapters for Graph payments, private wallet signing mater
 | Route family | Page file | Primary feature owner |
 |---|---|---|
 | `/` | `pages/EntryPage.jsx` | Entry and navigation |
+| `/login` | `pages/LoginPage.jsx` | Creator authentication choices and session entry |
 | `/app` | `pages/DashboardPage.jsx` | Product summaries |
 | `/app/wallet` | `pages/WalletAccessPage.jsx` | Wallet and Graph access |
 | `/app/model` | `pages/ModelServicePage.jsx` | Agent model service configuration |

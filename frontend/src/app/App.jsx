@@ -1,5 +1,6 @@
 import { TerminalWindow } from "@phosphor-icons/react";
 import { EntryPage } from "../pages/EntryPage.jsx";
+import { LoginPage } from "../pages/LoginPage.jsx";
 import { PublicProductPage } from "../pages/PublicProductPage.jsx";
 import { useI18n } from "../i18n/I18nProvider.jsx";
 import { AppShell } from "./AppShell.jsx";
@@ -51,7 +52,7 @@ function CreatorRoute({ path, navigate }) {
   const { t } = useI18n();
 
   if (["unauthenticated", "unavailable"].includes(status))
-    return <EntryPage navigate={navigate} />;
+    return <LoginPage navigate={navigate} />;
   if (["loading", "initializing"].includes(status))
     return (
       <main className="runtime-gate">
@@ -69,7 +70,7 @@ function CreatorRoute({ path, navigate }) {
           <span className="section-label">{t("auth.errorLabel")}</span>
           <h1>{t("auth.errorTitle")}</h1>
           <p>{t("auth.errorDetail")}</p>
-          <div className="entry-auth-actions">
+          <div className="auth-actions">
             <Button variant="primary" onClick={() => retry()}>
               {t("auth.retry")}
             </Button>
@@ -92,6 +93,7 @@ export function App() {
   const { path, navigate } = useRoute();
 
   let page = <EntryPage navigate={navigate} />;
+  if (path === "/login") page = <LoginPage navigate={navigate} />;
   if (path.startsWith("/p/"))
     page = (
       <RuntimeBoundary>
