@@ -97,8 +97,8 @@
   --primitive-color-alpha-violet-22: hsl(248 100% 74% / 22%);
   /* Data-node hover halo. */
   --primitive-color-alpha-cyan-14: hsl(182 69% 61% / 14%);
-  /* DAG canvas dot grid. */
-  --primitive-color-alpha-grid: hsl(203 19% 56% / 20%);
+  /* Visible but subordinate DAG canvas dot grid. */
+  --primitive-color-alpha-grid: hsl(203 19% 56% / 34%);
   /* DAG node surface with slight canvas translucency. */
   --primitive-color-alpha-node: hsl(205 29% 8% / 95%);
   /* Selected Agent option surface. */

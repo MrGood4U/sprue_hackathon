@@ -106,7 +106,7 @@ export function WorkflowCanvas({ editor, onSelectNode, onEditNode }) {
         fitView
         fitViewOptions={{ padding: 0.24 }}
       >
-        <Background gap={18} size={1} color="var(--color-border-default)" />
+        <Background gap={28} size={1.4} color="var(--dag-grid)" />
         <Panel position="top-left" className="workflow-canvas-palette-panel nodrag nopan">
           <NodePalette editor={editor} />
         </Panel>

@@ -65,7 +65,7 @@
         "white-8": { "$value": "hsl(0 0% 100% / 8%)", "$type": "color", "$description": "Subtle inner highlight on filled controls." },
         "violet-22": { "$value": "hsl(248 100% 74% / 22%)", "$type": "color", "$description": "Selected Agent-surface inner ring." },
         "cyan-14": { "$value": "hsl(182 69% 61% / 14%)", "$type": "color", "$description": "Data-node hover halo." },
-        "grid": { "$value": "hsl(203 19% 56% / 20%)", "$type": "color", "$description": "DAG canvas dot grid." },
+        "grid": { "$value": "hsl(203 19% 56% / 34%)", "$type": "color", "$description": "Visible but subordinate DAG canvas dot grid." },
         "node": { "$value": "hsl(205 29% 8% / 95%)", "$type": "color", "$description": "DAG node surface with slight canvas translucency." }
       },
       "tint": {

@@ -28,6 +28,8 @@ The current predefined templates are Filter + Aggregate and Cross-chain Union. T
 
 The existing Builder layout keeps the product header, editable DAG canvas, collapsible readiness inspector, and bottom action bar. The canvas is no longer a read-only SVG projection. It begins directly below the product tabs without a separate workflow-name, node-count, or draft-status summary strip.
 
+The canvas uses a tokenized dot grid with 28-pixel spacing and slightly enlarged points. Its contrast must remain clearly visible on the dark canvas while staying subordinate to node boundaries, handles, and data-lineage edges.
+
 The editor toolbar floats at the top center of the React Flow canvas. It belongs to the canvas overlay layer, does not consume a separate Builder layout row, and blocks canvas pan/drag gestures within its own bounds. It contains:
 
 - Select tool: select, move, and connect nodes.

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { createEditorState, editorReducer } from "../src/features/workflow-editor/editorReducer.js";
 
@@ -70,4 +71,9 @@ test("connection rules reject cycles", () => {
     connection: { source: "map", sourceHandle: "rows", target: "source", targetHandle: "rows" },
   });
   assert.equal(next.edges.length, state.edges.length);
+});
+
+test("the canvas keeps a larger tokenized dot grid", async () => {
+  const source = await readFile(new URL("../src/features/workflow-editor/WorkflowCanvas.jsx", import.meta.url), "utf8");
+  assert.match(source, /<Background gap=\{28\} size=\{1\.4\} color="var\(--dag-grid\)" \/>/);
 });
