@@ -6,6 +6,7 @@ import {
   Wallet,
 } from "@phosphor-icons/react";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
+import { shouldDismissAccountMenuFromBlur } from "./accountMenuDismissal.js";
 import { useAuth } from "./AuthProvider.jsx";
 
 const MENU_ITEM_SELECTOR = '[role="menuitem"]:not(:disabled)';
@@ -78,7 +79,9 @@ export function AccountMenu({ navigate }) {
       className="account-menu"
       ref={rootRef}
       onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+        if (shouldDismissAccountMenuFromBlur(event.currentTarget, event.relatedTarget)) {
+          setOpen(false);
+        }
       }}
     >
       <button

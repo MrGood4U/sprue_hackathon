@@ -21,6 +21,7 @@
 .account-avatar-large { width: 46px; height: 46px; margin-bottom: 3px; font-size: 15px; }
 .account-menu-identity { max-width: 100%; overflow-wrap: anywhere; font-size: 12px; font-weight: 600; }
 .account-menu-workspace { max-width: 100%; overflow-wrap: anywhere; color: var(--muted); font-size: 10px; }
+.account-menu-identity, .account-menu-workspace { cursor: text; user-select: text; }
 .account-menu-role { margin-top: 2px; padding: 4px 7px; border: 1px solid var(--color-border-agent); border-radius: var(--radius-control); background: var(--color-background-agent-selected); color: var(--color-accent-agent-link-hover); font-size: 9px; line-height: 1; }
 .account-menu-list { display: grid; gap: 2px; padding: 8px; }
 .account-menu-list button { width: 100%; min-height: 40px; padding: 0 10px; border: 0; border-radius: var(--button-radius); background: transparent; color: var(--muted); display: flex; align-items: center; gap: 10px; cursor: pointer; text-align: left; transition: color var(--motion-duration-state) var(--motion-easing-standard), background-color var(--motion-duration-state) var(--motion-easing-standard); }

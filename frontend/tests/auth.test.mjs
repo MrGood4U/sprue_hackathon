@@ -5,6 +5,7 @@ import {
   bootstrapIdentity,
   getIdentity,
 } from "../src/services/api/identity.js";
+import { shouldDismissAccountMenuFromBlur } from "../src/features/auth/accountMenuDismissal.js";
 
 const bootstrap = {
   user: { id: "10000000-0000-4000-8000-000000000001" },
@@ -55,6 +56,20 @@ test("identity reads remain authenticated and reject malformed live projections"
     }),
     /INVALID_IDENTITY_RESPONSE/,
   );
+});
+
+test("account menu blur dismissal ignores non-focusable content interactions inside the menu", () => {
+  const insideTarget = {};
+  const outsideTarget = {};
+  const root = {
+    contains(target) {
+      return target === insideTarget;
+    },
+  };
+
+  assert.equal(shouldDismissAccountMenuFromBlur(root, null), false);
+  assert.equal(shouldDismissAccountMenuFromBlur(root, insideTarget), false);
+  assert.equal(shouldDismissAccountMenuFromBlur(root, outsideTarget), true);
 });
 
 test("creator authentication exposes only the approved OAuth providers and redirects after bootstrap", async () => {
@@ -139,11 +154,14 @@ test("authenticated account access lives in a keyboard-accessible header menu", 
   assert.match(accountMenu, /role="menuitem"/);
   assert.match(accountMenu, /document\.addEventListener\("pointerdown"/);
   assert.match(accountMenu, /event\.key !== "Escape"/);
+  assert.match(accountMenu, /shouldDismissAccountMenuFromBlur\(event\.currentTarget, event\.relatedTarget\)/);
+  assert.doesNotMatch(accountMenu, /if \(!event\.currentTarget\.contains\(event\.relatedTarget\)\)/);
   assert.match(accountMenu, /"ArrowDown", "ArrowUp", "Home", "End"/);
   assert.match(accountMenu, /goTo\("\/app\/wallet"\)/);
   assert.match(accountMenu, /goTo\("\/app\/model"\)/);
   assert.match(accountMenu, /signOut\(\)\.then\(\(\) => navigate\("\/"\)\)/);
   assert.match(styles, /\.account-menu-popover \{ position: absolute;/);
   assert.match(styles, /right: 0;/);
+  assert.match(styles, /\.account-menu-identity, \.account-menu-workspace \{ cursor: text; user-select: text; \}/);
   assert.doesNotMatch(styles, /\.sidebar-account|\.sidebar-sign-out/);
 });
