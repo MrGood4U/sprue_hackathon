@@ -3,18 +3,14 @@ import {
   Books,
   Brain,
   Gear,
-  SignOut,
   SquaresFour,
-  UserCircle,
   Wallet,
 } from "@phosphor-icons/react";
 import { IconButton } from "../ui/Button.jsx";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
-import { useAuth } from "../../features/auth/AuthProvider.jsx";
 
 export function Sidebar({ path, navigate }) {
   const { t } = useI18n();
-  const { accountLabel, signOut } = useAuth();
   const isProducts = path === "/app" || path.includes("/products/");
 
   return (
@@ -49,20 +45,6 @@ export function Sidebar({ path, navigate }) {
           <span>{t("sidebar.settings")}</span>
         </button>
       </nav>
-      <div className="sidebar-account">
-        <UserCircle size={20} />
-        <div className="sidebar-account-copy">
-          <strong>{t("auth.accountTitle")}</strong>
-          <span>{accountLabel ?? t("auth.accountFallback")}</span>
-        </div>
-        <button
-          className="sidebar-sign-out"
-          onClick={() => signOut().then(() => navigate("/"))}
-        >
-          <SignOut size={15} />
-          <span>{t("auth.signOut")}</span>
-        </button>
-      </div>
       <div className="workspace-status">{t("sidebar.workspaceStatus")}</div>
     </aside>
   );

@@ -22,7 +22,7 @@ import { useI18n } from "../i18n/I18nProvider.jsx";
 import { useDemoRuntime } from "../features/runtime/DemoRuntimeProvider.jsx";
 import { GRAPH_ACCESS_MODE, showsGraphCredentials } from "../features/wallet/graphAccessMode.js";
 
-export function WalletAccessPage() {
+export function WalletAccessPage({ navigate }) {
   const { t } = useI18n();
   const { state } = useDemoRuntime();
   const { wallet } = state;
@@ -35,6 +35,7 @@ export function WalletAccessPage() {
       <AppHeader
         title={t("wallet.title")}
         subtitle={t("wallet.subtitle")}
+        navigate={navigate}
       />
 
       <div className="wallet-grid">

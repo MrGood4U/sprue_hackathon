@@ -12,13 +12,20 @@
 .auth-provider-list .auth-brand-mark-google { height: auto; }
 .auth-actions { display: flex; align-items: center; gap: 9px; }
 .auth-error { color: var(--amber); font-size: 11px; line-height: 1.5; }
-.sidebar-account { margin-top: 10px; padding: 10px 12px; border-top: 1px solid var(--line); display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 9px; align-items: center; }
-.sidebar-account > svg { color: var(--violet); }
-.sidebar-account-copy { min-width: 0; display: grid; gap: 3px; }
-.sidebar-account-copy strong { font-size: 10px; font-weight: 600; }
-.sidebar-account-copy span { color: var(--muted-2); font-size: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sidebar-sign-out { grid-column: 1 / -1; min-height: 30px; width: 100%; border: 1px solid var(--line); border-radius: var(--button-radius); background: transparent; color: var(--muted); display: flex; align-items: center; justify-content: center; gap: 7px; cursor: pointer; font-size: 9px; }
-.sidebar-sign-out:hover { color: var(--text); background: var(--surface-3); }
+.account-menu { position: relative; flex: 0 0 auto; }
+.account-menu-trigger { width: 38px; height: 38px; padding: 0; border: 1px solid var(--line-strong); border-radius: 50%; background: var(--surface); display: grid; place-items: center; cursor: pointer; transition: background-color var(--motion-duration-state) var(--motion-easing-standard), border-color var(--motion-duration-state) var(--motion-easing-standard); }
+.account-menu-trigger:hover, .account-menu-trigger[aria-expanded="true"] { background: var(--surface-3); border-color: var(--color-border-agent); }
+.account-avatar { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--color-background-agent-selected); color: var(--color-accent-agent-link-hover); font: 500 11px/1 var(--mono); }
+.account-menu-popover { position: absolute; top: calc(100% + 10px); right: 0; z-index: var(--z-index-modal); width: 280px; overflow: hidden; border: 1px solid var(--line-strong); border-radius: var(--panel-radius); background: var(--surface); box-shadow: var(--modal-shadow); }
+.account-menu-profile { padding: 20px; border-bottom: 1px solid var(--line); display: grid; justify-items: center; gap: 7px; text-align: center; }
+.account-avatar-large { width: 46px; height: 46px; margin-bottom: 3px; font-size: 15px; }
+.account-menu-identity { max-width: 100%; overflow-wrap: anywhere; font-size: 12px; font-weight: 600; }
+.account-menu-workspace { max-width: 100%; overflow-wrap: anywhere; color: var(--muted); font-size: 10px; }
+.account-menu-role { margin-top: 2px; padding: 4px 7px; border: 1px solid var(--color-border-agent); border-radius: var(--radius-control); background: var(--color-background-agent-selected); color: var(--color-accent-agent-link-hover); font-size: 9px; line-height: 1; }
+.account-menu-list { display: grid; gap: 2px; padding: 8px; }
+.account-menu-list button { width: 100%; min-height: 40px; padding: 0 10px; border: 0; border-radius: var(--button-radius); background: transparent; color: var(--muted); display: flex; align-items: center; gap: 10px; cursor: pointer; text-align: left; transition: color var(--motion-duration-state) var(--motion-easing-standard), background-color var(--motion-duration-state) var(--motion-easing-standard); }
+.account-menu-list button:hover, .account-menu-list button:focus-visible { color: var(--text); background: var(--surface-3); }
+.account-menu-list .account-menu-sign-out { margin-top: 5px; padding-top: 5px; border-top: 1px solid var(--line); border-radius: 0 0 var(--button-radius) var(--button-radius); }
 
 @media (max-width: 1180px) {
   .auth-provider-list { grid-template-columns: 1fr; }

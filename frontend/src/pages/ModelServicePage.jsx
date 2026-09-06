@@ -25,7 +25,7 @@ function validate(values, hasApiKey, t) {
   return errors;
 }
 
-export function ModelServicePage() {
+export function ModelServicePage({ navigate }) {
   const {t} = useI18n();
   const {profile, status, save, test, testStatus, testResult, resetTest} = useModelProfile();
   const [values, setValues] = useState({apiUrl: "", apiKey: "", model: ""});
@@ -96,7 +96,7 @@ export function ModelServicePage() {
 
   return (
     <div className="page model-service-page">
-      <AppHeader title={t("modelService.title")} subtitle={t("modelService.subtitle")} />
+      <AppHeader title={t("modelService.title")} subtitle={t("modelService.subtitle")} navigate={navigate} />
       <main className="model-service-layout">
         <section className="panel model-service-card">
           <div className="model-service-card-header">

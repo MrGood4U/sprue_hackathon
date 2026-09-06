@@ -37,6 +37,7 @@ export function DashboardPage({ navigate }) {
       <AppHeader
         title={t("dashboard.title")}
         subtitle={t("dashboard.subtitle")}
+        navigate={navigate}
         actions={
           <Button variant="primary" icon={Plus} onClick={() => setShowCreate(true)}>
             {t("dashboard.newProduct")}

@@ -1,7 +1,8 @@
 import { useI18n } from "../../i18n/I18nProvider.jsx";
+import { AccountMenu } from "../../features/auth/AccountMenu.jsx";
 import { LanguageSwitcher } from "../navigation/LanguageSwitcher.jsx";
 
-export function AppHeader({ title, subtitle, actions }) {
+export function AppHeader({ title, subtitle, actions, navigate }) {
   const { t } = useI18n();
 
   return (
@@ -11,7 +12,11 @@ export function AppHeader({ title, subtitle, actions }) {
         <h1>{title}</h1>
         {subtitle && <p>{subtitle}</p>}
       </div>
-      <div className="header-actions">{actions}<LanguageSwitcher /></div>
+      <div className="header-actions">
+        {actions}
+        <LanguageSwitcher />
+        <AccountMenu navigate={navigate} />
+      </div>
     </header>
   );
 }

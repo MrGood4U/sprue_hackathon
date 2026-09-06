@@ -86,7 +86,7 @@ Do not create frontend adapters for Graph payments, private wallet signing mater
 ## File Ownership Rules
 
 - `app/` decides which page and layout to render. It does not own product workflow markup.
-- `features/auth/` is the sole browser Privy composition boundary. It may open provider login UI and retrieve a short-lived access token, but it sends only that token to the backend and never accepts or persists a local user/workspace identifier.
+- `features/auth/` is the sole browser Privy composition boundary. It may open provider login UI and retrieve a short-lived access token, but it sends only that token to the backend and never accepts or persists a local user/workspace identifier. It also owns the shared authenticated account menu rendered by application and product headers.
 - Every route-level page has one file under `pages/`. A page composes features and coordinates page-local UI state.
 - A reusable element moves to `components/` only when at least two page or feature owners need the same contract.
 - Product behavior belongs in a named `features/` folder. Avoid catch-all files such as `components/common.jsx` or `utils/helpers.js`.

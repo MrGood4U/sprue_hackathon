@@ -101,3 +101,49 @@ test("creator authentication exposes only the approved OAuth providers and redir
   assert.match(app, /path\.startsWith\("\/app"\)/);
   assert.match(app, /<CreatorRoute/);
 });
+
+test("authenticated account access lives in a keyboard-accessible header menu", async () => {
+  const accountMenu = await readFile(
+    new URL("../src/features/auth/AccountMenu.jsx", import.meta.url),
+    "utf8",
+  );
+  const appHeader = await readFile(
+    new URL("../src/components/layout/AppHeader.jsx", import.meta.url),
+    "utf8",
+  );
+  const productHeader = await readFile(
+    new URL("../src/components/product/ProductHeader.jsx", import.meta.url),
+    "utf8",
+  );
+  const sidebar = await readFile(
+    new URL("../src/components/navigation/Sidebar.jsx", import.meta.url),
+    "utf8",
+  );
+  const shell = await readFile(
+    new URL("../src/app/AppShell.jsx", import.meta.url),
+    "utf8",
+  );
+  const styles = await readFile(
+    new URL("../src/features/auth/auth.css", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(appHeader, /<AccountMenu navigate=\{navigate\}/);
+  assert.match(productHeader, /<AccountMenu navigate=\{navigate\}/);
+  assert.doesNotMatch(sidebar, /sidebar-account|sidebar-sign-out|signOut/);
+  assert.match(shell, /<WalletAccessPage navigate=\{navigate\}/);
+  assert.match(shell, /<ModelServicePage navigate=\{navigate\}/);
+  assert.match(accountMenu, /aria-haspopup="menu"/);
+  assert.match(accountMenu, /aria-expanded=\{open\}/);
+  assert.match(accountMenu, /role="menu"/);
+  assert.match(accountMenu, /role="menuitem"/);
+  assert.match(accountMenu, /document\.addEventListener\("pointerdown"/);
+  assert.match(accountMenu, /event\.key !== "Escape"/);
+  assert.match(accountMenu, /"ArrowDown", "ArrowUp", "Home", "End"/);
+  assert.match(accountMenu, /goTo\("\/app\/wallet"\)/);
+  assert.match(accountMenu, /goTo\("\/app\/model"\)/);
+  assert.match(accountMenu, /signOut\(\)\.then\(\(\) => navigate\("\/"\)\)/);
+  assert.match(styles, /\.account-menu-popover \{ position: absolute;/);
+  assert.match(styles, /right: 0;/);
+  assert.doesNotMatch(styles, /\.sidebar-account|\.sidebar-sign-out/);
+});

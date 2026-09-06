@@ -1,4 +1,5 @@
 import { ArrowLeft } from "@phosphor-icons/react";
+import { AccountMenu } from "../../features/auth/AccountMenu.jsx";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
 import { LanguageSwitcher } from "../navigation/LanguageSwitcher.jsx";
 
@@ -20,6 +21,7 @@ export function ProductHeader({ product, active, navigate }) {
         </button>
         <div className="product-head-actions">
           <LanguageSwitcher />
+          <AccountMenu navigate={navigate} />
         </div>
       </div>
       <nav className="product-tabs" aria-label={t("productHeader.sections")}>
