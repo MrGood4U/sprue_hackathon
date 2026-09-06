@@ -62,7 +62,7 @@ code, pre { font-family: var(--mono); }
 
 .app-main { grid-column: 2; min-width: 0; background: var(--bg); }
 .page { min-height: 100vh; padding: 28px 32px 42px; }
-.app-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
+.app-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
 .eyebrow { display: block; color: var(--muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 9px; }
 .app-header h1, .content-heading h1 { font-size: 29px; line-height: 1.15; letter-spacing: -.035em; font-weight: 600; }
 .app-header p, .content-heading p { color: var(--muted); font-size: 14px; margin-top: 8px; }

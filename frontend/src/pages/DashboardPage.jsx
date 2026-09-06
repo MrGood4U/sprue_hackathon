@@ -38,11 +38,6 @@ export function DashboardPage({ navigate }) {
         title={t("dashboard.title")}
         subtitle={t("dashboard.subtitle")}
         navigate={navigate}
-        actions={
-          <Button variant="primary" icon={Plus} onClick={() => setShowCreate(true)}>
-            {t("dashboard.newProduct")}
-          </Button>
-        }
       />
 
       <div className="metrics-row">
@@ -59,6 +54,9 @@ export function DashboardPage({ navigate }) {
             <p>{t("dashboard.allProductsDetail")}</p>
           </div>
           <div className="toolbar-cluster">
+            <Button variant="primary" icon={Plus} onClick={() => setShowCreate(true)}>
+              {t("dashboard.newProduct")}
+            </Button>
             <label className="search-control">
               <MagnifyingGlass size={17} />
               <input aria-label={t("dashboard.searchProducts")} placeholder={t("dashboard.searchProducts")} />
