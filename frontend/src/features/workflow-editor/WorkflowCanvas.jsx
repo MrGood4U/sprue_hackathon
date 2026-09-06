@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef } from "react";
-import { Background, MarkerType, ReactFlow, useReactFlow } from "@xyflow/react";
+import { Background, MarkerType, Panel, ReactFlow, useReactFlow } from "@xyflow/react";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
 import { canConnect } from "./connectionRules.js";
+import { WorkflowEditorToolbar } from "./WorkflowEditorToolbar.jsx";
 import { WorkflowNode } from "./WorkflowNode.jsx";
 
 const nodeTypes = { workflow: WorkflowNode };
@@ -105,6 +106,9 @@ export function WorkflowCanvas({ editor, onSelectNode, onEditNode }) {
         fitViewOptions={{ padding: 0.24 }}
       >
         <Background gap={18} size={1} color="var(--color-border-default)" />
+        <Panel position="top-center" className="workflow-canvas-toolbar-panel">
+          <WorkflowEditorToolbar editor={editor} />
+        </Panel>
       </ReactFlow>
       <p className="workflow-canvas-hint">{t("workflowEditor.canvasHint")}</p>
     </div>

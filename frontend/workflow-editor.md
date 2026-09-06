@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft 0.6, 2026-09-06. The workflow editor is an editable mode inside the existing Builder page, not a separate route. This document records the approved interaction direction and the current implementation boundary.
+Draft 0.7, 2026-09-06. The workflow editor is an editable mode inside the existing Builder page, not a separate route. This document records the approved interaction direction and the current implementation boundary.
 
 ## Product Decisions
 
@@ -28,7 +28,7 @@ The current predefined templates are Filter + Aggregate and Cross-chain Union. T
 
 The existing Builder layout keeps the product header, editable DAG canvas, collapsible readiness inspector, and bottom action bar. The canvas is no longer a read-only SVG projection.
 
-The top editor toolbar contains:
+The editor toolbar floats at the top center of the React Flow canvas. It belongs to the canvas overlay layer, does not consume a separate Builder layout row, and blocks canvas pan/drag gestures within its own bounds. It contains:
 
 - Select tool: select, move, and connect nodes.
 - Hand tool: pan the canvas without moving nodes.

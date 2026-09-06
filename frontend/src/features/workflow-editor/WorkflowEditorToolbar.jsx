@@ -17,7 +17,7 @@ export function WorkflowEditorToolbar({ editor }) {
   const { zoomIn, zoomOut, fitView } = useReactFlow();
 
   return (
-    <div className="workflow-editor-toolbar" role="toolbar" aria-label={t("workflowEditor.canvasLabel")}>
+    <div className="workflow-editor-toolbar nodrag nopan" role="toolbar" aria-label={t("workflowEditor.canvasLabel")}>
       <div className="workflow-tool-group" aria-label={t("workflowEditor.canvasLabel")}>
         <IconButton
           className={editor.tool === "select" ? "is-active" : ""}

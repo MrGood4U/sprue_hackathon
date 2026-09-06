@@ -4,7 +4,6 @@ import { useI18n } from "../../i18n/I18nProvider.jsx";
 import { NodePalette } from "./NodePalette.jsx";
 import { NodeInspector } from "./NodeInspector.jsx";
 import { WorkflowCanvas } from "./WorkflowCanvas.jsx";
-import { WorkflowEditorToolbar } from "./WorkflowEditorToolbar.jsx";
 import "@xyflow/react/dist/style.css";
 import "./workflow-editor.css";
 
@@ -29,7 +28,6 @@ export function WorkflowEditor({ editor, onSelectNode }) {
               {draftStatus === "invalid" ? t("workflowEditor.status.invalid") : draftStatus === "dirty" ? t("workflowEditor.status.dirty") : t("workflowEditor.status.saved")}
             </span>
           </div>
-          <WorkflowEditorToolbar editor={editor} />
           <div className="workflow-editor-viewport">
             <WorkflowCanvas editor={editor} onSelectNode={onSelectNode} onEditNode={setEditingNodeId} />
           </div>
