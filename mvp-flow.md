@@ -1,6 +1,6 @@
 # Sprue MVP End-to-End Flow
 
-Status: implementation alignment document, updated 2026-09-06.
+Status: implementation alignment document, updated 2026-09-07.
 
 This document describes the intended journey from a browser visit to a complete Sprue MVP demonstration, then distinguishes the behavior that already exists in the repository from the behavior that still requires implementation. It is a target flow, not evidence that every documented provider or business capability is live.
 
@@ -38,16 +38,15 @@ The browser owns presentation state. The backend owns identity, authorization, d
 ### Browser behavior
 
 1. Load the public console configuration.
-2. Start or restore the Privy session.
+2. Start or restore the Privy session through Google, GitHub, or MetaMask.
 3. Send the Privy access token as a bearer token on creator requests.
-4. Read the current identity and workspace.
-5. If the user has no Sprue identity, submit bootstrap once and open the sole owner workspace.
+4. Submit the idempotent bootstrap command and open the returned default owner workspace.
 
 ### Backend behavior
 
 1. Serve public configuration with only public URLs, the optional Privy app ID, and server-controlled feature flags.
-2. Verify issuer, audience, subject, and expiry on creator requests.
-3. Create `users`, `workspaces`, and owner membership transactionally during bootstrap.
+2. Verify the provider-signed Privy access token and application/user claims on creator requests.
+3. Reuse or create `users`, `workspaces`, and owner membership transactionally during bootstrap.
 4. Never create a wallet, run a Graph query, or move funds as a side effect of login.
 
 ### Intended contracts
@@ -307,8 +306,9 @@ This matrix is based on the current source tree and test/build evidence, not on 
 | Builder DAG display, keyboard inspection, local sample edits | Implemented as demo behavior | Does not call the backend or create a product version |
 | Public app configuration transport | Implemented | Read-only server configuration route; feature flags remain false |
 | Health and readiness probes | Implemented | Process and database/migration readiness only |
-| Privy production authentication | Not implemented | Replaceable verifier exists; production composition is intentionally unavailable |
-| Workspace bootstrap and product CRUD handlers | Not implemented | Routes are registered reservations and return `503 CAPABILITY_NOT_IMPLEMENTED` |
+| Privy creator authentication | Implemented, live evidence pending | Google/GitHub/MetaMask frontend paths and server SDK verification exist; missing configuration fails closed, but no real Privy credentials are configured on the development host |
+| Workspace bootstrap | Implemented | Verified subject transactionally reuses or creates the local user, default owner workspace, and membership; isolated SQL tests cover idempotency |
+| Product CRUD handlers | Not implemented | Routes are registered reservations and return `503 CAPABILITY_NOT_IMPLEMENTED` |
 | Graph API-key persistence and validation | Not implemented | Data model and route catalog exist; secret storage/provider adapter is absent |
 | Privy wallet synchronization and spending policy | Not implemented | Persistence and contracts exist; live provider control is gated by E1 |
 | Graph MCP discovery/schema/query adapter | Not implemented | Harness and provider-neutral ports are documented; candidate live sources were manually queried, but no application adapter exists |

@@ -4,7 +4,7 @@ The same Sprue source supports Windows browser testing, Docker self-hosting, and
 
 ## Current Capability Boundary
 
-The frontend requests a labeled server-generated projection from the explicit backend demo runtime. API health/readiness, public configuration, evaluator demo routes, and a session-scoped OpenAI-compatible Agent model adapter are implemented; durable business routes, verified Privy authentication, durable model-secret storage, queue consumption, live Graph execution and payments remain unavailable. Starting all four services is infrastructure readiness, not a completed live product. The public-config transport remains read-only; `DEMO_RUNTIME_ENABLED=true` explicitly enables the temporary evaluator path.
+The frontend requests a labeled server-generated projection from the explicit backend demo runtime. API health/readiness, public configuration, evaluator demo routes, a session-scoped OpenAI-compatible Agent model adapter, configured Privy creator authentication, and local account/workspace bootstrap are implemented. Durable product routes, durable model-secret storage, queue consumption, account-wallet operations, live Graph execution, and payments remain unavailable. Starting all four services is infrastructure readiness, not a completed live product. The public-config transport remains read-only; `DEMO_RUNTIME_ENABLED=true` explicitly enables the temporary evaluator path.
 
 ## Windows: Complete Local Docker Stack
 
@@ -57,6 +57,8 @@ For source editing with frontend hot reload, use Node.js 24 and either the Compo
 - Backend: `DATABASE_URL` points to the intended local database. When using `sprue-local`, use the password from the root `.env.local`; do not leave the backend example password. Set API/worker ports and the console URL/CORS origin consistently. Keep `NODE_ENV=development` and `DEPLOYMENT_ENVIRONMENT=local`.
 - Frontend: `VITE_API_BASE_URL` is the backend's public origin, initially `http://127.0.0.1:3001`. It is not a database URL or a secret.
 
+To enable creator login, create a Privy application, enable Google, GitHub, and wallet login in its dashboard, and approve the exact local console origin. Set both `PRIVY_APP_ID` and `PRIVY_APP_SECRET` in the ignored root `.env.local` or backend `.env`. The app ID is returned to the browser through `/api/v1/app-config`; the secret is consumed only by the API and is intentionally absent from frontend, worker, and migration environments. Missing or partial configuration leaves creator routes fail-closed while the public product route remains available.
+
 Run `npm run db:status`, then explicitly `npm run db:migrate` in `backend/`. In three terminals run `npm run dev:api`, `npm run dev:worker` (both from backend), and `npm run dev` (from frontend). Open `http://127.0.0.1:4173`. Vite uses a strict port and loopback binding rather than silently selecting a new port. Stop each foreground process with Ctrl+C; stop the database separately when finished. Do not change the system Node version or install a Windows service as part of application startup.
 
 ## Packaging
@@ -90,7 +92,7 @@ Create a PostgreSQL service and two backend services from the same commit/image 
 | API | `/backend/railway.api.json` | `node dist/src/app/api.js` | Pre-deploy runs `node dist/scripts/migrate.js` against the configured DB |
 | Worker | `/backend/railway.worker.json` | `node dist/src/app/worker.js` | No migration; deploy after API migration succeeds |
 
-The Dockerfile path is `Dockerfile` within the backend build root. Set these runtime variables on both services:
+The Dockerfile path is `Dockerfile` within the backend build root. Set the shared runtime variables below on both services; set the final two Privy variables on the API service only:
 
 | Variable | Evaluator value |
 |---|---|
@@ -107,14 +109,16 @@ The Dockerfile path is `Dockerfile` within the backend build root. Set these run
 | `CORS_ALLOWED_ORIGINS` | Exact console origin(s), comma-separated |
 | `DEMO_RUNTIME_ENABLED` | `true` for the temporary evaluator-facing backend projection; otherwise `false` |
 | `AGENT_MODE` | `mock` for the default evaluator projection; `remote` enables the configured OpenAI-compatible Chat Completions endpoint after all Agent variables are supplied |
+| `PRIVY_APP_ID` | Privy application's public identifier; API reads it and exposes it through public app config only when the matching secret is configured |
+| `PRIVY_APP_SECRET` | API-only Railway secret used by the Privy server SDK to verify access tokens; never configure it on Vercel or the worker |
 
-Only the API needs a public Railway domain. The worker and database remain private. Both services use `/readyz` as a deployment check; worker readiness currently means compatible database access, not implemented job execution. Privy/provider secrets and approved capability configuration must be added separately as those integrations are implemented. A public Privy app ID alone does not enable login.
+Only the API needs a public Railway domain. The worker and database remain private. Both services use `/readyz` as a deployment check; worker readiness currently means compatible database access, not implemented job execution. Configure the Vercel production origin and any intentionally retained preview origins in both Privy's dashboard and backend CORS. A public Privy app ID alone does not enable login; the API also requires the app secret. Wallet signing keys and payment-provider configuration remain separate and are not enabled by authentication.
 
 Pre-deploy migration targets whatever `DATABASE_URL` is configured: inspect the target, use backups for persistent upgrades, and control the migration role before deployment. Running tests never authorizes a production migration. Deploy API/migrations first, then the worker. Keep Vercel/Railway on the same reviewed commit and run the full test gate before enabling automatic releases.
 
 ### Evaluator Acceptance
 
-Check frontend deep links, exact-origin CORS/public configuration, API/worker readiness, database persistence across restart, and private worker/database networking. Then separately validate the real creator/consumer workflow and sponsor evidence. A deployed demo frontend and healthy backend framework alone do not satisfy the live-data/payment MVP.
+Check frontend deep links, exact-origin CORS/public configuration, Google/GitHub redirects, MetaMask signature login, session restoration/sign-out, account bootstrap reuse, API/worker readiness, database persistence across restart, and private worker/database networking. Then separately validate the real creator/consumer workflow and sponsor evidence. A deployed demo frontend, working login, and healthy backend framework alone do not satisfy the live-data/payment MVP.
 
 Official configuration references: [Vite on Vercel](https://vercel.com/docs/frameworks/frontend/vite), [Railway config as code](https://docs.railway.com/config-as-code/reference), [Railway monorepo roots](https://docs.railway.com/deployments/monorepo), [Railway pre-deploy commands](https://docs.railway.com/deployments/pre-deploy-command), and [Compose startup ordering](https://docs.docker.com/compose/how-tos/startup-order/).
 

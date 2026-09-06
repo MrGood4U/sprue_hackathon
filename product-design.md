@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft 1.23, updated on 2026-09-06. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. A dedicated Model Service page now lets the creator configure and explicitly test the OpenAI-compatible language model used by Agent planning. Graph credential management is disclosed only when API-key access is selected and keeps its primary action next to the credential list. The Product Dashboard is focused on summary metrics and the product list; the redundant Recent Activity and Sponsor Proof panels are removed. The API view now prioritizes an explicit request-parameter contract and always-visible response schema/example, while omitting the standalone deployment-evidence panel. Token review remains follow-up work; durable identity, secret storage, Graph, wallet, and payment integrations are still pending.
+Draft 1.24, updated on 2026-09-07. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. The Entry page now offers Google, GitHub, and MetaMask creator login through Privy; creator routes require a verified provider session and local account/workspace bootstrap, while public product access remains unauthenticated. A dedicated Model Service page lets the creator configure and explicitly test the OpenAI-compatible language model used by Agent planning. Graph credential management is disclosed only when API-key access is selected and keeps its primary action next to the credential list. The Product Dashboard is focused on summary metrics and the product list; the redundant Recent Activity and Sponsor Proof panels are removed. The API view prioritizes an explicit request-parameter contract and always-visible response schema/example, while omitting the standalone deployment-evidence panel. Token review remains follow-up work; durable model-secret storage, Graph, account-wallet, and payment integrations are still pending.
 
 This document defines the MVP information architecture, page inventory, interactions, state behavior, desktop layout behavior, accessibility requirements, and screen-to-domain contracts. The decisions are recorded in [Confirmed Design Decisions](#confirmed-design-decisions).
 
@@ -172,14 +172,15 @@ If payment confirms but response delivery fails, the UI offers delivery retry ag
 
 **Purpose:** Explain the product in under 30 seconds and provide a reliable path to the console and public demo.
 
-**Primary action:** `Open Creator Console`.
+**Primary actions:** `Continue with Google`, `Continue with GitHub`, and `Continue with MetaMask`.
 
 **Content and interaction elements:**
 
 - Concise hero: `Describe it. Shape it. Sell it.`
 - One-sentence product definition focused on persistent APIs rather than one-off answers.
 - Three-step visual explaining Describe, Shape, and Sell.
-- `Open Creator Console` action invoking Privy authentication.
+- Three explicit Privy authentication choices: Google OAuth, GitHub OAuth, and MetaMask wallet login.
+- Signed-in account summary, `Open Creator Console`, and `Sign out` actions.
 - `View public demo` link to the selected demo product.
 - Compact integration explanation for The Graph, Privy, Hedera, and Blocky402.
 - Repository and demo-video links once submission assets exist.
@@ -188,11 +189,13 @@ If payment confirms but response delivery fails, the UI offers delivery retry ag
 
 - Signed out.
 - Authentication loading with a stable layout.
+- Authentication unavailable when the deployment has no complete Privy configuration; provider actions remain disabled and the public demo stays available.
 - Authentication failed with a retry action and provider-safe error.
-- Signed in, immediately redirecting to `/app` without a second sign-in action.
+- Signed in and bootstrapping the local user/default owner workspace before `/app` renders.
+- Signed in and ready, with an explicit path into `/app` and session sign-out.
 - Public demo unavailable, with the Creator Console action remaining usable.
 
-The page must not expose a wallet address as proof that authentication or wallet control is complete.
+Each provider resolves through Privy to a server-verified subject. Sprue does not infer account linking across different provider subjects and does not accept a browser-provided local user/workspace identifier. MetaMask login proves control of the login address for authentication only; the page must not expose that address as proof that the separate account wallet exists, is funded, or grants Sprue payment authority.
 
 ### 2. Product Dashboard
 
@@ -611,7 +614,7 @@ The formal token proposal is in [`design-tokens.md`](design-tokens.md). It defin
 
 ## Screen-to-Backend Contract Summary
 
-These are logical UI contracts. Proposed HTTP paths, DTOs, authorization, and state behavior are now mapped in [api-contract.md](api-contract.md) Draft 0.4; approved M1-M3/H2 directions now map to data-model 1.5 and the database foundation, while M4 durable model-profile persistence remains under review. Only the explicitly documented framework and evaluator-demo runtime surfaces are implemented.
+These are logical UI contracts. Proposed HTTP paths, DTOs, authorization, and state behavior are now mapped in [api-contract.md](api-contract.md) Draft 0.5; approved M1-M3/H2 directions now map to data-model 1.5 and the database foundation, while M4 durable model-profile persistence remains under review. Creator authentication/bootstrap and the explicitly documented framework and evaluator-demo runtime surfaces are implemented.
 
 | Contract | Consumer pages | Required outcome |
 |---|---|---|
@@ -748,3 +751,4 @@ Remaining review and integration work:
 | 2026-09-06 | Recorded Draft 1.21 by removing the Dashboard's Recent Activity and Sponsor Proof panels | Summary metrics and the product list already expose the useful overview; removing repeated evidence keeps the Dashboard focused on finding or creating a product |
 | 2026-09-06 | Recorded Draft 1.22 by replacing the API page's deployment-evidence panel with backend-owned request and response format documentation | The API view now answers how to call the endpoint and what it returns without competing operational provenance content |
 | 2026-09-06 | Recorded Draft 1.23 by concealing Model Service credentials by default, using the official GPT-5.6 Sol endpoint/model examples, and adding explicit connection testing | Make secret state unambiguous and let creators validate current form values without saving or conflating connectivity with Agent-plan generation |
+| 2026-09-07 | Recorded Draft 1.24 with explicit Google, GitHub, and MetaMask creator login through Privy, fail-closed creator routes, transactional account/workspace bootstrap, and unchanged public product access | Authentication is separated from account-wallet creation, funding, and delegated payment authority; live provider evidence still requires configured credentials and origins |

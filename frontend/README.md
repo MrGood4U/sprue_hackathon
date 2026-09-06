@@ -4,7 +4,7 @@ For Windows local browser testing, complete Docker hosting, and Vercel/Railway d
 
 This directory is the maintained Sprue product frontend: the Creator Console, public consumer page, localization, design tokens, build, and deployment adapter. The user promoted this source to the product frontend on 2026-09-05. Continue implementation here.
 
-The currently available workspace uses a server-generated evaluator projection backed by the Agent harness and deterministic DAG runtime. The Model Service page can configure an OpenAI-compatible planner for the current browser session and explicitly test the current form values without saving them; the mock planner remains the default. A connection test is a real minimal provider request and may incur provider charges. The browser owns no product fixtures and has no silent fallback when the backend is unavailable. Authentication, durable model-profile storage, durable product operations, live Graph queries, wallets, and payments remain pending. See [implementation-status.md](implementation-status.md) for concrete gaps and their implementation order.
+The currently available workspace uses a server-generated evaluator projection backed by the Agent harness and deterministic DAG runtime. Creator routes are guarded by Privy authentication with Google, GitHub, and MetaMask options; after token verification, the backend transactionally bootstraps the local user and default owner workspace. Public consumer routes remain unauthenticated. The Model Service page can configure an OpenAI-compatible planner for the current browser session and explicitly test the current form values without saving them; the mock planner remains the default. A connection test is a real minimal provider request and may incur provider charges. The browser owns no product fixtures and has no silent fallback when the backend is unavailable. Durable model-profile storage, durable product operations, live Graph queries, account-wallet provisioning, and payments remain pending. See [implementation-status.md](implementation-status.md) for concrete gaps and their implementation order.
 
 ## Current Commands
 
@@ -16,6 +16,8 @@ npm run test:structure
 npm run test:i18n
 npm run test:services
 npm run test:builder
+npm run test:workflow-editor
+npm run test:auth
 npm run test:tokens
 npm run test:sites
 ```
@@ -34,6 +36,7 @@ src/
 │   ├── navigation/         # Navigation components
 │   └── product/            # Components shared by product routes
 ├── features/
+│   ├── auth/               # Privy provider, creator session, and workspace bootstrap state
 │   ├── builder/            # Readiness, execution trace, and build-run hook
 │   ├── workflow-editor/    # Editable DAG canvas, palette, inspector, and editor state
 │   ├── model-settings/     # Redacted session model profile and form lifecycle
@@ -56,7 +59,7 @@ src/
 
 As durable business handlers replace the evaluator runtime, extend these boundaries by responsibility:
 
-The proposed HTTP mapping is [api-contract.md](../api-contract.md) Draft 0.4. Its page-to-API matrix and domain DTOs guide client implementation after review. The temporary `/api/v1/public/demo/*` contract is documented in [demo-runtime.md](../docs/api/demo-runtime.md) and is not a production resource contract.
+The proposed HTTP mapping is [api-contract.md](../api-contract.md) Draft 0.5. Its page-to-API matrix and domain DTOs guide client implementation after review. The temporary `/api/v1/public/demo/*` contract is documented in [demo-runtime.md](../docs/api/demo-runtime.md) and is not a production resource contract.
 
 ```text
 src/
@@ -83,6 +86,7 @@ Do not create frontend adapters for Graph payments, private wallet signing mater
 ## File Ownership Rules
 
 - `app/` decides which page and layout to render. It does not own product workflow markup.
+- `features/auth/` is the sole browser Privy composition boundary. It may open provider login UI and retrieve a short-lived access token, but it sends only that token to the backend and never accepts or persists a local user/workspace identifier.
 - Every route-level page has one file under `pages/`. A page composes features and coordinates page-local UI state.
 - A reusable element moves to `components/` only when at least two page or feature owners need the same contract.
 - Product behavior belongs in a named `features/` folder. Avoid catch-all files such as `components/common.jsx` or `utils/helpers.js`.

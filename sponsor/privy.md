@@ -2,11 +2,11 @@
 
 Event: ETHOnline 2026
 
-Last checked: 2026-09-05
+Last checked: 2026-09-07
 
 Participation: Start Fresh, confirmed by the user on 2026-09-05.
 
-Status: Official prize, wallet-control, policy, idempotency, transaction, chain-support, Node SDK, and representative agent-wallet documentation reviewed; live integration, award selection, and final qualification remain pending.
+Status: Official prize, authentication, wallet-control, policy, idempotency, transaction, chain-support, Node SDK, and representative agent-wallet documentation reviewed. Google/GitHub/MetaMask creator authentication and backend access-token verification are implemented, but live provider evidence, wallet/payment integration, award selection, and final qualification remain pending.
 
 This reference separates official conditions from proposed Sprue implementation checks. The [official prize page](https://ethglobal.com/events/ethonline2026/prizes/privy) remains authoritative; recheck it before submission.
 
@@ -49,6 +49,12 @@ Do not assume one recording qualifies for both awards. Choose after the integrat
 ## Verified Technical References
 
 These are documented capabilities, not evidence that our combination of providers already works.
+
+### Creator Authentication
+
+Privy's [OAuth login documentation](https://docs.privy.io/authentication/user-authentication/login-methods/oauth) supports Google and GitHub login, while its [wallet login documentation](https://docs.privy.io/authentication/user-authentication/login-methods/wallet) uses message signing to authenticate an externally owned wallet. Sprue exposes Google, GitHub, and MetaMask through one Privy application and maps each successful method to the provider-signed Privy user subject. The backend verifies the resulting [access token](https://docs.privy.io/authentication/user-authentication/access-tokens) before creating or reading a local account.
+
+Authentication is supporting infrastructure, not the qualifying financial integration. A MetaMask login address is not automatically Sprue's account wallet, and successful sign-in does not prove wallet creation, funding, delegated signing, policy enforcement, Graph purchasing, or Hedera receipt capability. Preserve those as separate user actions and evidence gates.
 
 ### User Ownership and Delegated Offline Actions
 
