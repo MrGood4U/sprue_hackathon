@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-  ArrowSquareOut,
+  ArrowUpRight,
   Copy,
   CreditCard,
   CurrencyDollar,
@@ -20,6 +20,7 @@ import { Modal } from "../components/ui/Modal.jsx";
 import { Status } from "../components/ui/Status.jsx";
 import { useI18n } from "../i18n/I18nProvider.jsx";
 import { useDemoRuntime } from "../features/runtime/DemoRuntimeProvider.jsx";
+import { copyText } from "../features/wallet/copyText.js";
 import { GRAPH_ACCESS_MODE, showsGraphCredentials } from "../features/wallet/graphAccessMode.js";
 
 export function WalletAccessPage({ navigate }) {
@@ -28,7 +29,29 @@ export function WalletAccessPage({ navigate }) {
   const { wallet } = state;
   const [modal, setModal] = useState(null);
   const [mode, setMode] = useState(wallet.access.defaultMode);
+  const [copyStatus, setCopyStatus] = useState("idle");
+  const copyFeedbackTimer = useRef(null);
   const credentialsVisible = showsGraphCredentials(mode);
+
+  useEffect(() => () => window.clearTimeout(copyFeedbackTimer.current), []);
+
+  const copyWalletAddress = async () => {
+    window.clearTimeout(copyFeedbackTimer.current);
+    setCopyStatus("copying");
+    try {
+      await copyText(wallet.address);
+      setCopyStatus("copied");
+    } catch {
+      setCopyStatus("failed");
+    }
+    copyFeedbackTimer.current = window.setTimeout(() => setCopyStatus("idle"), 4000);
+  };
+
+  const copyFeedback = copyStatus === "copied"
+    ? t("wallet.addressCopied")
+    : copyStatus === "failed"
+      ? t("wallet.addressCopyFailed")
+      : "";
 
   return (
     <div className="page">
@@ -42,13 +65,40 @@ export function WalletAccessPage({ navigate }) {
         <section className="panel wallet-hero">
           <div className="panel-kicker"><Wallet size={18} /> {t("wallet.embeddedWallet")}</div>
           <div className="wallet-address-row">
-            <div><span>{t("wallet.creatorWallet")}</span><strong>{wallet.displayAddress}</strong></div>
-            <IconButton label={t("wallet.copyAddress")}><Copy size={18} /></IconButton>
+            <div>
+              <span>{t("wallet.creatorWallet")}</span>
+              <strong>{wallet.address}</strong>
+              <small>{t("wallet.addressNetwork")}</small>
+            </div>
+            <div className="wallet-copy-action">
+              <IconButton
+                label={copyStatus === "copied" ? t("wallet.addressCopied") : t("wallet.copyAddress")}
+                onClick={copyWalletAddress}
+                disabled={copyStatus === "copying"}
+              >
+                <Copy size={18} />
+              </IconButton>
+              <span className="wallet-copy-feedback" role="status" aria-live="polite">{copyFeedback}</span>
+            </div>
           </div>
-          <div className="wallet-balance"><span>{t("wallet.availableSpend")}</span><strong>{wallet.balance.amount} {wallet.balance.asset}</strong></div>
-          <div className="wallet-actions">
-            <Button variant="primary" icon={CreditCard} onClick={() => setModal("fund")}>{t("wallet.fund")}</Button>
-            <Button icon={ArrowSquareOut}>{t("wallet.view")}</Button>
+          <div className="wallet-balance-grid">
+            {wallet.balances.map((balance) => (
+              <article className="wallet-balance-card" key={balance.id}>
+                <div className="wallet-balance-heading">
+                  <span>{t(balance.kind === "graph_spend" ? "wallet.graphBalance" : "wallet.revenueBalance")}</span>
+                  <Status tone="neutral">{t("wallet.demoBalance")}</Status>
+                </div>
+                <strong>{balance.amount} {balance.asset}</strong>
+                <small>{balance.network} · {balance.accountRef}</small>
+                <p>{t(balance.kind === "graph_spend" ? "wallet.graphBalanceDetail" : "wallet.revenueBalanceDetail")}</p>
+                <div className="wallet-balance-actions">
+                  {balance.kind === "graph_spend" && (
+                    <Button variant="primary" icon={CreditCard} onClick={() => setModal("fund")}>{t("wallet.fund")}</Button>
+                  )}
+                  <Button icon={ArrowUpRight} onClick={() => setModal({ type: "transfer", balance })}>{t("wallet.transferOut")}</Button>
+                </div>
+              </article>
+            ))}
           </div>
           <div className="security-line">
             <LockKey size={17} />
@@ -151,6 +201,37 @@ export function WalletAccessPage({ navigate }) {
             <Field label={t("wallet.dailyCeiling")}><input defaultValue="5.00 USDC" /></Field>
           </div>
           <Field label={t("wallet.allowedPayee")}><input defaultValue="The Graph x402" /></Field>
+        </Modal>
+      )}
+      {modal?.type === "transfer" && (
+        <Modal
+          title={t("wallet.transferTitle", { asset: modal.balance.asset })}
+          eyebrow={t("wallet.transferEyebrow", { network: modal.balance.network })}
+          onClose={() => setModal(null)}
+          footer={
+            <>
+              <Button onClick={() => setModal(null)}>{t("common.cancel")}</Button>
+              <Button variant="primary" disabled>{t("wallet.transferUnavailable")}</Button>
+            </>
+          }
+        >
+          <div className="transfer-balance-summary">
+            <span>{t("wallet.transferAvailable")}</span>
+            <strong>{modal.balance.amount} {modal.balance.asset}</strong>
+            <small>{modal.balance.network} · {modal.balance.accountRef}</small>
+          </div>
+          <div className="field-grid">
+            <Field label={t("wallet.transferDestination")}>
+              <input disabled placeholder={t("wallet.transferDestinationPlaceholder")} />
+            </Field>
+            <Field label={t("wallet.transferAmount")}>
+              <input disabled placeholder={`0.00 ${modal.balance.asset}`} />
+            </Field>
+          </div>
+          <div className="inline-notice">
+            <WarningCircle size={18} />
+            <span><strong>{t("wallet.transferUnavailableTitle")}</strong><br />{t("wallet.transferUnavailableDetail")}</span>
+          </div>
         </Modal>
       )}
     </div>

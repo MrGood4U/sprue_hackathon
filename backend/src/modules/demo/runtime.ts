@@ -316,8 +316,28 @@ function buildState(config: AppConfig, result: HarnessResult, productName = DEMO
     },
     wallet: {
       address: "0x71F2000000000000000000000000000000009C84",
-      displayAddress: "0x71F2…9C84",
-      balance: { amount: "3.12", asset: "USDC", network: "base-sepolia" },
+      balances: [
+        {
+          id: "graph-spend",
+          kind: "graph_spend",
+          amount: "3.12",
+          asset: "USDC",
+          network: "Base Sepolia",
+          networkId: "eip155:84532",
+          accountRef: "0x71F2000000000000000000000000000000009C84",
+          liveTransferAvailable: false,
+        },
+        {
+          id: "x402-revenue",
+          kind: "x402_revenue",
+          amount: "18.42",
+          asset: "HBAR",
+          network: "Hedera testnet",
+          networkId: "hedera:testnet",
+          accountRef: "0.0.7392014",
+          liveTransferAvailable: false,
+        },
+      ],
       spendAuthority: {
         status: "Active",
         perRequest: "0.05 USDC",

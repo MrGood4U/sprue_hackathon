@@ -1,6 +1,6 @@
 # Identity, Wallet, and Graph Access APIs
 
-Draft 0.4. Read the [shared contract](../../api-contract.md) first. All paths below include `/api/v1`. `w` means workspaceId; IDs are UUIDs unless explicitly provider identifiers. Except app-config, every operation requires the verified creator. Workspace operations additionally require the active owner. Command operations use approved M1/model 1.6 records and still require service implementation; provider control operations also depend on E1.
+Draft 0.5. Read the [shared contract](../../api-contract.md) first. All paths below include `/api/v1`. `w` means workspaceId; IDs are UUIDs unless explicitly provider identifiers. Except app-config, every operation requires the verified creator. Workspace operations additionally require the active owner. Command operations use approved M1/model 1.6 records and still require service implementation; provider control operations also depend on E1.
 
 ## 1. Entry and Bootstrap
 
@@ -43,6 +43,8 @@ The browser creates a user-owned wallet only through an approved Privy user flow
 `Balance = {walletAddressId, asset: Money without amountAtomic, balanceAtomic: Atomic, observedAt, blockOrConsensusRef: string | null, provider, freshness: current | stale}`. Freshness is a derived policy result. A null/missing observation is unknown, never zero.
 
 `FundingInstructions = {walletAddressId, address, network, assetIdentifier, symbol, decimals, warnings: string[], explorerUrl: string | null}`. Instructions do not authorize transferring funds or expanding an existing spending policy. The UI replaces its current "Simulate deposit" flow with instructions/copy/refresh. Top-up ledger recognition must come from validated chain observations, never from a browser `{amount}` submission or a balance delta alone.
+
+The Wallet page presents Base/Base Sepolia Graph-funding USDC and Hedera testnet x402-revenue HBAR as separate balances and never totals them. Each balance owns a `Transfer out` entry point, but this draft intentionally defines no successful outbound-transfer mutation. M5 and E1 must first resolve provider-specific authorization, fee quoting, destination validation, idempotency, attempt recovery, and settlement reconciliation. Until then the frontend may explain the intended transfer scope but must keep final submission disabled, leave balances unchanged, and never report simulated success.
 
 ## 3. Customer Graph API Credentials
 
