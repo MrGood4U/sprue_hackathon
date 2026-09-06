@@ -34,6 +34,7 @@ export function DemoRuntimeProvider({ children }) {
   const runAction = useCallback(async (action, options = {}) => {
     const serviceByAction = {
       agent_plan: backendServices.generatePlan,
+      rename_product: backendServices.renameProduct,
       build: backendServices.buildVersion,
       api_request: backendServices.testRequest,
       consumer_request: backendServices.requestPaidData,

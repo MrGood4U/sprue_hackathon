@@ -54,6 +54,25 @@ test("backend demo runtime returns the harness proposal and cross-chain output",
   assert.equal((request.result.meta as Record<string, unknown>).returnedRows, "1");
 });
 
+test("product names are trimmed and retained only within one demo session", async () => {
+  const config = parseConfig(environment);
+  const runtime = new DemoRuntime(config);
+  const renamed = await runtime.run(
+    {action: "rename_product", name: "  New Product  "},
+    sessionId,
+  );
+  const renamedDashboard = renamed.state.dashboard as Record<string, any>;
+  assert.equal(renamed.result.name, "New Product");
+  assert.equal(renamed.state.product.name, "New Product");
+  assert.equal(renamedDashboard.products[0].name, "New Product");
+
+  const restored = await runtime.getState(sessionId);
+  assert.equal(restored.product.name, "New Product");
+
+  const isolated = await runtime.getState("506003f7-0d70-4891-b8b8-bd3b487b475a");
+  assert.equal(isolated.product.name, "Cross-chain DEX Trader Footprint");
+});
+
 test("session model profiles never echo keys and drive the next Agent plan", async () => {
   const config = parseConfig(environment);
   const observedConfigs: AgentModelConfig[] = [];
@@ -187,6 +206,37 @@ test("enabled demo HTTP routes are the only frontend business-data boundary in t
     assert.equal(actionBody.data.result.data.length, 1);
     assert.equal(actionBody.data.result.meta.returnedRows, "1");
     assert.equal(actionBody.data.state.dataSource, "backend_demo");
+
+    const renameWithoutSession = await fetch(`${baseUrl}/api/v1/public/demo/actions`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({action: "rename_product", name: "New Product"}),
+    });
+    assert.equal(renameWithoutSession.status, 400);
+
+    const renameResponse = await fetch(`${baseUrl}/api/v1/public/demo/actions`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json", "X-Sprue-Demo-Session": sessionId},
+      body: JSON.stringify({action: "rename_product", name: "  New Product  "}),
+    });
+    assert.equal(renameResponse.status, 200);
+    const renameBody = await renameResponse.json();
+    assert.equal(renameBody.data.result.name, "New Product");
+    assert.equal(renameBody.data.state.product.name, "New Product");
+    assert.equal(renameBody.data.state.dashboard.products[0].name, "New Product");
+
+    const renamedStateResponse = await fetch(`${baseUrl}/api/v1/public/demo/state`, {
+      headers: {"X-Sprue-Demo-Session": sessionId},
+    });
+    assert.equal(renamedStateResponse.status, 200);
+    assert.equal((await renamedStateResponse.json()).data.product.name, "New Product");
+
+    const emptyRenameResponse = await fetch(`${baseUrl}/api/v1/public/demo/actions`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json", "X-Sprue-Demo-Session": sessionId},
+      body: JSON.stringify({action: "rename_product", name: "   "}),
+    });
+    assert.equal(emptyRenameResponse.status, 400);
 
     const invalidLimitResponse = await fetch(`${baseUrl}/api/v1/public/demo/actions`, {
       method: "POST",

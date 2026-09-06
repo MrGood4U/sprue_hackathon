@@ -16,6 +16,7 @@ import type {
 } from "../dag/runtime.js";
 
 export const DEMO_PRODUCT_SLUG = "cross-chain-dex-trader-footprint";
+export const DEMO_PRODUCT_NAME = "Cross-chain DEX Trader Footprint";
 export const DEMO_INTENT =
   "Find wallets that traded on both Ethereum and Arbitrum DEX sources during the last 30 complete UTC days, and return per-chain activity plus combined volume.";
 
@@ -218,7 +219,7 @@ function sourceSnapshots(result: HarnessResult): readonly Record<string, unknown
   });
 }
 
-function buildState(config: AppConfig, result: HarnessResult): DemoState {
+function buildState(config: AppConfig, result: HarnessResult, productName = DEMO_PRODUCT_NAME): DemoState {
   const output = serializeOutput(result.execution);
   const agent = {
     status: "ready_for_review" as const,
@@ -277,7 +278,7 @@ function buildState(config: AppConfig, result: HarnessResult): DemoState {
     agent,
     product: {
       slug: DEMO_PRODUCT_SLUG,
-      name: "Cross-chain DEX Trader Footprint",
+      name: productName,
       description: "Wallet activity observed on both Ethereum and Arbitrum DEX sources, with per-chain summaries and combined volume.",
       intent: result.proposal.intentSummary,
       endpoint,
@@ -294,7 +295,7 @@ function buildState(config: AppConfig, result: HarnessResult): DemoState {
       },
       products: [{
         slug: DEMO_PRODUCT_SLUG,
-        name: "Cross-chain DEX Trader Footprint",
+        name: productName,
         description: "Ethereum + Arbitrum wallet overlap",
         sourceLabel: "2 The Graph sources",
         version: "v1",
@@ -406,6 +407,7 @@ export interface DemoState {
 
 export type DemoAction =
   | {action: "agent_plan"; intent?: string}
+  | {action: "rename_product"; name: string}
   | {action: "build"; parameters?: {windowDays: 30; minimumActiveDays: 2}}
   | {action: "api_request"; parameters?: {limit: number}}
   | {action: "consumer_request"};
@@ -435,6 +437,7 @@ interface DemoModelProfileSecret {
 interface DemoSessionState {
   profile?: DemoModelProfileSecret;
   lastHarness?: HarnessResult;
+  productName?: string;
   touchedAt: number;
 }
 
@@ -562,8 +565,12 @@ export class DemoRuntime {
   }
 
   async getState(sessionId?: string): Promise<DemoState> {
-    const cached = sessionId ? this.sessions.get(sessionId)?.lastHarness : undefined;
-    return buildState(this.config, cached ?? await this.runHarness());
+    const session = sessionId ? this.sessions.get(sessionId) : undefined;
+    return buildState(
+      this.config,
+      session?.lastHarness ?? await this.runHarness(),
+      session?.productName,
+    );
   }
 
   async run(action: DemoAction, sessionId?: string): Promise<{state: DemoState; result: Record<string, unknown>}> {
@@ -573,8 +580,14 @@ export class DemoRuntime {
       harness = await this.runHarness(action.intent, session?.profile);
       if (session) session.lastHarness = harness;
     }
+    if (action.action === "rename_product" && session) {
+      session.productName = action.name.trim();
+    }
     harness ??= await this.runHarness();
-    const state = buildState(this.config, harness);
+    const productName = action.action === "rename_product"
+      ? action.name.trim()
+      : session?.productName;
+    const state = buildState(this.config, harness, productName);
     const responseData = serializeOutput(harness.execution);
     if (action.action === "agent_plan") {
       return {
@@ -584,6 +597,16 @@ export class DemoRuntime {
           source: "backend_demo_runtime",
           model: harness.model,
           trace: harness.trace,
+        },
+      };
+    }
+    if (action.action === "rename_product") {
+      return {
+        state,
+        result: {
+          status: "renamed",
+          source: "backend_demo_runtime",
+          name: state.product.name,
         },
       };
     }

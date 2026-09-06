@@ -123,6 +123,11 @@ export const zhCN = {
   "productHeader.build": "\u6784\u5efa",
   "productHeader.api": "API",
   "productHeader.monetize": "\u53d8\u73b0",
+  "productHeader.backToProducts": "\u8fd4\u56de\u6240\u6709\u4ea7\u54c1",
+  "productName.edit": "\u7f16\u8f91\u4ea7\u54c1\u540d\u79f0",
+  "productName.inputLabel": "\u4ea7\u54c1\u540d\u79f0",
+  "productName.open": "\u6253\u5f00\u4ea7\u54c1",
+  "productName.saveError": "\u65e0\u6cd5\u4fdd\u5b58\u4ea7\u54c1\u540d\u79f0\uff0c\u8bf7\u91cd\u8bd5\u3002",
 
   "agent.eyebrow": "\u4ea7\u54c1\u89c4\u5212",
   "agent.title": "\u5c06\u4f60\u7684\u610f\u56fe\u8f6c\u5316\u4e3a\u53ef\u5ba1\u67e5\u7684\u65b9\u6848\u3002",
@@ -235,6 +240,7 @@ export const zhCN = {
   "dashboard.intent": "\u610f\u56fe",
   "dashboard.intentHint": "\u83b7\u53d6\u6570\u636e\u524d\uff0cSprue \u4f1a\u5148\u63d0\u51fa\u4e00\u4e2a\u53ea\u4f7f\u7528\u8bb8\u53ef\u64cd\u4f5c\u7684 DAG\u3002",
   "dashboard.simulationNotice": "\u5f53\u524d\u8ba1\u5212\u7531\u540e\u7aef\u6f14\u793a\u8fd0\u884c\u65f6\u63d0\u4f9b\uff1b\u6301\u4e45\u4ea7\u54c1\u521b\u5efa\u5c1a\u672a\u63a5\u5165\u3002",
+  "dashboard.createError": "\u65e0\u6cd5\u6253\u5f00\u65b0\u4ea7\u54c1\uff0c\u8bf7\u91cd\u8bd5\u3002",
 
   "wallet.title": "\u94b1\u5305\u4e0e\u8bbf\u95ee",
   "wallet.subtitle": "\u5206\u79bb\u8eab\u4efd\u3001\u51ed\u8bc1\u548c\u6709\u8fb9\u754c\u7684\u673a\u5668\u652f\u51fa\u3002",

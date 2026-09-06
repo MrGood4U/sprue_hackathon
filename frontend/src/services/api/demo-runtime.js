@@ -1,6 +1,6 @@
 import { parseApiBaseUrl } from "./public-config.js";
 
-const actionNames = new Set(["agent_plan", "build", "api_request", "consumer_request"]);
+const actionNames = new Set(["agent_plan", "rename_product", "build", "api_request", "consumer_request"]);
 const demoSessionStorageKey = "sprue.demo.session";
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 let volatileDemoSessionId;
@@ -73,10 +73,11 @@ export async function getDemoState({ apiBaseUrl: configuredBaseUrl, fetchImpl = 
   return data;
 }
 
-export async function runDemoAction(action, { intent, parameters, apiBaseUrl: configuredBaseUrl, fetchImpl = globalThis.fetch, signal } = {}) {
+export async function runDemoAction(action, { intent, name, parameters, apiBaseUrl: configuredBaseUrl, fetchImpl = globalThis.fetch, signal } = {}) {
   if (!actionNames.has(action)) throw new Error("INVALID_DEMO_ACTION");
   const body = { action };
   if (intent) body.intent = intent;
+  if (name) body.name = name;
   if (parameters) body.parameters = parameters;
   const response = await fetchImpl(`${apiBaseUrl(configuredBaseUrl)}/api/v1/public/demo/actions`, {
     method: "POST",
@@ -159,6 +160,10 @@ export const backendServices = {
   testModelProfile: testDemoModelProfile,
   async generatePlan({ signal, intent } = {}) {
     const response = await runDemoAction("agent_plan", { signal, intent });
+    return { ...response.result, state: response.state };
+  },
+  async renameProduct({ signal, name } = {}) {
+    const response = await runDemoAction("rename_product", { signal, name });
     return { ...response.result, state: response.state };
   },
   async buildVersion({ signal, parameters } = {}) {

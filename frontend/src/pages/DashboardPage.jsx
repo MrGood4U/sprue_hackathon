@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   ArrowRight,
+  CircleNotch,
   Graph,
   MagnifyingGlass,
   Plus,
@@ -8,6 +9,7 @@ import {
   Sparkle,
 } from "@phosphor-icons/react";
 import { AppHeader } from "../components/layout/AppHeader.jsx";
+import { EditableProductName } from "../components/product/EditableProductName.jsx";
 import { Button, IconButton } from "../components/ui/Button.jsx";
 import { Field } from "../components/ui/Field.jsx";
 import { Modal } from "../components/ui/Modal.jsx";
@@ -27,10 +29,26 @@ function Metric({ label, value, note, tone }) {
 
 export function DashboardPage({ navigate }) {
   const { locale, t } = useI18n();
-  const { state } = useDemoRuntime();
+  const { state, runAction } = useDemoRuntime();
   const [showCreate, setShowCreate] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState("");
   const { dashboard, product } = state;
   const [demoProduct] = dashboard.products;
+
+  async function openNewProduct() {
+    setIsCreating(true);
+    setCreateError("");
+    try {
+      await runAction("rename_product", { name: "New Product" });
+      setShowCreate(false);
+      navigate(`/app/products/${product.slug}/agent`);
+    } catch {
+      setCreateError(t("dashboard.createError"));
+    } finally {
+      setIsCreating(false);
+    }
+  }
 
   return (
     <div className="page">
@@ -70,17 +88,32 @@ export function DashboardPage({ navigate }) {
             <span>{t("dashboard.column.product")}</span><span>{t("dashboard.column.source")}</span><span>{t("dashboard.column.version")}</span><span>API</span><span>{t("dashboard.column.lastRun")}</span>
             <span aria-label={t("dashboard.column.actions")} />
           </div>
-          <button className="table-row product-row" onClick={() => navigate(`/app/products/${demoProduct.slug}/agent`)}>
+          <div className="table-row product-row" role="row">
             <span className="product-cell">
               <span className="product-icon"><Graph size={20} /></span>
-              <span><strong>{demoProduct.name}</strong><small>{demoProduct.description}</small></span>
+              <span className="product-cell-copy">
+                <EditableProductName
+                  name={demoProduct.name}
+                  variant="table"
+                  onTitleActivate={() => navigate(`/app/products/${demoProduct.slug}/agent`)}
+                  onCommit={(name) => runAction("rename_product", { name })}
+                />
+                <small>{demoProduct.description}</small>
+              </span>
             </span>
             <span><Status>{dashboard.sponsorProof[0].name}</Status><small>{demoProduct.sourceLabel}</small></span>
             <span><strong>{demoProduct.version}</strong><small>{t("dashboard.proposed")}</small></span>
             <span><Status tone="violet">{t("common.ready")}</Status><small>{demoProduct.apiStatus}</small></span>
             <span><strong>{demoProduct.lastRun}</strong><small>{demoProduct.rows} rows</small></span>
-            <span><ArrowRight size={18} /></span>
-          </button>
+            <button
+              type="button"
+              className="product-row-open"
+              aria-label={t("productName.open")}
+              onClick={() => navigate(`/app/products/${demoProduct.slug}/agent`)}
+            >
+              <ArrowRight size={18} />
+            </button>
+          </div>
           <div className="table-empty-row"><Plus size={16} /> {t("dashboard.createAnother")}</div>
         </div>
       </section>
@@ -92,14 +125,12 @@ export function DashboardPage({ navigate }) {
           onClose={() => setShowCreate(false)}
           footer={
             <>
-              <Button onClick={() => setShowCreate(false)}>{t("common.cancel")}</Button>
+              <Button disabled={isCreating} onClick={() => setShowCreate(false)}>{t("common.cancel")}</Button>
               <Button
                 variant="primary"
-                icon={Sparkle}
-                onClick={() => {
-                  setShowCreate(false);
-                  navigate(`/app/products/${product.slug}/agent`);
-                }}
+                icon={isCreating ? CircleNotch : Sparkle}
+                disabled={isCreating}
+                onClick={() => void openNewProduct()}
               >
                 {t("dashboard.generatePlan")}
               </Button>
@@ -113,6 +144,7 @@ export function DashboardPage({ navigate }) {
             <Sparkle size={18} />
             <span>{t("dashboard.simulationNotice")}</span>
           </div>
+          {createError && <p className="create-product-error" role="alert">{createError}</p>}
         </Modal>
       )}
     </div>

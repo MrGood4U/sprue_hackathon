@@ -14,6 +14,10 @@ const actionSchema = z.discriminatedUnion("action", [
     intent: z.string().trim().min(1).max(8000).optional(),
   }),
   z.strictObject({
+    action: z.literal("rename_product"),
+    name: z.string().trim().min(1).max(120),
+  }),
+  z.strictObject({
     action: z.literal("build"),
     parameters: z.strictObject({
       windowDays: z.literal(30),
@@ -70,7 +74,11 @@ export function demoAction(runtime?: DemoRuntime): RequestHandler {
     const parsed = actionSchema.safeParse(req.body);
     if (!parsed.success) throw new AppError("INVALID_REQUEST");
     try {
-      const data = await requireRuntime(runtime).run(parsed.data, readSessionId(req.get("X-Sprue-Demo-Session")));
+      const sessionId = readSessionId(
+        req.get("X-Sprue-Demo-Session"),
+        parsed.data.action === "rename_product",
+      );
+      const data = await requireRuntime(runtime).run(parsed.data, sessionId);
       res.json({ data, meta: meta(res.locals.requestId, "demo") });
     } catch (error) {
       if (error instanceof AppError) throw error;

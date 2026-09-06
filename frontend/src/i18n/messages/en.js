@@ -120,6 +120,11 @@ export const en = {
   "productHeader.build": "Build",
   "productHeader.api": "API",
   "productHeader.monetize": "Monetize",
+  "productHeader.backToProducts": "Back to products",
+  "productName.edit": "Edit product name",
+  "productName.inputLabel": "Product name",
+  "productName.open": "Open product",
+  "productName.saveError": "The product name could not be saved. Try again.",
 
   "agent.eyebrow": "Product planning",
   "agent.title": "Turn your intent into a reviewable plan.",
@@ -232,6 +237,7 @@ export const en = {
   "dashboard.intent": "Intent",
   "dashboard.intentHint": "Sprue will propose an allowlisted DAG before any data is fetched.",
   "dashboard.simulationNotice": "The backend demo runtime provides the current plan; durable product creation is not connected yet.",
+  "dashboard.createError": "The new product could not be opened. Try again.",
 
   "wallet.title": "Wallet & Access",
   "wallet.subtitle": "Separate identity, credentials, and bounded machine spending.",

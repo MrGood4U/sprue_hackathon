@@ -121,6 +121,18 @@ test("frontend action client sends strict backend actions and returns server sta
       return response({state, result: {data: [], meta: {returnedRows: "0"}}});
     },
   });
+
+  await runDemoAction("rename_product", {
+    apiBaseUrl: "https://api.example.test",
+    name: "New Product",
+    fetchImpl: async (_url, options) => {
+      assert.deepEqual(JSON.parse(options.body), {
+        action: "rename_product",
+        name: "New Product",
+      });
+      return response({state, result: {status: "renamed", name: "New Product"}});
+    },
+  });
 });
 
 test("frontend action client rejects unsupported actions and invalid backend metadata", async () => {
