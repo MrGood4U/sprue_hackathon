@@ -108,7 +108,7 @@ Do not create frontend adapters for Graph payments, private wallet signing mater
 | `/app/model` | `pages/ModelServicePage.jsx` | Agent model service configuration |
 | `/app/products/:id/agent` | `pages/AgentPage.jsx` | Agent conversation and planning progress |
 | `/app/products/:id/build` | `pages/ProductBuilderPage.jsx` | Builder DAG and execution evidence |
-| `/app/products/:id/api` | `pages/ApiDeploymentPage.jsx` | Deployment and private testing |
+| `/app/products/:id/api` | `pages/ApiDeploymentPage.jsx` | API contract and private testing |
 | `/app/products/:id/monetize` | `pages/MonetizationRevenuePage.jsx` | x402 publication and revenue |
 | `/p/:slug` | `pages/PublicProductPage.jsx` | Public consumer request |
 

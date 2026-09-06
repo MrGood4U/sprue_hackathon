@@ -4,19 +4,26 @@ import type { DemoRuntime } from "../../modules/demo/runtime.js";
 import { AppError } from "../../shared/errors.js";
 import { emptyObjectSchema, meta } from "../contracts/common.js";
 
-const parametersSchema = z
-  .strictObject({
-    windowDays: z.literal(30),
-    minimumActiveDays: z.literal(2),
-  })
-  .optional();
-
-const actionSchema = z
-  .strictObject({
-    action: z.enum(["agent_plan", "build", "api_request", "consumer_request"]),
+const actionSchema = z.discriminatedUnion("action", [
+  z.strictObject({
+    action: z.literal("agent_plan"),
     intent: z.string().trim().min(1).max(8000).optional(),
-    parameters: parametersSchema,
-  });
+  }),
+  z.strictObject({
+    action: z.literal("build"),
+    parameters: z.strictObject({
+      windowDays: z.literal(30),
+      minimumActiveDays: z.literal(2),
+    }).optional(),
+  }),
+  z.strictObject({
+    action: z.literal("api_request"),
+    parameters: z.strictObject({
+      limit: z.number().int().min(1).max(1000),
+    }).optional(),
+  }),
+  z.strictObject({action: z.literal("consumer_request")}),
+]);
 
 const sessionIdSchema = z.uuid();
 const modelProfileSchema = z.strictObject({

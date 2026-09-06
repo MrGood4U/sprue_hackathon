@@ -57,6 +57,6 @@ The backend now has 51 domain tables, 15 ordered SQL migrations, typed Drizzle q
 - [Frontend structure and file-ownership plan](frontend/README.md)
 - [Backend boundary and source-layout plan](backend/README.md)
 
-Product-design Draft 1.21 records the maintained frontend, nine page families, route ownership, interactions, accessibility, and screen-to-data contracts. Token review remains follow-up work; durable model-secret storage, the capped consumer's funding boundary, and real provider compatibility remain integration gates.
+Product-design Draft 1.22 records the maintained frontend, nine page families, route ownership, interactions, accessibility, and screen-to-data contracts. Token review remains follow-up work; durable model-secret storage, the capped consumer's funding boundary, and real provider compatibility remain integration gates.
 
 Participation: Start Fresh. All repository text is written in English; team communication may use Chinese. Preserve meaningful Git history and update the AI contribution record as work progresses. Runnable setup and verified demo evidence will be added with implementation.

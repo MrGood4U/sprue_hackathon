@@ -139,8 +139,8 @@ export const backendServices = {
     const response = await runDemoAction("build", { signal, parameters });
     return { ...response.result, state: response.state };
   },
-  async testRequest({ signal } = {}) {
-    const response = await runDemoAction("api_request", { signal });
+  async testRequest({ signal, parameters } = {}) {
+    const response = await runDemoAction("api_request", { signal, parameters });
     return response.result;
   },
   async requestPaidData({ signal, onProgress = () => {} } = {}) {

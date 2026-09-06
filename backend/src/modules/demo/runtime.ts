@@ -25,6 +25,31 @@ const arbitrumPool = "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 const usdc = "0xcccccccccccccccccccccccccccccccccccccccc";
 const weth = "0xdddddddddddddddddddddddddddddddddddddddd";
 
+const dataApiRequestParameters = [
+  {
+    name: "limit",
+    location: "query",
+    type: "integer",
+    required: false,
+    default: 100,
+    minimum: 1,
+    maximum: 1000,
+    example: 100,
+  },
+] as const;
+
+const dataApiResponseFields = [
+  {path: "data", type: "array<result>", required: true},
+  {path: "data[].wallet", type: "address", required: true},
+  {path: "data[].chains", type: "array<string>", required: true},
+  {path: "data[].byChain", type: "object<string, wallet_chain_summary>", required: true},
+  {path: "data[].combinedTradeCount", type: "count", required: true},
+  {path: "data[].combinedVolumeUsd", type: "decimal", required: true},
+  {path: "data[].firstSeenAt", type: "timestamp", required: true},
+  {path: "data[].lastSeenAt", type: "timestamp", required: true},
+  {path: "meta", type: "delivery_metadata", required: true},
+] as const;
+
 const swapFieldTypes: Readonly<Record<string, ProviderFieldType>> = {
   "account.id": "address",
   id: "id",
@@ -131,6 +156,33 @@ function serializeOutput(result: HarnessResult["execution"]): readonly Record<st
     firstSeenAt: isoTimestamp(row.firstSeenAt),
     lastSeenAt: isoTimestamp(row.lastSeenAt),
   }));
+}
+
+function serializeDataResponse(
+  output: readonly Record<string, unknown>[],
+  limit: number = dataApiRequestParameters[0].default,
+): Record<string, unknown> {
+  const data = output.slice(0, limit);
+  return {
+    data,
+    meta: {
+      correlationId: "req_demo_api_preview",
+      version: {
+        id: "40000000-0000-4000-8000-000000000001",
+        versionNo: 1,
+        specHash: "sha256:demo-product-version-v1",
+      },
+      materializationId: "40000000-0000-4000-8000-000000000002",
+      sourceFreshnessAt: "2026-08-31T00:00:00.000Z",
+      materializedAt: "2026-08-31T00:05:00.000Z",
+      returnedRows: String(data.length),
+      totalRows: String(output.length),
+      truncated: data.length < output.length,
+      freshness: "demo",
+      authorizationMode: "creator_preview",
+      dataSource: "backend_demo",
+    },
+  };
 }
 
 function sourceSnapshots(result: HarnessResult): readonly Record<string, unknown>[] {
@@ -276,8 +328,9 @@ function buildState(config: AppConfig, result: HarnessResult): DemoState {
       method: "GET",
       status: "Healthy",
       contract: { version: "v1", authentication: "Optional Hedera x402", response: "application/json", cache: "5 minute cache", rateLimit: "60 requests / minute" },
-      responseExample: { data: output },
-      deployment: { artifactDigest: "sha256:demo-backend-runtime", region: "evaluator-local", lastDeployed: "Generated on request", sourceVersion: "Pinned v1" },
+      requestParameters: dataApiRequestParameters,
+      responseSchema: {status: 200, mediaType: "application/json", fields: dataApiResponseFields},
+      responseExample: serializeDataResponse(output),
     },
     monetization: {
       published: true,
@@ -347,11 +400,11 @@ export interface DemoState {
   public: Record<string, unknown>;
 }
 
-export interface DemoAction {
-  action: "agent_plan" | "build" | "api_request" | "consumer_request";
-  intent?: string;
-  parameters?: {windowDays: 30; minimumActiveDays: 2};
-}
+export type DemoAction =
+  | {action: "agent_plan"; intent?: string}
+  | {action: "build"; parameters?: {windowDays: 30; minimumActiveDays: 2}}
+  | {action: "api_request"; parameters?: {limit: number}}
+  | {action: "consumer_request"};
 
 export interface DemoModelProfileInput {
   apiUrl: string;
@@ -484,7 +537,7 @@ export class DemoRuntime {
       harness = await this.runHarness(action.intent, session?.profile);
       if (session) session.lastHarness = harness;
     }
-    harness ??= await this.runHarness(action.intent);
+    harness ??= await this.runHarness();
     const state = buildState(this.config, harness);
     const responseData = serializeOutput(harness.execution);
     if (action.action === "agent_plan") {
@@ -510,7 +563,7 @@ export class DemoRuntime {
       };
     }
     if (action.action === "api_request") {
-      return {state, result: {data: responseData}};
+      return {state, result: serializeDataResponse(responseData, action.parameters?.limit)};
     }
     return {
       state,

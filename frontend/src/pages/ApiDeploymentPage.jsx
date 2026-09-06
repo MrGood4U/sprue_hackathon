@@ -1,6 +1,5 @@
 import { useState } from "react";
 import {
-  ArrowSquareOut,
   Check,
   Copy,
   FileCode,
@@ -20,7 +19,15 @@ export function ApiDeploymentPage({ navigate }) {
   const { t } = useI18n();
   const { state } = useDemoRuntime();
   const { product, api } = state;
-  const { response, result, runTest } = useRequestTest();
+  const parameter = api.requestParameters[0];
+  const [limit, setLimit] = useState(String(parameter.default));
+  const parsedLimit = Number(limit);
+  const limitIsValid = Number.isInteger(parsedLimit)
+    && parsedLimit >= parameter.minimum
+    && parsedLimit <= parameter.maximum;
+  const requestLimit = limitIsValid ? parsedLimit : parameter.default;
+  const requestUrl = `${api.endpoint}?limit=${requestLimit}`;
+  const { response, result, runTest } = useRequestTest(requestLimit);
   const [copied, setCopied] = useState(false);
 
   const copyEndpoint = async () => {
@@ -58,42 +65,96 @@ export function ApiDeploymentPage({ navigate }) {
             <div className="contract-row"><span>{t("api.response")}</span><strong>{api.contract.response}</strong></div>
             <div className="contract-row"><span>{t("api.cache")}</span><strong>{api.contract.cache}</strong></div>
             <div className="contract-row"><span>{t("api.rateLimit")}</span><strong>{api.contract.rateLimit}</strong></div>
+
+            <div className="api-subsection">
+              <div className="api-subsection-heading">
+                <h4>{t("api.requestFormat")}</h4>
+                <span>{t("api.requestFormatDetail")}</span>
+              </div>
+              <div className="api-format-table api-parameter-table" role="table" aria-label={t("api.requestFormat")}>
+                <div className="api-format-head" role="row">
+                  <span role="columnheader">{t("api.parameter")}</span>
+                  <span role="columnheader">{t("api.location")}</span>
+                  <span role="columnheader">{t("api.type")}</span>
+                  <span role="columnheader">{t("api.requirement")}</span>
+                  <span role="columnheader">{t("api.rules")}</span>
+                </div>
+                {api.requestParameters.map((item) => (
+                  <div className="api-format-row" role="row" key={item.name}>
+                    <code role="cell">{item.name}</code>
+                    <code role="cell">{item.location}</code>
+                    <code role="cell">{item.type}</code>
+                    <span role="cell">{t(item.required ? "api.required" : "api.optional")}</span>
+                    <span role="cell">{t("api.parameterRules", item)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="code-tabs"><button className="active">cURL</button><button>JavaScript</button><button>Python</button></div>
-            <pre className="code-block">curl --request GET \{"\n"}  --url {api.endpoint} \{"\n"}  --header 'accept: application/json'</pre>
+            <pre className="code-block">curl --request GET \{"\n"}  --url '{requestUrl}' \{"\n"}  --header 'accept: application/json'</pre>
           </section>
 
           <section className="panel request-tester">
             <div className="panel-title"><TerminalWindow size={19} /><h3>{t("api.requestTester")}</h3><span className="mock-chip">{t("common.backendResponse")}</span></div>
-            <Field label={t("api.limit")}><input defaultValue="10" /></Field>
-            <Button variant="primary" icon={Play} onClick={runTest} disabled={response === "loading"}>
+            <Field htmlFor="api-limit" label={t("api.limit")} hint={t(limitIsValid ? "api.limitHint" : "api.limitInvalid", parameter)}>
+              <input
+                id="api-limit"
+                type="number"
+                min={parameter.minimum}
+                max={parameter.maximum}
+                step="1"
+                value={limit}
+                aria-invalid={!limitIsValid}
+                onChange={(event) => setLimit(event.target.value)}
+              />
+            </Field>
+            <Button variant="primary" icon={Play} onClick={runTest} disabled={response === "loading" || !limitIsValid}>
               {t(response === "loading" ? "api.sending" : "api.sendTest")}
             </Button>
+
+            <div className="api-subsection response-format">
+              <div className="api-subsection-heading response-format-heading">
+                <div>
+                  <h4>{t("api.responseFormat")}</h4>
+                  <span>{t("api.responseFormatDetail")}</span>
+                </div>
+                <span className="response-media"><strong>{api.responseSchema.status}</strong> {api.responseSchema.mediaType}</span>
+              </div>
+              <div className="api-format-table api-response-table" role="table" aria-label={t("api.responseFormat")}>
+                <div className="api-format-head" role="row">
+                  <span role="columnheader">{t("api.fieldPath")}</span>
+                  <span role="columnheader">{t("api.type")}</span>
+                  <span role="columnheader">{t("api.requirement")}</span>
+                </div>
+                {api.responseSchema.fields.map((field) => (
+                  <div className="api-format-row" role="row" key={field.path}>
+                    <code role="cell">{field.path}</code>
+                    <code role="cell">{field.type}</code>
+                    <span role="cell">{t(field.required ? "api.required" : "api.optional")}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="response-box">
-              {!response && <div className="empty-response"><TerminalWindow size={26} /><span>{t("api.runToInspect")}</span></div>}
+              {!response && (
+                <>
+                  <div className="response-head"><Status tone="violet">{t("api.exampleResponse")}</Status><span>{api.responseSchema.mediaType}</span></div>
+                  <pre>{JSON.stringify(api.responseExample, null, 2)}</pre>
+                </>
+              )}
               {response === "loading" && <div className="loading-lines"><span /><span /><span /></div>}
               {response === "error" && <p className="inline-notice" role="alert">{t("common.operationFailed")}</p>}
               {response === "success" && (
                 <>
-                  <div className="response-head"><Status>200 OK</Status><span>{t("api.cachedTiming")}</span></div>
+                  <div className="response-head"><Status>200 OK</Status><span>{api.responseSchema.mediaType}</span></div>
                   <pre>{JSON.stringify(result, null, 2)}</pre>
                 </>
               )}
             </div>
           </section>
         </div>
-
-        <section className="panel deployment-table">
-          <div className="panel-toolbar">
-            <div><h2>{t("api.deploymentEvidence")}</h2><p>{t("api.deploymentEvidenceDetail")}</p></div>
-            <Button icon={ArrowSquareOut}>{t("api.openLogs")}</Button>
-          </div>
-          <div className="evidence-grid">
-            <div><span>{t("api.artifactDigest")}</span><code>{api.deployment.artifactDigest}</code></div>
-            <div><span>{t("api.region")}</span><strong>{api.deployment.region}</strong></div>
-            <div><span>{t("api.lastDeployed")}</span><strong>{api.deployment.lastDeployed}</strong></div>
-            <div><span>{t("api.sourceVersion")}</span><strong>{api.deployment.sourceVersion}</strong></div>
-          </div>
-        </section>
       </main>
     </div>
   );

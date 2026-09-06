@@ -1,6 +1,6 @@
 # Frontend Implementation Status
 
-Updated on 2026-09-06 after simplifying the Product Dashboard.
+Updated on 2026-09-06 after focusing the API page on its request and response contract.
 
 ## Current Baseline
 
@@ -26,7 +26,7 @@ Deployment infrastructure now includes public API-origin validation, a read-only
 | Model Service | Session-scoped OpenAI-compatible URL/key/model form with redacted backend reads and next-plan wiring | Verified creator identity, workspace-owned profile persistence, secret-manager storage/rotation, provider capability validation, usage limits, and recovery |
 | Agent Planner | Backend-generated intent, source summary, proposal facts, six-stage planning trace, and three-state action composer with a focused existing-plan state plus confirmation dialogs | Durable Agent sessions/messages, live provider discovery, streaming trace, proposal history, and unsupported-intent recovery |
 | Builder | Backend-generated cross-chain proposal rendered in an editable semantic DAG; floating operator/template palette and toolbar inside the canvas; select/hand tools with pan-only hand mode; typed connections; single-click node/edge selection with toolbar/keyboard deletion; double-click node editor with Confirm/Cancel transaction boundary; undo/redo; structural validation; current-draft schema/preview projection; collapsible evidence inspector; compact three-action bar with an explicit demo-only save boundary; bounded backend build action | Durable structured-edit command, immutable provenance/versions, revision conflicts, server validation, real run state and evidence |
-| API and Deployment | Backend-generated endpoint, copied endpoint text, and backend action response | Reviewed request parameters, private access, real output, deployment and logs, functional code-example tabs |
+| API and Deployment | Backend-generated endpoint, request parameter definition, response field paths, labeled example body, copied endpoint text, and a bounded `limit` test response; the standalone deployment-evidence panel is intentionally omitted | Private access, real output and response headers, deployment lifecycle, credentials, refresh controls, recent requests, and functional code-example tabs |
 | Monetization and Revenue | Backend-generated publication state and price/split projection; publication button remains a demo action | Validated price and confirmed fee policy, creator recipient checks, durable publication state, payment gate, revenue reconciliation |
 | Public product | Backend-generated product metadata and a backend consumer action response; no browser payment is performed | Slug-based product loading, real payment requirements, authorized buyer client, receipts and uncertain-payment recovery |
 

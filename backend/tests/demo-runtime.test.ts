@@ -33,6 +33,24 @@ test("backend demo runtime returns the harness proposal and cross-chain output",
   assert.equal(state.product.draft.referenceResult.length, 1);
   assert.equal(state.product.draft.referenceResult[0]?.combinedVolumeUsd, "456.50");
   assert.equal(state.api.endpoint, "http://127.0.0.1:3001/data/v1/cross-chain-dex-trader-footprint");
+  const api = state.api as Record<string, any>;
+  assert.deepEqual(api.requestParameters, [{
+    name: "limit",
+    location: "query",
+    type: "integer",
+    required: false,
+    default: 100,
+    minimum: 1,
+    maximum: 1000,
+    example: 100,
+  }]);
+  assert.equal(api.responseSchema.fields[1].path, "data[].wallet");
+  assert.equal(api.responseExample.meta.dataSource, "backend_demo");
+  assert.equal("deployment" in api, false);
+
+  const request = await new DemoRuntime(config).run({action: "api_request", parameters: {limit: 1}});
+  assert.equal((request.result.data as readonly unknown[]).length, 1);
+  assert.equal((request.result.meta as Record<string, unknown>).returnedRows, "1");
 });
 
 test("session model profiles never echo keys and drive the next Agent plan", async () => {
@@ -116,12 +134,20 @@ test("enabled demo HTTP routes are the only frontend business-data boundary in t
     const actionResponse = await fetch(`${baseUrl}/api/v1/public/demo/actions`, {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({action: "api_request"}),
+      body: JSON.stringify({action: "api_request", parameters: {limit: 1}}),
     });
     assert.equal(actionResponse.status, 200);
     const actionBody = await actionResponse.json();
     assert.equal(actionBody.data.result.data.length, 1);
+    assert.equal(actionBody.data.result.meta.returnedRows, "1");
     assert.equal(actionBody.data.state.dataSource, "backend_demo");
+
+    const invalidLimitResponse = await fetch(`${baseUrl}/api/v1/public/demo/actions`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({action: "api_request", parameters: {limit: 1001}}),
+    });
+    assert.equal(invalidLimitResponse.status, 400);
 
     const planResponse = await fetch(`${baseUrl}/api/v1/public/demo/actions`, {
       method: "POST",

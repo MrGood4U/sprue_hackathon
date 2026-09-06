@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft 1.21, updated on 2026-09-06. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. A dedicated Model Service page now lets the creator configure the OpenAI-compatible language model used by Agent planning. Graph credential management is disclosed only when API-key access is selected and keeps its primary action next to the credential list. The Product Dashboard is focused on summary metrics and the product list; the redundant Recent Activity and Sponsor Proof panels are removed. Token review remains follow-up work; durable identity, secret storage, Graph, wallet, and payment integrations are still pending.
+Draft 1.22, updated on 2026-09-06. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. A dedicated Model Service page now lets the creator configure the OpenAI-compatible language model used by Agent planning. Graph credential management is disclosed only when API-key access is selected and keeps its primary action next to the credential list. The Product Dashboard is focused on summary metrics and the product list; the redundant Recent Activity and Sponsor Proof panels are removed. The API view now prioritizes an explicit request-parameter contract and always-visible response schema/example, while omitting the standalone deployment-evidence panel. Token review remains follow-up work; durable identity, secret storage, Graph, wallet, and payment integrations are still pending.
 
 This document defines the MVP information architecture, page inventory, interactions, state behavior, desktop layout behavior, accessibility requirements, and screen-to-domain contracts. The decisions are recorded in [Confirmed Design Decisions](#confirmed-design-decisions).
 
@@ -392,7 +392,8 @@ The MVP has no arbitrary JavaScript/Python editor and no unrestricted custom-cod
 - Explicit deployment confirmation; building a version never silently moves the active deployment pointer.
 - Endpoint URL with copy action and environment label.
 - Access summary showing private/API-key mode independently from optional x402 publication setup.
-- Request parameter form generated from the approved schema.
+- Request parameter definitions showing name, location, type, required state, default, bounds, and example, followed by a form generated from the same approved schema.
+- An always-visible response format showing HTTP status, media type, response envelope, generated row fields, and a clearly labeled example body before any test request is sent.
 - Private response preview, response headers, status, latency, pinned version, and freshness.
 - Code examples with copy actions and redacted placeholders.
 - API credential list with name, prefix, scopes, expiry, last use, create, and revoke actions.
@@ -400,6 +401,7 @@ The MVP has no arbitrary JavaScript/Python editor and no unrestricted custom-cod
 - Refresh schedule editor with a human-readable cadence, timezone, next run, pause/resume, and advanced cron disclosure.
 - `Run now` action with the same Graph-spending readiness and confirmation rules as Build.
 - Recent API requests with private-safe correlation IDs and statuses.
+- No standalone deployment-evidence or log panel. Artifact digests, region details, and deployment provenance belong in a contextual deployment/run detail if that operational workflow is implemented later.
 
 **States:**
 
@@ -743,3 +745,4 @@ Remaining review and integration work:
 | 2026-09-06 | Recorded Draft 1.19 by adding a top-level Model Service page for a creator-supplied OpenAI-compatible API URL, API key, and model name | The next explicit Agent plan uses the configured model; the evaluator profile is backend-memory-only and redacted until verified identity and durable secret storage are implemented |
 | 2026-09-06 | Recorded Draft 1.20 by moving `Add API key` into the credential section and showing credential management only for API-key Graph access | Access-mode selection now reveals only the resources required by the selected path and keeps related content and actions together |
 | 2026-09-06 | Recorded Draft 1.21 by removing the Dashboard's Recent Activity and Sponsor Proof panels | Summary metrics and the product list already expose the useful overview; removing repeated evidence keeps the Dashboard focused on finding or creating a product |
+| 2026-09-06 | Recorded Draft 1.22 by replacing the API page's deployment-evidence panel with backend-owned request and response format documentation | The API view now answers how to call the endpoint and what it returns without competing operational provenance content |

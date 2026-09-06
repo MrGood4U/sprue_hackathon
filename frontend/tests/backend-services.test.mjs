@@ -82,6 +82,18 @@ test("frontend action client sends strict backend actions and returns server sta
   });
   assert.deepEqual(result.state, state);
   assert.deepEqual(result.result, {data: []});
+
+  await runDemoAction("api_request", {
+    apiBaseUrl: "https://api.example.test",
+    parameters: {limit: 100},
+    fetchImpl: async (_url, options) => {
+      assert.deepEqual(JSON.parse(options.body), {
+        action: "api_request",
+        parameters: {limit: 100},
+      });
+      return response({state, result: {data: [], meta: {returnedRows: "0"}}});
+    },
+  });
 });
 
 test("frontend action client rejects unsupported actions and invalid backend metadata", async () => {

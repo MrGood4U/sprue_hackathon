@@ -43,3 +43,15 @@ test("keeps the Dashboard focused on metrics and the product list", async () => 
   assert.doesNotMatch(source, /dashboard-lower|dashboard\.activities\.map|dashboard\.sponsorProof\.map/);
   assert.doesNotMatch(styles, /\.dashboard-lower|\.activity-list|\.proof-grid/);
 });
+
+test("keeps the API page focused on request and response formats", async () => {
+  const source = await readFile(new URL("pages/ApiDeploymentPage.jsx", sourceRoot), "utf8");
+  const styles = await readFile(new URL("styles.css", sourceRoot), "utf8");
+
+  assert.match(source, /api\.requestFormat/);
+  assert.match(source, /api\.responseFormat/);
+  assert.match(source, /api\.requestParameters\.map/);
+  assert.match(source, /api\.responseSchema\.fields\.map/);
+  assert.doesNotMatch(source, /deploymentEvidence|api\.deployment|openLogs/);
+  assert.doesNotMatch(styles, /\.deployment-table|\.evidence-grid/);
+});
