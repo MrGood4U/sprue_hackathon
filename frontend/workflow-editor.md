@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft 0.3, 2026-09-06. The workflow editor is an editable mode inside the existing Builder page, not a separate route. This document records the approved interaction direction and the current implementation boundary.
+Draft 0.4, 2026-09-06. The workflow editor is an editable mode inside the existing Builder page, not a separate route. This document records the approved interaction direction and the current implementation boundary.
 
 ## Product Decisions
 
@@ -62,7 +62,7 @@ Delete and reconnect operations are undoable. Source and Output nodes remain del
 
 ### Inspector and derived evidence
 
-Selecting a node opens its configuration in a centered modal inspector over the canvas. The modal dims the surrounding workspace, closes through its close control, Escape, or a backdrop click, and returns focus when dismissed. Forms are operator-specific and schema-driven; raw executable code and arbitrary JSON editing are not allowed.
+Single-clicking a node selects it without opening another surface. The selected node can be removed through the toolbar Delete selection control or the keyboard Delete/Backspace command. Double-clicking a node opens its configuration in a centered modal inspector over the canvas. The modal dims the surrounding workspace, keeps form changes in a temporary node-edit buffer, and exposes explicit `Cancel` and `Confirm` actions. Its close control, Escape, or a backdrop click behaves like Cancel and discards the temporary changes; only Confirm writes the node configuration to the working draft. Forms are operator-specific and schema-driven; raw executable code and arbitrary JSON editing are not allowed.
 
 Every semantic edit runs the same frontend derivation pipeline:
 
@@ -157,5 +157,5 @@ frontend/src/features/workflow-editor/
 
 - Pure graph tests cover insertion, namespaced template IDs, move-only changes, add/remove/reconnect, cycle detection, port compatibility, Join and Union rules, and undo/redo.
 - Schema tests cover Filter, Map, Aggregate, Union, Join, and Output changes against changing upstream fields.
-- Browser tests cover select versus hand mode, palette insertion and hover/focus descriptions, distinctive operator icons, node dragging, port connections, delete/undo, the centered modal inspector and Escape/backdrop dismissal, current Structured DAG output, draft-save boundary feedback, readiness updates, keyboard alternatives, localization, and the 1024/1440-pixel layouts.
+- Browser tests cover select versus hand mode, single-click selection, double-click editing, palette insertion and hover/focus descriptions, distinctive operator icons, node dragging, port connections, delete/undo, modal Confirm commit and Cancel/X/Escape/backdrop rollback, current Structured DAG output, draft-save boundary feedback, readiness updates, keyboard alternatives, localization, and the 1024/1440-pixel layouts.
 - Backend tests must repeat all structural checks and verify that invalid or stale working-draft saves cannot replace the active version.

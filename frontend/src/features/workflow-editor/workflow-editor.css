@@ -387,6 +387,18 @@
   padding: 0 13px 14px;
 }
 
+.workflow-inspector-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  padding: 12px 13px 14px;
+  border-top: 1px solid var(--color-border-default);
+}
+
+.workflow-inspector-actions .button {
+  min-width: 88px;
+}
+
 .workflow-inspector-field,
 .workflow-inspector-section {
   display: grid;

@@ -6,7 +6,7 @@ import { WorkflowNode } from "./WorkflowNode.jsx";
 
 const nodeTypes = { workflow: WorkflowNode };
 
-export function WorkflowCanvas({ editor, onSelectNode }) {
+export function WorkflowCanvas({ editor, onSelectNode, onEditNode }) {
   const { t } = useI18n();
   const { fitView, screenToFlowPosition } = useReactFlow();
   const canvasRef = useRef(null);
@@ -65,11 +65,16 @@ export function WorkflowCanvas({ editor, onSelectNode }) {
           editor.selectNode(node.id);
           onSelectNode?.(node.id);
         }}
+        onNodeDoubleClick={(_, node) => {
+          editor.selectNode(node.id);
+          onEditNode?.(node.id);
+        }}
         onPaneClick={() => editor.selectNode(null)}
         nodesDraggable={editor.tool === "select"}
         nodesConnectable={editor.tool === "select"}
         panOnDrag={editor.tool === "pan"}
         selectionOnDrag={false}
+        zoomOnDoubleClick={false}
         minZoom={0.25}
         deleteKeyCode={["Backspace", "Delete"]}
         isValidConnection={(connection) => canConnect(connection, editor.nodes, editor.edges)}

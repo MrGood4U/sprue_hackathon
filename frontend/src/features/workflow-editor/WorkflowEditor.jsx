@@ -1,4 +1,5 @@
 import { ReactFlowProvider } from "@xyflow/react";
+import { useCallback, useState } from "react";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
 import { NodePalette } from "./NodePalette.jsx";
 import { NodeInspector } from "./NodeInspector.jsx";
@@ -9,6 +10,8 @@ import "./workflow-editor.css";
 
 export function WorkflowEditor({ editor, onSelectNode }) {
   const { t } = useI18n();
+  const [editingNodeId, setEditingNodeId] = useState(null);
+  const closeNodeEditor = useCallback(() => setEditingNodeId(null), []);
   const draftStatus = editor.validation.length > 0 ? "invalid" : editor.dirty ? "dirty" : "saved";
 
   return (
@@ -28,9 +31,9 @@ export function WorkflowEditor({ editor, onSelectNode }) {
           </div>
           <WorkflowEditorToolbar editor={editor} />
           <div className="workflow-editor-viewport">
-            <WorkflowCanvas editor={editor} onSelectNode={onSelectNode} />
+            <WorkflowCanvas editor={editor} onSelectNode={onSelectNode} onEditNode={setEditingNodeId} />
           </div>
-          <NodeInspector editor={editor} />
+          <NodeInspector editor={editor} nodeId={editingNodeId} onClose={closeNodeEditor} />
         </div>
       </section>
     </ReactFlowProvider>

@@ -1,6 +1,6 @@
 import { X } from "@phosphor-icons/react";
-import { useEffect, useRef } from "react";
-import { IconButton } from "../../components/ui/Button.jsx";
+import { useEffect, useRef, useState } from "react";
+import { Button, IconButton } from "../../components/ui/Button.jsx";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
 import { getOperator } from "./nodeCatalog.js";
 
@@ -146,20 +146,28 @@ function OutputConfig({ node, update }) {
   );
 }
 
-export function NodeInspector({ editor }) {
+function cloneConfig(config) {
+  if (typeof structuredClone === "function") return structuredClone(config ?? {});
+  return JSON.parse(JSON.stringify(config ?? {}));
+}
+
+export function NodeInspector({ editor, nodeId, onClose }) {
   const { t } = useI18n();
-  const node = editor.nodes.find((item) => item.id === editor.selectedNodeId)?.data?.node;
+  const node = editor.nodes.find((item) => item.id === nodeId)?.data?.node;
   const inspectorRef = useRef(null);
-  const selectedNodeId = editor.selectedNodeId;
-  const selectNode = editor.selectNode;
+  const [draftConfig, setDraftConfig] = useState({});
 
   useEffect(() => {
-    if (!selectedNodeId) return undefined;
+    if (nodeId) setDraftConfig(cloneConfig(node?.config));
+  }, [nodeId]);
+
+  useEffect(() => {
+    if (!nodeId) return undefined;
     const previouslyFocusedElement = document.activeElement;
     inspectorRef.current?.focus();
     const onKeyDown = (event) => {
       if (event.key === "Escape") {
-        selectNode(null);
+        onClose();
         return;
       }
       if (event.key !== "Tab") return;
@@ -181,18 +189,23 @@ export function NodeInspector({ editor }) {
       document.removeEventListener("keydown", onKeyDown);
       previouslyFocusedElement?.focus?.();
     };
-  }, [selectedNodeId, selectNode]);
+  }, [nodeId, onClose]);
 
   if (!node) return null;
   const operator = getOperator(node.type);
-  const update = (config) => editor.updateConfig(node.id, config);
+  const draftNode = { ...node, config: draftConfig };
+  const update = (config) => setDraftConfig(config);
+  const confirm = () => {
+    editor.updateConfig(node.id, draftConfig);
+    onClose();
+  };
 
   return (
     <div
       className="workflow-node-modal-backdrop"
       role="presentation"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) selectNode(null);
+        if (event.target === event.currentTarget) onClose();
       }}
     >
       <section
@@ -209,19 +222,23 @@ export function NodeInspector({ editor }) {
             <span className="section-label">{t("workflowEditor.inspector.eyebrow")}</span>
             <strong id="workflow-node-inspector-title">{t(operator.labelKey)}</strong>
           </div>
-          <IconButton label={t("common.close")} onClick={() => selectNode(null)}>
+          <IconButton label={t("common.close")} onClick={onClose}>
             <X size={17} weight="bold" aria-hidden="true" />
           </IconButton>
         </div>
         <p className="workflow-inspector-node-id">{node.id} · v{node.operatorVersion ?? "1"}</p>
         <div className="workflow-inspector-form">
-          {node.type === "source" && <SourceConfig node={node} draft={editor.draft} update={update} />}
-          {node.type === "filter" && <FilterConfig node={node} update={update} />}
-          {node.type === "map" && <MapConfig node={node} update={update} />}
-          {node.type === "aggregate" && <AggregateConfig node={node} update={update} />}
-          {node.type === "union" && <UnionConfig node={node} update={update} />}
-          {node.type === "join" && <JoinConfig node={node} update={update} />}
-          {node.type === "output" && <OutputConfig node={node} update={update} />}
+          {node.type === "source" && <SourceConfig node={draftNode} draft={editor.draft} update={update} />}
+          {node.type === "filter" && <FilterConfig node={draftNode} update={update} />}
+          {node.type === "map" && <MapConfig node={draftNode} update={update} />}
+          {node.type === "aggregate" && <AggregateConfig node={draftNode} update={update} />}
+          {node.type === "union" && <UnionConfig node={draftNode} update={update} />}
+          {node.type === "join" && <JoinConfig node={draftNode} update={update} />}
+          {node.type === "output" && <OutputConfig node={draftNode} update={update} />}
+        </div>
+        <div className="workflow-inspector-actions">
+          <Button onClick={onClose}>{t("common.cancel")}</Button>
+          <Button variant="primary" onClick={confirm}>{t("common.confirm")}</Button>
         </div>
       </section>
     </div>
