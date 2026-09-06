@@ -50,6 +50,12 @@ test("keeps the Dashboard focused on metrics and the product list", async () => 
   assert.match(styles, /\.app-header \{[^}]*align-items: flex-start/);
   assert.match(source, /<EditableProductName[\s\S]*variant="table"/);
   assert.match(source, /runAction\("rename_product", \{ name: "New Product" \}\)/);
+  assert.doesNotMatch(source, /dashboard\.column\.version|demoProduct\.version/);
+  const apiColumnIndex = source.indexOf("<span>API</span>");
+  const x402ColumnIndex = source.indexOf('t("dashboard.column.x402")');
+  assert.ok(apiColumnIndex >= 0 && x402ColumnIndex > apiColumnIndex);
+  assert.match(source, /demoProduct\.x402Status === "ready"/);
+  assert.match(source, /common\.notReady/);
   assert.match(productHeader, /<EditableProductName[\s\S]*titleActivatesEdit/);
   assert.match(productNameEditor, /onBlur=\{\(\) => void commit\(\)\}/);
   assert.match(productNameEditor, /event\.key === "Enter"/);

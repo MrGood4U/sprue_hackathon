@@ -48,6 +48,10 @@ test("backend demo runtime returns the harness proposal and cross-chain output",
   assert.equal(api.responseSchema.fields[1].path, "data[].wallet");
   assert.equal(api.responseExample.meta.dataSource, "backend_demo");
   assert.equal("deployment" in api, false);
+  const dashboard = state.dashboard as Record<string, any>;
+  assert.equal("version" in dashboard.products[0], false);
+  assert.equal(dashboard.products[0].x402Status, "ready");
+  assert.equal(dashboard.products[0].x402Network, "Hedera testnet");
 
   const request = await new DemoRuntime(config).run({action: "api_request", parameters: {limit: 1}});
   assert.equal((request.result.data as readonly unknown[]).length, 1);

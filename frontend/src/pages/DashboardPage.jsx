@@ -35,6 +35,7 @@ export function DashboardPage({ navigate }) {
   const [createError, setCreateError] = useState("");
   const { dashboard, product } = state;
   const [demoProduct] = dashboard.products;
+  const x402Ready = demoProduct.x402Status === "ready";
 
   async function openNewProduct() {
     setIsCreating(true);
@@ -85,7 +86,7 @@ export function DashboardPage({ navigate }) {
 
         <div className="table" role="table" aria-label={t("dashboard.tableLabel")}>
           <div className="table-row table-head" role="row">
-            <span>{t("dashboard.column.product")}</span><span>{t("dashboard.column.source")}</span><span>{t("dashboard.column.version")}</span><span>API</span><span>{t("dashboard.column.lastRun")}</span>
+            <span>{t("dashboard.column.product")}</span><span>{t("dashboard.column.source")}</span><span>API</span><span>{t("dashboard.column.x402")}</span><span>{t("dashboard.column.lastRun")}</span>
             <span aria-label={t("dashboard.column.actions")} />
           </div>
           <div className="table-row product-row" role="row">
@@ -102,8 +103,13 @@ export function DashboardPage({ navigate }) {
               </span>
             </span>
             <span><Status>{dashboard.sponsorProof[0].name}</Status><small>{demoProduct.sourceLabel}</small></span>
-            <span><strong>{demoProduct.version}</strong><small>{t("dashboard.proposed")}</small></span>
             <span><Status tone="violet">{t("common.ready")}</Status><small>{demoProduct.apiStatus}</small></span>
+            <span>
+              <Status tone={x402Ready ? "green" : "amber"}>
+                {t(x402Ready ? "common.ready" : "common.notReady")}
+              </Status>
+              <small>{demoProduct.x402Network}</small>
+            </span>
             <span><strong>{demoProduct.lastRun}</strong><small>{demoProduct.rows} rows</small></span>
             <button
               type="button"

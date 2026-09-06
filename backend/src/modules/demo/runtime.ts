@@ -221,6 +221,7 @@ function sourceSnapshots(result: HarnessResult): readonly Record<string, unknown
 
 function buildState(config: AppConfig, result: HarnessResult, productName = DEMO_PRODUCT_NAME): DemoState {
   const output = serializeOutput(result.execution);
+  const x402Ready = true;
   const agent = {
     status: "ready_for_review" as const,
     provider: result.model.provider,
@@ -298,8 +299,9 @@ function buildState(config: AppConfig, result: HarnessResult, productName = DEMO
         name: productName,
         description: "Ethereum + Arbitrum wallet overlap",
         sourceLabel: "2 The Graph sources",
-        version: "v1",
         apiStatus: "Ready",
+        x402Status: x402Ready ? "ready" : "not_ready",
+        x402Network: "Hedera testnet",
         lastRun: "Generated from backend",
         rows: String(output.length),
       }],
@@ -358,7 +360,7 @@ function buildState(config: AppConfig, result: HarnessResult, productName = DEMO
       responseExample: serializeDataResponse(output),
     },
     monetization: {
-      published: true,
+      published: x402Ready,
       price: "0.20",
       asset: "HBAR",
       network: "hedera:testnet",

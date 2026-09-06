@@ -86,7 +86,7 @@ code, pre { font-family: var(--mono); }
 .panel-toolbar h2 { font-size: 15px; font-weight: 600; }.panel-toolbar p { color: var(--muted); font-size: 12px; margin-top: 6px; }
 .search-control { height: 36px; min-width: 220px; display: flex; align-items: center; gap: 8px; border: 1px solid var(--line-strong); border-radius: 5px; padding: 0 10px; color: var(--muted); }
 .search-control input { width: 100%; border: 0; outline: 0; background: transparent; color: var(--text); font-size: 12px; }
-.table { width: 100%; }.table-row { display: grid; grid-template-columns: 2.1fr 1.25fr .8fr 1fr 1fr 30px; align-items: center; gap: 18px; padding: 0 18px; }
+.table { width: 100%; }.table-row { display: grid; grid-template-columns: 2.1fr 1.25fr 1fr 1fr 1fr 30px; align-items: center; gap: 18px; padding: 0 18px; }
 .table-head { min-height: 40px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .04em; background: var(--color-background-panel-subtle); border-bottom: 1px solid var(--line); }
 .product-row { width: 100%; min-height: 82px; background: transparent; border: 0; border-bottom: 1px solid var(--line); text-align: left; }.product-row:hover { background: var(--color-background-row-hover); }
 .product-row > span:not(.product-cell) { display: grid; gap: 6px; font-size: 12px; }.product-row small { color: var(--muted); font-size: 10px; }
