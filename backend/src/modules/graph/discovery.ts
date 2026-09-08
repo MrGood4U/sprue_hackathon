@@ -65,6 +65,7 @@ const needSchema = z.object({
 });
 
 const requestSchema = z.object({needs: z.array(needSchema).min(1).max(4)});
+const maxInspectedFieldsPerEntity = 1_024;
 
 interface RawCandidate {
   sourceNeedId: string;
@@ -150,10 +151,15 @@ function collectFields(
   inheritedList = false,
 ): GraphInspectedField[] {
   if (depth > 2 || ancestors.has(objectName)) return [];
-  const fieldsForObject = objectFields.get(objectName) ?? [];
+  const fieldsForObject = (objectFields.get(objectName) ?? []).slice(0, maxInspectedFieldsPerEntity);
   const nextAncestors = new Set(ancestors).add(objectName);
   const fields: GraphInspectedField[] = [];
-  for (const fieldDefinition of fieldsForObject.slice(0, 256)) {
+  const relationships: FieldDefinitionNode[] = [];
+
+  // Preserve the row entity's own scalar fields before expanding relationships.
+  // Otherwise one large nested object can exhaust the inspection budget before
+  // later direct fields (for example Swap.amountUSD) are ever observed.
+  for (const fieldDefinition of fieldsForObject) {
     const path = prefix ? `${prefix}.${fieldDefinition.name.value}` : fieldDefinition.name.value;
     const target = namedType(fieldDefinition.type);
     const shape = typeShape(fieldDefinition.type);
@@ -162,11 +168,21 @@ function collectFields(
     if (leafTypes.has(target) || !objectFields.has(target)) {
       fields.push({...shape, path, nullable, list});
     } else {
-      fields.push(...collectFields(target, objectFields, leafTypes, depth + 1, path, nextAncestors, nullable, list));
+      relationships.push(fieldDefinition);
     }
-    if (fields.length >= 256) break;
+    if (fields.length >= maxInspectedFieldsPerEntity) return fields.slice(0, maxInspectedFieldsPerEntity);
   }
-  return fields.slice(0, 256);
+
+  for (const fieldDefinition of relationships) {
+    const path = prefix ? `${prefix}.${fieldDefinition.name.value}` : fieldDefinition.name.value;
+    const target = namedType(fieldDefinition.type);
+    const shape = typeShape(fieldDefinition.type);
+    const nullable = inheritedNullable || shape.nullable;
+    const list = inheritedList || shape.list;
+    fields.push(...collectFields(target, objectFields, leafTypes, depth + 1, path, nextAncestors, nullable, list));
+    if (fields.length >= maxInspectedFieldsPerEntity) break;
+  }
+  return fields.slice(0, maxInspectedFieldsPerEntity);
 }
 
 function typeCompatible(requirement: GraphFieldRequirement, field: GraphInspectedField): boolean {

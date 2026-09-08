@@ -402,6 +402,56 @@ test("Graph source discovery verifies and cross-account caches Query fields when
   await disabledCache.close();
 });
 
+test("Graph source discovery preserves direct fields before bounded relationship expansion", async () => {
+  const nestedFields = Array.from({length: 1_100}, (_, index) => `metric${index}: BigDecimal!`).join("\n");
+  const relationshipHeavySchema = `
+    scalar BigInt
+    scalar BigDecimal
+    type Pool { ${nestedFields} }
+    type Swap {
+      id: ID!
+      pool: Pool!
+      timestamp: BigInt!
+      amountUSD: BigDecimal!
+    }
+    type Query { swaps(first: Int): [Swap!]! }
+  `;
+  const graph: GraphPlanningMcpPort = {
+    async searchSubgraphsByKeyword() {
+      return {
+        subgraphs: [{subgraphId: "sg-heavy", displayName: "Uniswap Arbitrum", manifestIpfsCid: "QmHeavy"}],
+        total: 1,
+        returned: 1,
+      };
+    },
+    async getDeploymentActivity() {
+      return [{manifestIpfsCid: "QmHeavy", totalQueryCount30d: 1, dataPointsCount: 1}];
+    },
+    async getSchema() { return relationshipHeavySchema; },
+    async getTopDeploymentsForContract() { throw new Error("not expected"); },
+    async close() {},
+  };
+
+  const result = await new GraphSourceDiscoveryService(graph).discover({
+    needs: [{
+      id: "arbitrum-swaps",
+      dataNetwork: "eip155:42161",
+      networkLabel: "Arbitrum",
+      keywords: ["Uniswap"],
+      description: "Swap timestamps and USD values.",
+      grain: "swap_event",
+      fields: [swapNeedContract.fields[2], swapNeedContract.fields[3]],
+      constraints: [],
+    }],
+  });
+
+  const fields = result.candidates[0]?.entities.find((entity) => entity.queryEntity === "swaps")?.fields ?? [];
+  assert.equal(fields.length, 1_024);
+  assert.ok(fields.some((field) => field.path === "timestamp"));
+  assert.ok(fields.some((field) => field.path === "amountUSD"));
+  assert.equal(result.candidates[0]?.status, "suitable");
+});
+
 test("Graph source discovery fails closed before runtime introspection when the shared cache is unavailable", async () => {
   const entityOnlySchema = `type Swap @entity { id: ID! }`;
   let runtimeCalls = 0;

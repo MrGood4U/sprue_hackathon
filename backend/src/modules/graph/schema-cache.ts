@@ -30,7 +30,7 @@ const cachedProjection = z.object({
   entities: z.array(z.object({
     queryEntity: z.string().min(1).max(200),
     entityType: z.string().min(1).max(200),
-    fields: z.array(inspectedField).max(256),
+    fields: z.array(inspectedField).max(1_024),
   }).strict()).max(128),
 }).strict();
 
