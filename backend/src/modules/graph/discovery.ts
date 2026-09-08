@@ -344,11 +344,11 @@ export class GraphSourceDiscoveryService implements GraphSourceDiscoveryPort {
       rawByNeed.set(need.id, deduplicated);
     }
 
-    // The official Subgraph MCP flow requires 30-day activity evidence for
-    // every potentially relevant candidate before selection. The MCP activity
-    // tool accepts at most ten deployment hashes, so preserve that rule while
-    // batching the complete bounded candidate set instead of silently dropping
-    // candidates after the first ten.
+    // Collect the official Subgraph MCP 30-day activity signal for every
+    // potentially relevant candidate before selection. Activity is advisory:
+    // it orders schema inspection, but a zero or missing count does not prove
+    // that a deployment's schema is unusable. The MCP activity tool accepts at
+    // most ten deployment hashes, so batch the complete bounded candidate set.
     const uniqueManifestCids = [...new Set([...rawByNeed.values()].flat().map((candidate) => candidate.manifestIpfsCid))];
     const activity: GraphDeploymentActivity[] = [];
     for (let offset = 0; offset < uniqueManifestCids.length; offset += 10) {
@@ -404,20 +404,23 @@ export class GraphSourceDiscoveryService implements GraphSourceDiscoveryPort {
       return inspection;
     };
 
-    // Treat every source need as its own MCP discovery problem. Candidates are
-    // ranked after the mandatory activity check. Inspect every candidate in
-    // the per-need budget because no generic pre-model heuristic can prove
-    // semantic field fit for arbitrary schemas.
+    // Treat every source need as its own MCP discovery problem. Inspect the
+    // most-used candidates first, then use the deterministic semantic rank and
+    // CID only as tie-breakers. A zero or missing activity count is not a schema
+    // gate: no traffic metric can prove semantic field fit for arbitrary SDL.
     for (const need of request.needs) {
-      const ordered = (rawByNeed.get(need.id) ?? []).slice().sort((left, right) =>
-        baseRank(need, right, activityByCid.get(right.manifestIpfsCid)?.totalQueryCount30d ?? null)
-        - baseRank(need, left, activityByCid.get(left.manifestIpfsCid)?.totalQueryCount30d ?? null));
+      const ordered = (rawByNeed.get(need.id) ?? []).slice().sort((left, right) => {
+        const leftActivity = activityByCid.get(left.manifestIpfsCid)?.totalQueryCount30d ?? -1;
+        const rightActivity = activityByCid.get(right.manifestIpfsCid)?.totalQueryCount30d ?? -1;
+        return rightActivity - leftActivity
+          || baseRank(need, right, rightActivity < 0 ? null : rightActivity)
+            - baseRank(need, left, leftActivity < 0 ? null : leftActivity)
+          || left.manifestIpfsCid.localeCompare(right.manifestIpfsCid);
+      });
       let inspectedForNeed = 0;
       for (const candidate of ordered) {
         if (inspectedForNeed >= this.limits.maxSchemaInspectionsPerNeed) break;
         if (networkEvidence(need, candidate) === "conflict") continue;
-        const activityEvidence = activityByCid.get(candidate.manifestIpfsCid);
-        if (!activityEvidence || activityEvidence.totalQueryCount30d === 0) continue;
         inspectedForNeed += 1;
         await inspectCandidate(need, candidate);
       }
@@ -441,9 +444,7 @@ export class GraphSourceDiscoveryService implements GraphSourceDiscoveryPort {
         if (!inspection) {
           const skipReason = networkEvidence(need, raw) === "conflict"
             ? "Schema was not inspected because returned network evidence conflicts with this source need."
-            : !activityEvidence || activityEvidence.totalQueryCount30d === 0
-              ? "Schema was not inspected because mandatory 30-day activity evidence was absent or zero."
-              : "Schema was not inspected because this source need's bounded inspection budget was exhausted.";
+            : "Schema was not inspected because this source need's bounded inspection budget was exhausted.";
           limitations.unshift(skipReason);
         } else if (inspection.error) {
           limitations.unshift(inspection.error);
@@ -456,7 +457,7 @@ export class GraphSourceDiscoveryService implements GraphSourceDiscoveryPort {
 
         const status = evidence === "conflict"
           ? "incompatible"
-          : (!schemaInspected || entities.length === 0 || evidence === "unknown" || !activityEvidence || activityEvidence.totalQueryCount30d === 0)
+          : (!schemaInspected || entities.length === 0 || evidence === "unknown" || !activityEvidence)
             ? "needs_verification"
             : "suitable";
         const bestMatchedRequirements = entities[0]?.matchedRequirements.length ?? 0;

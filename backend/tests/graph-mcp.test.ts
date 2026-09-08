@@ -235,6 +235,58 @@ test("Graph source discovery keeps uninspected candidates verifiable instead of 
   assert.match(uninspected?.limitations.join(" ") ?? "", /Schema was not inspected/);
 });
 
+test("Graph source discovery orders schema inspection by activity without rejecting zero-query candidates", async () => {
+  const schemaCalls: string[] = [];
+  const graph: GraphPlanningMcpPort = {
+    async searchSubgraphsByKeyword() {
+      return {
+        subgraphs: [
+          {subgraphId: "sg-zero", displayName: "Protocol Ethereum Zero", manifestIpfsCid: "QmZero"},
+          {subgraphId: "sg-missing", displayName: "Protocol Ethereum Missing", manifestIpfsCid: "QmMissing"},
+          {subgraphId: "sg-popular", displayName: "Protocol Ethereum Popular", manifestIpfsCid: "QmPopular"},
+        ],
+        total: 3,
+        returned: 3,
+      };
+    },
+    async getDeploymentActivity() {
+      return [
+        {manifestIpfsCid: "QmZero", totalQueryCount30d: 0, dataPointsCount: 0},
+        {manifestIpfsCid: "QmPopular", totalQueryCount30d: 500, dataPointsCount: 30},
+      ];
+    },
+    async getSchema(reference) {
+      schemaCalls.push(reference.id);
+      return schema;
+    },
+    async getTopDeploymentsForContract() {
+      throw new Error("not expected");
+    },
+    async close() {},
+  };
+
+  const result = await new GraphSourceDiscoveryService(graph).discover({
+    needs: [{
+      id: "ethereum-swaps",
+      dataNetwork: "eip155:1",
+      networkLabel: "Ethereum Mainnet",
+      keywords: ["Protocol"],
+      ...swapNeedContract,
+    }],
+  });
+
+  assert.deepEqual(schemaCalls, ["QmPopular", "QmZero", "QmMissing"]);
+  assert.equal(result.inspectedSchemas, 3);
+  const zero = result.candidates.find((candidate) => candidate.manifestIpfsCid === "QmZero");
+  const missing = result.candidates.find((candidate) => candidate.manifestIpfsCid === "QmMissing");
+  assert.equal(zero?.status, "suitable");
+  assert.ok((zero?.entities.length ?? 0) > 0);
+  assert.match(zero?.limitations.join(" ") ?? "", /zero observed queries/);
+  assert.equal(missing?.status, "needs_verification");
+  assert.ok((missing?.entities.length ?? 0) > 0);
+  assert.match(missing?.limitations.join(" ") ?? "", /activity evidence is missing/);
+});
+
 test("Graph source discovery does not treat another chain's mainnet label as Ethereum evidence", async () => {
   const graph: GraphPlanningMcpPort = {
     async searchSubgraphsByKeyword() {
