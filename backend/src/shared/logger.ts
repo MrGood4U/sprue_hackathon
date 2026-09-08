@@ -42,6 +42,11 @@ export type LogEvent =
       durationMs: number;
     }
   | {
+      event: "agent_trace_append_failed";
+      stage: string;
+      sequenceNo: number;
+    }
+  | {
       event: "agent_debug";
       stage: "source_discovery_planning" | "graph_source_discovery" | "source_feasibility";
       networks?: readonly string[];

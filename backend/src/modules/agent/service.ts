@@ -22,7 +22,7 @@ import {
 import {AgentHarness} from "./harness/controller.js";
 import {createAgentModel} from "./harness/factory.js";
 import {AgentModelRequestError} from "./harness/remote-model.js";
-import type {AgentDebugSink, HarnessExplorationResult, HarnessTraceEvent} from "./harness/types.js";
+import type {AgentDebugSink, AgentTraceSink, HarnessExplorationResult, HarnessTraceEvent} from "./harness/types.js";
 
 export const agentNetworkCatalog = [
   {dataNetwork: "eip155:1", label: "Ethereum Mainnet"},
@@ -30,7 +30,7 @@ export const agentNetworkCatalog = [
   {dataNetwork: "eip155:8453", label: "Base Mainnet"},
 ] as const;
 
-const productionPlannerFactory: AgentPlannerFactory = ({modelConfig, graphApiKey, graphGatewayEnvironment, graphSchemaCache, debugSink}) => {
+const productionPlannerFactory: AgentPlannerFactory = ({modelConfig, graphApiKey, graphGatewayEnvironment, graphSchemaCache, debugSink, traceSink}) => {
   const wire = new SdkGraphMcpPlanningWire({
     gatewayApiKey: graphApiKey,
     gatewayEnvironment: graphGatewayEnvironment,
@@ -44,7 +44,7 @@ const productionPlannerFactory: AgentPlannerFactory = ({modelConfig, graphApiKey
     debugSink,
   );
   return {
-    explore: (input) => harness.explore(input),
+    explore: (input) => harness.explore(input, undefined, traceSink),
     close: () => wire.close(),
   };
 };
@@ -314,6 +314,26 @@ export class AgentService {
     } catch { throw new AgentStorageError(); }
   }
 
+  async listActiveTrace(workspaceId: string, sessionId: string, afterSequence: number, limit: number) {
+    try {
+      const result = await this.repository.listActivePlanningTrace(
+        workspaceId,
+        sessionId,
+        afterSequence,
+        limit,
+      );
+      if (!result) throw new AgentNotFoundError();
+      const final = result.items.at(-1);
+      return {
+        ...result,
+        nextAfterSequence: String(final?.sequenceNo ?? afterSequence),
+      };
+    } catch (error) {
+      if (error instanceof AgentNotFoundError) throw error;
+      throw new AgentStorageError();
+    }
+  }
+
   async submitMessage(input: {
     workspaceId: string;
     sessionId: string;
@@ -377,6 +397,25 @@ export class AgentService {
 
     let planner: ReturnType<AgentPlannerFactory> | undefined;
     const planningStartedAt = Date.now();
+    const liveTrace: HarnessTraceEvent[] = [];
+    let traceWrites = Promise.resolve();
+    const traceSink: AgentTraceSink = (event) => {
+      liveTrace.push(event);
+      traceWrites = traceWrites
+        .then(() => this.repository.appendPlanningTrace(
+          input.workspaceId,
+          input.sessionId,
+          started.commandId,
+          event,
+        ))
+        .catch(() => {
+          this.logger?.write({
+            event: "agent_trace_append_failed",
+            stage: event.stage,
+            sequenceNo: event.sequenceNo,
+          });
+        });
+    };
     try {
       const modelConfig = await this.modelProfiles.resolve(input.workspaceId);
       if (!modelConfig) throw Object.assign(new Error("Model profile required"), {code: "MODEL_PROFILE_REQUIRED"});
@@ -394,8 +433,10 @@ export class AgentService {
         graphGatewayEnvironment: this.graphGatewayEnvironment,
         graphSchemaCache: this.graphSchemaCache,
         debugSink,
+        traceSink,
       });
       const result = await planner.explore({intent: text, availableNetworks: agentNetworkCatalog});
+      await traceWrites;
       const completion = successfulCompletion(
         result,
         started.traceStreamId,
@@ -422,12 +463,17 @@ export class AgentService {
         providerParam: modelError?.providerParam ?? null,
         durationMs,
       });
-      const trace: HarnessTraceEvent[] = [{
-        sequenceNo: 1,
-        stage: "admit",
-        status: "failed",
-        summary: safe.message,
-      }];
+      const lastEvent = liveTrace.at(-1);
+      if (lastEvent?.status !== "failed" || lastEvent.summary !== safe.message) {
+        traceSink({
+          sequenceNo: liveTrace.length + 1,
+          stage: lastEvent?.status === "started" ? lastEvent.stage : lastEvent?.stage ?? "admit",
+          status: "failed",
+          summary: safe.message,
+        });
+      }
+      await traceWrites;
+      const trace = liveTrace;
       try {
         return await this.repository.completePlanning(
           input.workspaceId,

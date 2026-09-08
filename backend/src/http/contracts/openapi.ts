@@ -28,6 +28,7 @@ import {
   agentCommandSchema,
   agentMessageListSchema,
   agentMessageSchema,
+  agentPlanningTraceSchema,
   agentSessionSchema,
   createSessionInputSchema,
   messageInputSchema,
@@ -65,7 +66,7 @@ export function openApiDocument() {
         required: false,
         schema: {type: "string", format: "uuid"},
       });
-    if (route.implementation === "agent-messages-list")
+    if (["agent-messages-list", "agent-trace-events-list"].includes(route.implementation))
       parameters.push(
         {name: "afterSequence", in: "query", required: false, schema: {type: "integer", minimum: 0, default: 0}},
         {name: "limit", in: "query", required: false, schema: {type: "integer", minimum: 1, maximum: 100, default: 50}},
@@ -115,6 +116,8 @@ export function openApiDocument() {
                         ? "AgentSessionList"
                         : route.implementation === "agent-messages-list"
                           ? "AgentMessageList"
+                          : route.implementation === "agent-trace-events-list"
+                            ? "AgentPlanningTrace"
                           : route.implementation === "agent-messages-submit"
                             ? "AgentCommand"
         : ["me", "bootstrap"].includes(route.implementation)
@@ -286,6 +289,7 @@ export function openApiDocument() {
         AgentSessionList: z.toJSONSchema(z.array(agentSessionSchema)),
         AgentMessage: z.toJSONSchema(agentMessageSchema),
         AgentMessageList: z.toJSONSchema(agentMessageListSchema),
+        AgentPlanningTrace: z.toJSONSchema(agentPlanningTraceSchema),
         AgentCommand: z.toJSONSchema(agentCommandSchema),
         CreateAgentSessionInput: z.toJSONSchema(createSessionInputSchema),
         AgentMessageInput: z.toJSONSchema(messageInputSchema),

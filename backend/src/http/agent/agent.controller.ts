@@ -54,6 +54,10 @@ const listMessagesQuerySchema = z.strictObject({
   afterSequence: z.coerce.number().int().nonnegative().default(0),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });
+const listTraceEventsQuerySchema = z.strictObject({
+  afterSequence: z.coerce.number().int().nonnegative().default(0),
+  limit: z.coerce.number().int().min(1).max(100).default(100),
+});
 const sourceAccessSelectionSchema = z.strictObject({
   sourceKey: z.string().trim().min(1).max(200),
   mode: z.enum(["customer_api_key", "x402"]),
@@ -157,6 +161,38 @@ export const agentMessageListSchema = z.strictObject({
   nextAfterSequence: atomicSchema,
   hasMore: z.boolean(),
 });
+
+export const agentTraceEventSchema = z.strictObject({
+  sequenceNo: z.number().int().positive(),
+  stage: z.string().min(1).max(80),
+  status: z.enum(["started", "passed", "failed"]),
+  summary: z.string().min(1).max(2000),
+  createdAt: z.iso.datetime(),
+});
+
+export const agentPlanningTraceSchema = z.strictObject({
+  traceStreamId: z.uuid().nullable(),
+  streamStatus: z.literal("open").nullable(),
+  items: z.array(agentTraceEventSchema),
+  nextAfterSequence: atomicSchema,
+  hasMore: z.boolean(),
+});
+
+export function listAgentTraceEvents(service?: AgentService): RequestHandler {
+  return async (req, res) => {
+    const parsed = listTraceEventsQuerySchema.safeParse(req.query);
+    if (!parsed.success) throw new AppError("INVALID_REQUEST");
+    try {
+      const data = agentPlanningTraceSchema.parse(await requireService(service).listActiveTrace(
+        workspaceId(req),
+        String(req.params.sessionId),
+        parsed.data.afterSequence,
+        parsed.data.limit,
+      ));
+      res.json({data, meta: meta(res.locals.requestId)});
+    } catch (error) { mapAgentError(error); }
+  };
+}
 
 export function submitAgentMessage(service?: AgentService): RequestHandler {
   return async (req, res) => {

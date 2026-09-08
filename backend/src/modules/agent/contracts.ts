@@ -1,4 +1,4 @@
-import type {AgentDebugSink, HarnessExplorationResult, HarnessTraceEvent} from "./harness/types.js";
+import type {AgentDebugSink, AgentTraceSink, HarnessExplorationResult, HarnessTraceEvent} from "./harness/types.js";
 
 export type AgentSessionStatus = "active" | "completed" | "abandoned";
 export type AgentCommandStatus =
@@ -129,6 +129,17 @@ export interface AgentPlanningCompletion {
   errorCode: string | null;
 }
 
+export interface AgentTraceEventView extends HarnessTraceEvent {
+  createdAt: string;
+}
+
+export interface AgentPlanningTraceView {
+  traceStreamId: string | null;
+  streamStatus: "open" | null;
+  items: readonly AgentTraceEventView[];
+  hasMore: boolean;
+}
+
 export interface AgentRepository {
   createSession(input: {
     id: string;
@@ -167,6 +178,18 @@ export interface AgentRepository {
     | {kind: "started" | "replayed"; planning: AgentPlanningStart}
     | {kind: "not_found" | "in_progress" | "command_conflict"}
   >;
+  appendPlanningTrace(
+    workspaceId: string,
+    sessionId: string,
+    commandId: string,
+    event: HarnessTraceEvent,
+  ): Promise<void>;
+  listActivePlanningTrace(
+    workspaceId: string,
+    sessionId: string,
+    afterSequence: number,
+    limit: number,
+  ): Promise<AgentPlanningTraceView | null>;
   completePlanning(
     workspaceId: string,
     sessionId: string,
@@ -188,6 +211,7 @@ export type AgentPlannerFactory = (input: {
   graphGatewayEnvironment: "mainnet";
   graphSchemaCache: import("../graph/types.js").GraphSchemaCachePort;
   debugSink?: AgentDebugSink;
+  traceSink?: AgentTraceSink;
 }) => AgentPlanner;
 
 export class AgentInputError extends Error {

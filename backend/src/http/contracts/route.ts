@@ -33,6 +33,7 @@ export interface RouteDefinition {
     | "agent-sessions-list"
     | "agent-sessions-read"
     | "agent-messages-list"
+    | "agent-trace-events-list"
     | "agent-messages-submit";
   idempotency: boolean;
   ifMatch: boolean;

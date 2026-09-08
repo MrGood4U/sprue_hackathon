@@ -39,6 +39,7 @@ import {
   createAgentSession,
   listAgentMessages,
   listAgentSessions,
+  listAgentTraceEvents,
   readAgentSession,
   submitAgentMessage,
 } from "./agent/agent.controller.js";
@@ -153,6 +154,8 @@ export function registerRoutes(app: Express, deps: RouteDependencies) {
                                                 ? readAgentSession(deps.agents)
                                                 : route.implementation === "agent-messages-list"
                                                   ? listAgentMessages(deps.agents)
+                                                  : route.implementation === "agent-trace-events-list"
+                                                    ? listAgentTraceEvents(deps.agents)
                                                   : route.implementation === "agent-messages-submit"
                                                     ? submitAgentMessage(deps.agents)
               : () => {

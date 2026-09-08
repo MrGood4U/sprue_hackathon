@@ -101,6 +101,15 @@ export const builderRoutes: readonly RouteDefinition[] = [
     ifMatch: false,
   },
   {
+    method: "GET",
+    path: "/api/v1/workspaces/{workspaceId}/agent-sessions/{sessionId}/trace-events",
+    operationId: "getApiV1WorkspacesWorkspaceIdAgentSessionsSessionIdTraceEvents",
+    audience: "creator",
+    implementation: "agent-trace-events-list",
+    idempotency: false,
+    ifMatch: false,
+  },
+  {
     method: "POST",
     path: "/api/v1/workspaces/{workspaceId}/agent-sessions/{sessionId}/messages",
     operationId: "postApiV1WorkspacesWorkspaceIdAgentSessionsSessionIdMessages",

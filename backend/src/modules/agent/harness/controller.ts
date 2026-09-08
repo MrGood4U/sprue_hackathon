@@ -40,6 +40,7 @@ import type {
   AgentModelResponse,
   AgentDebugEvent,
   AgentDebugSink,
+  AgentTraceSink,
   HarnessExplorationRequest,
   HarnessExplorationResult,
   HarnessPlanResult,
@@ -398,13 +399,29 @@ export class AgentHarness {
     return this.sourceDiscovery.discover(request, signal);
   }
 
-  async explore(request: HarnessExplorationRequest, signal?: AbortSignal): Promise<HarnessExplorationResult> {
+  async explore(
+    request: HarnessExplorationRequest,
+    signal?: AbortSignal,
+    traceSink?: AgentTraceSink,
+  ): Promise<HarnessExplorationResult> {
     if (!this.sourceDiscovery) {
       fail("Graph source discovery is not configured", "GRAPH_SOURCE_DISCOVERY_UNAVAILABLE");
     }
     const trace: HarnessTraceEvent[] = [];
+    const emitTrace = (
+      stage: HarnessTraceEvent["stage"],
+      status: HarnessTraceEvent["status"],
+      summary: string,
+    ) => {
+      addTrace(trace, stage, status, summary);
+      try {
+        traceSink?.(trace.at(-1)!);
+      } catch {
+        // User-visible progress persistence must not change planning behavior.
+      }
+    };
     const intent = validateExplorationRequest(request, this.limits);
-    addTrace(trace, "admit", "passed", "Intent and network catalog accepted within harness limits");
+    emitTrace("admit", "passed", "Intent and network catalog accepted within harness limits");
 
     let modelCalls = 0;
     let modelIdentity: {provider: AgentModelResponse["provider"]; model: string} | undefined;
@@ -430,8 +447,8 @@ export class AgentHarness {
         return parser(response.output);
       } catch (error) {
         if (!(error instanceof HarnessSchemaError) || modelCalls >= this.limits.maxModelCalls) throw error;
-        addTrace(trace, modelRequest.stage, "failed", "Model output did not match the strict planning-stage contract");
-        addTrace(trace, modelRequest.stage, "started", "Requesting one bounded schema repair from the configured model");
+        emitTrace(modelRequest.stage, "failed", "Model output did not match the strict planning-stage contract");
+        emitTrace(modelRequest.stage, "started", "Requesting one bounded schema repair from the configured model");
         const repaired = await invoke({
           ...modelRequest,
           repair: {
@@ -445,7 +462,7 @@ export class AgentHarness {
       }
     };
 
-    addTrace(trace, "source_discovery_planning", "started", "Model is deriving bounded semantic requirements and Subgraph search keywords");
+    emitTrace("source_discovery_planning", "started", "Model is deriving bounded semantic requirements and Subgraph search keywords");
     const discoveryPlanningRequest: SourceDiscoveryPlanningModelRequest = {
       stage: "source_discovery_planning",
       promptVersion: "3",
@@ -460,15 +477,15 @@ export class AgentHarness {
       parseSourceDiscoveryPlanning,
     );
     if (discoveryPlanningOutput.kind === "clarification") {
-      addTrace(trace, "source_discovery_planning", "passed", "Search planning requires creator clarification");
+      emitTrace("source_discovery_planning", "passed", "Search planning requires creator clarification");
       return {kind: "clarification", clarification: discoveryPlanningOutput, trace, model: modelResult()};
     }
     if (discoveryPlanningOutput.kind === "unsupported") {
-      addTrace(trace, "source_discovery_planning", "passed", "Intent is outside the registered operators or supplied network catalog");
+      emitTrace("source_discovery_planning", "passed", "Intent is outside the registered operators or supplied network catalog");
       return {kind: "unsupported", unsupported: discoveryPlanningOutput, trace, model: modelResult()};
     }
     validateSourceDiscoveryPlan(discoveryPlanningOutput, request.availableNetworks, 3);
-    addTrace(trace, "source_discovery_planning", "passed", "Search keywords and semantic requirements passed strict validation");
+    emitTrace("source_discovery_planning", "passed", "Search keywords and semantic requirements passed strict validation");
     this.emitDebug({
       stage: "source_discovery_planning",
       networks: [...new Set(discoveryPlanningOutput.semanticPlan.sourceRequirements.map((need) => need.dataNetwork))],
@@ -476,10 +493,10 @@ export class AgentHarness {
     });
 
     const sourceNeeds = deriveDiscoverySourceNeeds(discoveryPlanningOutput.semanticPlan);
-    addTrace(trace, "source_needs", "passed", `Derived ${sourceNeeds.length} compiler-owned source needs`);
+    emitTrace("source_needs", "passed", `Derived ${sourceNeeds.length} compiler-owned source needs`);
     const labels = new Map(request.availableNetworks.map((network) => [network.dataNetwork, network.label]));
     const searches = new Map(discoveryPlanningOutput.searches.map((search) => [search.sourceNeedId, search.keywords]));
-    addTrace(trace, "graph_source_discovery", "started", "Controller is invoking the restricted Graph metadata adapter with validated keywords");
+    emitTrace("graph_source_discovery", "started", "Controller is invoking the restricted Graph metadata adapter with validated keywords");
     const discovery = await this.sourceDiscovery.discover({
       needs: sourceNeeds.map((need) => ({
         id: need.id,
@@ -492,7 +509,7 @@ export class AgentHarness {
         constraints: need.constraints,
       })),
     }, signal);
-    addTrace(trace, "graph_source_discovery", "passed", `Discovered ${discovery.candidates.length} candidates and inspected ${discovery.inspectedSchemas} schemas`);
+    emitTrace("graph_source_discovery", "passed", `Discovered ${discovery.candidates.length} candidates and inspected ${discovery.inspectedSchemas} schemas`);
     this.emitDebug({
       stage: "graph_source_discovery",
       searchCalls: discovery.searchCalls,
@@ -501,7 +518,7 @@ export class AgentHarness {
       candidates: discovery.candidates,
     });
 
-    addTrace(trace, "source_feasibility", "started", "Model is assessing inspected candidates and a bounded operator composition");
+    emitTrace("source_feasibility", "started", "Model is assessing inspected candidates and a bounded operator composition");
     const sourceRoles = sourceNeeds.map((need) => ({
       role: sourceRole(need.id),
       sourceNeedId: need.id,
@@ -534,8 +551,8 @@ export class AgentHarness {
         if (modelCalls >= this.limits.maxModelCalls) {
           fail("Model unsupported claim conflicts with inspected source evidence", "FEASIBILITY_UNSUPPORTED_EVIDENCE_CONFLICT");
         }
-        addTrace(trace, "source_feasibility", "failed", "Model unsupported claim conflicted with inspected source evidence");
-        addTrace(trace, "source_feasibility", "started", "Requesting one bounded feasibility repair with inspected counter-evidence");
+        emitTrace("source_feasibility", "failed", "Model unsupported claim conflicted with inspected source evidence");
+        emitTrace("source_feasibility", "started", "Requesting one bounded feasibility repair with inspected counter-evidence");
         this.emitDebug({stage: "source_feasibility", outcome: "repair", contradictionCount: counterEvidence.length});
         const repaired = await invoke({
           ...feasibilityRequest,
@@ -556,16 +573,16 @@ export class AgentHarness {
     }
     if (feasibilityOutput.kind === "clarification") {
       this.emitDebug({stage: "source_feasibility", outcome: "clarification"});
-      addTrace(trace, "source_feasibility", "passed", "Candidate evidence requires creator clarification");
+      emitTrace("source_feasibility", "passed", "Candidate evidence requires creator clarification");
       return {kind: "clarification", clarification: feasibilityOutput, trace, model: modelResult()};
     }
     if (feasibilityOutput.kind === "unsupported") {
       this.emitDebug({stage: "source_feasibility", outcome: "unsupported", code: feasibilityOutput.code});
-      addTrace(trace, "source_feasibility", "passed", "No supported source and operator composition satisfies the request");
+      emitTrace("source_feasibility", "passed", "No supported source and operator composition satisfies the request");
       return {kind: "unsupported", unsupported: feasibilityOutput, discovery, trace, model: modelResult()};
     }
     this.emitDebug({stage: "source_feasibility", outcome: "feasibility", selectionCount: feasibilityOutput.selections.length});
-    addTrace(trace, "source_feasibility", "passed", "Model proposed discovered source choices and a registered operator composition");
+    emitTrace("source_feasibility", "passed", "Model proposed discovered source choices and a registered operator composition");
 
     let blockers: readonly string[];
     try {
@@ -581,7 +598,7 @@ export class AgentHarness {
       if (error instanceof HarnessCompileError) throw new HarnessValidationError(error.message, error.code);
       throw error;
     }
-    addTrace(trace, "feasibility_validation", "passed", "Source references, schema evidence, operator configs, ports, connectivity, acyclicity, and limits passed deterministic checks");
+    emitTrace("feasibility_validation", "passed", "Source references, schema evidence, operator configs, ports, connectivity, acyclicity, and limits passed deterministic checks");
     return {
       kind: "feasibility",
       readyForCompilation: false,

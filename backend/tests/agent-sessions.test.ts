@@ -58,9 +58,14 @@ test("Agent sessions persist real planner input, evidence summary, trace, and re
     await migrate(clientFor(db), await readMigrations());
     const ids = await fixture(db);
     let planningCalls = 0;
-    const plannerFactory: AgentPlannerFactory = () => ({
+    let releasePlanning!: () => void;
+    const planningGate = new Promise<void>((resolve) => { releasePlanning = resolve; });
+    const plannerFactory: AgentPlannerFactory = (factoryInput) => ({
       async explore() {
         planningCalls += 1;
+        factoryInput.traceSink?.({sequenceNo: 1, stage: "admit", status: "passed", summary: "Intent admitted"});
+        await planningGate;
+        factoryInput.traceSink?.({sequenceNo: 2, stage: "graph_source_discovery", status: "passed", summary: "Sources inspected"});
         return {
           kind: "feasibility",
           readyForCompilation: false,
@@ -156,7 +161,18 @@ test("Agent sessions persist real planner input, evidence summary, trace, and re
       contentText: "Find wallets active on Ethereum and Arbitrum.",
       idempotencyKey: "submit-agent-message-0001",
     };
-    const completed = await service.submitMessage(request);
+    const pendingCompletion = service.submitMessage(request);
+    let activeTrace = await service.listActiveTrace(ids.workspaceId, session.id, 0, 100);
+    for (let attempt = 0; activeTrace.items.length === 0 && attempt < 20; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      activeTrace = await service.listActiveTrace(ids.workspaceId, session.id, 0, 100);
+    }
+    assert.equal(activeTrace.streamStatus, "open");
+    assert.equal(activeTrace.items.length, 1);
+    assert.equal(activeTrace.items[0]?.summary, "Intent admitted");
+    assert.equal(activeTrace.nextAfterSequence, "1");
+    releasePlanning();
+    const completed = await pendingCompletion;
     assert.equal(completed.status, "succeeded");
     const replayed = await service.submitMessage(request);
     assert.equal(replayed.commandId, completed.commandId);
@@ -181,6 +197,9 @@ test("Agent sessions persist real planner input, evidence summary, trace, and re
     }
     const traceCount = await db.query<{count: number}>("SELECT count(*)::int AS count FROM trace_events");
     assert.equal(traceCount.rows[0]?.count, 2);
+    const closedTrace = await service.listActiveTrace(ids.workspaceId, session.id, 0, 100);
+    assert.equal(closedTrace.traceStreamId, null);
+    assert.deepEqual(closedTrace.items, []);
     const streamCount = await db.query<{count: number}>("SELECT count(*)::int AS count FROM trace_streams");
     assert.equal(streamCount.rows[0]?.count, 1);
   } finally {

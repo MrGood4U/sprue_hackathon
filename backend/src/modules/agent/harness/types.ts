@@ -482,6 +482,9 @@ export interface HarnessTraceEvent {
   summary: string;
 }
 
+/** Sanitized, user-visible progress emitted as each harness stage changes. */
+export type AgentTraceSink = (event: HarnessTraceEvent) => void;
+
 interface HarnessPlanBase {
   trace: readonly HarnessTraceEvent[];
   model: {provider: AgentModelResponse["provider"]; model: string; calls: number};

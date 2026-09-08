@@ -2,6 +2,7 @@ import type {SqlClient} from "../../db/migrations.js";
 import type {
   AgentCommandView,
   AgentMessageView,
+  AgentPlanningTraceView,
   AgentRepository,
   AgentSessionView,
 } from "./contracts.js";
@@ -75,6 +76,16 @@ function command(row: Record<string, unknown>, sessionId: string): AgentCommandV
     subject: {type: "agent_session", id: sessionId},
     traceStreamId: String(row.trace_stream_id),
     pollAfterMs: 0,
+  };
+}
+
+function traceEvent(row: Record<string, unknown>): AgentPlanningTraceView["items"][number] {
+  return {
+    sequenceNo: Number(row.sequence_no),
+    stage: String(row.stage) as AgentPlanningTraceView["items"][number]["stage"],
+    status: String(row.status) === "succeeded" ? "passed" : String(row.status) as "started" | "failed",
+    summary: String(row.summary),
+    createdAt: timestamp(row.created_at)!,
   };
 }
 
@@ -298,6 +309,74 @@ export function postgresAgentRepository(client: Pick<SqlClient, "query">): Agent
       return current.activeCommandId ? {kind: "in_progress"} : {kind: "command_conflict"};
     },
 
+    async appendPlanningTrace(workspaceId, sessionId, commandId, event) {
+      const result = await client.query(
+        `INSERT INTO trace_events (
+          trace_stream_id,sequence_no,stage,event_type,status,summary,details_json
+        )
+        SELECT c.trace_stream_id,$4,$5,$6,$7,$8,NULL
+        FROM control_commands c
+        JOIN planning_checkpoints pc ON pc.control_command_id=c.id
+        JOIN agent_sessions s ON s.id=pc.agent_session_id
+        JOIN trace_streams ts ON ts.id=c.trace_stream_id
+        WHERE c.workspace_id=$1 AND s.id=$2 AND c.id=$3
+          AND c.status='running' AND ts.status='open'
+        ON CONFLICT (trace_stream_id,sequence_no) DO NOTHING
+        RETURNING id`,
+        [
+          workspaceId,
+          sessionId,
+          commandId,
+          event.sequenceNo,
+          event.stage,
+          event.status === "started" ? "stage_started" : event.status === "failed" ? "stage_failed" : "stage_completed",
+          event.status === "passed" ? "succeeded" : event.status,
+          event.summary,
+        ],
+      );
+      if (!result.rows[0]) {
+        const existing = await client.query(
+          `SELECT 1 FROM trace_events te
+           JOIN control_commands c ON c.trace_stream_id=te.trace_stream_id
+           JOIN planning_checkpoints pc ON pc.control_command_id=c.id
+           JOIN agent_sessions s ON s.id=pc.agent_session_id
+           WHERE c.workspace_id=$1 AND s.id=$2 AND c.id=$3 AND te.sequence_no=$4`,
+          [workspaceId, sessionId, commandId, event.sequenceNo],
+        );
+        if (!existing.rows[0]) throw new Error("AGENT_TRACE_APPEND_FAILED");
+      }
+    },
+
+    async listActivePlanningTrace(workspaceId, sessionId, afterSequence, limit) {
+      if (!await findSession(client, workspaceId, sessionId)) {
+        return null;
+      }
+      const stream = await client.query(
+        `SELECT id,status FROM trace_streams
+         WHERE workspace_id=$1 AND agent_session_id=$2
+           AND stream_kind='planning' AND status='open'
+         ORDER BY created_at DESC,id DESC LIMIT 1`,
+        [workspaceId, sessionId],
+      );
+      if (!stream.rows[0]) {
+        return {traceStreamId: null, streamStatus: null, items: [], hasMore: false};
+      }
+      const traceStreamId = String(stream.rows[0].id);
+      const events = await client.query(
+        `SELECT sequence_no,stage,status,summary,created_at
+         FROM trace_events
+         WHERE trace_stream_id=$1 AND sequence_no>$2
+         ORDER BY sequence_no,id LIMIT $3`,
+        [traceStreamId, afterSequence, limit + 1],
+      );
+      return {
+        traceStreamId,
+        streamStatus: "open",
+        items: events.rows.slice(0, limit).map(traceEvent),
+        hasMore: events.rows.length > limit,
+      };
+    },
+
     async completePlanning(workspaceId, sessionId, commandId, assistantMessageId, contentHash, completion) {
       const events = completion.trace.map((event) => ({
         sequence_no: event.sequenceNo,
@@ -332,6 +411,7 @@ export function postgresAgentRepository(client: Pick<SqlClient, "query">): Agent
           FROM target,jsonb_to_recordset($10::jsonb) AS event(
             sequence_no integer,stage text,event_type text,status text,summary text
           )
+          ON CONFLICT (trace_stream_id,sequence_no) DO NOTHING
           RETURNING id
         ), updated_checkpoint AS (
           UPDATE planning_checkpoints SET phase='P7',revision_no=revision_no+1,updated_at=now()
