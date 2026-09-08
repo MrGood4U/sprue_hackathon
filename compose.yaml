@@ -10,6 +10,7 @@ x-backend-environment: &backend-environment
   WORKER_PORT: 3002
   DATABASE_URL: postgresql://sprue:${POSTGRES_PASSWORD:?Initialize .env.local first}@postgres:5432/sprue
   DATABASE_SSL_MODE: disable
+  REDIS_URL: redis://redis:6379
   API_BASE_URL: http://127.0.0.1:${API_PORT:-3001}
   CONSOLE_PUBLIC_URL: http://127.0.0.1:${FRONTEND_PORT:-4173}
   DATA_PUBLIC_BASE_URL: http://127.0.0.1:${API_PORT:-3001}/data/v1
@@ -38,6 +39,18 @@ services:
       interval: 3s
       timeout: 3s
       retries: 30
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-16379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
   api:
     image: sprue-backend:local
     build: ./backend
@@ -55,6 +68,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 5s
@@ -66,6 +81,8 @@ services:
     environment: *backend-environment
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3002/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
@@ -103,3 +120,4 @@ services:
         condition: service_healthy
 volumes:
   postgres-data:
+  redis-data:

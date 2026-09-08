@@ -22,6 +22,7 @@ const config = parseConfig({
   DEPLOYMENT_ENVIRONMENT: "local",
   HOST: "127.0.0.1",
   DATABASE_URL: `postgresql://sprue:${local.POSTGRES_PASSWORD}@127.0.0.1:${local.POSTGRES_PORT}/sprue`,
+  REDIS_URL: `redis://127.0.0.1:${local.REDIS_PORT ?? "16379"}`,
   DATABASE_SSL_MODE: "disable",
   API_BASE_URL: "http://127.0.0.1:3001",
   CONSOLE_PUBLIC_URL: "http://127.0.0.1:4173",

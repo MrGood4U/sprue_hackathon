@@ -20,6 +20,7 @@ const schema = z.object({
   WORKER_PORT: integer(3002),
   DATABASE_URL: z.string().min(1),
   DATABASE_SSL_MODE: z.enum(["disable", "verify-full"]).optional(),
+  REDIS_URL: z.string().min(1).max(4096),
   API_BASE_URL: z.url(),
   CONSOLE_PUBLIC_URL: z.url(),
   DATA_PUBLIC_BASE_URL: z.url(),
@@ -138,6 +139,16 @@ export function parseConfig(environment: NodeJS.ProcessEnv) {
   } catch {
     throw new ConfigError(["DATABASE_URL", "DATABASE_SSL_MODE"]);
   }
+  let redisUrl: string;
+  try {
+    const parsedRedisUrl = new URL(values.REDIS_URL);
+    if (!["redis:", "rediss:"].includes(parsedRedisUrl.protocol) || !parsedRedisUrl.hostname || parsedRedisUrl.hash) {
+      throw new Error("invalid Redis URL");
+    }
+    redisUrl = parsedRedisUrl.href;
+  } catch {
+    throw new ConfigError(["REDIS_URL"]);
+  }
   const consolePublicUrl = publicUrl(
     "CONSOLE_PUBLIC_URL",
     values.CONSOLE_PUBLIC_URL,
@@ -186,6 +197,7 @@ export function parseConfig(environment: NodeJS.ProcessEnv) {
     port: values.PORT,
     workerPort: values.WORKER_PORT,
     database,
+    redis: {url: redisUrl},
     apiBaseUrl: publicUrl("API_BASE_URL", values.API_BASE_URL),
     consolePublicUrl,
     dataPublicBaseUrl: publicUrl(

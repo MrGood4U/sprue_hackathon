@@ -14,6 +14,9 @@ import type {
   GraphFieldRequirement,
   GraphInspectedField,
   GraphPlanningMcpPort,
+  GraphRuntimeQueryField,
+  GraphRuntimeSchemaPort,
+  GraphSchemaCachePort,
   GraphSchemaEntityInspection,
   GraphSemanticValueType,
   GraphSourceDiscoveryPort,
@@ -21,6 +24,7 @@ import type {
   GraphSourceDiscoveryResult,
   GraphSourceDiscoveryNeed,
 } from "./types.js";
+import {MemoryGraphSchemaCache} from "./schema-cache.js";
 
 const identifier = z.string().trim().min(1).max(100).regex(/^[a-z][a-z0-9_]*$/);
 const needIdentifier = z.string().trim().min(1).max(100).regex(/^[a-z][a-z0-9_-]*$/);
@@ -76,7 +80,7 @@ interface CandidateSchemaInspection {
   schemaBytes: number | null;
   entities: readonly GraphSchemaEntityInspection[];
   schemaInspected: boolean;
-  queryEntitySource: "query_root" | "entity_type_inferred" | null;
+  queryEntitySource: "source_sdl" | "runtime_introspection" | null;
   error: string | null;
 }
 
@@ -193,22 +197,20 @@ function requirementPathScore(requirement: GraphFieldRequirement, field: GraphIn
   return score;
 }
 
-function inferredQueryEntityName(entityType: string): string {
-  const lowerCamel = entityType.length > 0
-    ? `${entityType[0]!.toLowerCase()}${entityType.slice(1)}`
-    : entityType;
-  if (/is$/.test(lowerCamel)) return `${lowerCamel.slice(0, -2)}es`;
-  if (/[^aeiou]y$/.test(lowerCamel)) return `${lowerCamel.slice(0, -1)}ies`;
-  if (/(?:s|x|z|ch|sh)$/.test(lowerCamel)) return `${lowerCamel}es`;
-  return `${lowerCamel}s`;
-}
-
 interface ParsedSchemaInspection {
-  entities: readonly GraphSchemaEntityInspection[];
-  queryEntitySource: "query_root" | "entity_type_inferred";
+  entities: readonly {
+    queryEntity: string;
+    entityType: string;
+    fields: readonly GraphInspectedField[];
+  }[];
+  queryEntitySource: "source_sdl" | "runtime_introspection";
+  requiresRuntimeIntrospection: boolean;
 }
 
-function inspectSchema(sdl: string, requirements: readonly GraphFieldRequirement[]): ParsedSchemaInspection {
+function inspectSchema(
+  sdl: string,
+  runtimeQueryFields?: readonly GraphRuntimeQueryField[],
+): ParsedSchemaInspection {
   const document = parse(sdl, {maxTokens: 100_000});
   const objectFields = new Map<string, FieldDefinitionNode[]>();
   const entityTypes = new Set<string>();
@@ -228,22 +230,40 @@ function inspectSchema(sdl: string, requirements: readonly GraphFieldRequirement
     }
   }
   const queryFields = objectFields.get("Query") ?? [];
+  const requiresRuntimeIntrospection = queryFields.length === 0 && runtimeQueryFields === undefined;
   const queryEntities = queryFields.length > 0
     ? queryFields.slice(0, 128).map((queryField) => ({
       queryEntity: queryField.name.value,
       entityType: namedType(queryField.type),
     }))
-    : [...entityTypes]
-      .sort((left, right) => left.localeCompare(right))
+    : (runtimeQueryFields ?? [])
+      .filter((field) => field.list && entityTypes.has(field.entityType))
+      .sort((left, right) => left.name.localeCompare(right.name))
       .slice(0, 128)
-      .map((entityType) => ({
-        queryEntity: inferredQueryEntityName(entityType),
-        entityType,
+      .map((field) => ({
+        queryEntity: field.name,
+        entityType: field.entityType,
       }));
-  const queryEntitySource = queryFields.length > 0 ? "query_root" as const : "entity_type_inferred" as const;
+  const queryEntitySource = queryFields.length > 0 ? "source_sdl" as const : "runtime_introspection" as const;
   const inspections = queryEntities.map(({queryEntity, entityType}) => {
     const fields = [...new Map(collectFields(entityType, objectFields, leafTypes).map((field) => [field.path, field])).values()]
       .sort((left, right) => left.path.localeCompare(right.path));
+    return {queryEntity, entityType, fields};
+  });
+  return {
+    entities: inspections.sort((left, right) =>
+      right.fields.length - left.fields.length
+      || left.queryEntity.localeCompare(right.queryEntity)),
+    queryEntitySource,
+    requiresRuntimeIntrospection,
+  };
+}
+
+function bindRequirements(
+  entities: readonly {queryEntity: string; entityType: string; fields: readonly GraphInspectedField[]}[],
+  requirements: readonly GraphFieldRequirement[],
+): readonly GraphSchemaEntityInspection[] {
+  return entities.map(({queryEntity, entityType, fields}) => {
     const suggestedBindings = requirements.map((requirement) => ({
       requirementId: requirement.id,
       fieldPaths: fields
@@ -262,14 +282,10 @@ function inspectSchema(sdl: string, requirements: readonly GraphFieldRequirement
         .filter((requirement) => requirement.required && suggestedBindings.find((item) => item.requirementId === requirement.id)!.fieldPaths.length > 0)
         .map((requirement) => requirement.id),
     } satisfies GraphSchemaEntityInspection;
-  });
-  return {
-    entities: inspections.sort((left, right) =>
+  }).sort((left, right) =>
       right.matchedRequirements.length - left.matchedRequirements.length
       || right.fields.length - left.fields.length
-      || left.queryEntity.localeCompare(right.queryEntity)),
-    queryEntitySource,
-  };
+      || left.queryEntity.localeCompare(right.queryEntity));
 }
 
 function networkEvidence(
@@ -317,6 +333,8 @@ export class GraphSourceDiscoveryService implements GraphSourceDiscoveryPort {
       maxSchemaInspectionsPerNeed: 10,
       maxSchemaBytes: 5_242_880,
     },
+    private readonly schemaCache: GraphSchemaCachePort = new MemoryGraphSchemaCache(),
+    private readonly runtimeSchema?: GraphRuntimeSchemaPort,
   ) {}
 
   async discover(input: GraphSourceDiscoveryRequest, signal?: AbortSignal): Promise<GraphSourceDiscoveryResult> {
@@ -424,17 +442,64 @@ export class GraphSourceDiscoveryService implements GraphSourceDiscoveryPort {
         const schemaBytes = Buffer.byteLength(schema.sdl, "utf8");
         const schemaHash = `sha256:${createHash("sha256").update(schema.sdl).digest("hex")}`;
         try {
-          const parsed = inspectSchema(schema.sdl, need.fields);
+          const cachedProjection = await this.schemaCache.get({
+            manifestIpfsCid: candidate.manifestIpfsCid,
+            schemaHash,
+          }, signal);
+          let projection = cachedProjection;
+          if (!projection) {
+            let parsed = inspectSchema(schema.sdl);
+            if (parsed.requiresRuntimeIntrospection) {
+              if (!this.runtimeSchema) {
+                throw new GraphSourceDiscoveryError(
+                  "GRAPH_RUNTIME_SCHEMA_REQUIRED",
+                  "Runtime Query-root verification is required when source SDL omits Query",
+                );
+              }
+              const runtimeQueryFields = await this.runtimeSchema.getRuntimeQueryFields(candidate.manifestIpfsCid, signal);
+              parsed = inspectSchema(schema.sdl, runtimeQueryFields);
+            }
+            projection = {
+              schemaVersion: 1,
+              gatewayEnvironment: "mainnet",
+              manifestIpfsCid: candidate.manifestIpfsCid,
+              schemaHash,
+              schemaBytes,
+              queryEntitySource: parsed.queryEntitySource,
+              entities: parsed.entities,
+            };
+            await this.schemaCache.set(projection, signal);
+          }
+          if (projection.entities.length === 0) {
+            throw new GraphSourceDiscoveryError(
+              "GRAPH_RUNTIME_QUERY_ENTITY_MISSING",
+              "No verified collection Query field returns an inspected @entity type",
+            );
+          }
           inspection = {
             schemaHash,
             schemaBytes,
-            entities: parsed.entities.slice(0, 8),
+            entities: bindRequirements(projection.entities, need.fields).slice(0, 8),
             schemaInspected: true,
-            queryEntitySource: parsed.queryEntitySource,
+            queryEntitySource: projection.queryEntitySource,
             error: null,
           };
-        } catch {
-          inspection = {schemaHash, schemaBytes, entities: [], schemaInspected: false, queryEntitySource: null, error: "Schema SDL could not be parsed safely."};
+        } catch (error) {
+          const code = typeof error === "object" && error && "code" in error
+            ? String((error as {code: unknown}).code)
+            : null;
+          const message = code === "GRAPH_SCHEMA_CACHE_UNAVAILABLE"
+            ? "The shared Graph schema cache is unavailable; runtime introspection was not attempted."
+            : code === "GRAPH_SCHEMA_CACHE_INVALID"
+              ? "The shared Graph schema cache contained invalid evidence and was not trusted."
+              : code === "GRAPH_RUNTIME_SCHEMA_REQUIRED"
+                ? "Source SDL omits Query and no runtime Query-root verifier is configured."
+                : code === "GRAPH_RUNTIME_QUERY_ENTITY_MISSING"
+                  ? "No verified collection Query field returns an inspected @entity type."
+                  : code?.startsWith("GRAPH_MCP_")
+                    ? "Runtime Query-root introspection failed."
+                    : "Schema SDL could not be parsed safely.";
+          inspection = {schemaHash, schemaBytes, entities: [], schemaInspected: false, queryEntitySource: null, error: message};
         }
       }
       inspectionByNeedAndCid.set(key, inspection);
@@ -485,8 +550,8 @@ export class GraphSourceDiscoveryService implements GraphSourceDiscoveryPort {
           limitations.unshift(skipReason);
         } else if (inspection.error) {
           limitations.unshift(inspection.error);
-        } else if (inspection.queryEntitySource === "entity_type_inferred") {
-          limitations.unshift("Query entity names were inferred from @entity types because the deployment SDL did not include a Query root; verify them against the deployed GraphQL endpoint before execution.");
+        } else if (inspection.queryEntitySource === "runtime_introspection") {
+          limitations.unshift("Query entity names were verified against the deployed GraphQL endpoint and cached by immutable manifest CID and source schema hash.");
         }
         const evidence = networkEvidence(need, raw);
         if (evidence === "unknown") limitations.unshift("Data network is not evidenced by the returned display name.");

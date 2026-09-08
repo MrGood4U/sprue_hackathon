@@ -5,25 +5,27 @@ import type {AgentDebugEvent, AgentModelRequest} from "../src/modules/agent/harn
 import {
   GraphMcpError,
   GraphSourceDiscoveryService,
+  MemoryGraphSchemaCache,
   RestrictedGraphMcpClient,
   graphMcpPlanningTools,
 } from "../src/modules/graph/index.js";
 import type {
   GraphMcpPlanningTool,
   GraphMcpPlanningWire,
+  GraphMcpTool,
   GraphPlanningMcpPort,
 } from "../src/modules/graph/index.js";
 
 class FakeWire implements GraphMcpPlanningWire {
-  readonly calls: {tool: GraphMcpPlanningTool; args: Readonly<Record<string, unknown>>}[] = [];
+  readonly calls: {tool: GraphMcpTool; args: Readonly<Record<string, unknown>>}[] = [];
 
-  constructor(private readonly responses: Readonly<Partial<Record<GraphMcpPlanningTool, string>>>) {}
+  constructor(private readonly responses: Readonly<Partial<Record<GraphMcpTool, string>>>) {}
 
   async listToolNames(): Promise<ReadonlySet<string>> {
     return new Set([...graphMcpPlanningTools, ...forbiddenExecutionTools]);
   }
 
-  async callTool(tool: GraphMcpPlanningTool, args: Readonly<Record<string, unknown>>) {
+  async callTool(tool: GraphMcpTool, args: Readonly<Record<string, unknown>>) {
     this.calls.push({tool, args});
     const response = this.responses[tool];
     if (response === undefined) return {isError: true, content: [{type: "text", text: "provider detail"}]};
@@ -66,7 +68,7 @@ const swapNeedContract = {
   constraints: [],
 } as const;
 
-test("restricted Graph MCP client exposes metadata tools but never execution tools", async () => {
+test("restricted Graph MCP client exposes bounded metadata methods but no arbitrary execution method", async () => {
   const wire = new FakeWire({
     search_subgraphs_by_keyword: JSON.stringify({
       subgraphs: [{
@@ -109,6 +111,35 @@ test("restricted Graph MCP client exposes metadata tools but never execution too
   assert.equal(wire.calls.some((call) => forbiddenExecutionTools.includes(call.tool as never)), false);
   assert.equal("executeGraphQL" in client, false);
   assert.equal("callTool" in client, false);
+});
+
+test("runtime schema adapter can execute only Sprue's fixed Query-root introspection document", async () => {
+  const wire = new FakeWire({
+    execute_query_by_ipfs_hash: JSON.stringify({
+      data: {
+        __schema: {
+          queryType: {
+            fields: [
+              {name: "swap", type: {kind: "OBJECT", name: "Swap"}},
+              {name: "swaps", type: {kind: "NON_NULL", name: null, ofType: {kind: "LIST", name: null, ofType: {kind: "NON_NULL", name: null, ofType: {kind: "OBJECT", name: "Swap"}}}}},
+            ],
+          },
+        },
+      },
+    }),
+  });
+  const client = new RestrictedGraphMcpClient(wire);
+
+  assert.deepEqual(await client.getRuntimeQueryFields("QmEntityOnly"), [
+    {name: "swap", entityType: "Swap", list: false},
+    {name: "swaps", entityType: "Swap", list: true},
+  ]);
+  assert.equal(wire.calls.length, 1);
+  assert.equal(wire.calls[0]?.tool, "execute_query_by_ipfs_hash");
+  assert.equal(wire.calls[0]?.args.ipfs_hash, "QmEntityOnly");
+  assert.deepEqual(wire.calls[0]?.args.variables, {});
+  assert.match(String(wire.calls[0]?.args.query), /query SprueRuntimeQueryRoot/);
+  assert.match(String(wire.calls[0]?.args.query), /__schema/);
 });
 
 test("restricted Graph MCP client rejects provider errors without reflecting provider content", async () => {
@@ -287,7 +318,7 @@ test("Graph source discovery orders schema inspection by activity without reject
   assert.match(missing?.limitations.join(" ") ?? "", /activity evidence is missing/);
 });
 
-test("Graph source discovery infers query entities from @entity types when deployment SDL omits Query", async () => {
+test("Graph source discovery verifies and cross-account caches Query fields when deployment SDL omits Query", async () => {
   const entityOnlySchema = `
     scalar BigInt
     scalar BigDecimal
@@ -318,8 +349,20 @@ test("Graph source discovery infers query entities from @entity types when deplo
     },
     async close() {},
   };
+  let runtimeCalls = 0;
+  const runtimeSchema = {
+    async getRuntimeQueryFields(manifestIpfsCid: string) {
+      runtimeCalls += 1;
+      assert.equal(manifestIpfsCid, "QmEntityOnly");
+      return [
+        {name: "swap", entityType: "Swap", list: false},
+        {name: "swaps", entityType: "Swap", list: true},
+      ];
+    },
+  };
+  const sharedCache = new MemoryGraphSchemaCache();
 
-  const result = await new GraphSourceDiscoveryService(graph).discover({
+  const request = {
     needs: [{
       id: "ethereum-swaps",
       dataNetwork: "eip155:1",
@@ -327,15 +370,76 @@ test("Graph source discovery infers query entities from @entity types when deplo
       keywords: ["Uniswap"],
       ...swapNeedContract,
     }],
+  } as const;
+  const result = await new GraphSourceDiscoveryService(graph, undefined, sharedCache, runtimeSchema).discover(request);
+  const secondAccountResult = await new GraphSourceDiscoveryService(graph, undefined, sharedCache, runtimeSchema).discover({
+    needs: [{
+      id: "ethereum-swaps",
+      dataNetwork: "eip155:1",
+      networkLabel: "Ethereum Mainnet",
+      keywords: ["Uniswap"],
+      ...swapNeedContract,
+      fields: [swapNeedContract.fields[1]],
+    }],
   });
 
   assert.equal(result.inspectedSchemas, 1);
+  assert.equal(secondAccountResult.inspectedSchemas, 1);
+  assert.equal(runtimeCalls, 1);
+  assert.deepEqual(secondAccountResult.candidates[0]?.entities[0]?.matchedRequirements, ["trade_id"]);
   const candidate = result.candidates[0];
   assert.equal(candidate?.status, "suitable");
   assert.equal(candidate?.entities[0]?.queryEntity, "swaps");
   assert.equal(candidate?.entities[0]?.entityType, "Swap");
   assert.deepEqual(candidate?.entities[0]?.matchedRequirements, ["wallet", "trade_id", "timestamp", "volume_usd"]);
-  assert.match(candidate?.limitations.join(" ") ?? "", /inferred from @entity types/);
+  assert.match(candidate?.limitations.join(" ") ?? "", /verified against the deployed GraphQL endpoint/);
+});
+
+test("Graph source discovery fails closed before runtime introspection when the shared cache is unavailable", async () => {
+  const entityOnlySchema = `type Swap @entity { id: ID! }`;
+  let runtimeCalls = 0;
+  const graph: GraphPlanningMcpPort = {
+    async searchSubgraphsByKeyword() {
+      return {
+        subgraphs: [{subgraphId: "sg", displayName: "Protocol Ethereum", manifestIpfsCid: "QmCacheFail"}],
+        total: 1,
+        returned: 1,
+      };
+    },
+    async getDeploymentActivity() {
+      return [{manifestIpfsCid: "QmCacheFail", totalQueryCount30d: 1, dataPointsCount: 1}];
+    },
+    async getSchema() { return entityOnlySchema; },
+    async getTopDeploymentsForContract() { throw new Error("not expected"); },
+    async close() {},
+  };
+  const cache = {
+    async get() { throw Object.assign(new Error("unavailable"), {code: "GRAPH_SCHEMA_CACHE_UNAVAILABLE"}); },
+    async set() { throw new Error("not expected"); },
+  };
+  const runtimeSchema = {
+    async getRuntimeQueryFields() {
+      runtimeCalls += 1;
+      return [{name: "swaps", entityType: "Swap", list: true}];
+    },
+  };
+
+  const result = await new GraphSourceDiscoveryService(graph, undefined, cache, runtimeSchema).discover({
+    needs: [{
+      id: "ethereum-swaps",
+      dataNetwork: "eip155:1",
+      networkLabel: "Ethereum Mainnet",
+      keywords: ["Protocol"],
+      description: "Swap IDs",
+      grain: "swap_event",
+      fields: [swapNeedContract.fields[1]],
+      constraints: [],
+    }],
+  });
+
+  assert.equal(runtimeCalls, 0);
+  assert.deepEqual(result.candidates[0]?.entities, []);
+  assert.match(result.candidates[0]?.limitations.join(" ") ?? "", /cache is unavailable/);
 });
 
 test("Graph source discovery does not treat another chain's mainnet label as Ethereum evidence", async () => {

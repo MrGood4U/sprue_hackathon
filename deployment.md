@@ -4,7 +4,7 @@ The same Sprue source supports Windows browser testing, Docker self-hosting, and
 
 ## Current Capability Boundary
 
-Dashboard, Wallet and Access, Model Service, and Agent Planner use owner-authorized live workspace APIs without a fixture fallback. Product creation, renaming, Agent sessions/messages/traces, durable encrypted OpenAI-compatible model profiles, Graph credential create/list/validate/select/revoke, configured Privy creator authentication, provider-identity resolution to stable Sprue user IDs, local account/workspace bootstrap, user-owned wallet provisioning/binding, current Base Sepolia USDC balance reads, and explicit Hedera testnet Portal-faucet activation plus Mirror Node HBAR reads are implemented. Agent planning uses the saved workspace model profile and selected Graph credential for bounded live source discovery; immutable source admission and final Graph data execution remain unavailable. Build, API, Monetize, and public evaluator views retain the explicitly identified server-generated demo projection. Account linking, queue consumption, wallet signing/spending authority, Hedera publication, and outbound payments remain unavailable. Starting all four services is infrastructure readiness, not a completed live product. The public-config transport remains read-only; `DEMO_RUNTIME_ENABLED=true` enables only the temporary evaluator path that still owns those identified views.
+Dashboard, Wallet and Access, Model Service, and Agent Planner use owner-authorized live workspace APIs without a fixture fallback. Product creation, renaming, Agent sessions/messages/traces, durable encrypted OpenAI-compatible model profiles, Graph credential create/list/validate/select/revoke, configured Privy creator authentication, provider-identity resolution to stable Sprue user IDs, local account/workspace bootstrap, user-owned wallet provisioning/binding, current Base Sepolia USDC balance reads, and explicit Hedera testnet Portal-faucet activation plus Mirror Node HBAR reads are implemented. Agent planning uses the saved workspace model profile and selected Graph credential for bounded live source discovery; immutable source admission and final Graph data execution remain unavailable. Build, API, Monetize, and public evaluator views retain the explicitly identified server-generated demo projection. Account linking, queue consumption, wallet signing/spending authority, Hedera publication, and outbound payments remain unavailable. Starting all five services is infrastructure readiness, not a completed live product. The public-config transport remains read-only; `DEMO_RUNTIME_ENABLED=true` enables only the temporary evaluator path that still owns those identified views.
 
 ## Windows: Complete Local Docker Stack
 
@@ -18,23 +18,24 @@ From the repository root:
 .\scripts\local.ps1 check
 ```
 
-`init` creates an ignored `.env.local` with a random local PostgreSQL password and three host ports. It never overwrites an existing file. `up` builds the API/frontend images, starts PostgreSQL, applies pending migrations and the idempotent public network/asset reference seed through separate one-off containers, then starts and checks API, worker and frontend. Re-running it upgrades images, applies only pending migrations, and safely reconciles the same public reference metadata; it does not seed users, wallets, funds, credentials or products. Initial image downloads require internet access.
+`init` creates an ignored `.env.local` with a random local PostgreSQL password and four host ports. It never overwrites an existing file. `up` builds the API/frontend images, starts PostgreSQL and Redis, applies pending migrations and the idempotent public network/asset reference seed through separate one-off containers, then starts and checks API, worker and frontend. Re-running it upgrades images, applies only pending migrations, and safely reconciles the same public reference metadata; it does not seed users, wallets, funds, credentials or products. Initial image downloads require internet access.
 
 | Service | Default local address | Exposure |
 |---|---|---|
 | Frontend | `http://127.0.0.1:4173` | Loopback only; browser entry |
 | API | `http://127.0.0.1:3001` | Loopback only; probes, app config, and `/api/v1/public/demo/*` when enabled |
 | PostgreSQL | `127.0.0.1:15432`, database/user `sprue` | Loopback only; password stays in `.env.local` |
+| Redis | `127.0.0.1:16379` | Loopback only; shared immutable Graph schema projection cache |
 | Worker | Port 3002 inside its container | No host/public port; probes only, currently standby |
 
-Use `127.0.0.1` consistently: `localhost` is a different browser origin. Edit the three distinct port values in `.env.local` if another application occupies one, then run `up` again. The helper accepts local Docker endpoints only and does not print resolved secrets. The project is explicitly named `sprue-local`; its `sprue-local_postgres-data` volume is separate from the older backend-only `sprue-database` profile. Do not run both profiles on the same host ports or assume their databases share data.
+Use `127.0.0.1` consistently: `localhost` is a different browser origin. Edit the four distinct port values in `.env.local` if another application occupies one, then run `up` again. The helper accepts local Docker endpoints only and does not print resolved secrets. The project is explicitly named `sprue-local`; its PostgreSQL and Redis volumes are separate from the older backend-only `sprue-database` profile. Do not run both profiles on the same host ports or assume their databases share data.
 
 ```powershell
 .\scripts\local.ps1 logs
 .\scripts\local.ps1 stop
 ```
 
-`stop` preserves the database volume, credentials, images and containers. Changing a password in the file does not change credentials inside an existing database volume. Resolve credential mismatches deliberately; never delete a volume as an automatic repair. `config` validates Compose without printing secrets. `db` starts only the database for native development.
+`stop` preserves the PostgreSQL and Redis volumes, credentials, images and containers. Changing a password in the file does not change credentials inside an existing database volume. Resolve credential mismatches deliberately; never delete a volume as an automatic repair. `config` validates Compose without printing secrets. `db` starts PostgreSQL and Redis for native development.
 
 If Windows reports that binding a port is forbidden, inspect `netsh interface ipv4 show excludedportrange protocol=tcp` and choose an unused, non-excluded port in `.env.local`. Windows/Hyper-V may reserve ports even without a listening process. Do not disable system reservations or delete database volumes to fix this. The root profile uses 15432 after the original 54329 choice conflicted with this host's reserved range.
 
@@ -42,7 +43,7 @@ Equivalent cross-platform Compose workflow, after creating a private `.env.local
 
 ```sh
 docker compose -p sprue-local --env-file .env.local -f compose.yaml build api frontend
-docker compose -p sprue-local --env-file .env.local -f compose.yaml up -d --wait postgres
+docker compose -p sprue-local --env-file .env.local -f compose.yaml up -d --wait postgres redis
 docker compose -p sprue-local --env-file .env.local -f compose.yaml --profile tools run --rm --no-deps migrate
 docker compose -p sprue-local --env-file .env.local -f compose.yaml --profile tools run --rm --no-deps seed
 docker compose -p sprue-local --env-file .env.local -f compose.yaml up -d --wait api worker frontend
@@ -88,9 +89,9 @@ No cloud account, service, paid resource or deployment is created by these files
 
 Import this repository with Root Directory `frontend`. The checked-in `frontend/vercel.json` selects Vite, `npm ci`, `npm run build:app`, output `dist/client`, and SPA rewrites for product routes. Select Node.js 24 in project settings. Set `VITE_API_BASE_URL` to the actual HTTPS Railway API origin before building. Never upload `.env.local` or backend secrets. Configure each preview environment explicitly; backend CORS does not wildcard-allow arbitrary preview domains.
 
-### Railway API, Worker and PostgreSQL
+### Railway API, Worker, PostgreSQL and Redis
 
-Create a PostgreSQL service and two backend services from the same commit/image source. Both backend services use Root Directory `/backend`. Set their config-file paths explicitly, relative to the repository root:
+Create PostgreSQL and Redis services plus two backend services from the same commit/image source. Both backend services use Root Directory `/backend`. Set their config-file paths explicitly, relative to the repository root:
 
 | Service | Config file | Start command | Release behavior |
 |---|---|---|---|
@@ -125,7 +126,7 @@ The Dockerfile path is `Dockerfile` within the backend build root. Set the share
 | `HEDERA_MIRROR_NODE_URL` | `https://testnet.mirrornode.hedera.com` |
 | `BLOCKY402_FACILITATOR_URL` | `https://api.testnet.blocky402.com` |
 
-Only the API needs a public Railway domain. The worker and database remain private. Both services use `/readyz` as a deployment check; worker readiness currently means compatible database access, not implemented job execution. Configure the Vercel production origin and any intentionally retained preview origins in both Privy's dashboard and backend CORS. A public Privy app ID alone does not enable login; the API also requires the app secret. Wallet signing keys and payment-provider configuration remain separate and are not enabled by authentication.
+Only the API needs a public Railway domain. The worker, PostgreSQL, and Redis remain private. Both backend services use `/readyz` as a deployment check; worker readiness currently means compatible database access, not implemented job execution. Configure the Vercel production origin and any intentionally retained preview origins in both Privy's dashboard and backend CORS. A public Privy app ID alone does not enable login; the API also requires the app secret. Wallet signing keys and payment-provider configuration remain separate and are not enabled by authentication.
 
 Pre-deploy migration targets whatever `DATABASE_URL` is configured: inspect the target, use backups for persistent upgrades, and control the migration role before deployment. Running tests never authorizes a production migration. Deploy API/migrations first, then the worker. Keep Vercel/Railway on the same reviewed commit and run the full test gate before enabling automatic releases.
 

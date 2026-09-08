@@ -186,6 +186,7 @@ export type AgentPlannerFactory = (input: {
   modelConfig: import("./harness/types.js").AgentModelConfig;
   graphApiKey: string;
   graphGatewayEnvironment: "mainnet";
+  graphSchemaCache: import("../graph/types.js").GraphSchemaCachePort;
   debugSink?: AgentDebugSink;
 }) => AgentPlanner;
 

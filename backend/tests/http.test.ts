@@ -30,6 +30,7 @@ const bootstrap = {
 const environment = {
   NODE_ENV: "test",
   DATABASE_URL: "postgresql://test:local-only@127.0.0.1:1/test",
+  REDIS_URL: "redis://127.0.0.1:1",
   API_BASE_URL: "http://127.0.0.1:3001",
   CONSOLE_PUBLIC_URL: "http://127.0.0.1:4173",
   DATA_PUBLIC_BASE_URL: "http://127.0.0.1:3001/data/v1",
@@ -684,6 +685,7 @@ test("configuration rejects unsafe public URLs and money rejects lossy encodings
   assert.equal(config.port, 3001);
   assert.equal(config.privyAppId, null);
   assert.equal(config.privyAppSecret, null);
+  assert.equal(config.redis.url, "redis://127.0.0.1:1");
   assert.deepEqual(config.hedera, {
     network: "hedera:testnet",
     evmChainId: 296,
@@ -705,6 +707,7 @@ test("configuration rejects unsafe public URLs and money rejects lossy encodings
   for (const changes of [
     { PORT: "0" },
     { DATABASE_URL: "" },
+    { REDIS_URL: "https://example.test/cache" },
     { CORS_ALLOWED_ORIGINS: "*" },
     { API_BASE_URL: "https://user:password@example.test" },
     { DEPLOYMENT_ENVIRONMENT: "demo" },

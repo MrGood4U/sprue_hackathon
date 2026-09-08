@@ -8,6 +8,8 @@ export const graphMcpPlanningTools = [
 ] as const;
 
 export type GraphMcpPlanningTool = typeof graphMcpPlanningTools[number];
+export type GraphMcpRuntimeSchemaTool = "execute_query_by_ipfs_hash";
+export type GraphMcpTool = GraphMcpPlanningTool | GraphMcpRuntimeSchemaTool;
 
 export type GraphSemanticValueType =
   | "boolean"
@@ -72,6 +74,43 @@ export interface GraphPlanningMcpPort {
     signal?: AbortSignal,
   ): Promise<readonly GraphContractDeployment[]>;
   close(): Promise<void>;
+}
+
+export interface GraphRuntimeQueryField {
+  name: string;
+  entityType: string;
+  list: boolean;
+}
+
+/**
+ * Narrow controller-owned runtime-schema capability. Callers cannot supply a
+ * GraphQL document or variables; the adapter executes Sprue's fixed Query-root
+ * introspection document against one immutable manifest CID.
+ */
+export interface GraphRuntimeSchemaPort {
+  getRuntimeQueryFields(manifestIpfsCid: string, signal?: AbortSignal): Promise<readonly GraphRuntimeQueryField[]>;
+}
+
+export interface GraphCachedSchemaProjection {
+  schemaVersion: 1;
+  gatewayEnvironment: "mainnet";
+  manifestIpfsCid: string;
+  schemaHash: string;
+  schemaBytes: number;
+  queryEntitySource: "source_sdl" | "runtime_introspection";
+  entities: readonly {
+    queryEntity: string;
+    entityType: string;
+    fields: readonly GraphInspectedField[];
+  }[];
+}
+
+export interface GraphSchemaCachePort {
+  get(
+    identity: {manifestIpfsCid: string; schemaHash: string},
+    signal?: AbortSignal,
+  ): Promise<GraphCachedSchemaProjection | null>;
+  set(value: GraphCachedSchemaProjection, signal?: AbortSignal): Promise<void>;
 }
 
 export interface GraphSourceDiscoveryNeed {

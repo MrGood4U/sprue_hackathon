@@ -4,6 +4,8 @@ import {GraphSourceDiscoveryService} from "../graph/discovery.js";
 import {RestrictedGraphMcpClient, SdkGraphMcpPlanningWire} from "../graph/mcp-client.js";
 import type {ModelProfileService} from "../model-profile/service.js";
 import type {Logger} from "../../shared/logger.js";
+import {MemoryGraphSchemaCache} from "../graph/schema-cache.js";
+import type {GraphSchemaCachePort} from "../graph/types.js";
 import {
   AgentCommandConflictError,
   AgentInputError,
@@ -28,7 +30,7 @@ export const agentNetworkCatalog = [
   {dataNetwork: "eip155:8453", label: "Base Mainnet"},
 ] as const;
 
-const productionPlannerFactory: AgentPlannerFactory = ({modelConfig, graphApiKey, graphGatewayEnvironment, debugSink}) => {
+const productionPlannerFactory: AgentPlannerFactory = ({modelConfig, graphApiKey, graphGatewayEnvironment, graphSchemaCache, debugSink}) => {
   const wire = new SdkGraphMcpPlanningWire({
     gatewayApiKey: graphApiKey,
     gatewayEnvironment: graphGatewayEnvironment,
@@ -38,7 +40,7 @@ const productionPlannerFactory: AgentPlannerFactory = ({modelConfig, graphApiKey
   const harness = new AgentHarness(
     createAgentModel(modelConfig),
     undefined,
-    new GraphSourceDiscoveryService(graph),
+    new GraphSourceDiscoveryService(graph, undefined, graphSchemaCache, graph),
     debugSink,
   );
   return {
@@ -239,6 +241,7 @@ export class AgentService {
     private readonly logger?: Logger,
     private readonly debug = false,
     private readonly graphGatewayEnvironment: "mainnet" = "mainnet",
+    private readonly graphSchemaCache: GraphSchemaCachePort = new MemoryGraphSchemaCache(),
   ) {}
 
   private fingerprint(operation: string, values: unknown[]): string {
@@ -381,7 +384,13 @@ export class AgentService {
       const debugSink: AgentDebugSink | undefined = this.debug && this.logger
         ? (event) => this.logger!.write({event: "agent_debug", ...event})
         : undefined;
-      planner = this.plannerFactory({modelConfig, graphApiKey, graphGatewayEnvironment: this.graphGatewayEnvironment, debugSink});
+      planner = this.plannerFactory({
+        modelConfig,
+        graphApiKey,
+        graphGatewayEnvironment: this.graphGatewayEnvironment,
+        graphSchemaCache: this.graphSchemaCache,
+        debugSink,
+      });
       const result = await planner.explore({intent: text, availableNetworks: agentNetworkCatalog});
       const completion = successfulCompletion(
         result,

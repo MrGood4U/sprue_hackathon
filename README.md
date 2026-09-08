@@ -22,8 +22,8 @@ Official documentation establishes the Hedera x402 wire profile and Blocky402's 
 
 See [deployment.md](deployment.md) for Windows local setup, native Node development, complete Docker packaging, and Vercel/Railway configuration. From PowerShell at the repository root, run `./scripts/local.ps1 init`, then `./scripts/local.ps1 up`; the default browser address is `http://127.0.0.1:4173`. Stop with `./scripts/local.ps1 stop` to preserve database data. These commands start the current frontend and backend framework, not the unfinished live business integrations.
 
-- Evaluator demo: Creator Console on Vercel; public API, private worker, and PostgreSQL on Railway, using platform-provided domains.
-- Self-hosted: equivalent frontend, API, worker, and PostgreSQL roles through Docker Compose from the same source and configuration contract.
+- Evaluator demo: Creator Console on Vercel; public API, private worker, PostgreSQL, and Redis on Railway, using platform-provided domains.
+- Self-hosted: equivalent frontend, API, worker, PostgreSQL, and Redis roles through Docker Compose from the same source and configuration contract.
 
 Vercel and Railway are temporary delivery targets, not application dependencies. Deployment portability, explicit migrations, health checks, server-side secrets, and non-ephemeral source-of-truth persistence are required. Cloud deployment remains unverified; checked-in manifests do not provision services or satisfy sponsor evidence.
 

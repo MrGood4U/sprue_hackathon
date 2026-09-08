@@ -13,6 +13,7 @@ const configEnvironment = {
   NODE_ENV: "test",
   DEPLOYMENT_ENVIRONMENT: "local",
   DATABASE_URL: "postgresql://test:local-only@127.0.0.1:1/test",
+  REDIS_URL: "redis://127.0.0.1:1",
   API_BASE_URL: "http://127.0.0.1:3001",
   CONSOLE_PUBLIC_URL: "http://127.0.0.1:4173",
   DATA_PUBLIC_BASE_URL: "http://127.0.0.1:3001/data/v1",

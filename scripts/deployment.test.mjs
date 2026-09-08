@@ -35,21 +35,23 @@ test("complete Compose topology isolates secrets, worker and durable database", 
           ...process.env,
           POSTGRES_PASSWORD: "a".repeat(64),
           POSTGRES_PORT: "15432",
+          REDIS_PORT: "16379",
           API_PORT: "3001",
           FRONTEND_PORT: "4173",
         },
       },
     ),
   );
-  const { api, worker, postgres, frontend, migrate, seed } = config.services;
+  const { api, worker, postgres, redis, frontend, migrate, seed } = config.services;
   assert.equal(config.name, "sprue-local");
   assert.equal(api.image, worker.image);
   assert.equal(migrate.image, api.image);
   assert.equal(seed.image, api.image);
   assert.equal(worker.ports, undefined);
-  for (const service of [api, postgres, frontend])
+  for (const service of [api, postgres, redis, frontend])
     assert.equal(service.ports[0].host_ip, "127.0.0.1");
   assert.equal(postgres.volumes[0].type, "volume");
+  assert.equal(redis.volumes[0].type, "volume");
   assert.equal(
     frontend.build.args.VITE_API_BASE_URL,
     api.environment.API_BASE_URL,
@@ -59,6 +61,8 @@ test("complete Compose topology isolates secrets, worker and durable database", 
     api.environment.CONSOLE_PUBLIC_URL,
   );
   assert.equal(new URL(api.environment.DATABASE_URL).hostname, "postgres");
+  assert.equal(new URL(api.environment.REDIS_URL).hostname, "redis");
+  assert.equal(new URL(worker.environment.REDIS_URL).hostname, "redis");
   assert.equal(frontend.environment, undefined);
   assert.deepEqual(migrate.command, ["node", "dist/scripts/migrate.js"]);
   assert.deepEqual(migrate.profiles, ["tools"]);

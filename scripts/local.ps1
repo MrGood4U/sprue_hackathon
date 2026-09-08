@@ -22,7 +22,7 @@ if ($Action -eq 'init') {
     $modelSource = [Security.Cryptography.RandomNumberGenerator]::Create()
     try { $modelSource.GetBytes($modelBytes) } finally { $modelSource.Dispose() }
     $modelKey = [Convert]::ToBase64String($modelBytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
-    $contents = "# Local-only settings. Never commit this file.`nPOSTGRES_PASSWORD=$localPassword`nPOSTGRES_PORT=15432`nAPI_PORT=3001`nFRONTEND_PORT=4173`nAGENT_DEBUG=false`n# Set both values to enable creator login.`nPRIVY_APP_ID=`nPRIVY_APP_SECRET=`n# Server-only keyring for durable Model Service credentials.`nMODEL_CREDENTIAL_KEYRING={`"local-v1`":`"$modelKey`"}`nMODEL_CREDENTIAL_ACTIVE_KEY_ID=local-v1`n# The Graph source discovery and data gateway environment.`nGRAPH_GATEWAY_ENVIRONMENT=mainnet`n# Hedera testnet settlement profile.`nHEDERA_NETWORK=hedera:testnet`nHEDERA_MIRROR_NODE_URL=https://testnet.mirrornode.hedera.com`nHEDERA_PORTAL_PAT=`nHEDERA_FAUCET_URL=https://portal.hedera.com/api/disbursement/cli`nHEDERA_FAUCET_AMOUNT_HBAR=1`nBLOCKY402_FACILITATOR_URL=https://api.testnet.blocky402.com`n"
+    $contents = "# Local-only settings. Never commit this file.`nPOSTGRES_PASSWORD=$localPassword`nPOSTGRES_PORT=15432`nREDIS_PORT=16379`nAPI_PORT=3001`nFRONTEND_PORT=4173`nAGENT_DEBUG=false`n# Set both values to enable creator login.`nPRIVY_APP_ID=`nPRIVY_APP_SECRET=`n# Server-only keyring for durable Model Service credentials.`nMODEL_CREDENTIAL_KEYRING={`"local-v1`":`"$modelKey`"}`nMODEL_CREDENTIAL_ACTIVE_KEY_ID=local-v1`n# The Graph source discovery and data gateway environment.`nGRAPH_GATEWAY_ENVIRONMENT=mainnet`n# Hedera testnet settlement profile.`nHEDERA_NETWORK=hedera:testnet`nHEDERA_MIRROR_NODE_URL=https://testnet.mirrornode.hedera.com`nHEDERA_PORTAL_PAT=`nHEDERA_FAUCET_URL=https://portal.hedera.com/api/disbursement/cli`nHEDERA_FAUCET_AMOUNT_HBAR=1`nBLOCKY402_FACILITATOR_URL=https://api.testnet.blocky402.com`n"
     # CreateNew prevents an initialization race from overwriting existing credentials.
     $stream = [IO.File]::Open($localEnvPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write)
     $writer = New-Object IO.StreamWriter($stream, (New-Object Text.UTF8Encoding($false)))
@@ -33,7 +33,7 @@ if ($Action -eq 'init') {
 
 if (-not (Test-Path -LiteralPath $localEnvPath)) { throw 'Run scripts/local.ps1 init first.' }
 $settings = @{}
-$allowedKeys = @('POSTGRES_PASSWORD', 'POSTGRES_PORT', 'API_PORT', 'FRONTEND_PORT', 'PRIVY_APP_ID', 'PRIVY_APP_SECRET', 'MODEL_CREDENTIAL_KEYRING', 'MODEL_CREDENTIAL_ACTIVE_KEY_ID', 'AGENT_TIMEOUT_MS', 'AGENT_DEBUG', 'GRAPH_GATEWAY_ENVIRONMENT', 'HEDERA_NETWORK', 'HEDERA_MIRROR_NODE_URL', 'HEDERA_PORTAL_PAT', 'HEDERA_FAUCET_URL', 'HEDERA_FAUCET_AMOUNT_HBAR', 'BLOCKY402_FACILITATOR_URL')
+$allowedKeys = @('POSTGRES_PASSWORD', 'POSTGRES_PORT', 'REDIS_PORT', 'API_PORT', 'FRONTEND_PORT', 'PRIVY_APP_ID', 'PRIVY_APP_SECRET', 'MODEL_CREDENTIAL_KEYRING', 'MODEL_CREDENTIAL_ACTIVE_KEY_ID', 'AGENT_TIMEOUT_MS', 'AGENT_DEBUG', 'GRAPH_GATEWAY_ENVIRONMENT', 'HEDERA_NETWORK', 'HEDERA_MIRROR_NODE_URL', 'HEDERA_PORTAL_PAT', 'HEDERA_FAUCET_URL', 'HEDERA_FAUCET_AMOUNT_HBAR', 'BLOCKY402_FACILITATOR_URL')
 foreach ($line in [IO.File]::ReadAllLines($localEnvPath)) {
     if ($line.Trim() -eq '' -or $line.Trim().StartsWith('#')) { continue }
     if ($line -notmatch '^([A-Z_]+)=([^\s]*)$' -or $allowedKeys -notcontains $Matches[1]) {
@@ -42,9 +42,10 @@ foreach ($line in [IO.File]::ReadAllLines($localEnvPath)) {
     if ($settings.ContainsKey($Matches[1])) { throw 'Duplicate local configuration key.' }
     $settings[$Matches[1]] = $Matches[2]
 }
-$requiredKeys = @('POSTGRES_PASSWORD', 'POSTGRES_PORT', 'API_PORT', 'FRONTEND_PORT')
+$settings['REDIS_PORT'] = if ($settings.ContainsKey('REDIS_PORT')) { $settings['REDIS_PORT'] } else { '16379' }
+$requiredKeys = @('POSTGRES_PASSWORD', 'POSTGRES_PORT', 'REDIS_PORT', 'API_PORT', 'FRONTEND_PORT')
 if (@($requiredKeys | Where-Object { -not $settings.ContainsKey($_) }).Count -ne 0 -or $settings['POSTGRES_PASSWORD'] -notmatch '^[a-fA-F0-9]{64}$') {
-    throw 'Local configuration needs the four required keys and a 64-character hex database password.'
+    throw 'Local configuration needs the required service settings and a 64-character hex database password.'
 }
 if ($settings.ContainsKey('AGENT_TIMEOUT_MS') -and ($settings['AGENT_TIMEOUT_MS'] -notmatch '^\d+$' -or [int]$settings['AGENT_TIMEOUT_MS'] -lt 250 -or [int]$settings['AGENT_TIMEOUT_MS'] -gt 120000)) {
     throw 'AGENT_TIMEOUT_MS must be an integer from 250 through 120000.'
@@ -86,13 +87,13 @@ $parsedFaucetAmount = 0
 if (-not [int]::TryParse($hederaFaucetAmount, [ref]$parsedFaucetAmount) -or $parsedFaucetAmount -lt 1 -or $parsedFaucetAmount -gt 100) {
     throw 'HEDERA_FAUCET_AMOUNT_HBAR must be an integer from 1 to 100.'
 }
-foreach ($key in @('POSTGRES_PORT', 'API_PORT', 'FRONTEND_PORT')) {
+foreach ($key in @('POSTGRES_PORT', 'REDIS_PORT', 'API_PORT', 'FRONTEND_PORT')) {
     $parsedPort = 0
     if (-not [int]::TryParse($settings[$key], [ref]$parsedPort) -or $parsedPort -lt 1024 -or $parsedPort -gt 65535) {
         throw "Invalid local port: $key. Use 1024-65535."
     }
 }
-if (@(@('POSTGRES_PORT', 'API_PORT', 'FRONTEND_PORT') | ForEach-Object { [int]$settings[$_] } | Select-Object -Unique).Count -ne 3) {
+if (@(@('POSTGRES_PORT', 'REDIS_PORT', 'API_PORT', 'FRONTEND_PORT') | ForEach-Object { [int]$settings[$_] } | Select-Object -Unique).Count -ne 4) {
     throw 'Local service ports must be distinct.'
 }
 
@@ -121,6 +122,7 @@ function Test-LocalStack {
         throw 'Public configuration or CORS validation failed.'
     }
     Invoke-Compose -Arguments @('exec', '-T', 'worker', 'node', '-e', "fetch('http://127.0.0.1:3002/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))")
+    Invoke-Compose -Arguments @('exec', '-T', 'redis', 'redis-cli', 'ping')
     & docker @composeBase exec -T frontend sh -c "grep -R -q -- 'agent-sessions' /usr/share/nginx/html/assets"
     if ($LASTEXITCODE -ne 0) {
         throw 'The served frontend image is stale and does not include the live Agent client. Run scripts/local.ps1 up to rebuild it.'
@@ -138,10 +140,10 @@ try {
     Invoke-Compose -Arguments @('config', '--quiet')
     switch ($Action) {
         'config' { Write-Output 'Local Compose configuration is valid; secret values were not printed.' }
-        'db' { Invoke-Compose -Arguments @('up', '--detach', '--wait', '--wait-timeout', '120', 'postgres') }
+        'db' { Invoke-Compose -Arguments @('up', '--detach', '--wait', '--wait-timeout', '120', 'postgres', 'redis') }
         'up' {
             Invoke-Compose -Arguments @('build', 'api', 'frontend')
-            Invoke-Compose -Arguments @('up', '--detach', '--wait', '--wait-timeout', '120', 'postgres')
+            Invoke-Compose -Arguments @('up', '--detach', '--wait', '--wait-timeout', '120', 'postgres', 'redis')
             Write-Output 'Applying pending migrations to the local sprue-local database as an explicit one-off step.'
             Invoke-Compose -Arguments @('--profile', 'tools', 'run', '--rm', '--no-deps', 'migrate')
             Write-Output 'Loading idempotent public network and asset reference metadata.'
@@ -151,7 +153,7 @@ try {
         }
         'stop' { Invoke-Compose -Arguments @('stop'); Write-Output 'Stopped local services. Database volume and credentials were preserved.' }
         'check' { Test-LocalStack }
-        'logs' { Invoke-Compose -Arguments @('logs', '--tail', '80', 'api', 'worker', 'frontend') }
+        'logs' { Invoke-Compose -Arguments @('logs', '--tail', '80', 'api', 'worker', 'frontend', 'redis') }
     }
 } finally {
     foreach ($key in $previousValues.Keys) { [Environment]::SetEnvironmentVariable($key, $previousValues[$key], 'Process') }

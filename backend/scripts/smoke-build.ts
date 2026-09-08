@@ -10,6 +10,7 @@ const { parseConfig } = await import(new URL("src/app/config.js", output).href);
 const config = parseConfig({
   NODE_ENV: "test",
   DATABASE_URL: "postgresql://fixture:fixture@127.0.0.1:1/unavailable",
+  REDIS_URL: "redis://127.0.0.1:1",
   API_BASE_URL: "http://127.0.0.1:3001",
   CONSOLE_PUBLIC_URL: "http://127.0.0.1:4173",
   DATA_PUBLIC_BASE_URL: "http://127.0.0.1:3001/data/v1",

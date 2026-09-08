@@ -29,6 +29,7 @@ import {postgresProductRepository} from "../modules/products/postgres-repository
 import {ProductService} from "../modules/products/service.js";
 import {postgresAgentRepository} from "../modules/agent/postgres-repository.js";
 import {AgentService} from "../modules/agent/service.js";
+import {RedisGraphSchemaCache} from "../modules/graph/schema-cache.js";
 import { listen, drain } from "./server.js";
 export async function startRuntime(
   config: AppConfig,
@@ -44,6 +45,7 @@ export async function startRuntime(
   pool.on("error", () => logger.write({ event: "pool_error", role }));
   let stopping = false;
   const worker = role === "worker" ? standbyWorker(logger) : null;
+  const graphSchemaCache = role === "api" ? new RedisGraphSchemaCache(config.redis.url) : null;
   const modelProfiles = role === "api" && config.modelCredentialEncryption
     ? new ModelProfileService(
         postgresModelProfileRepository(pool),
@@ -122,6 +124,7 @@ export async function startRuntime(
           logger,
           config.agent.debug,
           config.graph.gatewayEnvironment,
+          graphSchemaCache ?? undefined,
         )
       : undefined;
     const auth = new AuthService(authRepository, wallets, logger);
@@ -162,6 +165,7 @@ export async function startRuntime(
             await drain(server);
             await worker?.stop();
           } finally {
+            await graphSchemaCache?.close();
             await pool.end();
             logger.write({ event: "stopped", role });
           }
@@ -169,6 +173,7 @@ export async function startRuntime(
     };
   } catch (error) {
     if (listeningServer) await drain(listeningServer);
+    await graphSchemaCache?.close();
     await pool.end();
     throw error;
   }
