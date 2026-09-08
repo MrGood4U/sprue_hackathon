@@ -1,4 +1,4 @@
-import {useEffect, useRef, useState} from "react";
+import {Fragment, useEffect, useRef, useState} from "react";
 import {
   ArrowClockwise,
   ArrowRight,
@@ -13,6 +13,7 @@ import {Modal} from "../components/ui/Modal.jsx";
 import {Status} from "../components/ui/Status.jsx";
 import {useI18n} from "../i18n/I18nProvider.jsx";
 import {AgentProgress} from "../features/agent/AgentProgress.jsx";
+import {AgentStepCards} from "../features/agent/AgentStepCards.jsx";
 import {useAgentPlan} from "../features/agent/useAgentPlan.js";
 import {useElapsedSeconds} from "../features/agent/useElapsedSeconds.js";
 import "../features/agent/agent.css";
@@ -33,14 +34,6 @@ function errorTranslationKey(code) {
     GRAPH_MCP_TOOL_UNAVAILABLE: "agent.error.graphUnavailable",
   };
   return keys[code] ?? "agent.error.generic";
-}
-
-function elapsedLabel(elapsedSeconds, t) {
-  if (elapsedSeconds < 60) return t("agent.elapsed.seconds", {seconds: elapsedSeconds});
-  return t("agent.elapsed.minutesSeconds", {
-    minutes: Math.floor(elapsedSeconds / 60),
-    seconds: elapsedSeconds % 60,
-  });
 }
 
 function completedElapsedLabel(durationMs, t) {
@@ -201,25 +194,19 @@ export function AgentPage({path, navigate}) {
             </div>
           </div>
 
-          <div className="agent-chat" role="log" aria-live="polite" aria-label={t("agent.conversationLabel")}>
+          <div className="agent-chat" role="log" aria-live="polite" aria-atomic="false" aria-relevant="additions text" aria-label={t("agent.conversationLabel")}>
             {persistedMessages.map((message) => message.role === "assistant" ? (
-              <AssistantMessage key={message.id} message={message} navigate={navigate} t={t} />
+              <Fragment key={message.id}>
+                <AgentStepCards trace={message.contentJson?.trace} />
+                <AssistantMessage message={message} navigate={navigate} t={t} />
+              </Fragment>
             ) : message.role === "user" ? (
               <article className="agent-message agent-message-user" key={message.id}>
                 <div className="agent-message-meta"><span>{t("agent.you")}</span><span>{t("agent.intentMessage")}</span></div>
                 <p>{message.contentText}</p>
               </article>
             ) : null)}
-            {isPlanning && (
-              <article className="agent-message agent-message-assistant agent-message-planning" role="status">
-                <div className="agent-message-meta">
-                  <CircleNotch size={16} />
-                  <span>{t("agent.assistant")}</span>
-                  <span className="agent-elapsed" aria-hidden="true">{elapsedLabel(elapsedSeconds, t)}</span>
-                </div>
-                <p>{t("agent.planningDetail")}</p>
-              </article>
-            )}
+            {isPlanning && <AgentStepCards trace={agent.liveTrace} running elapsedSeconds={elapsedSeconds} />}
             {!isPlanning && !agent.latestAssistant && (
               <article className="agent-message agent-message-assistant agent-message-empty">
                 <div className="agent-message-meta"><Sparkle size={16} /><span>{t("agent.assistant")}</span></div>
@@ -260,7 +247,7 @@ export function AgentPage({path, navigate}) {
         <AgentProgress
           // Keep the conversation history visible while starting a new run, but
           // never let the progress rail describe the previous run as current.
-          trace={isPlanning ? [] : agent.trace}
+          trace={isPlanning ? agent.liveTrace : agent.trace}
           planState={isPlanning ? "planning" : agent.planState}
         />
       </main>

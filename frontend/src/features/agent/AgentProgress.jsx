@@ -29,7 +29,7 @@ export function AgentProgress({ trace = [], planState }) {
   const progress = Math.round((completed / stageDefinitions.length) * 100);
 
   return (
-    <aside className="agent-progress-panel" aria-live="polite">
+    <aside className="agent-progress-panel" aria-label={t("agent.progressTitle")}>
       <div className="agent-progress-heading">
         <div>
           <span className="section-label">{t("agent.progressLabel")}</span>

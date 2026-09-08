@@ -18,6 +18,7 @@ import {
   createAgentSession,
   listAgentMessages,
   listAgentSessions,
+  listAgentTraceEvents,
   submitAgentMessage,
 } from "../src/services/api/agent.js";
 
@@ -341,6 +342,31 @@ test("Agent client uses live durable sessions and messages", async () => {
     ...creatorScope,
   });
   assert.equal(listed.messages[0].contentText, product.originalIntent);
+
+  const activeTrace = await listAgentTraceEvents(session.id, {
+    apiBaseUrl: "https://api.example.test",
+    afterSequence: 0,
+    fetchImpl: async (url, options) => {
+      assert.equal(url, `https://api.example.test/api/v1/workspaces/${workspaceId}/agent-sessions/${session.id}/trace-events?afterSequence=0&limit=100`);
+      assert.equal(options.method, "GET");
+      assert.equal(options.headers.Authorization, "Bearer creator-token");
+      return liveResponse({
+        traceStreamId: "30000000-0000-4000-8000-000000000004",
+        streamStatus: "open",
+        items: [{
+          sequenceNo: 1,
+          stage: "source_discovery_planning",
+          status: "started",
+          summary: "Model is deriving bounded search requirements",
+          createdAt: "2026-09-08T01:01:01.000Z",
+        }],
+        nextAfterSequence: "1",
+        hasMore: false,
+      });
+    },
+    ...creatorScope,
+  });
+  assert.equal(activeTrace.events[0].status, "started");
 
   const command = {
     commandId: "30000000-0000-4000-8000-000000000003",

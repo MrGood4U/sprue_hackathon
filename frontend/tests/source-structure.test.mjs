@@ -103,6 +103,7 @@ test("keeps Agent Planner on live durable services without a demo fallback", asy
   const hook = await readFile(new URL("features/agent/useAgentPlan.js", sourceRoot), "utf8");
   const elapsedHook = await readFile(new URL("features/agent/useElapsedSeconds.js", sourceRoot), "utf8");
   const progress = await readFile(new URL("features/agent/AgentProgress.jsx", sourceRoot), "utf8");
+  const stepCards = await readFile(new URL("features/agent/AgentStepCards.jsx", sourceRoot), "utf8");
   const styles = await readFile(new URL("features/agent/agent.css", sourceRoot), "utf8");
   const app = await readFile(new URL("app/App.jsx", sourceRoot), "utf8");
 
@@ -111,18 +112,26 @@ test("keeps Agent Planner on live durable services without a demo fallback", asy
   assert.match(hook, /createAgentSession/);
   assert.match(hook, /submitAgentMessage/);
   assert.match(hook, /listAgentMessages/);
+  assert.match(hook, /listAgentTraceEvents/);
+  assert.match(hook, /pollActiveTrace/);
   assert.match(app, /!path\.endsWith\("\/agent"\)/);
   assert.match(page, /readyForCompilation === true/);
   assert.match(page, /placeholder=\{t\("agent\.intentPlaceholder"\)\}/);
   assert.match(page, /useElapsedSeconds\(isPlanning\)/);
-  assert.match(page, /agent\.elapsed\.seconds/);
+  assert.match(stepCards, /agent\.elapsed\.seconds/);
   assert.match(page, /Number\.isFinite\(content\?\.durationMs\)/);
   assert.match(page, /agent\.elapsed\.completedSeconds/);
   assert.match(page, /agent\.elapsed\.completedUnderSecond/);
-  assert.match(page, /trace=\{isPlanning \? \[\] : agent\.trace\}/);
+  assert.match(page, /<AgentStepCards trace=\{agent\.liveTrace\} running elapsedSeconds=\{elapsedSeconds\}/);
+  assert.match(page, /trace=\{isPlanning \? agent\.liveTrace : agent\.trace\}/);
+  assert.match(page, /<AgentStepCards trace=\{message\.contentJson\?\.trace\}/);
   assert.match(elapsedHook, /clearInterval\(intervalId\)/);
   assert.match(progress, /CircleNotch className="agent-trace-spinner"/);
+  assert.match(stepCards, /event\.summary/);
+  assert.match(stepCards, /agent\.status\.\$\{state\}/);
+  assert.match(stepCards, /agent-step-card-spinner/);
   assert.match(styles, /\.agent-trace-spinner \{[^}]*animation: agent-spin 900ms linear infinite;/s);
+  assert.match(styles, /\.agent-step-card-spinner \{[^}]*animation: agent-spin 900ms linear infinite;/s);
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*animation-name: agent-spin !important;/);
   assert.match(styles, /animation-duration: 1\.6s !important;/);
 });

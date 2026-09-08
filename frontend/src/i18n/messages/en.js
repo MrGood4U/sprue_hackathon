@@ -190,6 +190,8 @@ export const en = {
   "agent.fact.issues": "Open checks",
   "agent.reviewDag": "Review DAG",
   "agent.planningDetail": "The saved model is interpreting the intent while Sprue validates bounded Graph source discovery. The result will be persisted in this conversation.",
+  "agent.stepResultsLabel": "Agent step results",
+  "agent.traceConnecting": "Starting the planning trace and waiting for the first persisted step result.",
   "agent.loadingLabel": "Live Agent",
   "agent.loadingTitle": "Loading the product conversation",
   "agent.loadingDetail": "Sprue is reading the workspace-scoped product, Agent session, and persisted messages.",

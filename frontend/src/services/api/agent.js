@@ -3,6 +3,7 @@ import { parseApiBaseUrl } from "./public-config.js";
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const sessionStatuses = new Set(["active", "completed", "abandoned"]);
 const commandStatuses = new Set(["queued", "running", "blocked", "succeeded", "failed", "cancelled"]);
+const traceStatuses = new Set(["started", "passed", "failed"]);
 
 function apiBaseUrl(value = import.meta.env?.VITE_API_BASE_URL) {
   const base = parseApiBaseUrl(value);
@@ -91,6 +92,17 @@ function assertCommand(value) {
   return value;
 }
 
+function assertTraceEvent(value) {
+  if (
+    !Number.isInteger(value?.sequenceNo) || value.sequenceNo < 1 ||
+    typeof value?.stage !== "string" || !value.stage || value.stage.length > 80 ||
+    !traceStatuses.has(value?.status) ||
+    typeof value?.summary !== "string" || !value.summary || value.summary.length > 2000 ||
+    typeof value?.createdAt !== "string"
+  ) throw new Error("INVALID_AGENT_API_RESPONSE");
+  return value;
+}
+
 export async function createAgentSession(input, {
   apiBaseUrl: configuredBaseUrl,
   fetchImpl = globalThis.fetch,
@@ -172,6 +184,42 @@ export async function listAgentMessages(sessionId, {
     nextAfterSequence: body.data.nextAfterSequence,
     hasMore: body.data.hasMore,
   };
+}
+
+export async function listAgentTraceEvents(sessionId, {
+  afterSequence = 0,
+  limit = 100,
+  apiBaseUrl: configuredBaseUrl,
+  fetchImpl = globalThis.fetch,
+  signal,
+  ...options
+} = {}) {
+  if (
+    !uuidPattern.test(sessionId ?? "") ||
+    !Number.isInteger(afterSequence) || afterSequence < 0 ||
+    !Number.isInteger(limit) || limit < 1 || limit > 100
+  ) throw new Error("INVALID_AGENT_SESSION_ID");
+  const response = await fetchImpl(
+    endpoint(configuredBaseUrl, options, `agent-sessions/${sessionId}/trace-events?afterSequence=${afterSequence}&limit=${limit}`),
+    {
+      method: "GET",
+      credentials: "omit",
+      redirect: "error",
+      cache: "no-store",
+      headers: headers(options),
+      signal: requestSignal(signal),
+    },
+  );
+  const body = await readLiveResponse(response);
+  const data = body?.data;
+  if (
+    !(data?.traceStreamId === null || uuidPattern.test(data.traceStreamId)) ||
+    !(data?.streamStatus === null || data.streamStatus === "open") ||
+    !Array.isArray(data?.items) ||
+    !/^\d+$/.test(data?.nextAfterSequence ?? "") ||
+    typeof data?.hasMore !== "boolean"
+  ) throw new Error("INVALID_AGENT_API_RESPONSE");
+  return {...data, events: data.items.map(assertTraceEvent)};
 }
 
 export async function submitAgentMessage(sessionId, input, {

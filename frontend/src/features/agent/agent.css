@@ -17,6 +17,19 @@
 .agent-message-planning .agent-message-meta svg { display: inline-block; transform-box: fill-box; transform-origin: center; will-change: transform; animation: agent-spin 900ms linear infinite; }
 .agent-elapsed { margin-left: auto; color: var(--color-foreground-secondary-strong); font-family: var(--mono); text-transform: none; letter-spacing: 0; }
 .agent-message-error { border-color: var(--color-border-warning); }
+.agent-step-cards { display: grid; gap: 10px; }
+.agent-step-card { display: grid; gap: 10px; border: 1px solid var(--line); border-radius: var(--panel-radius); padding: 15px 20px; background: var(--color-background-panel-subtle); }
+.agent-step-card-active { border-color: var(--color-border-agent); }
+.agent-step-card-failed { border-color: var(--color-border-warning); background: var(--color-background-warning); }
+.agent-step-card-meta { display: flex; align-items: center; gap: 8px; min-height: 22px; }
+.agent-step-card-meta > strong { color: var(--color-foreground-secondary-strong); font-size: var(--typography-size-label); font-weight: 550; }
+.agent-step-card-meta .status { font-size: var(--typography-size-micro); }
+.agent-step-card-icon { display: inline-grid; flex: 0 0 auto; place-items: center; color: var(--muted); }
+.agent-step-card-complete .agent-step-card-icon { color: var(--green); }
+.agent-step-card-active .agent-step-card-icon { color: var(--violet); }
+.agent-step-card-failed .agent-step-card-icon { color: var(--color-accent-warning); }
+.agent-step-card-spinner { display: inline-block; transform-box: fill-box; transform-origin: center; will-change: transform; animation: agent-spin 900ms linear infinite; }
+.agent-step-card p { margin: 0; color: var(--text); font-size: 14px; line-height: 1.65; }
 .agent-source-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 15px; }
 .agent-source-chip { display: inline-flex; align-items: center; gap: 7px; min-height: 30px; border: 1px solid var(--line-strong); border-radius: var(--button-radius); padding: 0 9px; color: var(--color-foreground-secondary-strong); font: var(--typography-size-caption) var(--mono); }
 .agent-source-chip svg { color: var(--cyan); }
@@ -75,7 +88,7 @@
 .agent-trace-pending { opacity: .65; }
 
 @media (prefers-reduced-motion: reduce) {
-  .agent-planning-button > svg, .agent-message-planning .agent-message-meta svg, .agent-trace-spinner {
+  .agent-planning-button > svg, .agent-message-planning .agent-message-meta svg, .agent-trace-spinner, .agent-step-card-spinner {
     animation-name: agent-spin !important;
     animation-duration: 1.6s !important;
     animation-timing-function: steps(12, end) !important;

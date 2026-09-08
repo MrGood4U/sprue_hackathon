@@ -4,6 +4,7 @@ import {
   createAgentSession,
   listAgentMessages,
   listAgentSessions,
+  listAgentTraceEvents,
   submitAgentMessage,
 } from "../../services/api/agent.js";
 import {getProduct, listProducts, updateProduct} from "../../services/api/products.js";
@@ -32,10 +33,55 @@ async function loadMessages(sessionId, options) {
   throw new Error("AGENT_MESSAGE_LIMIT_EXCEEDED");
 }
 
+function pollingDelay(signal, milliseconds = 400) {
+  return new Promise((resolve) => {
+    if (signal.aborted) return resolve();
+    let timeoutId;
+    const finish = () => {
+      clearTimeout(timeoutId);
+      signal.removeEventListener("abort", finish);
+      resolve();
+    };
+    timeoutId = setTimeout(finish, milliseconds);
+    signal.addEventListener("abort", finish, {once: true});
+  });
+}
+
+async function pollActiveTrace(sessionId, options, signal, onTrace) {
+  let traceStreamId = null;
+  let afterSequence = 0;
+  let events = [];
+  while (!signal.aborted) {
+    try {
+      const result = await listAgentTraceEvents(sessionId, {...options, afterSequence, limit: 100, signal});
+      if (signal.aborted) return;
+      if (result.traceStreamId && result.traceStreamId !== traceStreamId) {
+        traceStreamId = result.traceStreamId;
+        afterSequence = 0;
+        events = [];
+      }
+      if (result.events.length > 0) {
+        const known = new Set(events.map((event) => event.sequenceNo));
+        events = [...events, ...result.events.filter((event) => !known.has(event.sequenceNo))]
+          .sort((left, right) => left.sequenceNo - right.sequenceNo);
+        onTrace(events);
+      }
+      const next = Number(result.nextAfterSequence);
+      if (Number.isSafeInteger(next) && next >= afterSequence) afterSequence = next;
+      if (result.hasMore) continue;
+    } catch (error) {
+      if (signal.aborted || error?.name === "AbortError") return;
+      // The terminal message remains authoritative if one polling read is lost.
+    }
+    await pollingDelay(signal);
+  }
+}
+
 export function useAgentPlan(productRef) {
   const {identity, getAccessToken} = useAuth();
   const workspaceId = identity?.defaultWorkspaceId;
   const activeLoad = useRef(null);
+  const activePlanning = useRef(null);
   const requestKey = useRef(null);
   const planning = useRef(false);
   const [state, setState] = useState({
@@ -43,6 +89,7 @@ export function useAgentPlan(productRef) {
     product: null,
     session: null,
     messages: [],
+    liveTrace: [],
     command: null,
     error: null,
   });
@@ -61,7 +108,7 @@ export function useAgentPlan(productRef) {
       const sessions = await listAgentSessions({...options, productId: product.id});
       const session = sessions.find((item) => item.status === "active") ?? sessions[0] ?? null;
       const messages = session ? await loadMessages(session.id, options) : [];
-      setState({status: "ready", product, session, messages, command: null, error: null});
+      setState({status: "ready", product, session, messages, liveTrace: [], command: null, error: null});
     } catch (error) {
       if (error?.name === "AbortError") return;
       setState((current) => ({...current, status: "error", error}));
@@ -72,7 +119,10 @@ export function useAgentPlan(productRef) {
     const controller = new AbortController();
     activeLoad.current = controller;
     void load(controller.signal);
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+      activePlanning.current?.abort();
+    };
   }, [load]);
 
   const refresh = useCallback(() => {
@@ -86,7 +136,7 @@ export function useAgentPlan(productRef) {
     const normalized = contentText.trim();
     if (!normalized || normalized.length > 8000 || planning.current || !state.product) return;
     planning.current = true;
-    setState((current) => ({...current, status: "planning", error: null}));
+    setState((current) => ({...current, status: "planning", liveTrace: [], error: null}));
     const idempotencyKey = requestKey.current?.intent === normalized
       ? requestKey.current.key
       : `sprue-agent-message-${globalThis.crypto.randomUUID()}`;
@@ -97,16 +147,31 @@ export function useAgentPlan(productRef) {
         productId: state.product.id,
         title: state.product.name,
       }, options);
-      const command = await submitAgentMessage(session.id, {
-        contentText: normalized,
-        responseLocale,
-      }, {...options, idempotencyKey});
+      const pollingController = new AbortController();
+      activePlanning.current = pollingController;
+      const polling = pollActiveTrace(
+        session.id,
+        options,
+        pollingController.signal,
+        (liveTrace) => setState((current) => ({...current, session, liveTrace})),
+      );
+      let command;
+      try {
+        command = await submitAgentMessage(session.id, {
+          contentText: normalized,
+          responseLocale,
+        }, {...options, idempotencyKey});
+      } finally {
+        pollingController.abort();
+        await polling;
+        if (activePlanning.current === pollingController) activePlanning.current = null;
+      }
       const [messages, product] = await Promise.all([
         loadMessages(session.id, options),
         getProduct(state.product.id, options),
       ]);
       requestKey.current = null;
-      setState((current) => ({...current, status: "ready", product, session, messages, command, error: null}));
+      setState((current) => ({...current, status: "ready", product, session, messages, liveTrace: [], command, error: null}));
       return command;
     } catch (error) {
       if (error?.name === "AbortError") return;
