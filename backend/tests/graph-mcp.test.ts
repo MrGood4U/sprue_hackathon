@@ -452,6 +452,62 @@ test("Graph source discovery preserves direct fields before bounded relationship
   assert.equal(result.candidates[0]?.status, "suitable");
 });
 
+test("Graph source discovery respects row grain and rejects nested cumulative metrics as event values", async () => {
+  const grainSchema = `
+    scalar BigInt
+    scalar BigDecimal
+    type Pool { volumeUSD: BigDecimal! }
+    type Burn { id: ID!, timestamp: BigInt!, amountUSD: BigDecimal! }
+    type Swap { id: ID!, timestamp: BigInt!, amountUSD: BigDecimal!, pool: Pool! }
+    type LegacySwap { id: ID!, timestamp: BigInt!, pool: Pool! }
+    type Query {
+      burns(first: Int): [Burn!]!
+      swaps(first: Int): [Swap!]!
+      legacySwaps(first: Int): [LegacySwap!]!
+    }
+  `;
+  const graph: GraphPlanningMcpPort = {
+    async searchSubgraphsByKeyword() {
+      return {
+        subgraphs: [{subgraphId: "sg-grain", displayName: "Uniswap Arbitrum", manifestIpfsCid: "QmGrain"}],
+        total: 1,
+        returned: 1,
+      };
+    },
+    async getDeploymentActivity() {
+      return [{manifestIpfsCid: "QmGrain", totalQueryCount30d: 1, dataPointsCount: 1}];
+    },
+    async getSchema() { return grainSchema; },
+    async getTopDeploymentsForContract() { throw new Error("not expected"); },
+    async close() {},
+  };
+
+  const result = await new GraphSourceDiscoveryService(graph).discover({
+    needs: [{
+      id: "arbitrum-swap-events",
+      dataNetwork: "eip155:42161",
+      networkLabel: "Arbitrum",
+      keywords: ["Uniswap"],
+      description: "Individual swap events and their USD amount.",
+      grain: "swap_event",
+      fields: [swapNeedContract.fields[2], swapNeedContract.fields[3]],
+      constraints: [],
+    }],
+  });
+
+  const entities = result.candidates[0]?.entities ?? [];
+  const swaps = entities.find((entity) => entity.queryEntity === "swaps");
+  const burns = entities.find((entity) => entity.queryEntity === "burns");
+  const legacy = entities.find((entity) => entity.queryEntity === "legacySwaps");
+  assert.deepEqual(swaps?.matchedRequirements, ["timestamp", "volume_usd"]);
+  assert.deepEqual(burns?.matchedRequirements, []);
+  assert.deepEqual(legacy?.matchedRequirements, ["timestamp"]);
+  assert.deepEqual(
+    legacy?.suggestedBindings.find((binding) => binding.requirementId === "volume_usd")?.fieldPaths,
+    [],
+  );
+});
+
 test("Graph source discovery fails closed before runtime introspection when the shared cache is unavailable", async () => {
   const entityOnlySchema = `type Swap @entity { id: ID! }`;
   let runtimeCalls = 0;

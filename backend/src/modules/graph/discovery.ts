@@ -120,6 +120,24 @@ function terminal(path: string): string {
   return normalize(path.split(".").at(-1) ?? path).replace(/\s/g, "");
 }
 
+function semanticTokens(value: string): ReadonlySet<string> {
+  const expanded = value.replace(/([a-z0-9])([A-Z])/g, "$1 $2");
+  const ignored = new Set(["a", "an", "the", "one", "per", "row", "rows", "record", "records", "entity", "entities", "event", "events", "data", "indexed", "existing", "provider", "defined", "source", "raw"]);
+  const singular = (token: string) => token.endsWith("ies") && token.length > 4
+    ? `${token.slice(0, -3)}y`
+    : token.endsWith("s") && !token.endsWith("ss") && token.length > 3
+      ? token.slice(0, -1)
+      : token;
+  return new Set(expanded.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).map(singular).filter((token) => !ignored.has(token)));
+}
+
+function entityMatchesGrain(grain: string, queryEntity: string, entityType: string): boolean {
+  const grainTokens = semanticTokens(grain);
+  if (grainTokens.size === 0) return true;
+  const entityTokens = new Set([...semanticTokens(queryEntity), ...semanticTokens(entityType)]);
+  return [...grainTokens].some((token) => entityTokens.has(token));
+}
+
 function graphValueType(name: string): GraphSemanticValueType {
   if (name === "Boolean") return "boolean";
   if (name === "ID") return "id";
@@ -196,7 +214,7 @@ function typeCompatible(requirement: GraphFieldRequirement, field: GraphInspecte
   return requirement.expectedType === "decimal" && field.valueType === "integer";
 }
 
-function requirementPathScore(requirement: GraphFieldRequirement, field: GraphInspectedField): number {
+function requirementPathScore(requirement: GraphFieldRequirement, field: GraphInspectedField, grain: string): number {
   if (!typeCompatible(requirement, field)) return 0;
   const leaf = terminal(field.path);
   const full = normalize(field.path).replace(/[.\s]/g, "");
@@ -210,7 +228,16 @@ function requirementPathScore(requirement: GraphFieldRequirement, field: GraphIn
     else if (full.endsWith(hint) || hint.endsWith(full)) score = Math.max(score, 80);
     else if (full.includes(hint) || hint.includes(leaf)) score = Math.max(score, 55);
   }
-  return score;
+  if (score === 0) return 0;
+  const depth = field.path.split(".").length - 1;
+  score += depth === 0 ? 20 : -5 * depth;
+  const semanticRequirement = normalize(`${requirement.id} ${requirement.description} ${requirement.hints.join(" ")}`);
+  const eventGrain = /swap|trade|transaction|event/.test(normalize(grain));
+  const perRowMetric = requirement.expectedType === "decimal" || requirement.expectedType === "integer";
+  const metricRequirement = /amount|value|volume|price|quantity|fee|count/.test(semanticRequirement);
+  const aggregateField = /cumulative|total|volume|count|liquidity|tvl|daily|hourly/.test(leaf);
+  if (depth > 0 && eventGrain && perRowMetric && metricRequirement && aggregateField) score -= 60;
+  return Math.max(0, score);
 }
 
 interface ParsedSchemaInspection {
@@ -277,17 +304,20 @@ function inspectSchema(
 
 function bindRequirements(
   entities: readonly {queryEntity: string; entityType: string; fields: readonly GraphInspectedField[]}[],
-  requirements: readonly GraphFieldRequirement[],
+  need: GraphSourceDiscoveryNeed,
 ): readonly GraphSchemaEntityInspection[] {
+  const requirements = need.fields;
+  const hasGrainAlignedEntity = entities.some((entity) => entityMatchesGrain(need.grain, entity.queryEntity, entity.entityType));
   return entities.map(({queryEntity, entityType, fields}) => {
+    const grainAligned = !hasGrainAlignedEntity || entityMatchesGrain(need.grain, queryEntity, entityType);
     const suggestedBindings = requirements.map((requirement) => ({
       requirementId: requirement.id,
-      fieldPaths: fields
-        .map((field) => ({path: field.path, score: requirementPathScore(requirement, field)}))
-        .filter((item) => item.score > 0)
+      fieldPaths: grainAligned ? fields
+        .map((field) => ({path: field.path, score: requirementPathScore(requirement, field, need.grain)}))
+        .filter((item) => item.score >= 40)
         .sort((left, right) => right.score - left.score || left.path.localeCompare(right.path))
         .slice(0, 8)
-        .map((item) => item.path),
+        .map((item) => item.path) : [],
     }));
     return {
       queryEntity,
@@ -495,7 +525,7 @@ export class GraphSourceDiscoveryService implements GraphSourceDiscoveryPort {
           inspection = {
             schemaHash,
             schemaBytes,
-            entities: bindRequirements(projection.entities, need.fields).slice(0, 8),
+              entities: bindRequirements(projection.entities, need).slice(0, 8),
             schemaInspected: true,
             queryEntitySource: projection.queryEntitySource,
             error: null,
