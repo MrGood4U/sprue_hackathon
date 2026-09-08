@@ -214,7 +214,7 @@ export function postgresAgentRepository(client: Pick<SqlClient, "query">): Agent
             cost_unit,deadline_at
           )
           SELECT id,$2,'P1','sha256:agent-harness-registry-v1','1',
-            'agent-harness-1',3,1,0,100000,30000,0,'usd_micro',
+            'agent-harness-1',4,1,1,100000,30000,0,'usd_micro',
             now()+interval '120 seconds'
           FROM accepted
           RETURNING control_command_id

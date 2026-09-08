@@ -835,6 +835,62 @@ test("Agent sends requirement-ranked entity evidence instead of positional field
   assert.deepEqual(feasibilityRequest?.candidates[0]?.entities[0]?.fields.map((field) => field.path), ["id"]);
 });
 
+test("Agent repairs an unsupported source claim contradicted by inspected field evidence", async () => {
+  const requests: AgentModelRequest[] = [];
+  const graph: GraphPlanningMcpPort = {
+    async searchSubgraphsByKeyword() {
+      return {
+        subgraphs: [{subgraphId: "sg", displayName: "Protocol Ethereum", manifestIpfsCid: "QmRepair"}],
+        total: 1,
+        returned: 1,
+      };
+    },
+    async getDeploymentActivity() {
+      return [{manifestIpfsCid: "QmRepair", totalQueryCount30d: 1, dataPointsCount: 1}];
+    },
+    async getSchema() { return `type Record { id: ID! } type Query { records(first: Int): [Record!]! }`; },
+    async getTopDeploymentsForContract() { throw new Error("not expected"); },
+    async close() {},
+  };
+  const harness = new AgentHarness({
+    async complete(request: AgentModelRequest) {
+      requests.push(request);
+      if (request.stage === "source_discovery_planning") {
+        return {provider: "mock", model: "repair-test", output: createMockStageOutput(request)};
+      }
+      if (requests.length === 2) {
+        return {
+          provider: "mock",
+          model: "repair-test",
+          output: {
+            schemaVersion: 1,
+            kind: "unsupported",
+            code: "source_facts_unavailable",
+            reason: "No inspected candidate entities or fields were supplied.",
+            missingFacts: ["eip155:1:record_id"],
+          },
+        };
+      }
+      return {provider: "mock", model: "repair-test", output: createMockStageOutput(request)};
+    },
+  }, undefined, new GraphSourceDiscoveryService(graph));
+
+  const result = await harness.explore({
+    intent: "Read protocol records on Ethereum.",
+    availableNetworks: [{dataNetwork: "eip155:1", label: "Ethereum"}],
+  });
+
+  assert.equal(result.kind, "feasibility");
+  if (result.kind !== "feasibility") return;
+  assert.equal(result.model.calls, 3);
+  const repair = requests[2] && "repair" in requests[2] ? requests[2].repair : undefined;
+  assert.equal(repair?.reason, "unsupported_evidence_conflict");
+  assert.equal(repair?.counterEvidence?.[0]?.sourceNeedId, "source_1");
+  assert.match(repair?.counterEvidence?.[0]?.candidateRef ?? "", /^graph:source_1:[a-f0-9]{20}$/);
+  assert.equal(repair?.counterEvidence?.[0]?.queryEntity, "records");
+  assert.deepEqual(repair?.counterEvidence?.[0]?.matchedRequiredFields, ["record_id"]);
+});
+
 test("Agent performs one bounded repair when source-planning tool arguments fail schema validation", async () => {
   const requests: AgentModelRequest[] = [];
   let discoveryCalled = false;

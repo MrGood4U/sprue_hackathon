@@ -100,6 +100,10 @@ function safePlanningError(error: unknown): {code: string; message: string; retr
       message: "A required Graph metadata capability is currently not available.",
       retryable: false,
     },
+    FEASIBILITY_UNSUPPORTED_EVIDENCE_CONFLICT: {
+      message: "The configured model repeated a source-evidence claim that conflicts with the inspected Graph schema.",
+      retryable: true,
+    },
   };
   return {code, ...(known[code] ?? {
     message: "The bounded Agent plan could not be completed. Review the intent and try again.",

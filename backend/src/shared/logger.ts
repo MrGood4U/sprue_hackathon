@@ -79,9 +79,10 @@ export type LogEvent =
         score: number;
         limitations: readonly string[];
       }[];
-      outcome?: "feasibility" | "clarification" | "unsupported";
+      outcome?: "feasibility" | "clarification" | "unsupported" | "repair";
       code?: string;
       selectionCount?: number;
+      contradictionCount?: number;
     }
   | {
       event: "provider_retry_scheduled";

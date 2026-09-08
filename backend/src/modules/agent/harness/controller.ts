@@ -48,6 +48,7 @@ import type {
   HarnessTraceEvent,
   DiscoverySemanticPlan,
   DiscoverySourceNeed,
+  ModelRepairDirective,
   PlannerClarification,
   PlannerUnsupported,
   SemanticPlan,
@@ -271,6 +272,31 @@ function graphTypeCompatible(requirement: GraphFieldRequirement, field: GraphIns
   return requirement.expectedType === "decimal" && field.valueType === "integer";
 }
 
+function unsupportedSourceEvidenceConflict(
+  output: PlannerUnsupported,
+  needs: readonly DiscoverySourceNeed[],
+  candidates: readonly SourceFeasibilityCandidate[],
+): NonNullable<ModelRepairDirective["counterEvidence"]> {
+  const claim = `${output.code} ${output.reason} ${output.missingFacts.join(" ")}`.toLowerCase();
+  const concernsSourceEvidence = output.missingFacts.length > 0
+    || /source|subgraph|candidate|schema|entity|field|fact/.test(claim);
+  if (!concernsSourceEvidence) return [];
+  const evidence = needs.flatMap((need) => {
+    const required = need.fields.filter((field) => field.required).map((field) => field.id);
+    const complete = candidates
+      .filter((candidate) => candidate.sourceNeedId === need.id && candidate.status === "suitable")
+      .flatMap((candidate) => candidate.entities.map((entity) => ({candidate, entity})))
+      .find(({entity}) => required.every((id) => entity.matchedRequirements.includes(id)));
+    return complete ? [{
+      sourceNeedId: need.id,
+      candidateRef: complete.candidate.candidateRef,
+      queryEntity: complete.entity.queryEntity,
+      matchedRequiredFields: required,
+    }] : [];
+  });
+  return evidence.length === needs.length ? evidence : [];
+}
+
 function validateSourceFeasibility(
   output: SourceFeasibilityPlan,
   plan: DiscoverySemanticPlan,
@@ -355,7 +381,7 @@ export class AgentHarness {
       maxEdges: number;
     } = {
       maxSources: 4,
-      maxModelCalls: 3,
+      maxModelCalls: 4,
       maxIntentLength: 8000,
       maxProposalBytes: 1_048_576,
       maxNodes: 12,
@@ -512,7 +538,33 @@ export class AgentHarness {
       limits: {maxNodes: this.limits.maxNodes, maxEdges: this.limits.maxEdges},
     };
     const feasibilityResponse = await invoke(feasibilityRequest);
-    const feasibilityOutput = await parseWithRepair(feasibilityRequest, feasibilityResponse, parseSourceFeasibility);
+    let feasibilityOutput = await parseWithRepair(feasibilityRequest, feasibilityResponse, parseSourceFeasibility);
+    if (feasibilityOutput.kind === "unsupported") {
+      const counterEvidence = unsupportedSourceEvidenceConflict(feasibilityOutput, sourceNeeds, candidateEvidence);
+      if (counterEvidence.length > 0) {
+        if (modelCalls >= this.limits.maxModelCalls) {
+          fail("Model unsupported claim conflicts with inspected source evidence", "FEASIBILITY_UNSUPPORTED_EVIDENCE_CONFLICT");
+        }
+        addTrace(trace, "source_feasibility", "failed", "Model unsupported claim conflicted with inspected source evidence");
+        addTrace(trace, "source_feasibility", "started", "Requesting one bounded feasibility repair with inspected counter-evidence");
+        this.emitDebug({stage: "source_feasibility", outcome: "repair", contradictionCount: counterEvidence.length});
+        const repaired = await invoke({
+          ...feasibilityRequest,
+          repair: {
+            attempt: 1,
+            reason: "unsupported_evidence_conflict",
+            path: "result",
+            issueCode: "unsupported_evidence_conflict",
+            counterEvidence,
+          },
+        });
+        feasibilityOutput = parseSourceFeasibility(repaired.output);
+        if (feasibilityOutput.kind === "unsupported"
+          && unsupportedSourceEvidenceConflict(feasibilityOutput, sourceNeeds, candidateEvidence).length > 0) {
+          fail("Model repeated an unsupported claim that conflicts with inspected source evidence", "FEASIBILITY_UNSUPPORTED_EVIDENCE_CONFLICT");
+        }
+      }
+    }
     if (feasibilityOutput.kind === "clarification") {
       this.emitDebug({stage: "source_feasibility", outcome: "clarification"});
       addTrace(trace, "source_feasibility", "passed", "Candidate evidence requires creator clarification");

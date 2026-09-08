@@ -35,9 +35,10 @@ export type AgentDebugEvent =
     }
   | {
       stage: "source_feasibility";
-      outcome: "feasibility" | "clarification" | "unsupported";
+      outcome: "feasibility" | "clarification" | "unsupported" | "repair";
       code?: string;
       selectionCount?: number;
+      contradictionCount?: number;
     };
 
 export type AgentDebugSink = (event: AgentDebugEvent) => void;
@@ -289,9 +290,15 @@ export interface SourceFeasibilityModelRequest {
 
 export interface ModelRepairDirective {
   attempt: 1;
-  reason: "schema_validation_failed";
+  reason: "schema_validation_failed" | "unsupported_evidence_conflict";
   path: string;
   issueCode: string;
+  counterEvidence?: readonly {
+    sourceNeedId: string;
+    candidateRef: string;
+    queryEntity: string;
+    matchedRequiredFields: readonly string[];
+  }[];
 }
 
 export interface SemanticModelRequest {
