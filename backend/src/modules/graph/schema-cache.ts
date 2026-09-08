@@ -65,6 +65,21 @@ export class MemoryGraphSchemaCache implements GraphSchemaCachePort {
   }
 }
 
+/**
+ * Explicit no-cache implementation used when GRAPH_SCHEMA_CACHE_ENABLED=false.
+ * A miss is returned for every read and writes are discarded, so discovery
+ * re-fetches and re-verifies schema evidence for every planning request.
+ */
+export class DisabledGraphSchemaCache implements GraphSchemaCachePort {
+  async get(): Promise<null> {
+    return null;
+  }
+
+  async set(): Promise<void> {}
+
+  async close(): Promise<void> {}
+}
+
 export class RedisGraphSchemaCache implements GraphSchemaCachePort {
   private readonly client: RedisSchemaClient;
   private connection: Promise<void> | null = null;

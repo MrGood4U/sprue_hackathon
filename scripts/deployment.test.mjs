@@ -63,6 +63,8 @@ test("complete Compose topology isolates secrets, worker and durable database", 
   assert.equal(new URL(api.environment.DATABASE_URL).hostname, "postgres");
   assert.equal(new URL(api.environment.REDIS_URL).hostname, "redis");
   assert.equal(new URL(worker.environment.REDIS_URL).hostname, "redis");
+  assert.equal(api.environment.GRAPH_SCHEMA_CACHE_ENABLED, "true");
+  assert.equal(worker.environment.GRAPH_SCHEMA_CACHE_ENABLED, "true");
   assert.equal(frontend.environment, undefined);
   assert.deepEqual(migrate.command, ["node", "dist/scripts/migrate.js"]);
   assert.deepEqual(migrate.profiles, ["tools"]);

@@ -20,7 +20,11 @@ const schema = z.object({
   WORKER_PORT: integer(3002),
   DATABASE_URL: z.string().min(1),
   DATABASE_SSL_MODE: z.enum(["disable", "verify-full"]).optional(),
-  REDIS_URL: z.string().min(1).max(4096),
+  GRAPH_SCHEMA_CACHE_ENABLED: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((value) => value === "true"),
+  REDIS_URL: z.string().min(1).max(4096).optional(),
   API_BASE_URL: z.url(),
   CONSOLE_PUBLIC_URL: z.url(),
   DATA_PUBLIC_BASE_URL: z.url(),
@@ -139,14 +143,19 @@ export function parseConfig(environment: NodeJS.ProcessEnv) {
   } catch {
     throw new ConfigError(["DATABASE_URL", "DATABASE_SSL_MODE"]);
   }
-  let redisUrl: string;
-  try {
-    const parsedRedisUrl = new URL(values.REDIS_URL);
-    if (!["redis:", "rediss:"].includes(parsedRedisUrl.protocol) || !parsedRedisUrl.hostname || parsedRedisUrl.hash) {
-      throw new Error("invalid Redis URL");
+  let redisUrl: string | null = null;
+  if (values.REDIS_URL) {
+    try {
+      const parsedRedisUrl = new URL(values.REDIS_URL);
+      if (!["redis:", "rediss:"].includes(parsedRedisUrl.protocol) || !parsedRedisUrl.hostname || parsedRedisUrl.hash) {
+        throw new Error("invalid Redis URL");
+      }
+      redisUrl = parsedRedisUrl.href;
+    } catch {
+      throw new ConfigError(["REDIS_URL"]);
     }
-    redisUrl = parsedRedisUrl.href;
-  } catch {
+  }
+  if (values.GRAPH_SCHEMA_CACHE_ENABLED && !redisUrl) {
     throw new ConfigError(["REDIS_URL"]);
   }
   const consolePublicUrl = publicUrl(
@@ -197,7 +206,9 @@ export function parseConfig(environment: NodeJS.ProcessEnv) {
     port: values.PORT,
     workerPort: values.WORKER_PORT,
     database,
-    redis: {url: redisUrl},
+    redis: values.GRAPH_SCHEMA_CACHE_ENABLED
+      ? {enabled: true as const, url: redisUrl!}
+      : {enabled: false as const, url: redisUrl},
     apiBaseUrl: publicUrl("API_BASE_URL", values.API_BASE_URL),
     consolePublicUrl,
     dataPublicBaseUrl: publicUrl(

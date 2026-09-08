@@ -5,6 +5,7 @@ import type {AgentDebugEvent, AgentModelRequest} from "../src/modules/agent/harn
 import {
   GraphMcpError,
   GraphSourceDiscoveryService,
+  DisabledGraphSchemaCache,
   MemoryGraphSchemaCache,
   RestrictedGraphMcpClient,
   graphMcpPlanningTools,
@@ -393,6 +394,12 @@ test("Graph source discovery verifies and cross-account caches Query fields when
   assert.equal(candidate?.entities[0]?.entityType, "Swap");
   assert.deepEqual(candidate?.entities[0]?.matchedRequirements, ["wallet", "trade_id", "timestamp", "volume_usd"]);
   assert.match(candidate?.limitations.join(" ") ?? "", /verified against the deployed GraphQL endpoint/);
+
+  const disabledCache = new DisabledGraphSchemaCache();
+  await new GraphSourceDiscoveryService(graph, undefined, disabledCache, runtimeSchema).discover(request);
+  await new GraphSourceDiscoveryService(graph, undefined, disabledCache, runtimeSchema).discover(request);
+  assert.equal(runtimeCalls, 3);
+  await disabledCache.close();
 });
 
 test("Graph source discovery fails closed before runtime introspection when the shared cache is unavailable", async () => {

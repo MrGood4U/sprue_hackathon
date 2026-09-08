@@ -29,7 +29,7 @@ import {postgresProductRepository} from "../modules/products/postgres-repository
 import {ProductService} from "../modules/products/service.js";
 import {postgresAgentRepository} from "../modules/agent/postgres-repository.js";
 import {AgentService} from "../modules/agent/service.js";
-import {RedisGraphSchemaCache} from "../modules/graph/schema-cache.js";
+import {DisabledGraphSchemaCache, RedisGraphSchemaCache} from "../modules/graph/schema-cache.js";
 import { listen, drain } from "./server.js";
 export async function startRuntime(
   config: AppConfig,
@@ -45,7 +45,11 @@ export async function startRuntime(
   pool.on("error", () => logger.write({ event: "pool_error", role }));
   let stopping = false;
   const worker = role === "worker" ? standbyWorker(logger) : null;
-  const graphSchemaCache = role === "api" ? new RedisGraphSchemaCache(config.redis.url) : null;
+  const graphSchemaCache = role === "api"
+    ? config.redis.enabled
+      ? new RedisGraphSchemaCache(config.redis.url)
+      : new DisabledGraphSchemaCache()
+    : null;
   const modelProfiles = role === "api" && config.modelCredentialEncryption
     ? new ModelProfileService(
         postgresModelProfileRepository(pool),

@@ -18,7 +18,7 @@ From the repository root:
 .\scripts\local.ps1 check
 ```
 
-`init` creates an ignored `.env.local` with a random local PostgreSQL password and four host ports. It never overwrites an existing file. `up` builds the API/frontend images, starts PostgreSQL and Redis, applies pending migrations and the idempotent public network/asset reference seed through separate one-off containers, then starts and checks API, worker and frontend. Re-running it upgrades images, applies only pending migrations, and safely reconciles the same public reference metadata; it does not seed users, wallets, funds, credentials or products. Initial image downloads require internet access.
+`init` creates an ignored `.env.local` with a random local PostgreSQL password, four host ports, and `GRAPH_SCHEMA_CACHE_ENABLED=true`. It never overwrites an existing file. `up` builds the API/frontend images, starts PostgreSQL and Redis, applies pending migrations and the idempotent public network/asset reference seed through separate one-off containers, then starts and checks API, worker and frontend. Re-running it upgrades images, applies only pending migrations, and safely reconciles the same public reference metadata; it does not seed users, wallets, funds, credentials or products. Initial image downloads require internet access.
 
 | Service | Default local address | Exposure |
 |---|---|---|
@@ -28,7 +28,7 @@ From the repository root:
 | Redis | `127.0.0.1:16379` | Loopback only; shared immutable Graph schema projection cache |
 | Worker | Port 3002 inside its container | No host/public port; probes only, currently standby |
 
-Use `127.0.0.1` consistently: `localhost` is a different browser origin. Edit the four distinct port values in `.env.local` if another application occupies one, then run `up` again. The helper accepts local Docker endpoints only and does not print resolved secrets. The project is explicitly named `sprue-local`; its PostgreSQL and Redis volumes are separate from the older backend-only `sprue-database` profile. Do not run both profiles on the same host ports or assume their databases share data.
+Use `127.0.0.1` consistently: `localhost` is a different browser origin. Edit the four distinct port values in `.env.local` if another application occupies one, then run `up` again. Set `GRAPH_SCHEMA_CACHE_ENABLED=false` to make the API bypass Redis and fetch/verify Graph schema evidence on every planning request; Compose still runs the packaged Redis service so the cache can be re-enabled without changing topology. The helper accepts local Docker endpoints only and does not print resolved secrets. The project is explicitly named `sprue-local`; its PostgreSQL and Redis volumes are separate from the older backend-only `sprue-database` profile. Do not run both profiles on the same host ports or assume their databases share data.
 
 ```powershell
 .\scripts\local.ps1 logs
@@ -56,7 +56,7 @@ Migration and public reference seeding are explicit orchestration steps, never A
 
 For source editing with frontend hot reload, use Node.js 24 and either the Compose database (`local.ps1 db`) or an independently installed PostgreSQL 17 instance. Install dependencies with `npm ci` in `backend/` and `frontend/`. Copy each folder's `.env.example` to its ignored `.env` and set the local values explicitly:
 
-- Backend: `DATABASE_URL` points to the intended local database and `REDIS_URL` points to the shared schema cache. When using `sprue-local`, use the password from the root `.env.local`; do not leave the backend example password. Set API/worker ports and the console URL/CORS origin consistently. Keep `NODE_ENV=development` and `DEPLOYMENT_ENVIRONMENT=local`.
+- Backend: `DATABASE_URL` points to the intended local database. `GRAPH_SCHEMA_CACHE_ENABLED` defaults to `true`; in that mode `REDIS_URL` is required and points to the shared schema cache. With the switch set to `false`, `REDIS_URL` may be omitted and the API neither reads nor writes Redis. When using `sprue-local`, use the password from the root `.env.local`; do not leave the backend example password. Set API/worker ports and the console URL/CORS origin consistently. Keep `NODE_ENV=development` and `DEPLOYMENT_ENVIRONMENT=local`.
 - Frontend: `VITE_API_BASE_URL` is the backend's public origin, initially `http://127.0.0.1:3001`. It is not a database URL or a secret.
 
 To enable creator login, create a Privy application, enable Google and GitHub in its dashboard, and approve the exact local console origin. Set both `PRIVY_APP_ID` and `PRIVY_APP_SECRET` in the ignored root `.env.local` or backend `.env`. The app ID is returned to the browser through `/api/v1/app-config`; the secret is consumed only by the API and is intentionally absent from frontend, worker, and migration environments. Missing or partial configuration leaves creator routes fail-closed while the public product route remains available.
@@ -108,7 +108,8 @@ The Dockerfile path is `Dockerfile` within the backend build root. Set the share
 | `PORT` | `8080` (configure Railway target/health-check port consistently) |
 | `WORKER_PORT` | `8080` on the worker; this worker-specific setting is required |
 | `DATABASE_URL` | A Railway secret reference to the intended PostgreSQL service connection string |
-| `REDIS_URL` | A Railway secret reference to the shared Redis connection string used for immutable Graph schema evidence |
+| `GRAPH_SCHEMA_CACHE_ENABLED` | `true` to use the cross-account Redis cache; `false` to bypass all Graph schema cache reads/writes |
+| `REDIS_URL` | A Railway secret reference to the shared Redis connection string; required only when `GRAPH_SCHEMA_CACHE_ENABLED=true` |
 | `DATABASE_SSL_MODE` | `disable` only for the explicitly trusted Railway private transport; use `verify-full` with a trusted CA for public TLS connections |
 | `API_BASE_URL` | Actual HTTPS API origin |
 | `CONSOLE_PUBLIC_URL` | Actual HTTPS Vercel console origin |

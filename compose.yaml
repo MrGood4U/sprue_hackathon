@@ -10,6 +10,7 @@ x-backend-environment: &backend-environment
   WORKER_PORT: 3002
   DATABASE_URL: postgresql://sprue:${POSTGRES_PASSWORD:?Initialize .env.local first}@postgres:5432/sprue
   DATABASE_SSL_MODE: disable
+  GRAPH_SCHEMA_CACHE_ENABLED: ${GRAPH_SCHEMA_CACHE_ENABLED:-true}
   REDIS_URL: redis://redis:6379
   API_BASE_URL: http://127.0.0.1:${API_PORT:-3001}
   CONSOLE_PUBLIC_URL: http://127.0.0.1:${FRONTEND_PORT:-4173}

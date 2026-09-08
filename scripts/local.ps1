@@ -22,7 +22,7 @@ if ($Action -eq 'init') {
     $modelSource = [Security.Cryptography.RandomNumberGenerator]::Create()
     try { $modelSource.GetBytes($modelBytes) } finally { $modelSource.Dispose() }
     $modelKey = [Convert]::ToBase64String($modelBytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
-    $contents = "# Local-only settings. Never commit this file.`nPOSTGRES_PASSWORD=$localPassword`nPOSTGRES_PORT=15432`nREDIS_PORT=16379`nAPI_PORT=3001`nFRONTEND_PORT=4173`nAGENT_DEBUG=false`n# Set both values to enable creator login.`nPRIVY_APP_ID=`nPRIVY_APP_SECRET=`n# Server-only keyring for durable Model Service credentials.`nMODEL_CREDENTIAL_KEYRING={`"local-v1`":`"$modelKey`"}`nMODEL_CREDENTIAL_ACTIVE_KEY_ID=local-v1`n# The Graph source discovery and data gateway environment.`nGRAPH_GATEWAY_ENVIRONMENT=mainnet`n# Hedera testnet settlement profile.`nHEDERA_NETWORK=hedera:testnet`nHEDERA_MIRROR_NODE_URL=https://testnet.mirrornode.hedera.com`nHEDERA_PORTAL_PAT=`nHEDERA_FAUCET_URL=https://portal.hedera.com/api/disbursement/cli`nHEDERA_FAUCET_AMOUNT_HBAR=1`nBLOCKY402_FACILITATOR_URL=https://api.testnet.blocky402.com`n"
+    $contents = "# Local-only settings. Never commit this file.`nPOSTGRES_PASSWORD=$localPassword`nPOSTGRES_PORT=15432`nGRAPH_SCHEMA_CACHE_ENABLED=true`nREDIS_PORT=16379`nAPI_PORT=3001`nFRONTEND_PORT=4173`nAGENT_DEBUG=false`n# Set both values to enable creator login.`nPRIVY_APP_ID=`nPRIVY_APP_SECRET=`n# Server-only keyring for durable Model Service credentials.`nMODEL_CREDENTIAL_KEYRING={`"local-v1`":`"$modelKey`"}`nMODEL_CREDENTIAL_ACTIVE_KEY_ID=local-v1`n# The Graph source discovery and data gateway environment.`nGRAPH_GATEWAY_ENVIRONMENT=mainnet`n# Hedera testnet settlement profile.`nHEDERA_NETWORK=hedera:testnet`nHEDERA_MIRROR_NODE_URL=https://testnet.mirrornode.hedera.com`nHEDERA_PORTAL_PAT=`nHEDERA_FAUCET_URL=https://portal.hedera.com/api/disbursement/cli`nHEDERA_FAUCET_AMOUNT_HBAR=1`nBLOCKY402_FACILITATOR_URL=https://api.testnet.blocky402.com`n"
     # CreateNew prevents an initialization race from overwriting existing credentials.
     $stream = [IO.File]::Open($localEnvPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write)
     $writer = New-Object IO.StreamWriter($stream, (New-Object Text.UTF8Encoding($false)))
@@ -33,7 +33,7 @@ if ($Action -eq 'init') {
 
 if (-not (Test-Path -LiteralPath $localEnvPath)) { throw 'Run scripts/local.ps1 init first.' }
 $settings = @{}
-$allowedKeys = @('POSTGRES_PASSWORD', 'POSTGRES_PORT', 'REDIS_PORT', 'API_PORT', 'FRONTEND_PORT', 'PRIVY_APP_ID', 'PRIVY_APP_SECRET', 'MODEL_CREDENTIAL_KEYRING', 'MODEL_CREDENTIAL_ACTIVE_KEY_ID', 'AGENT_TIMEOUT_MS', 'AGENT_DEBUG', 'GRAPH_GATEWAY_ENVIRONMENT', 'HEDERA_NETWORK', 'HEDERA_MIRROR_NODE_URL', 'HEDERA_PORTAL_PAT', 'HEDERA_FAUCET_URL', 'HEDERA_FAUCET_AMOUNT_HBAR', 'BLOCKY402_FACILITATOR_URL')
+$allowedKeys = @('POSTGRES_PASSWORD', 'POSTGRES_PORT', 'GRAPH_SCHEMA_CACHE_ENABLED', 'REDIS_PORT', 'API_PORT', 'FRONTEND_PORT', 'PRIVY_APP_ID', 'PRIVY_APP_SECRET', 'MODEL_CREDENTIAL_KEYRING', 'MODEL_CREDENTIAL_ACTIVE_KEY_ID', 'AGENT_TIMEOUT_MS', 'AGENT_DEBUG', 'GRAPH_GATEWAY_ENVIRONMENT', 'HEDERA_NETWORK', 'HEDERA_MIRROR_NODE_URL', 'HEDERA_PORTAL_PAT', 'HEDERA_FAUCET_URL', 'HEDERA_FAUCET_AMOUNT_HBAR', 'BLOCKY402_FACILITATOR_URL')
 foreach ($line in [IO.File]::ReadAllLines($localEnvPath)) {
     if ($line.Trim() -eq '' -or $line.Trim().StartsWith('#')) { continue }
     if ($line -notmatch '^([A-Z_]+)=([^\s]*)$' -or $allowedKeys -notcontains $Matches[1]) {
@@ -43,6 +43,7 @@ foreach ($line in [IO.File]::ReadAllLines($localEnvPath)) {
     $settings[$Matches[1]] = $Matches[2]
 }
 $settings['REDIS_PORT'] = if ($settings.ContainsKey('REDIS_PORT')) { $settings['REDIS_PORT'] } else { '16379' }
+$settings['GRAPH_SCHEMA_CACHE_ENABLED'] = if ($settings.ContainsKey('GRAPH_SCHEMA_CACHE_ENABLED')) { $settings['GRAPH_SCHEMA_CACHE_ENABLED'] } else { 'true' }
 $requiredKeys = @('POSTGRES_PASSWORD', 'POSTGRES_PORT', 'REDIS_PORT', 'API_PORT', 'FRONTEND_PORT')
 if (@($requiredKeys | Where-Object { -not $settings.ContainsKey($_) }).Count -ne 0 -or $settings['POSTGRES_PASSWORD'] -notmatch '^[a-fA-F0-9]{64}$') {
     throw 'Local configuration needs the required service settings and a 64-character hex database password.'
@@ -92,6 +93,9 @@ foreach ($key in @('POSTGRES_PORT', 'REDIS_PORT', 'API_PORT', 'FRONTEND_PORT')) 
     if (-not [int]::TryParse($settings[$key], [ref]$parsedPort) -or $parsedPort -lt 1024 -or $parsedPort -gt 65535) {
         throw "Invalid local port: $key. Use 1024-65535."
     }
+}
+if ($settings['GRAPH_SCHEMA_CACHE_ENABLED'] -notin @('true', 'false')) {
+    throw 'GRAPH_SCHEMA_CACHE_ENABLED must be true or false.'
 }
 if (@(@('POSTGRES_PORT', 'REDIS_PORT', 'API_PORT', 'FRONTEND_PORT') | ForEach-Object { [int]$settings[$_] } | Select-Object -Unique).Count -ne 4) {
     throw 'Local service ports must be distinct.'

@@ -685,7 +685,14 @@ test("configuration rejects unsafe public URLs and money rejects lossy encodings
   assert.equal(config.port, 3001);
   assert.equal(config.privyAppId, null);
   assert.equal(config.privyAppSecret, null);
+  assert.equal(config.redis.enabled, true);
   assert.equal(config.redis.url, "redis://127.0.0.1:1");
+  const cacheDisabled = parseConfig({
+    ...environment,
+    GRAPH_SCHEMA_CACHE_ENABLED: "false",
+    REDIS_URL: undefined,
+  });
+  assert.deepEqual(cacheDisabled.redis, {enabled: false, url: null});
   assert.deepEqual(config.hedera, {
     network: "hedera:testnet",
     evmChainId: 296,
@@ -707,7 +714,9 @@ test("configuration rejects unsafe public URLs and money rejects lossy encodings
   for (const changes of [
     { PORT: "0" },
     { DATABASE_URL: "" },
+    { REDIS_URL: undefined },
     { REDIS_URL: "https://example.test/cache" },
+    { GRAPH_SCHEMA_CACHE_ENABLED: "yes" },
     { CORS_ALLOWED_ORIGINS: "*" },
     { API_BASE_URL: "https://user:password@example.test" },
     { DEPLOYMENT_ENVIRONMENT: "demo" },
