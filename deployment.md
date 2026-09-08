@@ -117,7 +117,7 @@ The Dockerfile path is `Dockerfile` within the backend build root. Set the share
 | `CORS_ALLOWED_ORIGINS` | Exact console origin(s), comma-separated |
 | `DEMO_RUNTIME_ENABLED` | `true` for the temporary evaluator-facing backend projection; otherwise `false` |
 | `AGENT_MODE` | `mock` for the default evaluator projection; `remote` enables the configured OpenAI-compatible Chat Completions endpoint after all Agent variables are supplied |
-| `AGENT_DEBUG` | `true` enables additional server-side planning metadata diagnostics (search keywords, candidate evidence and stage outcomes); keep `false` outside local debugging |
+| `AGENT_DEBUG` | `true` enables structured diagnostics for model-call lifecycle, duration, output shape/size, schema and semantic validation failures, repair decisions, search keywords, Graph discovery lifecycle, candidate evidence and stage outcomes; prompts, user text, provider bodies, URLs, credentials and tenant/user identifiers remain excluded; keep `false` outside local debugging |
 | `GRAPH_GATEWAY_ENVIRONMENT` | `mainnet`; the current Graph MCP discovery and data-network catalog reject testnet configuration |
 | `PRIVY_APP_ID` | Privy application's public identifier; API reads it and exposes it through public app config only when the matching secret is configured |
 | `PRIVY_APP_SECRET` | API-only Railway secret used by the Privy server SDK to verify access tokens; never configure it on Vercel or the worker |

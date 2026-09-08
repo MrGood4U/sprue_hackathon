@@ -48,7 +48,34 @@ export type LogEvent =
     }
   | {
       event: "agent_debug";
-      stage: "source_discovery_planning" | "graph_source_discovery" | "source_feasibility";
+      stage:
+        | "source_discovery_planning"
+        | "graph_source_discovery"
+        | "source_feasibility"
+        | "semantic_interpretation"
+        | "source_selection"
+        | "dag_composition";
+      phase?:
+        | "model_request_started"
+        | "model_response_received"
+        | "model_request_failed"
+        | "schema_validation_failed"
+        | "semantic_validation_failed"
+        | "request_started"
+        | "request_failed";
+      callNumber?: number;
+      durationMs?: number;
+      repairAttempt?: number;
+      repairReason?: "schema_validation_failed" | "unsupported_evidence_conflict" | null;
+      provider?: "mock" | "remote";
+      model?: string;
+      outputBytes?: number;
+      outputKind?: string | null;
+      schemaVersion?: number | null;
+      unresolvedCount?: number;
+      sourceRequirementCount?: number;
+      sourceNeedCount?: number;
+      searchCount?: number;
       networks?: readonly string[];
       searches?: readonly {sourceNeedId: string; keywords: readonly string[]}[];
       searchCalls?: number;
@@ -86,8 +113,14 @@ export type LogEvent =
       }[];
       outcome?: "feasibility" | "clarification" | "unsupported" | "repair";
       code?: string;
+      validationCode?: string;
+      schemaPath?: string;
+      schemaIssueCode?: string;
+      willRepair?: boolean;
       selectionCount?: number;
+      compositionNodeCount?: number;
       contradictionCount?: number;
+      errorCode?: string;
     }
   | {
       event: "provider_retry_scheduled";

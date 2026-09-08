@@ -795,18 +795,18 @@ test("Agent derives search keywords before Graph MCP discovery and assesses comp
   assert.equal(serializedRequest.includes("execute_query"), false);
   assert.equal(serializedRequest.includes("type Query"), false);
   assert.match(result.blockers.join(" "), /Deployment ID/);
-  assert.deepEqual(debugEvents.map((event) => event.stage), [
+  assert.deepEqual(debugEvents.filter((event) => !("phase" in event)).map((event) => event.stage), [
     "source_discovery_planning",
     "graph_source_discovery",
     "source_feasibility",
   ]);
-  const planningDebug = debugEvents.find((event) => event.stage === "source_discovery_planning");
+  const planningDebug = debugEvents.find((event) => event.stage === "source_discovery_planning" && "searches" in event);
   assert.ok(planningDebug && "searches" in planningDebug);
   assert.deepEqual(planningDebug.searches, [
     {sourceNeedId: "source_1", keywords: ["Uniswap V3"]},
     {sourceNeedId: "source_2", keywords: ["Uniswap V3"]},
   ]);
-  const discoveryDebug = debugEvents.find((event) => event.stage === "graph_source_discovery");
+  const discoveryDebug = debugEvents.find((event) => event.stage === "graph_source_discovery" && "candidateCount" in event);
   assert.ok(discoveryDebug && "candidateCount" in discoveryDebug);
   assert.equal(discoveryDebug.candidateCount, 4);
 });
@@ -1115,6 +1115,50 @@ test("Agent performs one bounded repair when source-planning tool arguments fail
     path: "schemaVersion",
     issueCode: "invalid_value",
   });
+});
+
+test("Agent debug logs expose safe model and semantic validation diagnostics before source discovery", async () => {
+  const debugEvents: AgentDebugEvent[] = [];
+  let discoveryCalled = false;
+  const sensitiveUnresolvedText = "private user-derived ambiguity";
+  const harness = new AgentHarness({
+    async complete(request: AgentModelRequest) {
+      const output = createMockStageOutput(request) as {semanticPlan: {unresolved: string[]}};
+      output.semanticPlan.unresolved = [sensitiveUnresolvedText];
+      return {provider: "mock" as const, model: "debug-test", output};
+    },
+  }, undefined, {
+    async discover() {
+      discoveryCalled = true;
+      throw new Error("must not discover after semantic validation failure");
+    },
+  }, (event) => debugEvents.push(event));
+
+  await assert.rejects(
+    () => harness.explore({
+      intent: "Compare protocol activity on Ethereum and Arbitrum.",
+      availableNetworks: [
+        {dataNetwork: "eip155:1", label: "Ethereum"},
+        {dataNetwork: "eip155:42161", label: "Arbitrum"},
+      ],
+    }),
+    (error: unknown) => error instanceof HarnessValidationError && error.code === "SEMANTIC_PLAN_UNRESOLVED",
+  );
+
+  assert.equal(discoveryCalled, false);
+  const received = debugEvents.find((event) => "phase" in event && event.phase === "model_response_received");
+  assert.ok(received && "outputBytes" in received);
+  assert.equal(received.callNumber, 1);
+  assert.equal(received.outputKind, "source_discovery_plan");
+  assert.equal(received.unresolvedCount, 1);
+  assert.equal(received.sourceRequirementCount, 2);
+  assert.equal(received.searchCount, 2);
+
+  const rejected = debugEvents.find((event) => "phase" in event && event.phase === "semantic_validation_failed");
+  assert.ok(rejected && "validationCode" in rejected);
+  assert.equal(rejected.validationCode, "SEMANTIC_PLAN_UNRESOLVED");
+  assert.equal(rejected.unresolvedCount, 1);
+  assert.equal(JSON.stringify(debugEvents).includes(sensitiveUnresolvedText), false);
 });
 
 test("Agent accepts independent per-network search hints beyond the former global keyword limit", async () => {

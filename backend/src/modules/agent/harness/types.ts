@@ -22,9 +22,43 @@ export interface AgentModelConfig {
  */
 export type AgentDebugEvent =
   | {
+      stage: PlannerStage;
+      phase:
+        | "model_request_started"
+        | "model_response_received"
+        | "model_request_failed"
+        | "schema_validation_failed"
+        | "semantic_validation_failed";
+      callNumber: number;
+      durationMs?: number;
+      repairAttempt?: number;
+      repairReason?: ModelRepairDirective["reason"] | null;
+      provider?: AgentModelResponse["provider"];
+      model?: string;
+      outputBytes?: number;
+      outputKind?: string | null;
+      schemaVersion?: number | null;
+      unresolvedCount?: number;
+      sourceRequirementCount?: number;
+      searchCount?: number;
+      selectionCount?: number;
+      compositionNodeCount?: number;
+      validationCode?: string;
+      schemaPath?: string;
+      schemaIssueCode?: string;
+      willRepair?: boolean;
+    }
+  | {
       stage: "source_discovery_planning";
       networks: readonly string[];
       searches: readonly SourceDiscoverySearch[];
+    }
+  | {
+      stage: "graph_source_discovery";
+      phase: "request_started" | "request_failed";
+      sourceNeedCount: number;
+      durationMs?: number;
+      errorCode?: string;
     }
   | {
       stage: "graph_source_discovery";

@@ -76,6 +76,49 @@ function fail(message: string, code?: string): never {
   throw new HarnessValidationError(message, code);
 }
 
+function safeDiagnosticToken(value: unknown, fallback: string): string {
+  return typeof value === "string" && /^[A-Za-z0-9_.-]{1,160}$/.test(value)
+    ? value
+    : fallback;
+}
+
+function diagnosticErrorCode(error: unknown): string {
+  if (!error || typeof error !== "object") return "unexpected";
+  const candidate = error as {code?: unknown; name?: unknown};
+  return safeDiagnosticToken(candidate.code, safeDiagnosticToken(candidate.name, "unexpected"));
+}
+
+function modelOutputShape(output: unknown): {
+  outputKind: string | null;
+  schemaVersion: number | null;
+  unresolvedCount: number;
+  sourceRequirementCount: number;
+  searchCount: number;
+  selectionCount: number;
+  compositionNodeCount: number;
+} {
+  const record = output && typeof output === "object" && !Array.isArray(output)
+    ? output as Record<string, unknown>
+    : {};
+  const semanticPlan = record.semanticPlan && typeof record.semanticPlan === "object" && !Array.isArray(record.semanticPlan)
+    ? record.semanticPlan as Record<string, unknown>
+    : record;
+  const composition = record.composition && typeof record.composition === "object" && !Array.isArray(record.composition)
+    ? record.composition as Record<string, unknown>
+    : {};
+  return {
+    outputKind: typeof record.kind === "string" && /^[a-z][a-z0-9_]{0,79}$/.test(record.kind) ? record.kind : null,
+    schemaVersion: typeof record.schemaVersion === "number" && Number.isSafeInteger(record.schemaVersion)
+      ? record.schemaVersion
+      : null,
+    unresolvedCount: Array.isArray(semanticPlan.unresolved) ? semanticPlan.unresolved.length : 0,
+    sourceRequirementCount: Array.isArray(semanticPlan.sourceRequirements) ? semanticPlan.sourceRequirements.length : 0,
+    searchCount: Array.isArray(record.searches) ? record.searches.length : 0,
+    selectionCount: Array.isArray(record.selections) ? record.selections.length : 0,
+    compositionNodeCount: Array.isArray(composition.nodes) ? composition.nodes.length : 0,
+  };
+}
+
 function addTrace(
   trace: HarnessTraceEvent[],
   stage: HarnessTraceEvent["stage"],
@@ -427,8 +470,44 @@ export class AgentHarness {
     let modelIdentity: {provider: AgentModelResponse["provider"]; model: string} | undefined;
     const invoke = async (modelRequest: AgentModelRequest): Promise<AgentModelResponse> => {
       if (modelCalls >= this.limits.maxModelCalls) fail("Model call limit exceeded", "MODEL_CALL_LIMIT_EXCEEDED");
-      const response = await this.model.complete(modelRequest, signal);
+      const callNumber = modelCalls + 1;
+      const startedAt = Date.now();
+      const repair = "repair" in modelRequest ? modelRequest.repair : undefined;
+      this.emitDebug({
+        stage: modelRequest.stage,
+        phase: "model_request_started",
+        callNumber,
+        repairAttempt: repair?.attempt ?? 0,
+        repairReason: repair?.reason ?? null,
+      });
+      let response: AgentModelResponse;
+      try {
+        response = await this.model.complete(modelRequest, signal);
+      } catch (error) {
+        this.emitDebug({
+          stage: modelRequest.stage,
+          phase: "model_request_failed",
+          callNumber,
+          durationMs: Math.max(0, Date.now() - startedAt),
+          repairAttempt: repair?.attempt ?? 0,
+          repairReason: repair?.reason ?? null,
+          validationCode: diagnosticErrorCode(error),
+        });
+        throw error;
+      }
       const responseBytes = new TextEncoder().encode(JSON.stringify(response.output)).byteLength;
+      this.emitDebug({
+        stage: modelRequest.stage,
+        phase: "model_response_received",
+        callNumber,
+        durationMs: Math.max(0, Date.now() - startedAt),
+        repairAttempt: repair?.attempt ?? 0,
+        repairReason: repair?.reason ?? null,
+        provider: response.provider,
+        model: response.model,
+        outputBytes: responseBytes,
+        ...modelOutputShape(response.output),
+      });
       if (responseBytes > this.limits.maxProposalBytes) fail("Model stage output exceeds harness size limit", "MODEL_OUTPUT_LIMIT_EXCEEDED");
       modelCalls += 1;
       if (modelIdentity && (modelIdentity.provider !== response.provider || modelIdentity.model !== response.model)) {
@@ -446,7 +525,22 @@ export class AgentHarness {
       try {
         return parser(response.output);
       } catch (error) {
-        if (!(error instanceof HarnessSchemaError) || modelCalls >= this.limits.maxModelCalls) throw error;
+        const willRepair = error instanceof HarnessSchemaError && modelCalls < this.limits.maxModelCalls;
+        if (error instanceof HarnessSchemaError) {
+          this.emitDebug({
+            stage: modelRequest.stage,
+            phase: "schema_validation_failed",
+            callNumber: modelCalls,
+            repairAttempt: "repair" in modelRequest ? modelRequest.repair?.attempt ?? 0 : 0,
+            repairReason: "repair" in modelRequest ? modelRequest.repair?.reason ?? null : null,
+            validationCode: "AGENT_HARNESS_SCHEMA_ERROR",
+            schemaPath: error.path,
+            schemaIssueCode: error.issueCode,
+            willRepair,
+            ...modelOutputShape(response.output),
+          });
+        }
+        if (!(error instanceof HarnessSchemaError) || !willRepair) throw error;
         emitTrace(modelRequest.stage, "failed", "Model output did not match the strict planning-stage contract");
         emitTrace(modelRequest.stage, "started", "Requesting one bounded schema repair from the configured model");
         const repaired = await invoke({
@@ -458,7 +552,25 @@ export class AgentHarness {
             issueCode: error.issueCode,
           },
         });
-        return parser(repaired.output);
+        try {
+          return parser(repaired.output);
+        } catch (repairError) {
+          if (repairError instanceof HarnessSchemaError) {
+            this.emitDebug({
+              stage: modelRequest.stage,
+              phase: "schema_validation_failed",
+              callNumber: modelCalls,
+              repairAttempt: 1,
+              repairReason: "schema_validation_failed",
+              validationCode: "AGENT_HARNESS_SCHEMA_ERROR",
+              schemaPath: repairError.path,
+              schemaIssueCode: repairError.issueCode,
+              willRepair: false,
+              ...modelOutputShape(repaired.output),
+            });
+          }
+          throw repairError;
+        }
       }
     };
 
@@ -484,7 +596,18 @@ export class AgentHarness {
       emitTrace("source_discovery_planning", "passed", "Intent is outside the registered operators or supplied network catalog");
       return {kind: "unsupported", unsupported: discoveryPlanningOutput, trace, model: modelResult()};
     }
-    validateSourceDiscoveryPlan(discoveryPlanningOutput, request.availableNetworks, 3);
+    try {
+      validateSourceDiscoveryPlan(discoveryPlanningOutput, request.availableNetworks, 3);
+    } catch (error) {
+      this.emitDebug({
+        stage: "source_discovery_planning",
+        phase: "semantic_validation_failed",
+        callNumber: modelCalls,
+        validationCode: diagnosticErrorCode(error),
+        ...modelOutputShape(discoveryPlanningOutput),
+      });
+      throw error;
+    }
     emitTrace("source_discovery_planning", "passed", "Search keywords and semantic requirements passed strict validation");
     this.emitDebug({
       stage: "source_discovery_planning",
@@ -497,18 +620,32 @@ export class AgentHarness {
     const labels = new Map(request.availableNetworks.map((network) => [network.dataNetwork, network.label]));
     const searches = new Map(discoveryPlanningOutput.searches.map((search) => [search.sourceNeedId, search.keywords]));
     emitTrace("graph_source_discovery", "started", "Controller is invoking the restricted Graph metadata adapter with validated keywords");
-    const discovery = await this.sourceDiscovery.discover({
-      needs: sourceNeeds.map((need) => ({
-        id: need.id,
-        dataNetwork: need.dataNetwork,
-        networkLabel: labels.get(need.dataNetwork)!,
-        keywords: searches.get(need.id)!,
-        description: need.description,
-        grain: need.grain,
-        fields: need.fields,
-        constraints: need.constraints,
-      })),
-    }, signal);
+    const discoveryStartedAt = Date.now();
+    this.emitDebug({stage: "graph_source_discovery", phase: "request_started", sourceNeedCount: sourceNeeds.length});
+    let discovery: GraphSourceDiscoveryResult;
+    try {
+      discovery = await this.sourceDiscovery.discover({
+        needs: sourceNeeds.map((need) => ({
+          id: need.id,
+          dataNetwork: need.dataNetwork,
+          networkLabel: labels.get(need.dataNetwork)!,
+          keywords: searches.get(need.id)!,
+          description: need.description,
+          grain: need.grain,
+          fields: need.fields,
+          constraints: need.constraints,
+        })),
+      }, signal);
+    } catch (error) {
+      this.emitDebug({
+        stage: "graph_source_discovery",
+        phase: "request_failed",
+        sourceNeedCount: sourceNeeds.length,
+        durationMs: Math.max(0, Date.now() - discoveryStartedAt),
+        errorCode: diagnosticErrorCode(error),
+      });
+      throw error;
+    }
     emitTrace("graph_source_discovery", "passed", `Discovered ${discovery.candidates.length} candidates and inspected ${discovery.inspectedSchemas} schemas`);
     this.emitDebug({
       stage: "graph_source_discovery",
@@ -595,6 +732,13 @@ export class AgentHarness {
         {maxNodes: this.limits.maxNodes, maxEdges: this.limits.maxEdges},
       );
     } catch (error) {
+      this.emitDebug({
+        stage: "source_feasibility",
+        phase: "semantic_validation_failed",
+        callNumber: modelCalls,
+        validationCode: diagnosticErrorCode(error),
+        ...modelOutputShape(feasibilityOutput),
+      });
       if (error instanceof HarnessCompileError) throw new HarnessValidationError(error.message, error.code);
       throw error;
     }
