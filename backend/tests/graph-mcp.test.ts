@@ -287,6 +287,57 @@ test("Graph source discovery orders schema inspection by activity without reject
   assert.match(missing?.limitations.join(" ") ?? "", /activity evidence is missing/);
 });
 
+test("Graph source discovery infers query entities from @entity types when deployment SDL omits Query", async () => {
+  const entityOnlySchema = `
+    scalar BigInt
+    scalar BigDecimal
+    type Account @entity { id: Bytes! }
+    type Swap @entity(immutable: true) {
+      id: ID!
+      account: Account!
+      timestamp: BigInt!
+      amountUSD: BigDecimal!
+    }
+  `;
+  const graph: GraphPlanningMcpPort = {
+    async searchSubgraphsByKeyword() {
+      return {
+        subgraphs: [{subgraphId: "sg-entity-only", displayName: "Uniswap Ethereum", manifestIpfsCid: "QmEntityOnly"}],
+        total: 1,
+        returned: 1,
+      };
+    },
+    async getDeploymentActivity() {
+      return [{manifestIpfsCid: "QmEntityOnly", totalQueryCount30d: 42, dataPointsCount: 30}];
+    },
+    async getSchema() {
+      return entityOnlySchema;
+    },
+    async getTopDeploymentsForContract() {
+      throw new Error("not expected");
+    },
+    async close() {},
+  };
+
+  const result = await new GraphSourceDiscoveryService(graph).discover({
+    needs: [{
+      id: "ethereum-swaps",
+      dataNetwork: "eip155:1",
+      networkLabel: "Ethereum Mainnet",
+      keywords: ["Uniswap"],
+      ...swapNeedContract,
+    }],
+  });
+
+  assert.equal(result.inspectedSchemas, 1);
+  const candidate = result.candidates[0];
+  assert.equal(candidate?.status, "suitable");
+  assert.equal(candidate?.entities[0]?.queryEntity, "swaps");
+  assert.equal(candidate?.entities[0]?.entityType, "Swap");
+  assert.deepEqual(candidate?.entities[0]?.matchedRequirements, ["wallet", "trade_id", "timestamp", "volume_usd"]);
+  assert.match(candidate?.limitations.join(" ") ?? "", /inferred from @entity types/);
+});
+
 test("Graph source discovery does not treat another chain's mainnet label as Ethereum evidence", async () => {
   const graph: GraphPlanningMcpPort = {
     async searchSubgraphsByKeyword() {

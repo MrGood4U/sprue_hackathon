@@ -76,6 +76,7 @@ interface CandidateSchemaInspection {
   schemaBytes: number | null;
   entities: readonly GraphSchemaEntityInspection[];
   schemaInspected: boolean;
+  queryEntitySource: "query_root" | "entity_type_inferred" | null;
   error: string | null;
 }
 
@@ -192,9 +193,25 @@ function requirementPathScore(requirement: GraphFieldRequirement, field: GraphIn
   return score;
 }
 
-function inspectSchema(sdl: string, requirements: readonly GraphFieldRequirement[]): readonly GraphSchemaEntityInspection[] {
+function inferredQueryEntityName(entityType: string): string {
+  const lowerCamel = entityType.length > 0
+    ? `${entityType[0]!.toLowerCase()}${entityType.slice(1)}`
+    : entityType;
+  if (/is$/.test(lowerCamel)) return `${lowerCamel.slice(0, -2)}es`;
+  if (/[^aeiou]y$/.test(lowerCamel)) return `${lowerCamel.slice(0, -1)}ies`;
+  if (/(?:s|x|z|ch|sh)$/.test(lowerCamel)) return `${lowerCamel}es`;
+  return `${lowerCamel}s`;
+}
+
+interface ParsedSchemaInspection {
+  entities: readonly GraphSchemaEntityInspection[];
+  queryEntitySource: "query_root" | "entity_type_inferred";
+}
+
+function inspectSchema(sdl: string, requirements: readonly GraphFieldRequirement[]): ParsedSchemaInspection {
   const document = parse(sdl, {maxTokens: 100_000});
   const objectFields = new Map<string, FieldDefinitionNode[]>();
+  const entityTypes = new Set<string>();
   const leafTypes = new Set(["ID", "String", "Boolean", "Int", "Float", "BigInt", "BigDecimal", "Bytes"]);
   for (const definition of document.definitions) {
     if (definition.kind === Kind.SCALAR_TYPE_DEFINITION || definition.kind === Kind.ENUM_TYPE_DEFINITION) {
@@ -206,10 +223,25 @@ function inspectSchema(sdl: string, requirements: readonly GraphFieldRequirement
     const existing = objectFields.get(objectDefinition.name.value) ?? [];
     existing.push(...(objectDefinition.fields ?? []));
     objectFields.set(objectDefinition.name.value, existing);
+    if (objectDefinition.directives?.some((directive) => directive.name.value === "entity")) {
+      entityTypes.add(objectDefinition.name.value);
+    }
   }
   const queryFields = objectFields.get("Query") ?? [];
-  const inspections = queryFields.slice(0, 128).map((queryField) => {
-    const entityType = namedType(queryField.type);
+  const queryEntities = queryFields.length > 0
+    ? queryFields.slice(0, 128).map((queryField) => ({
+      queryEntity: queryField.name.value,
+      entityType: namedType(queryField.type),
+    }))
+    : [...entityTypes]
+      .sort((left, right) => left.localeCompare(right))
+      .slice(0, 128)
+      .map((entityType) => ({
+        queryEntity: inferredQueryEntityName(entityType),
+        entityType,
+      }));
+  const queryEntitySource = queryFields.length > 0 ? "query_root" as const : "entity_type_inferred" as const;
+  const inspections = queryEntities.map(({queryEntity, entityType}) => {
     const fields = [...new Map(collectFields(entityType, objectFields, leafTypes).map((field) => [field.path, field])).values()]
       .sort((left, right) => left.path.localeCompare(right.path));
     const suggestedBindings = requirements.map((requirement) => ({
@@ -222,7 +254,7 @@ function inspectSchema(sdl: string, requirements: readonly GraphFieldRequirement
         .map((item) => item.path),
     }));
     return {
-      queryEntity: queryField.name.value,
+      queryEntity,
       entityType,
       fields,
       suggestedBindings,
@@ -231,10 +263,13 @@ function inspectSchema(sdl: string, requirements: readonly GraphFieldRequirement
         .map((requirement) => requirement.id),
     } satisfies GraphSchemaEntityInspection;
   });
-  return inspections.sort((left, right) =>
-    right.matchedRequirements.length - left.matchedRequirements.length
-    || right.fields.length - left.fields.length
-    || left.queryEntity.localeCompare(right.queryEntity));
+  return {
+    entities: inspections.sort((left, right) =>
+      right.matchedRequirements.length - left.matchedRequirements.length
+      || right.fields.length - left.fields.length
+      || left.queryEntity.localeCompare(right.queryEntity)),
+    queryEntitySource,
+  };
 }
 
 function networkEvidence(
@@ -384,20 +419,22 @@ export class GraphSourceDiscoveryService implements GraphSourceDiscoveryPort {
       const schema = await loadSchema(candidate);
       let inspection: CandidateSchemaInspection;
       if (schema.error) {
-        inspection = {schemaHash: null, schemaBytes: null, entities: [], schemaInspected: false, error: schema.error};
+        inspection = {schemaHash: null, schemaBytes: null, entities: [], schemaInspected: false, queryEntitySource: null, error: schema.error};
       } else {
         const schemaBytes = Buffer.byteLength(schema.sdl, "utf8");
         const schemaHash = `sha256:${createHash("sha256").update(schema.sdl).digest("hex")}`;
         try {
+          const parsed = inspectSchema(schema.sdl, need.fields);
           inspection = {
             schemaHash,
             schemaBytes,
-            entities: inspectSchema(schema.sdl, need.fields).slice(0, 8),
+            entities: parsed.entities.slice(0, 8),
             schemaInspected: true,
+            queryEntitySource: parsed.queryEntitySource,
             error: null,
           };
         } catch {
-          inspection = {schemaHash, schemaBytes, entities: [], schemaInspected: false, error: "Schema SDL could not be parsed safely."};
+          inspection = {schemaHash, schemaBytes, entities: [], schemaInspected: false, queryEntitySource: null, error: "Schema SDL could not be parsed safely."};
         }
       }
       inspectionByNeedAndCid.set(key, inspection);
@@ -448,6 +485,8 @@ export class GraphSourceDiscoveryService implements GraphSourceDiscoveryPort {
           limitations.unshift(skipReason);
         } else if (inspection.error) {
           limitations.unshift(inspection.error);
+        } else if (inspection.queryEntitySource === "entity_type_inferred") {
+          limitations.unshift("Query entity names were inferred from @entity types because the deployment SDL did not include a Query root; verify them against the deployed GraphQL endpoint before execution.");
         }
         const evidence = networkEvidence(need, raw);
         if (evidence === "unknown") limitations.unshift("Data network is not evidenced by the returned display name.");
