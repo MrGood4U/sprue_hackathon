@@ -276,8 +276,6 @@ export function AgentPage({path, navigate}) {
           </form>
         </section>
         <AgentProgress
-          // Keep the conversation history visible while starting a new run, but
-          // never let the progress rail describe the previous run as current.
           trace={isPlanning ? agent.liveTrace : agent.trace}
           planState={isPlanning ? "planning" : agent.planState}
         />

@@ -36,6 +36,8 @@ On 2026-09-09, the user confirmed that individual Agent steps may run for a long
 
 On 2026-09-09, the user approved two mutually exclusive Agent composer controls. Before the first run, show `Create manually` beside `Generate plan`; it navigates directly to Build without creating an Agent session or invoking model/Graph work. During a genuine run, hide that manual action and show an explicit `Stop run` action backed by the server cancellation endpoint. Hide the stop action before execution and after every terminal outcome. Browser fetch abortion is not a substitute for server cancellation.
 
+On 2026-09-09, the user required the Agent conversation surface to show only the newest planning run. When a creator confirms `Recreate plan`, remove the previous run's visible intent, step, and result cards immediately and render only the newly submitted intent plus its live trace. Keep older messages and traces durable on the backend for auditability; this display rule is not authorization to delete history.
+
 The persistent sidebar also exposes `Model Service` at `/app/model`. `ModelServicePage.jsx` owns the OpenAI-compatible API URL, API key, and model-name form. Never persist or echo the API key in frontend state beyond the active input. Every model-profile request must use the current in-memory access token and backend-bootstrap workspace ID; no browser-generated identifier is an ownership boundary. Saving a profile must not invoke the model. Only an explicit Agent plan request may use it. The UI describes the durable workspace-scoped encrypted backend boundary and must never imply that a redacted key can be recovered into the form.
 
 ## Semantic Builder Boundary

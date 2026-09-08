@@ -9,6 +9,7 @@ import {
   submitAgentMessage,
 } from "../../services/api/agent.js";
 import {getProduct, listProducts, updateProduct} from "../../services/api/products.js";
+import {latestRunMessages} from "./latestRunMessages.js";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -120,7 +121,7 @@ export function useAgentPlan(productRef) {
       const product = await resolveProduct(productRef, options);
       const sessions = await listAgentSessions({...options, productId: product.id});
       const session = sessions.find((item) => item.status === "active") ?? sessions[0] ?? null;
-      const messages = session ? await loadMessages(session.id, options) : [];
+      const messages = latestRunMessages(session ? await loadMessages(session.id, options) : []);
       const hasActivePlanning = Boolean(session?.activeCommandId);
       setState({
         status: hasActivePlanning ? "planning" : "ready",
@@ -176,7 +177,7 @@ export function useAgentPlan(productRef) {
         })),
       );
       if (controller.signal.aborted) return;
-      const [messages, product, sessions] = await Promise.all([
+      const [allMessages, product, sessions] = await Promise.all([
         loadMessages(session.id, options),
         getProduct(state.product.id, options),
         listAgentSessions({...options, productId: state.product.id}),
@@ -187,7 +188,7 @@ export function useAgentPlan(productRef) {
         status: "ready",
         product,
         session: refreshedSession,
-        messages,
+        messages: latestRunMessages(allMessages),
         liveTrace: [],
         liveCommandId: null,
         cancellationStatus: "idle",
@@ -215,19 +216,26 @@ export function useAgentPlan(productRef) {
     const normalized = contentText.trim();
     if (!normalized || normalized.length > 8000 || planning.current || !state.product) return;
     planning.current = true;
-    setState((current) => ({
-      ...current,
-      status: "planning",
-      liveTrace: [],
-      liveCommandId: null,
-      cancellationStatus: "idle",
-      cancellationError: null,
-      error: null,
-    }));
     const idempotencyKey = requestKey.current?.intent === normalized
       ? requestKey.current.key
       : `sprue-agent-message-${globalThis.crypto.randomUUID()}`;
     requestKey.current = {intent: normalized, key: idempotencyKey};
+    setState((current) => ({
+      ...current,
+      status: "planning",
+      messages: [{
+        id: `pending-${idempotencyKey}`,
+        role: "user",
+        contentText: normalized,
+        contentJson: null,
+      }],
+      liveTrace: [],
+      liveCommandId: null,
+      cancellationStatus: "idle",
+      cancellationError: null,
+      command: null,
+      error: null,
+    }));
     try {
       const options = await scope();
       const session = state.session ?? await createAgentSession({
@@ -261,7 +269,7 @@ export function useAgentPlan(productRef) {
         if (activePlanning.current === pollingController) activePlanning.current = null;
         if (activeSubmission.current === submissionController) activeSubmission.current = null;
       }
-      const [messages, product] = await Promise.all([
+      const [allMessages, product] = await Promise.all([
         loadMessages(session.id, options),
         getProduct(state.product.id, options),
       ]);
@@ -271,7 +279,7 @@ export function useAgentPlan(productRef) {
         status: "ready",
         product,
         session,
-        messages,
+        messages: latestRunMessages(allMessages),
         liveTrace: [],
         liveCommandId: null,
         cancellationStatus: "idle",

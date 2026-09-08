@@ -116,6 +116,9 @@ test("keeps Agent Planner on live durable services without a demo fallback", asy
   assert.match(hook, /listAgentTraceEvents/);
   assert.match(hook, /cancelAgentPlanning/);
   assert.match(hook, /pollActiveTrace/);
+  assert.match(hook, /latestRunMessages/);
+  assert.match(hook, /messages: \[\{/);
+  assert.match(hook, /id: `pending-\$\{idempotencyKey\}`/);
   assert.match(hook, /Math\.min\(5000, Math\.round\(delayMs \* 1\.5\)\)/);
   assert.match(hook, /activeSubmission/);
   assert.match(app, /!path\.endsWith\("\/agent"\)/);
@@ -145,4 +148,18 @@ test("keeps Agent Planner on live durable services without a demo fallback", asy
   assert.match(styles, /\.agent-step-card-spinner \{[^}]*animation: agent-spin 900ms linear infinite;/s);
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*animation-name: agent-spin !important;/);
   assert.match(styles, /animation-duration: 1\.6s !important;/);
+});
+
+test("selects only the newest Agent run without mutating durable history", async () => {
+  const {latestRunMessages} = await import(new URL("features/agent/latestRunMessages.js", sourceRoot));
+  const history = [
+    {id: "user-1", role: "user"},
+    {id: "assistant-1", role: "assistant"},
+    {id: "user-2", role: "user"},
+    {id: "assistant-2", role: "assistant"},
+  ];
+
+  assert.deepEqual(latestRunMessages(history).map(({id}) => id), ["user-2", "assistant-2"]);
+  assert.deepEqual(history.map(({id}) => id), ["user-1", "assistant-1", "user-2", "assistant-2"]);
+  assert.deepEqual(latestRunMessages([{id: "assistant-only", role: "assistant"}]), []);
 });

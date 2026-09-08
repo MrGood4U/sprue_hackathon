@@ -307,6 +307,7 @@ test("DeepSeek incomplete structured responses are classified without retaining 
     }),
     (error: unknown) => error instanceof AgentModelRequestError
       && error.reason === "incomplete_response"
+      && error.providerCode === "max_output_tokens"
       && error.message.includes("max_output_tokens")
       && !error.message.includes("private reasoning"),
   );

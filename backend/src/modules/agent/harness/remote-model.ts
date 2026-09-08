@@ -296,12 +296,15 @@ function structuredResult(envelope: unknown): unknown {
   };
   if (response.status === "incomplete") {
     const reason = response.incomplete_details?.reason;
-    const suffix = typeof reason === "string" && /^[A-Za-z0-9_.-]{1,80}$/.test(reason)
-      ? ` (${reason})`
-      : "";
+    const safeReason = typeof reason === "string" && /^[A-Za-z0-9_.-]{1,80}$/.test(reason)
+      ? reason
+      : null;
+    const suffix = safeReason ? ` (${safeReason})` : "";
     throw new AgentModelRequestError(
       `The Agent model returned an incomplete structured response${suffix}`,
       "incomplete_response",
+      null,
+      safeReason,
     );
   }
   if (response.status !== "completed" || !Array.isArray(response.output)) {
