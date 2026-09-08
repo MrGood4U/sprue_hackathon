@@ -54,7 +54,8 @@ const schema = z.object({
   AGENT_API_URL: z.url().optional(),
   AGENT_API_KEY: z.string().min(1).max(4096).optional(),
   AGENT_MODEL: z.string().trim().min(1).max(200).default("sprue-mock-planner"),
-  AGENT_TIMEOUT_MS: z.coerce.number().int().min(250).max(120000).default(120000),
+  AGENT_TIMEOUT_MS: z.coerce.number().int().min(250).max(1_800_000).default(600_000),
+  AGENT_RUN_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(7_200_000).default(3_600_000),
   AGENT_DEBUG: z
     .enum(["true", "false"])
     .default("false")
@@ -180,6 +181,8 @@ export function parseConfig(environment: NodeJS.ProcessEnv) {
     throw new ConfigError(["AGENT_API_URL"]);
   if (values.AGENT_MODE === "remote" && !values.AGENT_API_KEY)
     throw new ConfigError(["AGENT_API_KEY"]);
+  if (values.AGENT_RUN_TIMEOUT_MS < values.AGENT_TIMEOUT_MS)
+    throw new ConfigError(["AGENT_TIMEOUT_MS", "AGENT_RUN_TIMEOUT_MS"]);
   const privyAppId = values.PRIVY_APP_ID?.trim() || null;
   const privyAppSecret = values.PRIVY_APP_SECRET?.trim() || null;
   if (Boolean(privyAppId) !== Boolean(privyAppSecret))
@@ -240,6 +243,7 @@ export function parseConfig(environment: NodeJS.ProcessEnv) {
       apiKey: values.AGENT_API_KEY ?? null,
       model: values.AGENT_MODEL,
       timeoutMs: values.AGENT_TIMEOUT_MS,
+      runTimeoutMs: values.AGENT_RUN_TIMEOUT_MS,
       debug: values.AGENT_DEBUG,
     },
   };

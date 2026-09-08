@@ -95,7 +95,15 @@ function harnessRequest(): HarnessRequest {
 
 test("agent configuration supports mock and remote credentials without exposing them publicly", () => {
   const mock = parseConfig({...baseEnvironment, AGENT_MODE: "mock", AGENT_MODEL: "test-mock"});
-  assert.deepEqual(mock.agent, {mode: "mock", apiUrl: null, apiKey: null, model: "test-mock", timeoutMs: 120000, debug: false});
+  assert.deepEqual(mock.agent, {
+    mode: "mock",
+    apiUrl: null,
+    apiKey: null,
+    model: "test-mock",
+    timeoutMs: 600000,
+    runTimeoutMs: 3600000,
+    debug: false,
+  });
   assert.deepEqual(mock.graph, {gatewayEnvironment: "mainnet"});
   assert.throws(() => parseConfig({...baseEnvironment, GRAPH_GATEWAY_ENVIRONMENT: "testnet"}), ConfigError);
   assert.equal(parseConfig({...baseEnvironment, AGENT_DEBUG: "true"}).agent.debug, true);
@@ -104,6 +112,10 @@ test("agent configuration supports mock and remote credentials without exposing 
   const remote = parseConfig({...baseEnvironment, AGENT_MODE: "remote", AGENT_API_URL: "https://agent.example/v1", AGENT_API_KEY: "server-only-key", AGENT_MODEL: "test-model", AGENT_TIMEOUT_MS: "5000"});
   assert.equal(remote.agent.apiUrl, "https://agent.example/v1");
   assert.equal(remote.agent.apiKey, "server-only-key");
+  assert.equal(remote.agent.timeoutMs, 5000);
+  assert.equal(remote.agent.runTimeoutMs, 3600000);
+  assert.throws(() => parseConfig({...baseEnvironment, AGENT_TIMEOUT_MS: "1800001"}), ConfigError);
+  assert.throws(() => parseConfig({...baseEnvironment, AGENT_TIMEOUT_MS: "600000", AGENT_RUN_TIMEOUT_MS: "599999"}), ConfigError);
   assert.throws(() => parseConfig({...baseEnvironment, AGENT_MODE: "remote", AGENT_API_URL: "https://agent.example/v1"}), (error: unknown) => error instanceof ConfigError && error.fields.includes("AGENT_API_KEY"));
 });
 

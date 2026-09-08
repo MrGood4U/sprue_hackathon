@@ -32,6 +32,8 @@ The product header uses four deep-linkable views in this order: `Agent`, `Build`
 
 Agent loading indicators must remain visibly active while a real planning request is in flight. On systems that request reduced motion, use the approved slower stepped rotation together with the elapsed-time text instead of freezing the indicator; do not remove the textual status or turn a historical failed message into an active spinner.
 
+On 2026-09-09, the user confirmed that individual Agent steps may run for a long time. Keep the planning transport timeout longer than the backend's maximum configured whole-run deadline, continue polling real trace progress for the entire request, cancel both submission and polling when the view unmounts, and render elapsed durations with hours when needed. Do not restore the former 125-second browser cutoff.
+
 The persistent sidebar also exposes `Model Service` at `/app/model`. `ModelServicePage.jsx` owns the OpenAI-compatible API URL, API key, and model-name form. Never persist or echo the API key in frontend state beyond the active input. Every model-profile request must use the current in-memory access token and backend-bootstrap workspace ID; no browser-generated identifier is an ownership boundary. Saving a profile must not invoke the model. Only an explicit Agent plan request may use it. The UI describes the durable workspace-scoped encrypted backend boundary and must never imply that a redacted key can be recovered into the form.
 
 ## Semantic Builder Boundary

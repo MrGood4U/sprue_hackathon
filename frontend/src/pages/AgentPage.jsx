@@ -32,6 +32,7 @@ function errorTranslationKey(code) {
     GRAPH_MCP_CONNECTION_FAILED: "agent.error.graphConnection",
     GRAPH_MCP_TOOL_CALL_FAILED: "agent.error.graphRequest",
     GRAPH_MCP_TOOL_UNAVAILABLE: "agent.error.graphUnavailable",
+    AGENT_RUN_TIMEOUT: "agent.error.runTimeout",
   };
   return keys[code] ?? "agent.error.generic";
 }
@@ -40,6 +41,11 @@ function completedElapsedLabel(durationMs, t) {
   if (durationMs < 1000) return t("agent.elapsed.completedUnderSecond");
   const elapsedSeconds = Math.max(0, Math.round(durationMs / 1000));
   if (elapsedSeconds < 60) return t("agent.elapsed.completedSeconds", {seconds: elapsedSeconds});
+  if (elapsedSeconds >= 3600) return t("agent.elapsed.completedHoursMinutesSeconds", {
+    hours: Math.floor(elapsedSeconds / 3600),
+    minutes: Math.floor((elapsedSeconds % 3600) / 60),
+    seconds: elapsedSeconds % 60,
+  });
   return t("agent.elapsed.completedMinutesSeconds", {
     minutes: Math.floor(elapsedSeconds / 60),
     seconds: elapsedSeconds % 60,

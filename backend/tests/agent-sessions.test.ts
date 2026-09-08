@@ -189,6 +189,13 @@ test("Agent sessions persist real planner input, evidence summary, trace, and re
     );
     assert.equal(initializedProduct.rows[0]?.original_intent, request.contentText);
     assert.equal(initializedProduct.rows[0]?.lock_version, 1);
+    const checkpoint = await db.query<{window_seconds: number}>(
+      `SELECT extract(epoch FROM (pc.deadline_at-c.created_at))::int AS window_seconds
+       FROM planning_checkpoints pc JOIN control_commands c ON c.id=pc.control_command_id
+       WHERE c.id=$1`,
+      [completed.commandId],
+    );
+    assert.equal(checkpoint.rows[0]?.window_seconds, 3600);
     if (messages.items[1]?.contentJson?.kind === "proposal") {
       assert.equal(messages.items[1].contentJson.sourceEvidence.length, 2);
       assert.equal(messages.items[1].contentJson.readyForCompilation, false);
@@ -202,6 +209,66 @@ test("Agent sessions persist real planner input, evidence summary, trace, and re
     assert.deepEqual(closedTrace.items, []);
     const streamCount = await db.query<{count: number}>("SELECT count(*)::int AS count FROM trace_streams");
     assert.equal(streamCount.rows[0]?.count, 1);
+  } finally {
+    await db.close();
+  }
+});
+
+test("Agent planning enforces the whole-run deadline and persists a retryable terminal result", async () => {
+  const db = new PGlite();
+  try {
+    await migrate(clientFor(db), await readMigrations());
+    const ids = await fixture(db);
+    const plannerFactory: AgentPlannerFactory = () => ({
+      async explore(_input, signal) {
+        await new Promise<never>((_resolve, reject) => {
+          const failOnAbort = () => reject(signal?.reason ?? new Error("aborted"));
+          if (signal?.aborted) failOnAbort();
+          else signal?.addEventListener("abort", failOnAbort, {once: true});
+        });
+        throw new Error("unreachable");
+      },
+      async close() {},
+    });
+    const service = new AgentService(
+      postgresAgentRepository(clientFor(db)),
+      {resolve: async () => ({mode: "remote", apiUrl: "https://model.example/v1/chat/completions", apiKey: "model-key", model: "test-model", timeoutMs: 5000})},
+      {
+        list: async () => [{id: randomUUID(), isSelected: true, status: "active"}] as never,
+        resolve: async () => "graph-key",
+      } as never,
+      Buffer.alloc(32, 7),
+      "test-agent-timeout-v1",
+      plannerFactory,
+      undefined,
+      false,
+      "mainnet",
+      undefined,
+      25,
+    );
+    const session = await service.createSession({
+      workspaceId: ids.workspaceId,
+      actorUserId: ids.userId,
+      productId: ids.productId,
+      title: "Timed plan",
+      idempotencyKey: "create-agent-timeout-session-0001",
+    });
+
+    const command = await service.submitMessage({
+      workspaceId: ids.workspaceId,
+      sessionId: session.id,
+      actorUserId: ids.userId,
+      contentText: "Inspect a deliberately slow planning run.",
+      idempotencyKey: "submit-agent-timeout-message-0001",
+    });
+
+    assert.equal(command.status, "failed");
+    const messages = await service.listMessages(ids.workspaceId, session.id, 0, 10);
+    assert.equal(messages.items[1]?.contentJson?.kind, "error");
+    if (messages.items[1]?.contentJson?.kind === "error") {
+      assert.equal(messages.items[1].contentJson.code, "AGENT_RUN_TIMEOUT");
+      assert.equal(messages.items[1].contentJson.retryable, true);
+    }
   } finally {
     await db.close();
   }

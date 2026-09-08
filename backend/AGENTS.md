@@ -2,7 +2,7 @@
 
 On 2026-09-08, the user approved direct Dashboard-to-Agent product creation. `POST /products` may accept an empty `originalIntent` only to create the new draft; the first accepted non-empty Agent message initializes `data_products.original_intent` atomically and advances `lock_version`, while later messages must not overwrite that initial objective. No model or Graph request belongs in product creation.
 
-On 2026-09-08, a live `deepseek-v4-pro` planning request demonstrated that the previous 30-second Agent provider timeout was too short. Keep the model request bounded at 120 seconds, do not add automatic paid retries, and emit only structured failure category, HTTP status, and duration diagnostics. Never log the model URL, API key, prompt, provider body, user intent, workspace, product, session, or user identifiers.
+On 2026-09-09, the user superseded the earlier 120-second planning limit after a real long-running request outlived the browser. Treat `AGENT_TIMEOUT_MS` as the bounded timeout for each external model or Graph step, default it to 600 seconds, and permit configuration up to 1,800 seconds. Treat `AGENT_RUN_TIMEOUT_MS` as the fixed whole-run deadline, default it to 3,600 seconds, and permit configuration up to 7,200 seconds. The run deadline must be at least the step timeout. Do not add automatic paid retries, and emit only structured failure category, HTTP status, and duration diagnostics. Never log the model URL, API key, prompt, provider body, user intent, workspace, product, session, or user identifiers.
 
 All repository text, code comments, test names, migration notes, and commit messages must be written in English. Communication with the user may be in Chinese.
 

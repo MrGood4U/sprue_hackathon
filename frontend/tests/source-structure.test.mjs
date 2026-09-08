@@ -104,6 +104,7 @@ test("keeps Agent Planner on live durable services without a demo fallback", asy
   const elapsedHook = await readFile(new URL("features/agent/useElapsedSeconds.js", sourceRoot), "utf8");
   const progress = await readFile(new URL("features/agent/AgentProgress.jsx", sourceRoot), "utf8");
   const stepCards = await readFile(new URL("features/agent/AgentStepCards.jsx", sourceRoot), "utf8");
+  const agentApi = await readFile(new URL("services/api/agent.js", sourceRoot), "utf8");
   const styles = await readFile(new URL("features/agent/agent.css", sourceRoot), "utf8");
   const app = await readFile(new URL("app/App.jsx", sourceRoot), "utf8");
 
@@ -114,11 +115,16 @@ test("keeps Agent Planner on live durable services without a demo fallback", asy
   assert.match(hook, /listAgentMessages/);
   assert.match(hook, /listAgentTraceEvents/);
   assert.match(hook, /pollActiveTrace/);
+  assert.match(hook, /Math\.min\(5000, Math\.round\(delayMs \* 1\.5\)\)/);
+  assert.match(hook, /activeSubmission/);
   assert.match(app, /!path\.endsWith\("\/agent"\)/);
   assert.match(page, /readyForCompilation === true/);
   assert.match(page, /placeholder=\{t\("agent\.intentPlaceholder"\)\}/);
   assert.match(page, /useElapsedSeconds\(isPlanning\)/);
   assert.match(stepCards, /agent\.elapsed\.seconds/);
+  assert.match(stepCards, /agent\.elapsed\.hoursMinutesSeconds/);
+  assert.match(agentApi, /planningRequestTimeoutMs = 7_260_000/);
+  assert.match(page, /AGENT_RUN_TIMEOUT: "agent\.error\.runTimeout"/);
   assert.match(page, /Number\.isFinite\(content\?\.durationMs\)/);
   assert.match(page, /agent\.elapsed\.completedSeconds/);
   assert.match(page, /agent\.elapsed\.completedUnderSecond/);

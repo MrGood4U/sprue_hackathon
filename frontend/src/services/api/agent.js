@@ -4,6 +4,7 @@ const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}
 const sessionStatuses = new Set(["active", "completed", "abandoned"]);
 const commandStatuses = new Set(["queued", "running", "blocked", "succeeded", "failed", "cancelled"]);
 const traceStatuses = new Set(["started", "passed", "failed"]);
+const planningRequestTimeoutMs = 7_260_000;
 
 function apiBaseUrl(value = import.meta.env?.VITE_API_BASE_URL) {
   const base = parseApiBaseUrl(value);
@@ -242,7 +243,7 @@ export async function submitAgentMessage(sessionId, input, {
         "Idempotency-Key": idempotencyKey,
       }),
       body: JSON.stringify(input),
-      signal: requestSignal(signal, 125000),
+      signal: requestSignal(signal, planningRequestTimeoutMs),
     },
   );
   return assertCommand((await readLiveResponse(response)).data);

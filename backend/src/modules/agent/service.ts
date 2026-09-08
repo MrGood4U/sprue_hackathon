@@ -44,7 +44,7 @@ const productionPlannerFactory: AgentPlannerFactory = ({modelConfig, graphApiKey
     debugSink,
   );
   return {
-    explore: (input) => harness.explore(input, undefined, traceSink),
+    explore: (input, signal) => harness.explore(input, signal, traceSink),
     close: () => wire.close(),
   };
 };
@@ -82,6 +82,10 @@ function safePlanningError(error: unknown): {code: string; message: string; retr
     },
     AGENT_MODEL_REQUEST_FAILED: {
       message: "The configured model could not complete the bounded planning request.",
+      retryable: true,
+    },
+    AGENT_RUN_TIMEOUT: {
+      message: "The Agent planning run reached its configured time limit.",
       retryable: true,
     },
     AGENT_HARNESS_SCHEMA_ERROR: {
@@ -246,6 +250,7 @@ export class AgentService {
     private readonly debug = false,
     private readonly graphGatewayEnvironment: "mainnet" = "mainnet",
     private readonly graphSchemaCache: GraphSchemaCachePort = new MemoryGraphSchemaCache(),
+    private readonly runTimeoutMs = 3_600_000,
   ) {}
 
   private fingerprint(operation: string, values: unknown[]): string {
@@ -371,6 +376,7 @@ export class AgentService {
         idempotencyKey: input.idempotencyKey,
         requestFingerprint,
         fingerprintKeyVersion: this.fingerprintKeyVersion,
+        deadlineAt: new Date(Date.now() + this.runTimeoutMs),
       });
       if (result.kind === "not_found") throw new AgentNotFoundError();
       if (result.kind === "in_progress") throw new AgentOperationInProgressError();
@@ -397,6 +403,7 @@ export class AgentService {
 
     let planner: ReturnType<AgentPlannerFactory> | undefined;
     const planningStartedAt = Date.now();
+    const runSignal = AbortSignal.timeout(this.runTimeoutMs);
     const liveTrace: HarnessTraceEvent[] = [];
     let traceWrites = Promise.resolve();
     const traceSink: AgentTraceSink = (event) => {
@@ -435,7 +442,7 @@ export class AgentService {
         debugSink,
         traceSink,
       });
-      const result = await planner.explore({intent: text, availableNetworks: agentNetworkCatalog});
+      const result = await planner.explore({intent: text, availableNetworks: agentNetworkCatalog}, runSignal);
       await traceWrites;
       const completion = successfulCompletion(
         result,
@@ -451,7 +458,10 @@ export class AgentService {
         {...completion, status: "succeeded", errorCode: null},
       );
     } catch (error) {
-      const safe = safePlanningError(error);
+      const planningError = runSignal.aborted
+        ? Object.assign(new Error("Agent run timed out"), {code: "AGENT_RUN_TIMEOUT"})
+        : error;
+      const safe = safePlanningError(planningError);
       const modelError = error instanceof AgentModelRequestError ? error : null;
       const durationMs = Math.max(0, Date.now() - planningStartedAt);
       this.logger?.write({

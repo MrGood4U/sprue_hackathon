@@ -21,6 +21,11 @@ const stageTitleKeys = {
 
 function elapsedLabel(elapsedSeconds, t) {
   if (elapsedSeconds < 60) return t("agent.elapsed.seconds", {seconds: elapsedSeconds});
+  if (elapsedSeconds >= 3600) return t("agent.elapsed.hoursMinutesSeconds", {
+    hours: Math.floor(elapsedSeconds / 3600),
+    minutes: Math.floor((elapsedSeconds % 3600) / 60),
+    seconds: elapsedSeconds % 60,
+  });
   return t("agent.elapsed.minutesSeconds", {
     minutes: Math.floor(elapsedSeconds / 60),
     seconds: elapsedSeconds % 60,

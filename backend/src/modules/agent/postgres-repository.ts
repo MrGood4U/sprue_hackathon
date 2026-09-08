@@ -226,7 +226,7 @@ export function postgresAgentRepository(client: Pick<SqlClient, "query">): Agent
           )
           SELECT id,$2,'P1','sha256:agent-harness-registry-v1','1',
             'agent-harness-1',4,1,1,100000,30000,0,'usd_micro',
-            now()+interval '120 seconds'
+            $12
           FROM accepted
           RETURNING control_command_id
         ), initialized_product AS (
@@ -263,6 +263,7 @@ export function postgresAgentRepository(client: Pick<SqlClient, "query">): Agent
           input.fingerprintKeyVersion,
           input.contentText,
           input.contentHash,
+          input.deadlineAt,
         ],
       );
       if (result.rows[0]) {

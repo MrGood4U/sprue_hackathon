@@ -33,7 +33,7 @@ async function loadMessages(sessionId, options) {
   throw new Error("AGENT_MESSAGE_LIMIT_EXCEEDED");
 }
 
-function pollingDelay(signal, milliseconds = 400) {
+function pollingDelay(signal, milliseconds) {
   return new Promise((resolve) => {
     if (signal.aborted) return resolve();
     let timeoutId;
@@ -51,7 +51,9 @@ async function pollActiveTrace(sessionId, options, signal, onTrace) {
   let traceStreamId = null;
   let afterSequence = 0;
   let events = [];
+  let delayMs = 750;
   while (!signal.aborted) {
+    let receivedEvents = false;
     try {
       const result = await listAgentTraceEvents(sessionId, {...options, afterSequence, limit: 100, signal});
       if (signal.aborted) return;
@@ -61,6 +63,7 @@ async function pollActiveTrace(sessionId, options, signal, onTrace) {
         events = [];
       }
       if (result.events.length > 0) {
+        receivedEvents = true;
         const known = new Set(events.map((event) => event.sequenceNo));
         events = [...events, ...result.events.filter((event) => !known.has(event.sequenceNo))]
           .sort((left, right) => left.sequenceNo - right.sequenceNo);
@@ -73,7 +76,8 @@ async function pollActiveTrace(sessionId, options, signal, onTrace) {
       if (signal.aborted || error?.name === "AbortError") return;
       // The terminal message remains authoritative if one polling read is lost.
     }
-    await pollingDelay(signal);
+    delayMs = receivedEvents ? 750 : Math.min(5000, Math.round(delayMs * 1.5));
+    await pollingDelay(signal, delayMs);
   }
 }
 
@@ -82,6 +86,7 @@ export function useAgentPlan(productRef) {
   const workspaceId = identity?.defaultWorkspaceId;
   const activeLoad = useRef(null);
   const activePlanning = useRef(null);
+  const activeSubmission = useRef(null);
   const requestKey = useRef(null);
   const planning = useRef(false);
   const [state, setState] = useState({
@@ -122,6 +127,7 @@ export function useAgentPlan(productRef) {
     return () => {
       controller.abort();
       activePlanning.current?.abort();
+      activeSubmission.current?.abort();
     };
   }, [load]);
 
@@ -148,7 +154,9 @@ export function useAgentPlan(productRef) {
         title: state.product.name,
       }, options);
       const pollingController = new AbortController();
+      const submissionController = new AbortController();
       activePlanning.current = pollingController;
+      activeSubmission.current = submissionController;
       const polling = pollActiveTrace(
         session.id,
         options,
@@ -160,11 +168,12 @@ export function useAgentPlan(productRef) {
         command = await submitAgentMessage(session.id, {
           contentText: normalized,
           responseLocale,
-        }, {...options, idempotencyKey});
+        }, {...options, idempotencyKey, signal: submissionController.signal});
       } finally {
         pollingController.abort();
         await polling;
         if (activePlanning.current === pollingController) activePlanning.current = null;
+        if (activeSubmission.current === submissionController) activeSubmission.current = null;
       }
       const [messages, product] = await Promise.all([
         loadMessages(session.id, options),

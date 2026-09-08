@@ -174,6 +174,7 @@ export interface AgentRepository {
     idempotencyKey: string;
     requestFingerprint: string;
     fingerprintKeyVersion: string;
+    deadlineAt: Date;
   }): Promise<
     | {kind: "started" | "replayed"; planning: AgentPlanningStart}
     | {kind: "not_found" | "in_progress" | "command_conflict"}
@@ -201,7 +202,10 @@ export interface AgentRepository {
 }
 
 export interface AgentPlanner {
-  explore(input: {intent: string; availableNetworks: readonly {dataNetwork: string; label: string}[]}): Promise<HarnessExplorationResult>;
+  explore(
+    input: {intent: string; availableNetworks: readonly {dataNetwork: string; label: string}[]},
+    signal?: AbortSignal,
+  ): Promise<HarnessExplorationResult>;
   close(): Promise<void>;
 }
 

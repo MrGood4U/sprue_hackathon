@@ -64,7 +64,8 @@ Model-provider fees use a separate platform cost allowance configured for the ch
 | Aggregation state | 10,000 groups and 50,000 distinct-value entries total per node; no approximate fallback |
 | Final output | 5,000 rows, 5 MiB; reject overflow, not partial materialization |
 | Stored runtime artifacts | 20 MiB total per run, including source pages/intermediates/evidence; each <= 5 MiB |
-| Run processing deadline | 120 seconds from the first persisted execution start for new work; queue wait is excluded and retries share the original deadline |
+| External step deadline | 600 seconds by default for each model or Graph step; configurable from 250 milliseconds through 1,800 seconds |
+| Run processing deadline | 3,600 seconds by default from the first persisted execution start for new work; configurable through 7,200 seconds, queue wait is excluded, and retries share the original deadline |
 | Offline simulation | 1,000 fixture rows, 10 seconds, no network; same operator semantics and smaller effective budgets |
 | Node memory | Target 256 MiB isolated runner budget plus measured process overhead; process/container hard limit must be configured and tested |
 | Concurrency | Initially one executing DAG node per run; serialize source-page payment decisions and use database accounting across concurrent runs and source keys |
