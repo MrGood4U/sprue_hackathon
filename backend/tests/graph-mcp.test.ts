@@ -755,6 +755,86 @@ test("Agent derives search keywords before Graph MCP discovery and assesses comp
   assert.equal(discoveryDebug.candidateCount, 4);
 });
 
+test("Agent sends requirement-ranked entity evidence instead of positional field slices", async () => {
+  let feasibilityRequest: Extract<AgentModelRequest, {stage: "source_feasibility"}> | undefined;
+  const unrelatedEntities = Array.from({length: 5}, (_, index) => ({
+    queryEntity: `unrelated${index}`,
+    entityType: `Unrelated${index}`,
+    fields: [{path: `metric${index}`, graphType: "BigDecimal", valueType: "decimal" as const, nullable: false, list: false}],
+    suggestedBindings: [{requirementId: "record_id", fieldPaths: []}],
+    matchedRequirements: [],
+  }));
+  const relevantEntity = {
+    queryEntity: "swaps",
+    entityType: "Swap",
+    fields: [
+      {path: "id", graphType: "ID", valueType: "id" as const, nullable: false, list: false},
+      ...Array.from({length: 120}, (_, index) => ({
+        path: `pool.metric${index}`,
+        graphType: "BigDecimal",
+        valueType: "decimal" as const,
+        nullable: false,
+        list: false,
+      })),
+    ],
+    suggestedBindings: [{requirementId: "record_id", fieldPaths: ["id"]}],
+    matchedRequirements: ["record_id"],
+  };
+  const harness = new AgentHarness({
+    async complete(request: AgentModelRequest) {
+      if (request.stage === "source_discovery_planning") {
+        return {provider: "mock", model: "evidence-test", output: createMockStageOutput(request)};
+      }
+      if (request.stage !== "source_feasibility") throw new Error("Unexpected legacy planning stage");
+      feasibilityRequest = request;
+      return {
+        provider: "mock",
+        model: "evidence-test",
+        output: {schemaVersion: 1, kind: "clarification", questions: [{code: "confirm", question: "Confirm the source."}]},
+      };
+    },
+  }, undefined, {
+    async discover() {
+      return {
+        schemaVersion: 1 as const,
+        provider: "the_graph" as const,
+        gatewayEnvironment: "mainnet" as const,
+        searchedNeeds: 1,
+        searchCalls: 1,
+        inspectedSchemas: 1,
+        candidates: [{
+          candidateRef: "graph:source_1:aaaaaaaaaaaaaaaaaaaa",
+          sourceNeedId: "source_1",
+          discoveryMethod: "keyword" as const,
+          logicalSubgraphId: "sg",
+          manifestIpfsCid: "QmEvidence",
+          displayName: "Provider metadata",
+          reportedNetwork: null,
+          networkEvidence: "display_name" as const,
+          totalQueryCount30d: 1,
+          queryActivityEvidence: "observed" as const,
+          schemaHash: "sha256:evidence",
+          schemaBytes: 1,
+          entities: [...unrelatedEntities, relevantEntity],
+          status: "suitable" as const,
+          score: 1,
+          limitations: [],
+        }],
+        limits: {maxSearchCallsPerNeed: 3, maxSearchResultsPerCall: 10, maxSchemaInspectionsPerNeed: 10},
+      };
+    },
+  });
+
+  const result = await harness.explore({
+    intent: "Read records from Ethereum.",
+    availableNetworks: [{dataNetwork: "eip155:1", label: "Ethereum"}],
+  });
+
+  assert.equal(result.kind, "clarification");
+  assert.deepEqual(feasibilityRequest?.candidates[0]?.entities.map((entity) => entity.queryEntity), ["swaps"]);
+  assert.deepEqual(feasibilityRequest?.candidates[0]?.entities[0]?.fields.map((field) => field.path), ["id"]);
+});
+
 test("Agent performs one bounded repair when source-planning tool arguments fail schema validation", async () => {
   const requests: AgentModelRequest[] = [];
   let discoveryCalled = false;

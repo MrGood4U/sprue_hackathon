@@ -2,6 +2,7 @@ import {executeCrossChainTraderFootprint} from "../../dag/runtime.js";
 import type {
   GraphFieldRequirement,
   GraphInspectedField,
+  GraphSchemaEntityInspection,
   GraphSemanticValueType,
   GraphSourceDiscoveryPort,
   GraphSourceDiscoveryRequest,
@@ -172,36 +173,91 @@ function validateSourceDiscoveryPlan(
   }
 }
 
-function feasibilityCandidates(discovery: GraphSourceDiscoveryResult): readonly SourceFeasibilityCandidate[] {
-  return discovery.candidates.map((candidate) => ({
-    candidateRef: candidate.candidateRef,
-    sourceNeedId: candidate.sourceNeedId,
-    logicalSubgraphId: candidate.logicalSubgraphId,
-    manifestIpfsCid: candidate.manifestIpfsCid,
-    networkEvidence: candidate.networkEvidence,
-    totalQueryCount30d: candidate.totalQueryCount30d,
-    queryActivityEvidence: candidate.queryActivityEvidence,
-    schemaHash: candidate.schemaHash,
-    status: candidate.status,
-    entities: candidate.entities.slice(0, 4).map((entity) => {
-      const suggested = new Set(entity.suggestedBindings.flatMap((binding) => binding.fieldPaths));
-      const fields = entity.fields
-        .slice()
-        .sort((left, right) => Number(suggested.has(right.path)) - Number(suggested.has(left.path)) || left.path.localeCompare(right.path))
-        .slice(0, 96);
-      const included = new Set(fields.map((field) => field.path));
-      return {
-        queryEntity: entity.queryEntity,
-        entityType: entity.entityType,
-        fields,
-        suggestedBindings: entity.suggestedBindings.map((binding) => ({
-          requirementId: binding.requirementId,
-          fieldPaths: binding.fieldPaths.filter((path) => included.has(path)),
-        })),
-        matchedRequirements: entity.matchedRequirements,
-      };
-    }),
-  }));
+const maxFeasibilityEntitiesPerNeed = 16;
+
+function normalizedFieldName(value: string): string {
+  return value.toLowerCase().replace(/[_-]+/g, "").trim();
+}
+
+function compactFeasibilityEntity(
+  entity: GraphSchemaEntityInspection,
+  need: DiscoverySourceNeed,
+): SourceFeasibilityCandidate["entities"][number] {
+  const suggested = new Set(entity.suggestedBindings.flatMap((binding) => binding.fieldPaths));
+  const hintNames = new Set(need.fields.flatMap((requirement) => [requirement.id, ...requirement.hints]).map(normalizedFieldName));
+  const fields = entity.fields
+    .filter((field) => {
+      const terminal = field.path.split(".").at(-1) ?? field.path;
+      return !field.path.includes(".") || suggested.has(field.path) || hintNames.has(normalizedFieldName(terminal));
+    })
+    .sort((left, right) =>
+      Number(suggested.has(right.path)) - Number(suggested.has(left.path))
+      || Number(!right.path.includes(".")) - Number(!left.path.includes("."))
+      || left.path.localeCompare(right.path));
+  const included = new Set(fields.map((field) => field.path));
+  return {
+    queryEntity: entity.queryEntity,
+    entityType: entity.entityType,
+    fields,
+    suggestedBindings: entity.suggestedBindings.map((binding) => ({
+      requirementId: binding.requirementId,
+      fieldPaths: binding.fieldPaths.filter((path) => included.has(path)),
+    })),
+    matchedRequirements: entity.matchedRequirements,
+  };
+}
+
+function compareRelevantEntities(
+  need: DiscoverySourceNeed,
+  left: GraphSchemaEntityInspection,
+  right: GraphSchemaEntityInspection,
+): number {
+  const required = new Set(need.fields.filter((field) => field.required).map((field) => field.id));
+  const requiredMatches = (entity: GraphSchemaEntityInspection) => entity.matchedRequirements.filter((id) => required.has(id)).length;
+  const directBindings = (entity: GraphSchemaEntityInspection) => entity.suggestedBindings.reduce(
+    (count, binding) => count + binding.fieldPaths.filter((path) => !path.includes(".")).length,
+    0,
+  );
+  return requiredMatches(right) - requiredMatches(left)
+    || directBindings(right) - directBindings(left)
+    || right.matchedRequirements.length - left.matchedRequirements.length
+    || left.queryEntity.localeCompare(right.queryEntity);
+}
+
+function feasibilityCandidates(
+  discovery: GraphSourceDiscoveryResult,
+  needs: readonly DiscoverySourceNeed[],
+): readonly SourceFeasibilityCandidate[] {
+  const output: SourceFeasibilityCandidate[] = [];
+  for (const need of needs) {
+    const inspected = discovery.candidates.filter((candidate) => candidate.sourceNeedId === need.id && candidate.entities.length > 0);
+    const selectable = inspected.filter((candidate) => candidate.status === "suitable");
+    const candidatePool = selectable.length > 0 ? selectable : inspected;
+    let remainingEntities = maxFeasibilityEntitiesPerNeed;
+    for (const candidate of candidatePool) {
+      if (remainingEntities === 0) break;
+      const ranked = candidate.entities.slice().sort((left, right) => compareRelevantEntities(need, left, right));
+      const bestRequiredMatchCount = ranked[0]?.matchedRequirements.filter((id) => need.fields.some((field) => field.required && field.id === id)).length ?? 0;
+      const relevant = ranked.filter((entity) =>
+        entity.matchedRequirements.filter((id) => need.fields.some((field) => field.required && field.id === id)).length === bestRequiredMatchCount);
+      const selectedEntities = relevant.slice(0, remainingEntities);
+      if (selectedEntities.length === 0) continue;
+      remainingEntities -= selectedEntities.length;
+      output.push({
+        candidateRef: candidate.candidateRef,
+        sourceNeedId: candidate.sourceNeedId,
+        logicalSubgraphId: candidate.logicalSubgraphId,
+        manifestIpfsCid: candidate.manifestIpfsCid,
+        networkEvidence: candidate.networkEvidence,
+        totalQueryCount30d: candidate.totalQueryCount30d,
+        queryActivityEvidence: candidate.queryActivityEvidence,
+        schemaHash: candidate.schemaHash,
+        status: candidate.status,
+        entities: selectedEntities.map((entity) => compactFeasibilityEntity(entity, need)),
+      });
+    }
+  }
+  return output;
 }
 
 function graphTypeCompatible(requirement: GraphFieldRequirement, field: GraphInspectedField): boolean {
@@ -444,7 +500,7 @@ export class AgentHarness {
         {name: "data_network", type: "string" as const, nullable: false, unit: null},
       ],
     }));
-    const candidateEvidence = feasibilityCandidates(discovery);
+    const candidateEvidence = feasibilityCandidates(discovery, sourceNeeds);
     const feasibilityRequest: SourceFeasibilityModelRequest = {
       stage: "source_feasibility",
       promptVersion: "3",
