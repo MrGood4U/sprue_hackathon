@@ -60,6 +60,7 @@
 .agent-composer-actions { display: flex; align-items: center; justify-content: flex-end; gap: 9px; flex-wrap: wrap; }
 .agent-planning-button > svg { display: inline-block; transform-box: fill-box; transform-origin: center; will-change: transform; animation: agent-spin 900ms linear infinite; }
 .agent-planning-button:disabled { cursor: wait; opacity: 1; }
+.agent-stop-button.is-loading svg { animation: agent-spin 900ms linear infinite; }
 .agent-planning-label { display: inline-grid; }
 .agent-planning-hover { display: none; }
 .agent-planning-button:hover .agent-planning-default, .agent-planning-button:focus-visible .agent-planning-default { display: none; }
@@ -88,7 +89,7 @@
 .agent-trace-pending { opacity: .65; }
 
 @media (prefers-reduced-motion: reduce) {
-  .agent-planning-button > svg, .agent-message-planning .agent-message-meta svg, .agent-trace-spinner, .agent-step-card-spinner {
+  .agent-planning-button > svg, .agent-stop-button.is-loading svg, .agent-message-planning .agent-message-meta svg, .agent-trace-spinner, .agent-step-card-spinner {
     animation-name: agent-spin !important;
     animation-duration: 1.6s !important;
     animation-timing-function: steps(12, end) !important;

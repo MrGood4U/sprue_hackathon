@@ -36,6 +36,7 @@ import {
   updateProduct,
 } from "./products/product.controller.js";
 import {
+  cancelAgentPlanning,
   createAgentSession,
   listAgentMessages,
   listAgentSessions,
@@ -158,6 +159,8 @@ export function registerRoutes(app: Express, deps: RouteDependencies) {
                                                     ? listAgentTraceEvents(deps.agents)
                                                   : route.implementation === "agent-messages-submit"
                                                     ? submitAgentMessage(deps.agents)
+                                                    : route.implementation === "agent-planning-cancel"
+                                                      ? cancelAgentPlanning(deps.agents)
               : () => {
                   throw new AppError("CAPABILITY_NOT_IMPLEMENTED");
                 };

@@ -5,6 +5,7 @@ import {
   CircleNotch,
   Database,
   Sparkle,
+  StopCircle,
   WarningCircle,
 } from "@phosphor-icons/react";
 import {ProductHeader} from "../components/product/ProductHeader.jsx";
@@ -33,6 +34,7 @@ function errorTranslationKey(code) {
     GRAPH_MCP_TOOL_CALL_FAILED: "agent.error.graphRequest",
     GRAPH_MCP_TOOL_UNAVAILABLE: "agent.error.graphUnavailable",
     AGENT_RUN_TIMEOUT: "agent.error.runTimeout",
+    AGENT_RUN_CANCELLED: "agent.error.runCancelled",
   };
   return keys[code] ?? "agent.error.generic";
 }
@@ -59,7 +61,7 @@ function AssistantMessage({message, navigate, t}) {
   const error = content?.kind === "error" ? content : null;
   const tone = error || proposal?.status === "unsupported" ? "amber" : proposal?.readyForCompilation ? "green" : "violet";
   const stateKey = error
-    ? "agent.result.failed"
+    ? error.code === "AGENT_RUN_CANCELLED" ? "agent.result.cancelled" : "agent.result.failed"
     : clarification
       ? "agent.result.clarification"
       : proposal?.status === "unsupported"
@@ -147,7 +149,7 @@ export function AgentPage({path, navigate}) {
   const productRef = productRefFromPath(path);
   const agent = useAgentPlan(productRef);
   const [intent, setIntent] = useState("");
-  const [confirmation, setConfirmation] = useState(false);
+  const [confirmation, setConfirmation] = useState(null);
   const initializedProduct = useRef(null);
   const isPlanning = agent.status === "planning";
   const elapsedSeconds = useElapsedSeconds(isPlanning);
@@ -176,6 +178,7 @@ export function AgentPage({path, navigate}) {
       : [];
   const canReviewDag = agent.latestAssistant?.contentJson?.readyForCompilation === true;
   const buildPath = `/app/products/${agent.product.slug}/build`;
+  const isBeforeFirstRun = !isPlanning && agent.messages.length === 0 && !agent.latestAssistant;
 
   const submitPlan = (event) => {
     event.preventDefault();
@@ -183,8 +186,14 @@ export function AgentPage({path, navigate}) {
   };
 
   const regenerate = () => {
-    setConfirmation(false);
+    setConfirmation(null);
     if (intent.trim()) void agent.generate(intent, locale).catch(() => {});
+  };
+
+  const stopPlanning = () => {
+    void agent.cancelPlanning()
+      .then(() => setConfirmation(null))
+      .catch(() => {});
   };
 
   return (
@@ -236,18 +245,34 @@ export function AgentPage({path, navigate}) {
               <span className="agent-composer-note">{t("agent.liveNotice")}</span>
               <div className="agent-composer-actions">
                 {isPlanning ? (
-                  <Button type="button" variant="primary" icon={CircleNotch} className="agent-planning-button" disabled>{t("agent.planningAction")}</Button>
+                  <>
+                    <Button
+                      type="button"
+                      variant="danger"
+                      icon={agent.cancellationStatus === "idle" ? StopCircle : CircleNotch}
+                      className={`agent-stop-button${agent.cancellationStatus === "idle" ? "" : " is-loading"}`}
+                      disabled={!agent.liveCommandId || agent.cancellationStatus !== "idle"}
+                      onClick={() => setConfirmation("cancel")}
+                    >
+                      {agent.cancellationStatus === "idle" ? t("agent.stopAction") : t("agent.stoppingAction")}
+                    </Button>
+                    <Button type="button" variant="primary" icon={CircleNotch} className="agent-planning-button" disabled>{t("agent.planningAction")}</Button>
+                  </>
                 ) : agent.latestAssistant ? (
                   <>
-                    <Button type="button" icon={ArrowClockwise} onClick={() => setConfirmation(true)}>{t("agent.regenerateAction")}</Button>
+                    <Button type="button" icon={ArrowClockwise} onClick={() => setConfirmation("regenerate")}>{t("agent.regenerateAction")}</Button>
                     {canReviewDag && <Button type="button" variant="primary" icon={ArrowRight} onClick={() => navigate(buildPath)}>{t("agent.reviewDag")}</Button>}
                   </>
                 ) : (
-                  <Button type="submit" variant="primary" icon={Sparkle} disabled={!intent.trim()}>{t("agent.generateAction")}</Button>
+                  <>
+                    {isBeforeFirstRun && <Button type="button" icon={ArrowRight} onClick={() => navigate(buildPath)}>{t("agent.manualCreate")}</Button>}
+                    <Button type="submit" variant="primary" icon={Sparkle} disabled={!intent.trim()}>{t("agent.generateAction")}</Button>
+                  </>
                 )}
               </div>
             </div>
             {agent.status === "error" && agent.product && <p className="agent-request-error" role="alert">{t("agent.requestError")}</p>}
+            {agent.cancellationError && <p className="agent-request-error" role="alert">{t("agent.cancelError")}</p>}
           </form>
         </section>
         <AgentProgress
@@ -257,14 +282,38 @@ export function AgentPage({path, navigate}) {
           planState={isPlanning ? "planning" : agent.planState}
         />
       </main>
-      {confirmation && (
+      {confirmation === "regenerate" && (
         <Modal
           eyebrow={t("agent.confirm.eyebrow")}
           title={t("agent.confirm.regenerateTitle")}
-          onClose={() => setConfirmation(false)}
-          footer={<><Button onClick={() => setConfirmation(false)}>{t("common.cancel")}</Button><Button variant="primary" onClick={regenerate}>{t("agent.confirm.regenerateAction")}</Button></>}
+          onClose={() => setConfirmation(null)}
+          footer={<><Button onClick={() => setConfirmation(null)}>{t("common.cancel")}</Button><Button variant="primary" onClick={regenerate}>{t("agent.confirm.regenerateAction")}</Button></>}
         >
           <p className="modal-copy">{t("agent.confirm.regenerateBody")}</p>
+        </Modal>
+      )}
+      {confirmation === "cancel" && (
+        <Modal
+          eyebrow={t("agent.confirm.eyebrow")}
+          title={t("agent.confirm.abortTitle")}
+          onClose={() => agent.cancellationStatus === "idle" && setConfirmation(null)}
+          footer={(
+            <>
+              <Button onClick={() => setConfirmation(null)} disabled={agent.cancellationStatus !== "idle"}>{t("common.cancel")}</Button>
+              <Button
+                variant="danger"
+                icon={agent.cancellationStatus === "idle" ? StopCircle : CircleNotch}
+                className={agent.cancellationStatus === "idle" ? "" : "is-loading"}
+                disabled={!agent.liveCommandId || agent.cancellationStatus !== "idle"}
+                onClick={stopPlanning}
+              >
+                {agent.cancellationStatus === "idle" ? t("agent.confirm.abortAction") : t("agent.stoppingAction")}
+              </Button>
+            </>
+          )}
+        >
+          <p className="modal-copy">{t("agent.confirm.abortBody")}</p>
+          {agent.cancellationError && <p className="agent-request-error" role="alert">{t("agent.cancelError")}</p>}
         </Modal>
       )}
     </div>

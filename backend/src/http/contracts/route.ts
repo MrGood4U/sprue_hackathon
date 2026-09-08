@@ -34,7 +34,8 @@ export interface RouteDefinition {
     | "agent-sessions-read"
     | "agent-messages-list"
     | "agent-trace-events-list"
-    | "agent-messages-submit";
+    | "agent-messages-submit"
+    | "agent-planning-cancel";
   idempotency: boolean;
   ifMatch: boolean;
 }

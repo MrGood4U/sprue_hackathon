@@ -125,7 +125,7 @@ export interface AgentPlanningCompletion {
   modelProvider: string | null;
   modelName: string | null;
   trace: readonly HarnessTraceEvent[];
-  status: "succeeded" | "failed";
+  status: "succeeded" | "failed" | "cancelled";
   errorCode: string | null;
 }
 
@@ -134,6 +134,7 @@ export interface AgentTraceEventView extends HarnessTraceEvent {
 }
 
 export interface AgentPlanningTraceView {
+  commandId: string | null;
   traceStreamId: string | null;
   streamStatus: "open" | null;
   items: readonly AgentTraceEventView[];
@@ -191,6 +192,11 @@ export interface AgentRepository {
     afterSequence: number,
     limit: number,
   ): Promise<AgentPlanningTraceView | null>;
+  requestPlanningCancellation(
+    workspaceId: string,
+    sessionId: string,
+    commandId: string,
+  ): Promise<AgentCommandView | null>;
   completePlanning(
     workspaceId: string,
     sessionId: string,
@@ -229,6 +235,9 @@ export class AgentCommandConflictError extends Error {
 }
 export class AgentOperationInProgressError extends Error {
   constructor() { super("AGENT_OPERATION_IN_PROGRESS"); this.name = "AgentOperationInProgressError"; }
+}
+export class AgentCancellationUnavailableError extends Error {
+  constructor() { super("AGENT_CANCELLATION_UNAVAILABLE"); this.name = "AgentCancellationUnavailableError"; }
 }
 export class AgentStorageError extends Error {
   constructor() { super("AGENT_STORAGE_UNAVAILABLE"); this.name = "AgentStorageError"; }

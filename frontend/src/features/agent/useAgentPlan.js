@@ -1,6 +1,7 @@
 import {useCallback, useEffect, useRef, useState} from "react";
 import {useAuth} from "../auth/AuthProvider.jsx";
 import {
+  cancelAgentPlanning,
   createAgentSession,
   listAgentMessages,
   listAgentSessions,
@@ -49,6 +50,7 @@ function pollingDelay(signal, milliseconds) {
 
 async function pollActiveTrace(sessionId, options, signal, onTrace) {
   let traceStreamId = null;
+  let observedCommandId = null;
   let afterSequence = 0;
   let events = [];
   let delayMs = 750;
@@ -62,13 +64,15 @@ async function pollActiveTrace(sessionId, options, signal, onTrace) {
         afterSequence = 0;
         events = [];
       }
+      if (result.commandId) observedCommandId = result.commandId;
       if (result.events.length > 0) {
         receivedEvents = true;
         const known = new Set(events.map((event) => event.sequenceNo));
         events = [...events, ...result.events.filter((event) => !known.has(event.sequenceNo))]
           .sort((left, right) => left.sequenceNo - right.sequenceNo);
-        onTrace(events);
       }
+      onTrace({events, commandId: result.commandId});
+      if (observedCommandId && !result.commandId) return;
       const next = Number(result.nextAfterSequence);
       if (Number.isSafeInteger(next) && next >= afterSequence) afterSequence = next;
       if (result.hasMore) continue;
@@ -87,6 +91,7 @@ export function useAgentPlan(productRef) {
   const activeLoad = useRef(null);
   const activePlanning = useRef(null);
   const activeSubmission = useRef(null);
+  const activeCancellation = useRef(null);
   const requestKey = useRef(null);
   const planning = useRef(false);
   const [state, setState] = useState({
@@ -95,6 +100,9 @@ export function useAgentPlan(productRef) {
     session: null,
     messages: [],
     liveTrace: [],
+    liveCommandId: null,
+    cancellationStatus: "idle",
+    cancellationError: null,
     command: null,
     error: null,
   });
@@ -113,7 +121,19 @@ export function useAgentPlan(productRef) {
       const sessions = await listAgentSessions({...options, productId: product.id});
       const session = sessions.find((item) => item.status === "active") ?? sessions[0] ?? null;
       const messages = session ? await loadMessages(session.id, options) : [];
-      setState({status: "ready", product, session, messages, liveTrace: [], command: null, error: null});
+      const hasActivePlanning = Boolean(session?.activeCommandId);
+      setState({
+        status: hasActivePlanning ? "planning" : "ready",
+        product,
+        session,
+        messages,
+        liveTrace: [],
+        liveCommandId: session?.activeCommandId ?? null,
+        cancellationStatus: "idle",
+        cancellationError: null,
+        command: null,
+        error: null,
+      });
     } catch (error) {
       if (error?.name === "AbortError") return;
       setState((current) => ({...current, status: "error", error}));
@@ -128,8 +148,61 @@ export function useAgentPlan(productRef) {
       controller.abort();
       activePlanning.current?.abort();
       activeSubmission.current?.abort();
+      activeCancellation.current?.abort();
     };
   }, [load]);
+
+  useEffect(() => {
+    if (
+      state.status !== "planning" ||
+      !state.product ||
+      !state.session?.activeCommandId ||
+      activeSubmission.current
+    ) return undefined;
+    const controller = new AbortController();
+    activePlanning.current = controller;
+    planning.current = true;
+    const session = state.session;
+    void (async () => {
+      const options = await scope();
+      await pollActiveTrace(
+        session.id,
+        options,
+        controller.signal,
+        ({events: liveTrace, commandId: liveCommandId}) => setState((current) => ({
+          ...current,
+          liveTrace,
+          liveCommandId,
+        })),
+      );
+      if (controller.signal.aborted) return;
+      const [messages, product, sessions] = await Promise.all([
+        loadMessages(session.id, options),
+        getProduct(state.product.id, options),
+        listAgentSessions({...options, productId: state.product.id}),
+      ]);
+      const refreshedSession = sessions.find((item) => item.id === session.id) ?? session;
+      setState((current) => ({
+        ...current,
+        status: "ready",
+        product,
+        session: refreshedSession,
+        messages,
+        liveTrace: [],
+        liveCommandId: null,
+        cancellationStatus: "idle",
+        cancellationError: null,
+        error: null,
+      }));
+    })().catch((error) => {
+      if (controller.signal.aborted || error?.name === "AbortError") return;
+      setState((current) => ({...current, status: "error", error}));
+    }).finally(() => {
+      planning.current = false;
+      if (activePlanning.current === controller) activePlanning.current = null;
+    });
+    return () => controller.abort();
+  }, [scope, state.product, state.session, state.status]);
 
   const refresh = useCallback(() => {
     activeLoad.current?.abort();
@@ -142,7 +215,15 @@ export function useAgentPlan(productRef) {
     const normalized = contentText.trim();
     if (!normalized || normalized.length > 8000 || planning.current || !state.product) return;
     planning.current = true;
-    setState((current) => ({...current, status: "planning", liveTrace: [], error: null}));
+    setState((current) => ({
+      ...current,
+      status: "planning",
+      liveTrace: [],
+      liveCommandId: null,
+      cancellationStatus: "idle",
+      cancellationError: null,
+      error: null,
+    }));
     const idempotencyKey = requestKey.current?.intent === normalized
       ? requestKey.current.key
       : `sprue-agent-message-${globalThis.crypto.randomUUID()}`;
@@ -161,7 +242,12 @@ export function useAgentPlan(productRef) {
         session.id,
         options,
         pollingController.signal,
-        (liveTrace) => setState((current) => ({...current, session, liveTrace})),
+        ({events: liveTrace, commandId: liveCommandId}) => setState((current) => ({
+          ...current,
+          session,
+          liveTrace,
+          liveCommandId,
+        })),
       );
       let command;
       try {
@@ -180,7 +266,19 @@ export function useAgentPlan(productRef) {
         getProduct(state.product.id, options),
       ]);
       requestKey.current = null;
-      setState((current) => ({...current, status: "ready", product, session, messages, liveTrace: [], command, error: null}));
+      setState((current) => ({
+        ...current,
+        status: "ready",
+        product,
+        session,
+        messages,
+        liveTrace: [],
+        liveCommandId: null,
+        cancellationStatus: "idle",
+        cancellationError: null,
+        command,
+        error: null,
+      }));
       return command;
     } catch (error) {
       if (error?.name === "AbortError") return;
@@ -190,6 +288,47 @@ export function useAgentPlan(productRef) {
       planning.current = false;
     }
   }, [scope, state.product, state.session]);
+
+  const cancelPlanning = useCallback(async () => {
+    if (
+      state.status !== "planning" ||
+      !state.session ||
+      !state.liveCommandId ||
+      state.cancellationStatus !== "idle"
+    ) return;
+    const controller = new AbortController();
+    activeCancellation.current = controller;
+    setState((current) => ({
+      ...current,
+      cancellationStatus: "requesting",
+      cancellationError: null,
+    }));
+    try {
+      const command = await cancelAgentPlanning(state.session.id, state.liveCommandId, {
+        ...await scope(),
+        signal: controller.signal,
+      });
+      setState((current) => ({
+        ...(current.status === "planning" ? {
+          ...current,
+          cancellationStatus: "requested",
+          cancellationError: null,
+          command,
+        } : current),
+      }));
+      return command;
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+      setState((current) => ({
+        ...current,
+        cancellationStatus: "idle",
+        cancellationError: error,
+      }));
+      throw error;
+    } finally {
+      if (activeCancellation.current === controller) activeCancellation.current = null;
+    }
+  }, [scope, state.cancellationStatus, state.liveCommandId, state.session, state.status]);
 
   const rename = useCallback(async (name) => {
     if (!state.product) return;
@@ -210,5 +349,5 @@ export function useAgentPlan(productRef) {
         ? "ready"
         : "idle";
 
-  return {...state, latestAssistant, trace, planState, refresh, generate, rename};
+  return {...state, latestAssistant, trace, planState, refresh, generate, cancelPlanning, rename};
 }

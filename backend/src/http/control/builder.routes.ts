@@ -134,7 +134,7 @@ export const builderRoutes: readonly RouteDefinition[] = [
     operationId:
       "postApiV1WorkspacesWorkspaceIdAgentSessionsSessionIdPlanningCommandIdCancel",
     audience: "creator",
-    implementation: "reserved",
+    implementation: "agent-planning-cancel",
     idempotency: true,
     ifMatch: false,
   },

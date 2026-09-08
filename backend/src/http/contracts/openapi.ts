@@ -118,14 +118,18 @@ export function openApiDocument() {
                           ? "AgentMessageList"
                           : route.implementation === "agent-trace-events-list"
                             ? "AgentPlanningTrace"
-                          : route.implementation === "agent-messages-submit"
+                          : ["agent-messages-submit", "agent-planning-cancel"].includes(route.implementation)
                             ? "AgentCommand"
         : ["me", "bootstrap"].includes(route.implementation)
           ? "Bootstrap"
           : route.implementation === "app-config"
             ? "AppConfig"
             : "DemoEnvelope";
-      responses[["graph-credentials-create", "products-create", "agent-sessions-create"].includes(route.implementation) ? "201" : "200"] = {
+      responses[route.implementation === "agent-planning-cancel"
+        ? "202"
+        : ["graph-credentials-create", "products-create", "agent-sessions-create"].includes(route.implementation)
+          ? "201"
+          : "200"] = {
         description:
           route.implementation === "me"
             ? "Existing verified creator identity and owned workspaces"
@@ -199,7 +203,8 @@ export function openApiDocument() {
       route.implementation === "products-create" ||
       route.implementation === "products-update" ||
       route.implementation === "agent-sessions-create" ||
-      route.implementation === "agent-messages-submit"
+      route.implementation === "agent-messages-submit" ||
+      route.implementation === "agent-planning-cancel"
     ) {
       operation.requestBody = {
         required: true,
@@ -214,6 +219,7 @@ export function openApiDocument() {
                   : route.implementation === "agent-messages-submit"
                     ? {$ref: "#/components/schemas/AgentMessageInput"}
                 : route.implementation === "wallet-hedera-create" ||
+              route.implementation === "agent-planning-cancel" ||
               route.implementation === "graph-credentials-validate" ||
               route.implementation === "graph-credentials-select" ||
               route.implementation === "graph-credentials-revoke"

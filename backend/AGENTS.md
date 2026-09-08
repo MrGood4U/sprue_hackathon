@@ -4,6 +4,8 @@ On 2026-09-08, the user approved direct Dashboard-to-Agent product creation. `PO
 
 On 2026-09-09, the user superseded the earlier 120-second planning limit after a real long-running request outlived the browser. Treat `AGENT_TIMEOUT_MS` as the bounded timeout for each external model or Graph step, default it to 600 seconds, and permit configuration up to 1,800 seconds. Treat `AGENT_RUN_TIMEOUT_MS` as the fixed whole-run deadline, default it to 3,600 seconds, and permit configuration up to 7,200 seconds. The run deadline must be at least the step timeout. Do not add automatic paid retries, and emit only structured failure category, HTTP status, and duration diagnostics. Never log the model URL, API key, prompt, provider body, user intent, workspace, product, session, or user identifiers.
 
+On 2026-09-09, the user approved explicit cancellation of an in-flight Agent planning command. The authenticated cancellation route must target the exact workspace/session command, mark cancellation requested, abort the shared model/Graph run signal, and let the original handler persist a terminal cancelled command and sanitized result. A browser-side fetch abort is not cancellation. The current synchronous implementation may support only runs owned by the same API process; missing process-local execution state must fail explicitly rather than claim the command stopped.
+
 All repository text, code comments, test names, migration notes, and commit messages must be written in English. Communication with the user may be in Chinese.
 
 Use the approved root `data-model.md` as the persistence baseline. Do not invent durable fields in endpoint code; update the reviewed model first when a missing concept is discovered.

@@ -212,7 +212,7 @@ export function postgresAgentRepository(client: Pick<SqlClient, "query">): Agent
             dispatch_required,subject_type,subject_id,trace_stream_id
           )
           SELECT $4,$3,$1,'plan_agent_message',$7,$8,$9,'running',
-            'not_supported',false,'agent_session',$2,trace.id
+            'available',false,'agent_session',$2,trace.id
           FROM trace
           ON CONFLICT (actor_user_id,workspace_id,operation,idempotency_key)
           DO NOTHING
@@ -353,14 +353,16 @@ export function postgresAgentRepository(client: Pick<SqlClient, "query">): Agent
         return null;
       }
       const stream = await client.query(
-        `SELECT id,status FROM trace_streams
-         WHERE workspace_id=$1 AND agent_session_id=$2
-           AND stream_kind='planning' AND status='open'
-         ORDER BY created_at DESC,id DESC LIMIT 1`,
+        `SELECT ts.id,ts.status,c.id AS command_id FROM trace_streams ts
+         JOIN control_commands c ON c.trace_stream_id=ts.id
+         WHERE ts.workspace_id=$1 AND ts.agent_session_id=$2
+           AND ts.stream_kind='planning' AND ts.status='open'
+           AND c.status='running'
+         ORDER BY ts.created_at DESC,ts.id DESC LIMIT 1`,
         [workspaceId, sessionId],
       );
       if (!stream.rows[0]) {
-        return {traceStreamId: null, streamStatus: null, items: [], hasMore: false};
+        return {commandId: null, traceStreamId: null, streamStatus: null, items: [], hasMore: false};
       }
       const traceStreamId = String(stream.rows[0].id);
       const events = await client.query(
@@ -371,11 +373,27 @@ export function postgresAgentRepository(client: Pick<SqlClient, "query">): Agent
         [traceStreamId, afterSequence, limit + 1],
       );
       return {
+        commandId: String(stream.rows[0].command_id),
         traceStreamId,
         streamStatus: "open",
         items: events.rows.slice(0, limit).map(traceEvent),
         hasMore: events.rows.length > limit,
       };
+    },
+
+    async requestPlanningCancellation(workspaceId, sessionId, commandId) {
+      const result = await client.query(
+        `UPDATE control_commands c SET cancellation='requested',updated_at=now()
+         FROM planning_checkpoints pc
+         JOIN agent_sessions s ON s.id=pc.agent_session_id
+         WHERE c.id=$3 AND c.workspace_id=$1 AND c.operation='plan_agent_message'
+           AND c.subject_type='agent_session' AND c.subject_id=$2
+           AND pc.control_command_id=c.id AND s.workspace_id=$1 AND s.id=$2
+           AND c.status='running' AND c.cancellation IN ('available','requested')
+         RETURNING c.id AS command_id,c.status AS command_status,c.trace_stream_id`,
+        [workspaceId, sessionId, commandId],
+      );
+      return result.rows[0] ? command(result.rows[0], sessionId) : null;
     },
 
     async completePlanning(workspaceId, sessionId, commandId, assistantMessageId, contentHash, completion) {
@@ -426,6 +444,7 @@ export function postgresAgentRepository(client: Pick<SqlClient, "query">): Agent
           RETURNING id
         ), updated_command AS (
           UPDATE control_commands SET status=$12,error_code=$13,
+            cancellation=CASE WHEN $12='cancelled' THEN 'completed' ELSE cancellation END,
             updated_at=now(),finished_at=now()
           WHERE id=(SELECT id FROM target)
             AND EXISTS (SELECT 1 FROM assistant_message)

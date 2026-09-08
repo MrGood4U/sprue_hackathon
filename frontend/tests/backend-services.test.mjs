@@ -15,6 +15,7 @@ import {
   updateProduct,
 } from "../src/services/api/products.js";
 import {
+  cancelAgentPlanning,
   createAgentSession,
   listAgentMessages,
   listAgentSessions,
@@ -351,6 +352,7 @@ test("Agent client uses live durable sessions and messages", async () => {
       assert.equal(options.method, "GET");
       assert.equal(options.headers.Authorization, "Bearer creator-token");
       return liveResponse({
+        commandId: "30000000-0000-4000-8000-000000000003",
         traceStreamId: "30000000-0000-4000-8000-000000000004",
         streamStatus: "open",
         items: [{
@@ -390,4 +392,18 @@ test("Agent client uses live durable sessions and messages", async () => {
     ...creatorScope,
   });
   assert.equal(submitted.status, "succeeded");
+
+  const cancellation = await cancelAgentPlanning(session.id, command.commandId, {
+    apiBaseUrl: "https://api.example.test",
+    fetchImpl: async (url, options) => {
+      assert.equal(url, `https://api.example.test/api/v1/workspaces/${workspaceId}/agent-sessions/${session.id}/planning/${command.commandId}/cancel`);
+      assert.equal(options.method, "POST");
+      assert.equal(options.headers.Authorization, "Bearer creator-token");
+      assert.equal(options.headers["Idempotency-Key"], `sprue-agent-cancel-${command.commandId}`);
+      assert.equal(options.body, "{}");
+      return liveResponse({...command, status: "running"});
+    },
+    ...creatorScope,
+  });
+  assert.equal(cancellation.status, "running");
 });

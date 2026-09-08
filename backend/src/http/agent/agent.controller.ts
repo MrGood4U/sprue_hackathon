@@ -1,6 +1,7 @@
 import type {Request, RequestHandler, Response} from "express";
 import {z} from "zod";
 import {
+  AgentCancellationUnavailableError,
   AgentCommandConflictError,
   AgentInputError,
   AgentNotFoundError,
@@ -90,7 +91,11 @@ function mapAgentError(error: unknown): never {
   if (error instanceof AppError) throw error;
   if (error instanceof AgentInputError) throw new AppError("INVALID_REQUEST");
   if (error instanceof AgentNotFoundError) throw new AppError("RESOURCE_NOT_FOUND");
-  if (error instanceof AgentCommandConflictError || error instanceof AgentOperationInProgressError) {
+  if (
+    error instanceof AgentCommandConflictError ||
+    error instanceof AgentOperationInProgressError ||
+    error instanceof AgentCancellationUnavailableError
+  ) {
     throw new AppError("RESOURCE_CONFLICT");
   }
   if (error instanceof AgentStorageError) throw new AppError("DEPENDENCY_UNAVAILABLE");
@@ -171,6 +176,7 @@ export const agentTraceEventSchema = z.strictObject({
 });
 
 export const agentPlanningTraceSchema = z.strictObject({
+  commandId: z.uuid().nullable(),
   traceStreamId: z.uuid().nullable(),
   streamStatus: z.literal("open").nullable(),
   items: z.array(agentTraceEventSchema),
@@ -209,6 +215,20 @@ export function submitAgentMessage(service?: AgentService): RequestHandler {
         idempotencyKey: String(req.get("Idempotency-Key")),
       }));
       res.json({data, meta: meta(res.locals.requestId)});
+    } catch (error) { mapAgentError(error); }
+  };
+}
+
+export function cancelAgentPlanning(service?: AgentService): RequestHandler {
+  return async (req, res) => {
+    if (!emptyObjectSchema.safeParse(req.body).success) throw new AppError("INVALID_REQUEST");
+    try {
+      const data = agentCommandSchema.parse(await requireService(service).cancelPlanning({
+        workspaceId: workspaceId(req),
+        sessionId: String(req.params.sessionId),
+        commandId: String(req.params.commandId),
+      }));
+      res.status(202).json({data, meta: meta(res.locals.requestId)});
     } catch (error) { mapAgentError(error); }
   };
 }

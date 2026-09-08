@@ -168,6 +168,7 @@ test("Agent sessions persist real planner input, evidence summary, trace, and re
       activeTrace = await service.listActiveTrace(ids.workspaceId, session.id, 0, 100);
     }
     assert.equal(activeTrace.streamStatus, "open");
+    assert.match(activeTrace.commandId ?? "", /^[0-9a-f-]{36}$/);
     assert.equal(activeTrace.items.length, 1);
     assert.equal(activeTrace.items[0]?.summary, "Intent admitted");
     assert.equal(activeTrace.nextAfterSequence, "1");
@@ -209,6 +210,84 @@ test("Agent sessions persist real planner input, evidence summary, trace, and re
     assert.deepEqual(closedTrace.items, []);
     const streamCount = await db.query<{count: number}>("SELECT count(*)::int AS count FROM trace_streams");
     assert.equal(streamCount.rows[0]?.count, 1);
+  } finally {
+    await db.close();
+  }
+});
+
+test("Agent planning cancellation aborts the active run and persists a cancelled command", async () => {
+  const db = new PGlite();
+  try {
+    await migrate(clientFor(db), await readMigrations());
+    const ids = await fixture(db);
+    const plannerFactory: AgentPlannerFactory = (factoryInput) => ({
+      async explore(_input, signal) {
+        factoryInput.traceSink?.({
+          sequenceNo: 1,
+          stage: "source_discovery_planning",
+          status: "started",
+          summary: "Planning sources",
+        });
+        await new Promise<never>((_resolve, reject) => {
+          const failOnAbort = () => reject(signal?.reason ?? new Error("aborted"));
+          if (signal?.aborted) failOnAbort();
+          else signal?.addEventListener("abort", failOnAbort, {once: true});
+        });
+        throw new Error("unreachable");
+      },
+      async close() {},
+    });
+    const service = new AgentService(
+      postgresAgentRepository(clientFor(db)),
+      {resolve: async () => ({mode: "remote", apiUrl: "https://model.example/v1/chat/completions", apiKey: "model-key", model: "test-model", timeoutMs: 5000})},
+      {
+        list: async () => [{id: randomUUID(), isSelected: true, status: "active"}] as never,
+        resolve: async () => "graph-key",
+      } as never,
+      Buffer.alloc(32, 9),
+      "test-agent-cancel-v1",
+      plannerFactory,
+    );
+    const session = await service.createSession({
+      workspaceId: ids.workspaceId,
+      actorUserId: ids.userId,
+      productId: ids.productId,
+      title: "Cancelled plan",
+      idempotencyKey: "create-agent-cancel-session-0001",
+    });
+    const pending = service.submitMessage({
+      workspaceId: ids.workspaceId,
+      sessionId: session.id,
+      actorUserId: ids.userId,
+      contentText: "Inspect a plan that the creator will stop.",
+      idempotencyKey: "submit-agent-cancel-message-0001",
+    });
+
+    let activeTrace = await service.listActiveTrace(ids.workspaceId, session.id, 0, 100);
+    for (let attempt = 0; !activeTrace.commandId && attempt < 20; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      activeTrace = await service.listActiveTrace(ids.workspaceId, session.id, 0, 100);
+    }
+    assert.ok(activeTrace.commandId);
+    const accepted = await service.cancelPlanning({
+      workspaceId: ids.workspaceId,
+      sessionId: session.id,
+      commandId: activeTrace.commandId,
+    });
+    assert.equal(accepted.status, "running");
+
+    const cancelled = await pending;
+    assert.equal(cancelled.status, "cancelled");
+    const messages = await service.listMessages(ids.workspaceId, session.id, 0, 10);
+    assert.equal(messages.items[1]?.contentJson?.kind, "error");
+    if (messages.items[1]?.contentJson?.kind === "error") {
+      assert.equal(messages.items[1].contentJson.code, "AGENT_RUN_CANCELLED");
+    }
+    const stored = await db.query<{status: string; cancellation: string}>(
+      "SELECT status,cancellation FROM control_commands WHERE id=$1",
+      [cancelled.commandId],
+    );
+    assert.deepEqual(stored.rows[0], {status: "cancelled", cancellation: "completed"});
   } finally {
     await db.close();
   }

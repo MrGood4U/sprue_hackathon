@@ -2928,12 +2928,25 @@
           }
         ],
         "responses": {
-          "503": {
-            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+          "202": {
+            "description": "Authorized durable Agent conversation, sanitized planning evidence, or terminal command",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AgentCommand"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
                 }
               }
             }
@@ -2949,12 +2962,23 @@
             }
           }
         },
-        "x-sprue-implementation": "reserved",
+        "x-sprue-implementation": "implemented",
         "security": [
           {
             "privyBearer": []
           }
-        ]
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/workspaces/{workspaceId}/agent-sessions/{sessionId}/proposals/{messageId}": {
@@ -9120,6 +9144,18 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "commandId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "traceStreamId": {
             "anyOf": [
               {
@@ -9196,6 +9232,7 @@
           }
         },
         "required": [
+          "commandId",
           "traceStreamId",
           "streamStatus",
           "items",

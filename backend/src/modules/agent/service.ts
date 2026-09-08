@@ -8,6 +8,7 @@ import {MemoryGraphSchemaCache} from "../graph/schema-cache.js";
 import type {GraphSchemaCachePort} from "../graph/types.js";
 import {
   AgentCommandConflictError,
+  AgentCancellationUnavailableError,
   AgentInputError,
   AgentNotFoundError,
   AgentOperationInProgressError,
@@ -86,6 +87,10 @@ function safePlanningError(error: unknown): {code: string; message: string; retr
     },
     AGENT_RUN_TIMEOUT: {
       message: "The Agent planning run reached its configured time limit.",
+      retryable: true,
+    },
+    AGENT_RUN_CANCELLED: {
+      message: "The Agent planning run was stopped by the creator.",
       retryable: true,
     },
     AGENT_HARNESS_SCHEMA_ERROR: {
@@ -239,6 +244,12 @@ function successfulCompletion(
 }
 
 export class AgentService {
+  private readonly activePlanningRuns = new Map<string, {
+    workspaceId: string;
+    sessionId: string;
+    controller: AbortController;
+  }>();
+
   constructor(
     private readonly repository: AgentRepository,
     private readonly modelProfiles: Pick<ModelProfileService, "resolve">,
@@ -339,6 +350,28 @@ export class AgentService {
     }
   }
 
+  async cancelPlanning(input: {workspaceId: string; sessionId: string; commandId: string}) {
+    const active = this.activePlanningRuns.get(input.commandId);
+    if (
+      !active ||
+      active.workspaceId !== input.workspaceId ||
+      active.sessionId !== input.sessionId
+    ) throw new AgentCancellationUnavailableError();
+    try {
+      const command = await this.repository.requestPlanningCancellation(
+        input.workspaceId,
+        input.sessionId,
+        input.commandId,
+      );
+      if (!command) throw new AgentCancellationUnavailableError();
+      active.controller.abort();
+      return command;
+    } catch (error) {
+      if (error instanceof AgentCancellationUnavailableError) throw error;
+      throw new AgentStorageError();
+    }
+  }
+
   async submitMessage(input: {
     workspaceId: string;
     sessionId: string;
@@ -403,7 +436,15 @@ export class AgentService {
 
     let planner: ReturnType<AgentPlannerFactory> | undefined;
     const planningStartedAt = Date.now();
-    const runSignal = AbortSignal.timeout(this.runTimeoutMs);
+    const cancellationController = new AbortController();
+    const timeoutSignal = AbortSignal.timeout(this.runTimeoutMs);
+    const runSignal = AbortSignal.any([cancellationController.signal, timeoutSignal]);
+    const activeRun = {
+      workspaceId: input.workspaceId,
+      sessionId: input.sessionId,
+      controller: cancellationController,
+    };
+    this.activePlanningRuns.set(started.commandId, activeRun);
     const liveTrace: HarnessTraceEvent[] = [];
     let traceWrites = Promise.resolve();
     const traceSink: AgentTraceSink = (event) => {
@@ -444,6 +485,9 @@ export class AgentService {
       });
       const result = await planner.explore({intent: text, availableNetworks: agentNetworkCatalog}, runSignal);
       await traceWrites;
+      if (cancellationController.signal.aborted) {
+        throw Object.assign(new Error("Agent run cancelled"), {code: "AGENT_RUN_CANCELLED"});
+      }
       const completion = successfulCompletion(
         result,
         started.traceStreamId,
@@ -458,8 +502,10 @@ export class AgentService {
         {...completion, status: "succeeded", errorCode: null},
       );
     } catch (error) {
-      const planningError = runSignal.aborted
-        ? Object.assign(new Error("Agent run timed out"), {code: "AGENT_RUN_TIMEOUT"})
+      const planningError = cancellationController.signal.aborted
+        ? Object.assign(new Error("Agent run cancelled"), {code: "AGENT_RUN_CANCELLED"})
+        : timeoutSignal.aborted
+          ? Object.assign(new Error("Agent run timed out"), {code: "AGENT_RUN_TIMEOUT"})
         : error;
       const safe = safePlanningError(planningError);
       const modelError = error instanceof AgentModelRequestError ? error : null;
@@ -467,7 +513,7 @@ export class AgentService {
       this.logger?.write({
         event: "agent_planning_failed",
         code: safe.code,
-        reason: modelError?.reason ?? "non_model_error",
+        reason: safe.code === "AGENT_RUN_CANCELLED" ? "cancelled" : modelError?.reason ?? "non_model_error",
         status: modelError?.status ?? null,
         providerCode: modelError?.providerCode ?? null,
         providerParam: modelError?.providerParam ?? null,
@@ -504,7 +550,7 @@ export class AgentService {
             modelProvider: null,
             modelName: null,
             trace,
-            status: "failed",
+            status: safe.code === "AGENT_RUN_CANCELLED" ? "cancelled" : "failed",
             errorCode: safe.code,
           },
         );
@@ -512,6 +558,9 @@ export class AgentService {
         throw new AgentStorageError();
       }
     } finally {
+      if (this.activePlanningRuns.get(started.commandId) === activeRun) {
+        this.activePlanningRuns.delete(started.commandId);
+      }
       await planner?.close().catch(() => {});
     }
   }

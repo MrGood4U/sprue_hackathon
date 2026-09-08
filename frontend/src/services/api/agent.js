@@ -214,6 +214,7 @@ export async function listAgentTraceEvents(sessionId, {
   const body = await readLiveResponse(response);
   const data = body?.data;
   if (
+    !(data?.commandId === null || uuidPattern.test(data.commandId)) ||
     !(data?.traceStreamId === null || uuidPattern.test(data.traceStreamId)) ||
     !(data?.streamStatus === null || data.streamStatus === "open") ||
     !Array.isArray(data?.items) ||
@@ -244,6 +245,34 @@ export async function submitAgentMessage(sessionId, input, {
       }),
       body: JSON.stringify(input),
       signal: requestSignal(signal, planningRequestTimeoutMs),
+    },
+  );
+  return assertCommand((await readLiveResponse(response)).data);
+}
+
+export async function cancelAgentPlanning(sessionId, commandId, {
+  apiBaseUrl: configuredBaseUrl,
+  fetchImpl = globalThis.fetch,
+  idempotencyKey = `sprue-agent-cancel-${commandId}`,
+  signal,
+  ...options
+} = {}) {
+  if (!uuidPattern.test(sessionId ?? "") || !uuidPattern.test(commandId ?? "")) {
+    throw new Error("INVALID_AGENT_COMMAND_ID");
+  }
+  const response = await fetchImpl(
+    endpoint(configuredBaseUrl, options, `agent-sessions/${sessionId}/planning/${commandId}/cancel`),
+    {
+      method: "POST",
+      credentials: "omit",
+      redirect: "error",
+      cache: "no-store",
+      headers: headers(options, {
+        "Content-Type": "application/json",
+        "Idempotency-Key": idempotencyKey,
+      }),
+      body: "{}",
+      signal: requestSignal(signal),
     },
   );
   return assertCommand((await readLiveResponse(response)).data);
