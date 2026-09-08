@@ -500,12 +500,12 @@ test("Graph source discovery respects row grain and rejects nested cumulative me
   const burns = entities.find((entity) => entity.queryEntity === "burns");
   const legacy = entities.find((entity) => entity.queryEntity === "legacySwaps");
   assert.deepEqual(swaps?.matchedRequirements, ["timestamp", "volume_usd"]);
-  assert.deepEqual(burns?.matchedRequirements, []);
+  assert.equal(swaps?.grainHint, "matched");
+  assert.deepEqual(burns?.matchedRequirements, ["timestamp", "volume_usd"]);
+  assert.equal(burns?.grainHint, "unknown");
   assert.deepEqual(legacy?.matchedRequirements, ["timestamp"]);
-  assert.deepEqual(
-    legacy?.suggestedBindings.find((binding) => binding.requirementId === "volume_usd")?.fieldPaths,
-    [],
-  );
+  assert.equal(legacy?.grainHint, "matched");
+  assert.deepEqual(legacy?.suggestedBindings.find((binding) => binding.requirementId === "volume_usd")?.fieldPaths, ["pool.volumeUSD"]);
 });
 
 test("Graph source discovery fails closed before runtime introspection when the shared cache is unavailable", async () => {
@@ -811,7 +811,7 @@ test("Agent derives search keywords before Graph MCP discovery and assesses comp
   assert.equal(discoveryDebug.candidateCount, 4);
 });
 
-test("Agent sends requirement-ranked entity evidence instead of positional field slices", async () => {
+test("Agent ranks relevant evidence first without hiding bounded schema fallback", async () => {
   let feasibilityRequest: Extract<AgentModelRequest, {stage: "source_feasibility"}> | undefined;
   const unrelatedEntities = Array.from({length: 5}, (_, index) => ({
     queryEntity: `unrelated${index}`,
@@ -887,8 +887,17 @@ test("Agent sends requirement-ranked entity evidence instead of positional field
   });
 
   assert.equal(result.kind, "clarification");
-  assert.deepEqual(feasibilityRequest?.candidates[0]?.entities.map((entity) => entity.queryEntity), ["swaps"]);
-  assert.deepEqual(feasibilityRequest?.candidates[0]?.entities[0]?.fields.map((field) => field.path), ["id"]);
+  assert.deepEqual(feasibilityRequest?.candidates[0]?.entities.map((entity) => entity.queryEntity), [
+    "swaps",
+    "unrelated0",
+    "unrelated1",
+    "unrelated2",
+    "unrelated3",
+    "unrelated4",
+  ]);
+  assert.equal(feasibilityRequest?.candidates[0]?.entities[0]?.fields[0]?.path, "id");
+  assert.equal(feasibilityRequest?.candidates[0]?.entities[0]?.fields.length, 121);
+  assert.ok(feasibilityRequest?.candidates[0]?.entities[0]?.fields.some((field) => field.path === "pool.metric119"));
 });
 
 test("Agent repairs an unsupported source claim contradicted by inspected field evidence", async () => {
@@ -945,6 +954,122 @@ test("Agent repairs an unsupported source claim contradicted by inspected field 
   assert.match(repair?.counterEvidence?.[0]?.candidateRef ?? "", /^graph:source_1:[a-f0-9]{20}$/);
   assert.equal(repair?.counterEvidence?.[0]?.queryEntity, "records");
   assert.deepEqual(repair?.counterEvidence?.[0]?.matchedRequiredFields, ["record_id"]);
+});
+
+test("Agent can select inspected fields when no lexical grain or field hint matches", async () => {
+  let feasibilityRequest: Extract<AgentModelRequest, {stage: "source_feasibility"}> | undefined;
+  const graph: GraphPlanningMcpPort = {
+    async searchSubgraphsByKeyword() {
+      return {
+        subgraphs: [{subgraphId: "sg-obscura", displayName: "Obscura Ethereum", manifestIpfsCid: "QmObscura"}],
+        total: 1,
+        returned: 1,
+      };
+    },
+    async getDeploymentActivity() {
+      return [{manifestIpfsCid: "QmObscura", totalQueryCount30d: 1, dataPointsCount: 1}];
+    },
+    async getSchema() {
+      return `
+        scalar BigDecimal
+        type Payload { zorb: BigDecimal! }
+        type Obscura { payload: Payload! }
+        type QuuxFrobnitz { mysteryMetric: BigDecimal! }
+        type Query {
+          obscuras(first: Int): [Obscura!]!
+          quuxFrobnitzes(first: Int): [QuuxFrobnitz!]!
+        }
+      `;
+    },
+    async getTopDeploymentsForContract() { throw new Error("not expected"); },
+    async close() {},
+  };
+  const harness = new AgentHarness({
+    async complete(request: AgentModelRequest) {
+      if (request.stage === "source_discovery_planning") {
+        return {
+          provider: "mock",
+          model: "unknown-vocabulary-test",
+          output: {
+            schemaVersion: 2,
+            kind: "source_discovery_plan",
+            semanticPlan: {
+              schemaVersion: 2,
+              kind: "semantic_plan",
+              summary: "Return the requested observation.",
+              sourceRequirements: [{
+                id: "unknown_observation",
+                dataNetwork: "eip155:1",
+                description: "Read the requested provider-specific observation.",
+                grain: "quux_frobnitz",
+                fields: [{
+                  id: "observation_value",
+                  description: "The requested provider-specific measurement.",
+                  expectedType: "decimal",
+                  unit: null,
+                  required: true,
+                  allowNullable: false,
+                  hints: ["mysteryMetric"],
+                }],
+                constraints: [],
+              }],
+              result: {
+                description: "Provider-specific observations.",
+                grain: "quux_frobnitz",
+                fields: [{name: "observation_value", description: "Measurement.", type: "decimal", unit: null, nullable: false}],
+                orderBy: [],
+              },
+              refresh: {mode: "manual", timezone: "UTC"},
+              assumptions: [],
+              unresolved: [],
+            },
+            searches: [{sourceNeedId: "unknown_observation", keywords: ["Obscura"]}],
+          },
+        };
+      }
+      if (request.stage !== "source_feasibility") throw new Error("Unexpected legacy planning stage");
+      feasibilityRequest = request;
+      return {
+        provider: "mock",
+        model: "unknown-vocabulary-test",
+        output: {
+          schemaVersion: 2,
+          kind: "source_feasibility",
+          selections: [{
+            sourceNeedId: "unknown_observation",
+            candidateRef: request.candidates[0]!.candidateRef,
+            queryEntity: "obscuras",
+            fieldBindings: [{requirementId: "observation_value", fieldPath: "payload.zorb"}],
+            rationale: "The inspected provider field has the required scalar type and requested meaning.",
+          }],
+          composition: {
+            schemaVersion: 2,
+            kind: "composition_intent",
+            nodes: [{
+              role: "output_observations",
+              operator: "output",
+              operatorVersion: "2",
+              config: {fields: ["observation_value"], orderBy: []},
+            }],
+            connections: [{fromRole: "source__unknown_observation", toRole: "output_observations", inputRole: "rows"}],
+            templateInstances: [],
+          },
+          assumptions: [],
+        },
+      };
+    },
+  }, undefined, new GraphSourceDiscoveryService(graph));
+
+  const result = await harness.explore({
+    intent: "Return the Obscura observation.",
+    availableNetworks: [{dataNetwork: "eip155:1", label: "Ethereum"}],
+  });
+
+  assert.equal(result.kind, "feasibility");
+  const obscureEntity = feasibilityRequest?.candidates[0]?.entities.find((entity) => entity.queryEntity === "obscuras");
+  assert.deepEqual(obscureEntity?.matchedRequirements, []);
+  assert.equal(obscureEntity?.grainHint, "unknown");
+  assert.deepEqual(obscureEntity?.fields.map((field) => field.path), ["payload.zorb"]);
 });
 
 test("Agent performs one bounded repair when source-planning tool arguments fail schema validation", async () => {

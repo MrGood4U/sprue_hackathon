@@ -116,6 +116,12 @@ function normalize(value: string): string {
   return value.toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
 }
 
+function containsNormalizedPhrase(value: string, phrase: string): boolean {
+  const normalizedValue = normalize(value);
+  const normalizedPhrase = normalize(phrase);
+  return normalizedPhrase.length > 0 && ` ${normalizedValue} `.includes(` ${normalizedPhrase} `);
+}
+
 function terminal(path: string): string {
   return normalize(path.split(".").at(-1) ?? path).replace(/\s/g, "");
 }
@@ -307,17 +313,18 @@ function bindRequirements(
   need: GraphSourceDiscoveryNeed,
 ): readonly GraphSchemaEntityInspection[] {
   const requirements = need.fields;
-  const hasGrainAlignedEntity = entities.some((entity) => entityMatchesGrain(need.grain, entity.queryEntity, entity.entityType));
   return entities.map(({queryEntity, entityType, fields}) => {
-    const grainAligned = !hasGrainAlignedEntity || entityMatchesGrain(need.grain, queryEntity, entityType);
-    const suggestedBindings = requirements.map((requirement) => ({
+    const scoredBindings = requirements.map((requirement) => ({
       requirementId: requirement.id,
-      fieldPaths: grainAligned ? fields
+      fields: fields
         .map((field) => ({path: field.path, score: requirementPathScore(requirement, field, need.grain)}))
-        .filter((item) => item.score >= 40)
+        .filter((item) => item.score > 0)
         .sort((left, right) => right.score - left.score || left.path.localeCompare(right.path))
-        .slice(0, 8)
-        .map((item) => item.path) : [],
+        .slice(0, 8),
+    }));
+    const suggestedBindings = scoredBindings.map((binding) => ({
+      requirementId: binding.requirementId,
+      fieldPaths: binding.fields.map((field) => field.path),
     }));
     return {
       queryEntity,
@@ -325,11 +332,13 @@ function bindRequirements(
       fields,
       suggestedBindings,
       matchedRequirements: requirements
-        .filter((requirement) => requirement.required && suggestedBindings.find((item) => item.requirementId === requirement.id)!.fieldPaths.length > 0)
+        .filter((requirement) => requirement.required && scoredBindings.find((item) => item.requirementId === requirement.id)!.fields.some((field) => field.score >= 40))
         .map((requirement) => requirement.id),
+      grainHint: entityMatchesGrain(need.grain, queryEntity, entityType) ? "matched" : "unknown",
     } satisfies GraphSchemaEntityInspection;
   }).sort((left, right) =>
       right.matchedRequirements.length - left.matchedRequirements.length
+      || Number(right.grainHint === "matched") - Number(left.grainHint === "matched")
       || right.fields.length - left.fields.length
       || left.queryEntity.localeCompare(right.queryEntity));
 }
@@ -341,11 +350,11 @@ function networkEvidence(
   if (candidate.discoveryMethod === "contract") {
     return normalize(candidate.reportedNetwork ?? "") === normalize(need.contract?.chain ?? "") ? "contract_filter" : "conflict";
   }
-  const displayName = normalize(candidate.displayName);
+  const displayName = candidate.displayName;
   const targetAliases = new Set([normalize(need.networkLabel), ...(knownNetworkAliases[need.dataNetwork] ?? []).map(normalize)]);
-  const targetNetworkMentioned = [...targetAliases].some((alias) => alias.length > 0 && displayName.includes(alias));
+  const targetNetworkMentioned = [...targetAliases].some((alias) => containsNormalizedPhrase(displayName, alias));
   const otherNetworkMentioned = Object.entries(knownNetworkAliases)
-    .some(([dataNetwork, aliases]) => dataNetwork !== need.dataNetwork && aliases.some((alias) => displayName.includes(normalize(alias))));
+    .some(([dataNetwork, aliases]) => dataNetwork !== need.dataNetwork && aliases.some((alias) => containsNormalizedPhrase(displayName, alias)));
   if (otherNetworkMentioned) return "conflict";
   return targetNetworkMentioned ? "display_name" : "unknown";
 }

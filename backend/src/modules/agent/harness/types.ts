@@ -222,6 +222,7 @@ export interface SourceFeasibilityCandidate {
     fields: readonly GraphInspectedField[];
     suggestedBindings: readonly {requirementId: string; fieldPaths: readonly string[]}[];
     matchedRequirements: readonly string[];
+    grainHint?: "matched" | "unknown";
   }[];
 }
 

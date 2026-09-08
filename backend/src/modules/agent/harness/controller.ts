@@ -176,21 +176,11 @@ function validateSourceDiscoveryPlan(
 
 const maxFeasibilityEntitiesPerNeed = 16;
 
-function normalizedFieldName(value: string): string {
-  return value.toLowerCase().replace(/[_-]+/g, "").trim();
-}
-
 function compactFeasibilityEntity(
   entity: GraphSchemaEntityInspection,
-  need: DiscoverySourceNeed,
 ): SourceFeasibilityCandidate["entities"][number] {
   const suggested = new Set(entity.suggestedBindings.flatMap((binding) => binding.fieldPaths));
-  const hintNames = new Set(need.fields.flatMap((requirement) => [requirement.id, ...requirement.hints]).map(normalizedFieldName));
-  const fields = entity.fields
-    .filter((field) => {
-      const terminal = field.path.split(".").at(-1) ?? field.path;
-      return !field.path.includes(".") || suggested.has(field.path) || hintNames.has(normalizedFieldName(terminal));
-    })
+  const fields = entity.fields.slice()
     .sort((left, right) =>
       Number(suggested.has(right.path)) - Number(suggested.has(left.path))
       || Number(!right.path.includes(".")) - Number(!left.path.includes("."))
@@ -205,6 +195,7 @@ function compactFeasibilityEntity(
       fieldPaths: binding.fieldPaths.filter((path) => included.has(path)),
     })),
     matchedRequirements: entity.matchedRequirements,
+    grainHint: entity.grainHint ?? "unknown",
   };
 }
 
@@ -220,6 +211,7 @@ function compareRelevantEntities(
     0,
   );
   return requiredMatches(right) - requiredMatches(left)
+    || Number(right.grainHint === "matched") - Number(left.grainHint === "matched")
     || directBindings(right) - directBindings(left)
     || right.matchedRequirements.length - left.matchedRequirements.length
     || left.queryEntity.localeCompare(right.queryEntity);
@@ -238,10 +230,7 @@ function feasibilityCandidates(
     for (const candidate of candidatePool) {
       if (remainingEntities === 0) break;
       const ranked = candidate.entities.slice().sort((left, right) => compareRelevantEntities(need, left, right));
-      const bestRequiredMatchCount = ranked[0]?.matchedRequirements.filter((id) => need.fields.some((field) => field.required && field.id === id)).length ?? 0;
-      const relevant = ranked.filter((entity) =>
-        entity.matchedRequirements.filter((id) => need.fields.some((field) => field.required && field.id === id)).length === bestRequiredMatchCount);
-      const selectedEntities = relevant.slice(0, remainingEntities);
+      const selectedEntities = ranked.slice(0, remainingEntities);
       if (selectedEntities.length === 0) continue;
       remainingEntities -= selectedEntities.length;
       output.push({
@@ -254,7 +243,7 @@ function feasibilityCandidates(
         queryActivityEvidence: candidate.queryActivityEvidence,
         schemaHash: candidate.schemaHash,
         status: candidate.status,
-        entities: selectedEntities.map((entity) => compactFeasibilityEntity(entity, need)),
+        entities: selectedEntities.map((entity) => compactFeasibilityEntity(entity)),
       });
     }
   }
@@ -286,7 +275,7 @@ function unsupportedSourceEvidenceConflict(
     const complete = candidates
       .filter((candidate) => candidate.sourceNeedId === need.id && candidate.status === "suitable")
       .flatMap((candidate) => candidate.entities.map((entity) => ({candidate, entity})))
-      .find(({entity}) => required.every((id) => entity.matchedRequirements.includes(id)));
+      .find(({entity}) => entity.grainHint === "matched" && required.every((id) => entity.matchedRequirements.includes(id)));
     return complete ? [{
       sourceNeedId: need.id,
       candidateRef: complete.candidate.candidateRef,
