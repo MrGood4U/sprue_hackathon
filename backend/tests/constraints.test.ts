@@ -45,6 +45,13 @@ test("database transaction, lineage and recovery contracts", async (t) => {
       await rejects(db.query("DELETE FROM workspace_members WHERE workspace_id=$1", [a.workspace]));
       await rejects(db.query("UPDATE workspace_members SET role='viewer' WHERE workspace_id=$1", [a.workspace]));
     });
+    await t.test("workspace actors cannot be attributed to a different account", async () => {
+      const scopedWallet = await insert("account_wallets", {workspace_id:a.workspace, owner_user_id:a.user, provider:"test", provider_wallet_id:randomUUID(), provider_chain_type:"ethereum", provider_owner_type:"unverified", control_model:"unverified", status:"provisioning"});
+      await rejects(insert("account_wallets", {workspace_id:a.workspace, owner_user_id:b.user, provider:"test", provider_wallet_id:randomUUID(), provider_chain_type:"ethereum", provider_owner_type:"unverified", control_model:"unverified", status:"provisioning"}));
+      await rejects(insert("agent_sessions", {workspace_id:a.workspace, created_by_user_id:b.user, status:"active"}));
+      await rejects(insert("data_products", {workspace_id:a.workspace, creator_user_id:b.user, account_wallet_id:scopedWallet.id, slug:randomUUID(), name:"Foreign creator", original_intent:"Test", status:"draft"}));
+      await rejects(command(b.user, a.workspace));
+    });
     await t.test("nullable bootstrap scope deduplicates and async commands require an outbox", async () => {
       const key = randomUUID();
       await command(a.user, null, {idempotency_key:key});
@@ -101,6 +108,7 @@ test("database transaction, lineage and recovery contracts", async (t) => {
       await db.query("UPDATE data_product_versions SET status='proposed',validated_at=now(),validation_summary_json='{\"passed\":true}' WHERE id=$1", [version]);
       await db.query("UPDATE data_product_versions SET status='building' WHERE id=$1", [version]);
       await rejects(insert("product_version_layouts", {data_product_version_id:version, layout_schema_version:1, layout_json:{nodes:[{nodeId:"semantic-group-not-a-node"}]}, updated_by_user_id:a.user}));
+      await rejects(insert("product_version_layouts", {data_product_version_id:version, layout_schema_version:1, layout_json:{nodes:[]}, updated_by_user_id:b.user}));
       await rejects(insert("data_products", {workspace_id:b.workspace, creator_user_id:b.user, account_wallet_id:wallet.id, slug:randomUUID(), name:"Cross workspace", original_intent:"Test", status:"draft"}));
     });
     const run = await insert("execution_runs", {workspace_id:a.workspace, data_product_id:product.id, data_product_version_id:version, run_type:"build", trigger_type:"user", idempotency_key:randomUUID(), spec_hash:"test-spec-hash", runtime_version:"test-1", operator_registry_hash:"test-registry", adapter_versions_json:{graph:"test-1"}, status:"queued", queued_at:now});

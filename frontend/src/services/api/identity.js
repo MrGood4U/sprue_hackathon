@@ -7,7 +7,7 @@ function apiBaseUrl(value = import.meta.env?.VITE_API_BASE_URL) {
 }
 
 function requestSignal(signal) {
-  const timeout = AbortSignal.timeout(10000);
+  const timeout = AbortSignal.timeout(30000);
   return signal ? AbortSignal.any([signal, timeout]) : timeout;
 }
 

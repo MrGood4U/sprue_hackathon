@@ -1,14 +1,15 @@
 import type { RouteDefinition } from "../contracts/route.js";
 
 // These routes are an explicit evaluator-facing bridge while durable business
-// handlers are still being implemented. They never write database state.
+// handlers are still being implemented. Creator state is isolated by an
+// authenticated, server-authorized workspace and never writes database state.
 export const demoRoutes: readonly RouteDefinition[] = [
   {
     method: "GET",
     path: "/api/v1/public/demo/state",
     operationId: "getApiV1DemoState",
     audience: "public",
-    implementation: "demo-state",
+    implementation: "demo-public-state",
     idempotency: false,
     ifMatch: false,
   },
@@ -17,34 +18,25 @@ export const demoRoutes: readonly RouteDefinition[] = [
     path: "/api/v1/public/demo/actions",
     operationId: "postApiV1DemoActions",
     audience: "public",
-    implementation: "demo-action",
+    implementation: "demo-public-action",
     idempotency: false,
     ifMatch: false,
   },
   {
     method: "GET",
-    path: "/api/v1/public/demo/model-profile",
-    operationId: "getApiV1DemoModelProfile",
-    audience: "public",
-    implementation: "demo-model-profile-read",
-    idempotency: false,
-    ifMatch: false,
-  },
-  {
-    method: "PUT",
-    path: "/api/v1/public/demo/model-profile",
-    operationId: "putApiV1DemoModelProfile",
-    audience: "public",
-    implementation: "demo-model-profile-write",
+    path: "/api/v1/workspaces/{workspaceId}/demo/state",
+    operationId: "getApiV1WorkspaceDemoState",
+    audience: "creator",
+    implementation: "demo-creator-state",
     idempotency: false,
     ifMatch: false,
   },
   {
     method: "POST",
-    path: "/api/v1/public/demo/model-profile/test",
-    operationId: "postApiV1DemoModelProfileTest",
-    audience: "public",
-    implementation: "demo-model-profile-test",
+    path: "/api/v1/workspaces/{workspaceId}/demo/actions",
+    operationId: "postApiV1WorkspaceDemoActions",
+    audience: "creator",
+    implementation: "demo-creator-action",
     idempotency: false,
     ifMatch: false,
   },

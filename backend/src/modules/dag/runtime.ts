@@ -20,8 +20,11 @@ export type CanonicalSwapField =
 export interface SourceSchemaSnapshot {
   sourceKey: string;
   chain: string;
+  dataNetwork?: string;
   subgraphId: string;
   deploymentId?: string | null;
+  sourceSnapshotId?: string;
+  queryEntity?: string;
   schemaHash: string;
   fieldTypes: Readonly<Record<string, ProviderFieldType>>;
 }

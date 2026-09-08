@@ -2,7 +2,10 @@
   "$schema": "https://railway.com/railway.schema.json",
   "build": { "builder": "DOCKERFILE", "dockerfilePath": "Dockerfile" },
   "deploy": {
-    "preDeployCommand": ["node dist/scripts/migrate.js"],
+    "preDeployCommand": [
+      "node dist/scripts/migrate.js",
+      "node dist/scripts/seed.js"
+    ],
     "startCommand": "node dist/src/app/api.js",
     "healthcheckPath": "/readyz",
     "healthcheckTimeout": 120,

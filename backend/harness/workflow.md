@@ -1,15 +1,16 @@
 # Harness Workflow
 
-Draft 0.3. See the [overview](README.md), [tools](tools.md), and [constraints](constraints.md). Stage names below are orchestration labels, not new PostgreSQL status enums.
+Draft 0.4. See the [overview](README.md), [tools](tools.md), and [constraints](constraints.md). Stage names below are orchestration labels, not new PostgreSQL status enums.
 
 ## 1. Planning Stages
 
 | Step | Input | Work and responsible component | Output / exit condition |
 |---|---|---|---|
 | P0. Admit | Authenticated message, session, optional product/parent version and access selections | Controller verifies ownership, parent, message size, command deduplication, and platform planning allowance; redacts secrets before any model call | Trusted context and durable planning command, or typed rejection; approved M1/H2 records apply; controller remains unimplemented |
-| P1. Specify meaning | Sanitized intent and relevant conversation decisions | Model extracts required facts, dimensions, metric definition, time boundaries, units, null/error policy, and refresh intent; deterministic schema checks the result | SemanticPlan, or a small clarification; ambiguous denominator/time/access choice is not guessed |
-| P2. Find sources | Required facts and user network/protocol scope | Model calls bounded source discovery through the Graph metadata adapter | Ranked candidates with provider evidence; no raw data query or invented source IDs |
-| P3. Verify source fit | Candidate handles and required fields/period | Inspect real schema/identity, resolve immutable deployment, check types and mapping; distinguish schema support from observed historical coverage | SourceBinding and CoverageReport; unavailable facts cause needs_input/unsupported, not a fabricated query |
+| P1. Plan source search | Sanitized intent, mainnet network catalog, and relevant conversation decisions | Model emits dynamic source requirements and result fields without a fixed entity/grain/metric vocabulary, plus minimal keywords for each requirement; controller validates network coverage, identifiers, types, and the three-keyword per-need cap | SourceDiscoveryPlan v2, or a small clarification; no model-selected MCP tool, URL, source ID, query, or DAG |
+| P2. Find and inspect sources | Validated SourceNeed records plus keyword hints | For each SourceNeed independently, the controller invokes only the restricted Graph metadata adapter, verifies 30-day activity for all bounded candidates, and inspects every ranked schema within that need's budget | Actual entity/field/type/nullability evidence plus non-authoritative binding suggestions; no raw data query or invented source IDs |
+| P3. Assess source/operator feasibility | Sanitized candidate schemas, dynamic SemanticPlan, source roles, version-2 operator registry, and limits | Second model pass binds required semantics to exact inspected paths and proposes a generic primitive DAG; deterministic code validates references, types/nullability, expression ASTs, configs, ports, connectivity, output promises, cycles, and limits | Non-executable SourceFeasibilityPlan v2, clarification, or unsupported; unknown live checks stay explicit |
+| P3b. Admit source bindings | Validated feasibility result and trusted source services | Resolve immutable gateway deployment, persist exact typed field bindings and workspace snapshot, validate coverage, compile the GraphQL plan, and bind creator-selected access | SourceBinding, QueryPlan, and CoverageReport; currently pending for discovered candidates |
 | P4. Compile source queries | Validated snapshot, field mapping, time specification, selected access references | Typed query compiler constructs a static GraphQL AST/document and variable bindings; query validator checks schema, pagination, block and cost bounds | QueryPlan with hashes and diagnostics; no request sent to the data gateway |
 | P5. Compose operators | SemanticPlan, QueryPlans, actual runtime registry | Model chooses supported operators or reviewed semantic templates; deterministic expansion assembles only primitive nodes in canonical spec schemaVersion 2 | Candidate DataProductSpec, inferred output schema, and source-to-metric lineage |
 | P6. Validate and simulate | Candidate spec, pinned registry, approved fixture or retained test evidence | Deterministic DAG validator and offline simulator check structure, semantics, resource bounds, and testable examples; controller permits at most two model repairs | ValidationReport plus honestly labeled simulation result; no claims of live correctness from fixtures |
@@ -23,39 +24,48 @@ Context includes verified user/workspace/session identity, optional parent spec 
 
 Do not load every conversation or entire data artifact into the prompt. Use bounded recent messages plus validated decisions and source/schema slices; missing evidence remains missing. A summary cannot grant authority or replace its originating evidence. The planner has no database connection, secret-manager client, signer key, or deployment credential.
 
-### P1: SemanticPlan
+### P1: SourceDiscoveryPlan and SemanticPlan
 
-Proposed internal shape, schemaVersion 1:
+Implemented exploration shape, schemaVersion 2 (illustrative names only):
 
 ```json
 {
-  "schemaVersion": 1,
-  "summary": "Compare repeat activity by protocol",
-  "requirements": {
+  "schemaVersion": 2,
+  "kind": "semantic_plan",
+  "summary": "Aggregate indexed values by UTC date",
+  "sourceRequirements": [{
+    "id": "metric_events",
     "dataNetwork": "eip155:8453",
-    "facts": ["protocol_identity", "wallet_identity", "activity_timestamp"],
-    "grouping": ["protocol"],
-    "metric": {
-      "numerator": "wallets active on at least two distinct UTC dates",
-      "denominator": "all wallets active in the same protocol and interval",
-      "zeroDenominator": "null"
-    },
-    "window": {"kind": "complete_utc_days", "days": 30},
-    "refresh": {"mode": "scheduled", "cronExpression": "0 0 * * *", "timezone": "UTC"},
-    "incompleteData": "fail"
+    "description": "Raw events relevant to the requested metric",
+    "grain": "one indexed event",
+    "fields": [
+      {"id": "event_time", "description": "event timestamp", "expectedType": "timestamp", "unit": null, "required": true, "allowNullable": false, "hints": ["timestamp"]},
+      {"id": "raw_value", "description": "value to aggregate", "expectedType": "decimal", "unit": null, "required": true, "allowNullable": false, "hints": ["value"]}
+    ],
+    "constraints": ["Use complete UTC dates"]
+  }],
+  "result": {
+    "description": "One aggregate row per UTC date",
+    "grain": "utc_day",
+    "fields": [
+      {"name": "day", "description": "UTC date", "type": "date", "unit": null, "nullable": false},
+      {"name": "average_value", "description": "daily average", "type": "decimal", "unit": null, "nullable": false}
+    ],
+    "orderBy": [{"field": "day", "direction": "asc"}]
   },
+  "refresh": {"mode": "scheduled", "timezone": "UTC"},
   "assumptions": [],
   "unresolved": []
 }
 ```
 
-This is a proposed intermediate document, not a replacement top-level DataProductSpec schema or proof of source availability. Metric descriptions must be grounded in typed mappings and expressions by P5; runtime behavior never interprets these prose strings. The example metric and cadence need human review, not automatic adoption for every request.
+`SourceDiscoveryPlan` nests this document as `semanticPlan` and includes `searches: [{sourceNeedId, keywords}]`. There is exactly one search entry per source requirement and no more than three keywords for each requirement. Names above demonstrate the contract only; no protocol, entity, field, grouping, or output shape is built into it. Descriptions become executable only after P3 binds exact inspected fields and lowers calculations into the typed operator AST.
 
 Ask about material uncertainty, such as whether "repeat" means distinct transactions or distinct days, whether addresses are grouped per protocol, and whether an incomplete interval is acceptable. Harmless display naming can use a visible assumption. Never silently narrow the network, time range, or population to fit a convenient source.
 
-### P2-P3: Evidence, Not Source Name Matching
+### P2-P3b: Evidence, Not Source Name Matching
 
-The source adapter boundary is intentionally narrower than a general-purpose MCP client. `sources.search` maps to an allowlisted metadata-search capability; `sources.inspect` maps to schema and immutable-identity inspection; neither accepts a model-selected MCP server, URL or arbitrary tool name. `query.compile` is a Sprue-owned compiler that receives an inspected schema and emits a static GraphQL document. It is not delegated to the Graph MCP. The runtime's `executeGraphQL` adapter may use MCP or a direct Graph API, but it is invoked only by an authorized data-plane operation with a stored query plan and access context. This separation makes the MCP replaceable and prevents a planning message from becoming a payment or data-query authorization.
+The source adapter boundary is intentionally narrower than a general-purpose MCP client. The first model proposes semantic field requirements and keyword strings for independent SourceNeed records. The controller validates them and maps each SourceNeed to the fixed keyword-search or creator-supplied contract lookup path; the model never sees or chooses the MCP tool name. Following the official Subgraph MCP order, the controller obtains 30-day activity for every bounded potentially relevant manifest CID before source selection, then inspects every candidate schema within each SourceNeed's independent budget. The adapter extracts actual query entities and field paths with Graph type, inferred semantic value type, list shape, and nullability. Lexical matches against model hints are ranking suggestions only; they do not prove semantics and cannot create a field. The post-discovery model must bind an exact returned path, and deterministic code checks that reference and its type/nullability. The adapter exposes only six reviewed metadata tool names and accepts neither a model-selected MCP server, URL nor arbitrary tool name. The three `execute_query_*` tools are absent from its public planning interface. `query.compile` remains a Sprue-owned compiler. A later runtime `executeGraphQL` adapter is invoked only by an authorized data-plane operation with a stored query plan and access context.
 
 For each candidate preserve logical Subgraph ID, resolved gateway Deployment ID, manifest CID when observed, chain, schema hash, observation time, and field-level evidence. A protocol label or matching schema family alone does not prove metric compatibility. A source listing is lower-confidence evidence than inspected fields; neither proves data completeness.
 

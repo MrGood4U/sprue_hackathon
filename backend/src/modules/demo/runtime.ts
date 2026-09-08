@@ -2,14 +2,11 @@ import type { AppConfig } from "../../app/config.js";
 import { createAgentModel } from "../agent/harness/factory.js";
 import { AgentHarness } from "../agent/harness/controller.js";
 import {
-  testOpenAICompatibleModel,
-  type AgentModelConnectionTestResult,
-} from "../agent/harness/remote-model.js";
-import {
   MVP_ARBITRUM_SOURCE_KEY,
   MVP_ETHEREUM_SOURCE_KEY,
 } from "../agent/harness/mock-model.js";
-import type { AgentModelConfig, AgentModelPort, HarnessResult } from "../agent/harness/types.js";
+import type { AgentModelConfig, AgentModelPort, CanonicalDataProductSpec, HarnessResult } from "../agent/harness/types.js";
+import type {ModelProfileService} from "../model-profile/service.js";
 import type {
   ProviderFieldType,
   SourceInput,
@@ -77,8 +74,13 @@ function source(
     schema: {
       sourceKey,
       chain,
+      dataNetwork: chain === "ethereum" ? "eip155:1" : "eip155:42161",
       subgraphId,
       deploymentId,
+      sourceSnapshotId: chain === "ethereum"
+        ? "40000000-0000-4000-8000-000000000010"
+        : "40000000-0000-4000-8000-000000000011",
+      queryEntity: "swaps",
       schemaHash: `sha256:demo-${chain}-swap-schema`,
       fieldTypes: swapFieldTypes,
     },
@@ -190,35 +192,6 @@ function serializeDataResponse(
   };
 }
 
-function sourceSnapshots(result: HarnessResult): readonly Record<string, unknown>[] {
-  return result.proposal.sources.map((selected) => {
-    const input = createSources().find((candidate) => candidate.schema.sourceKey === selected.sourceKey)!;
-    return {
-      id: selected.sourceKey,
-      sourceSnapshotId: `demo-snapshot-${selected.chain}`,
-      provider: "the_graph",
-      kind: "subgraph",
-      adapterVersion: "1",
-      dataNetwork: selected.chain === "ethereum" ? "eip155:1" : "eip155:42161",
-      target: {
-        type: "deployment_id",
-        id: input.schema.deploymentId,
-        logicalSubgraphId: input.schema.subgraphId,
-        manifestIpfsCid: null,
-      },
-      schemaHash: input.schema.schemaHash,
-      access: {
-        mode: "x402",
-        gatewayEnvironment: "testnet",
-        providerCredentialId: null,
-        spendingPolicyId: "demo-policy",
-      },
-      consistency: { mode: "pinned_block", indexingErrorPolicy: "deny" },
-      mapping: selected.mapping,
-    };
-  });
-}
-
 function buildState(config: AppConfig, result: HarnessResult, productName = DEMO_PRODUCT_NAME): DemoState {
   const output = serializeOutput(result.execution);
   const x402Ready = true;
@@ -227,47 +200,30 @@ function buildState(config: AppConfig, result: HarnessResult, productName = DEMO
     provider: result.model.provider,
     model: result.model.model,
     intent: result.proposal.intentSummary,
-    sources: result.proposal.sources.map(({sourceKey, chain}) => ({sourceKey, chain})),
-    nodeCount: result.proposal.dag.nodes.length,
-    edgeCount: result.proposal.dag.edges.length,
-    outputFieldCount: result.proposal.outputSchema.fields.length,
+    sources: result.selectedSources.map((source) => ({sourceKey: source.schema.sourceKey, chain: source.schema.chain})),
+    nodeCount: result.proposal.specification.dag.nodes.length,
+    edgeCount: result.proposal.specification.dag.edges.length,
+    outputFieldCount: result.proposal.specification.outputSchema.fields.length,
     trace: result.trace,
   };
   const endpoint = `${config.dataPublicBaseUrl}/${DEMO_PRODUCT_SLUG}`;
   const draft = {
     parameters: { windowDays: 30, minimumActiveDays: 2 },
-    specification: {
-      schemaVersion: 1,
-      runtimeVersion: "1",
-      intent: { summary: result.proposal.intentSummary },
-      sources: sourceSnapshots(result),
-      dag: result.proposal.dag,
-      outputSchema: result.proposal.outputSchema,
-      refreshPolicy: { mode: "scheduled", cronExpression: "0 * * * *", timezone: "UTC" },
-      resourcePolicy: {
-        maxNodes: 16,
-        maxSourceRows: 50000,
-        maxSourceRequests: 100,
-        maxOutputRows: 5000,
-        maxOutputBytes: 5242880,
-        maxStoredBytes: 20971520,
-        maxRuntimeMs: 120000,
-      },
-    },
+    specification: result.proposal.specification,
     groups: [
       {
         id: "ethereum-activity",
         templateId: "chain_activity",
         templateVersion: "1",
         labelKey: "dag.ethereumActivity",
-        nodeIds: ["source-ethereum", "map-ethereum", "filter-ethereum", "aggregate-ethereum"],
+        nodeIds: ["source__eip155_1_swap_events", "normalize_eip155_1_swap_events", "aggregate_eip155_1_swap_events_wallet"],
       },
       {
         id: "arbitrum-activity",
         templateId: "chain_activity",
         templateVersion: "1",
         labelKey: "dag.arbitrumActivity",
-        nodeIds: ["source-arbitrum", "map-arbitrum", "filter-arbitrum", "aggregate-arbitrum"],
+        nodeIds: ["source__eip155_42161_swap_events", "normalize_eip155_42161_swap_events", "aggregate_eip155_42161_swap_events_wallet"],
       },
     ],
     referenceResult: output,
@@ -392,11 +348,7 @@ export interface DemoState {
     status: string;
     draft: {
       parameters: {windowDays: number; minimumActiveDays: number};
-      specification: {
-        dag: {nodes: readonly unknown[]; edges: readonly unknown[]};
-        outputSchema: {fields: readonly {name: string; type: string}[]};
-        [key: string]: unknown;
-      };
+      specification: CanonicalDataProductSpec;
       groups: readonly Record<string, unknown>[];
       referenceResult: readonly Record<string, unknown>[];
     };
@@ -431,181 +383,87 @@ export type DemoAction =
   | {action: "api_request"; parameters?: {limit: number}}
   | {action: "consumer_request"};
 
-export interface DemoModelProfileInput {
-  apiUrl: string;
-  apiKey?: string;
-  model: string;
-}
-
-export interface DemoModelProfileView {
-  configured: boolean;
-  protocol: "openai_compatible_chat_completions";
-  apiUrl: string;
-  model: string;
-  hasApiKey: boolean;
-  updatedAt: string | null;
-}
-
-interface DemoModelProfileSecret {
-  apiUrl: string;
-  apiKey: string;
-  model: string;
-  updatedAt: string;
-}
-
-interface DemoSessionState {
-  profile?: DemoModelProfileSecret;
+interface DemoWorkspaceState {
   lastHarness?: HarnessResult;
   productName?: string;
   touchedAt: number;
 }
 
-const maxDemoSessions = 64;
+const maxDemoWorkspaces = 64;
 type AgentModelFactory = (config: AgentModelConfig) => AgentModelPort;
-type AgentModelTester = (config: AgentModelConfig) => Promise<AgentModelConnectionTestResult>;
-
-export class DemoModelProfileInputError extends Error {
-  constructor() {
-    super("The model profile is invalid");
-    this.name = "DemoModelProfileInputError";
-  }
-}
-
-export class DemoModelConnectionError extends Error {
-  constructor() {
-    super("The model service is unavailable");
-    this.name = "DemoModelConnectionError";
-  }
-}
-
-function normalizeModelProfile(input: DemoModelProfileInput, existing?: DemoModelProfileSecret): DemoModelProfileSecret {
-  let url: URL;
-  try {
-    url = new URL(input.apiUrl.trim());
-  } catch {
-    throw new DemoModelProfileInputError();
-  }
-  if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash) {
-    throw new DemoModelProfileInputError();
-  }
-  const apiKey = input.apiKey?.trim() || existing?.apiKey;
-  const model = input.model.trim();
-  if (!apiKey || apiKey.length > 4096 || model.length === 0 || model.length > 200) {
-    throw new DemoModelProfileInputError();
-  }
-  return {
-    apiUrl: url.href,
-    apiKey,
-    model,
-    updatedAt: new Date().toISOString(),
-  };
-}
-
-function profileView(profile?: DemoModelProfileSecret): DemoModelProfileView {
-  return {
-    configured: Boolean(profile),
-    protocol: "openai_compatible_chat_completions",
-    apiUrl: profile?.apiUrl ?? "",
-    model: profile?.model ?? "",
-    hasApiKey: Boolean(profile?.apiKey),
-    updatedAt: profile?.updatedAt ?? null,
-  };
-}
 
 export class DemoRuntime {
   private readonly sources = createSources();
   private readonly defaultHarness: AgentHarness;
-  private readonly sessions = new Map<string, DemoSessionState>();
+  private readonly workspaces = new Map<string, DemoWorkspaceState>();
 
   constructor(
     private readonly config: AppConfig,
     private readonly modelFactory: AgentModelFactory = createAgentModel,
-    private readonly modelTester: AgentModelTester = testOpenAICompatibleModel,
+    private readonly modelProfiles?: ModelProfileService,
   ) {
     this.defaultHarness = new AgentHarness(this.modelFactory(config.agent));
   }
 
-  private touchSession(sessionId: string): DemoSessionState {
-    const existing = this.sessions.get(sessionId);
+  private touchWorkspace(workspaceId: string): DemoWorkspaceState {
+    const existing = this.workspaces.get(workspaceId);
     if (existing) {
       existing.touchedAt = Date.now();
       return existing;
     }
-    if (this.sessions.size >= maxDemoSessions) {
-      const oldest = [...this.sessions.entries()].sort((left, right) => left[1].touchedAt - right[1].touchedAt)[0];
-      if (oldest) this.sessions.delete(oldest[0]);
+    if (this.workspaces.size >= maxDemoWorkspaces) {
+      const oldest = [...this.workspaces.entries()].sort((left, right) => left[1].touchedAt - right[1].touchedAt)[0];
+      if (oldest) this.workspaces.delete(oldest[0]);
     }
     const created = {touchedAt: Date.now()};
-    this.sessions.set(sessionId, created);
+    this.workspaces.set(workspaceId, created);
     return created;
   }
 
-  private async runHarness(intent = DEMO_INTENT, profile?: DemoModelProfileSecret): Promise<HarnessResult> {
+  private async runHarness(intent = DEMO_INTENT, profile?: AgentModelConfig | null): Promise<HarnessResult> {
     const harness = profile
-      ? new AgentHarness(this.modelFactory({
-          mode: "remote",
-          apiUrl: profile.apiUrl,
-          apiKey: profile.apiKey,
-          model: profile.model,
-          timeoutMs: this.config.agent.timeoutMs,
-        }))
+      ? new AgentHarness(this.modelFactory(profile))
       : this.defaultHarness;
     return harness.run({
       intent,
       sources: this.sources,
+      accessSelections: this.sources.map((source) => ({
+        sourceKey: source.schema.sourceKey,
+        mode: "x402",
+        providerCredentialId: null,
+        spendingPolicyId: "demo-policy",
+        gatewayEnvironment: "mainnet",
+      })),
       executionWindow: {startInclusive, endExclusive},
     });
   }
 
-  getModelProfile(sessionId: string): DemoModelProfileView {
-    return profileView(this.sessions.get(sessionId)?.profile);
-  }
-
-  saveModelProfile(sessionId: string, input: DemoModelProfileInput): DemoModelProfileView {
-    const session = this.touchSession(sessionId);
-    session.profile = normalizeModelProfile(input, session.profile);
-    return profileView(session.profile);
-  }
-
-  async testModelProfile(sessionId: string, input: DemoModelProfileInput): Promise<AgentModelConnectionTestResult> {
-    const session = this.touchSession(sessionId);
-    const candidate = normalizeModelProfile(input, session.profile);
-    try {
-      return await this.modelTester({
-        mode: "remote",
-        apiUrl: candidate.apiUrl,
-        apiKey: candidate.apiKey,
-        model: candidate.model,
-        timeoutMs: this.config.agent.timeoutMs,
-      });
-    } catch {
-      throw new DemoModelConnectionError();
-    }
-  }
-
-  async getState(sessionId?: string): Promise<DemoState> {
-    const session = sessionId ? this.sessions.get(sessionId) : undefined;
+  async getState(workspaceId?: string): Promise<DemoState> {
+    const workspace = workspaceId ? this.workspaces.get(workspaceId) : undefined;
     return buildState(
       this.config,
-      session?.lastHarness ?? await this.runHarness(),
-      session?.productName,
+      workspace?.lastHarness ?? await this.runHarness(),
+      workspace?.productName,
     );
   }
 
-  async run(action: DemoAction, sessionId?: string): Promise<{state: DemoState; result: Record<string, unknown>}> {
-    const session = sessionId ? this.touchSession(sessionId) : undefined;
-    let harness = session?.lastHarness;
+  async run(action: DemoAction, workspaceId?: string): Promise<{state: DemoState; result: Record<string, unknown>}> {
+    const workspace = workspaceId ? this.touchWorkspace(workspaceId) : undefined;
+    let harness = workspace?.lastHarness;
     if (action.action === "agent_plan") {
-      harness = await this.runHarness(action.intent, session?.profile);
-      if (session) session.lastHarness = harness;
+      const profile = workspaceId
+        ? await this.modelProfiles?.resolve(workspaceId)
+        : null;
+      harness = await this.runHarness(action.intent, profile);
+      if (workspace) workspace.lastHarness = harness;
     }
-    if (action.action === "rename_product" && session) {
-      session.productName = action.name.trim();
+    if (action.action === "rename_product" && workspace) {
+      workspace.productName = action.name.trim();
     }
     harness ??= await this.runHarness();
     const productName = action.action === "rename_product"
       ? action.name.trim()
-      : session?.productName;
+      : workspace?.productName;
     const state = buildState(this.config, harness, productName);
     const responseData = serializeOutput(harness.execution);
     if (action.action === "agent_plan") {

@@ -24,9 +24,9 @@ const icons = {
 
 function isConfigured(node) {
   const config = node.config ?? {};
-  if (node.type === "source") return Boolean(config.sourceKey);
+  if (node.type === "source") return Boolean(config.sourceId || config.sourceKey);
   if (node.type === "filter") return Boolean(config.predicate || config.window);
-  if (node.type === "map") return Object.keys(config.mapping ?? {}).length > 0;
+  if (node.type === "map") return Boolean(config.recipe) || Object.keys(config.mapping ?? {}).length > 0;
   if (node.type === "aggregate") return (config.groupBy ?? []).length > 0 || (config.measures ?? []).length > 0;
   return true;
 }

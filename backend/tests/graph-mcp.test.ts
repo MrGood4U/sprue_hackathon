@@ -1,0 +1,843 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {AgentHarness, createMockStageOutput, HarnessValidationError} from "../src/modules/agent/harness/index.js";
+import type {AgentDebugEvent, AgentModelRequest} from "../src/modules/agent/harness/index.js";
+import {
+  GraphMcpError,
+  GraphSourceDiscoveryService,
+  RestrictedGraphMcpClient,
+  graphMcpPlanningTools,
+} from "../src/modules/graph/index.js";
+import type {
+  GraphMcpPlanningTool,
+  GraphMcpPlanningWire,
+  GraphPlanningMcpPort,
+} from "../src/modules/graph/index.js";
+
+class FakeWire implements GraphMcpPlanningWire {
+  readonly calls: {tool: GraphMcpPlanningTool; args: Readonly<Record<string, unknown>>}[] = [];
+
+  constructor(private readonly responses: Readonly<Partial<Record<GraphMcpPlanningTool, string>>>) {}
+
+  async listToolNames(): Promise<ReadonlySet<string>> {
+    return new Set([...graphMcpPlanningTools, ...forbiddenExecutionTools]);
+  }
+
+  async callTool(tool: GraphMcpPlanningTool, args: Readonly<Record<string, unknown>>) {
+    this.calls.push({tool, args});
+    const response = this.responses[tool];
+    if (response === undefined) return {isError: true, content: [{type: "text", text: "provider detail"}]};
+    return {content: [{type: "text", text: response}]};
+  }
+
+  async close(): Promise<void> {}
+}
+
+const forbiddenExecutionTools = [
+  "execute_query_by_deployment_id",
+  "execute_query_by_subgraph_id",
+  "execute_query_by_ipfs_hash",
+] as const;
+
+const schema = `
+  scalar BigInt
+  scalar BigDecimal
+  type Account { id: ID! }
+  type Pool { id: ID! }
+  type Swap {
+    id: ID!
+    account: Account!
+    timestamp: BigInt!
+    amountUSD: BigDecimal!
+    pool: Pool!
+  }
+  type Query { swaps(first: Int): [Swap!]! }
+`;
+
+const swapNeedContract = {
+  description: "One indexed swap event.",
+  grain: "swap_event",
+  fields: [
+    {id: "wallet", description: "Wallet that initiated the swap.", expectedType: "address", unit: null, required: true, allowNullable: false, hints: ["account", "sender", "wallet"]},
+    {id: "trade_id", description: "Stable swap identifier.", expectedType: "id", unit: null, required: true, allowNullable: false, hints: ["id"]},
+    {id: "timestamp", description: "Swap occurrence time.", expectedType: "timestamp", unit: null, required: true, allowNullable: false, hints: ["timestamp"]},
+    {id: "volume_usd", description: "USD-denominated swap volume.", expectedType: "decimal", unit: "USD", required: true, allowNullable: false, hints: ["amountUSD", "volumeUSD"]},
+  ],
+  constraints: [],
+} as const;
+
+test("restricted Graph MCP client exposes metadata tools but never execution tools", async () => {
+  const wire = new FakeWire({
+    search_subgraphs_by_keyword: JSON.stringify({
+      subgraphs: [{
+        id: "logical-subgraph",
+        metadata: {displayName: "Uniswap Ethereum"},
+        currentVersion: {subgraphDeployment: {ipfsHash: "QmEthereum"}},
+      }],
+      total: 1,
+      returned: 1,
+    }),
+    get_deployment_30day_query_counts: JSON.stringify({
+      deployments: [{ipfs_hash: "QmEthereum", total_query_count: 1234, data_points_count: 30}],
+      total_deployments_processed: 1,
+    }),
+    get_schema_by_ipfs_hash: schema,
+    get_top_subgraph_deployments: JSON.stringify({
+      subgraphDeployments: [{ipfsHash: "QmEthereum", manifest: {network: "mainnet"}, queryFeesAmount: "4"}],
+    }),
+  });
+  const client = new RestrictedGraphMcpClient(wire);
+
+  const search = await client.searchSubgraphsByKeyword("Uniswap");
+  const activity = await client.getDeploymentActivity(["QmEthereum"]);
+  const returnedSchema = await client.getSchema({type: "ipfs_hash", id: "QmEthereum"});
+  const contract = await client.getTopDeploymentsForContract({
+    contractAddress: "0x1111111111111111111111111111111111111111",
+    chain: "mainnet",
+  });
+
+  assert.equal(search.subgraphs[0]?.manifestIpfsCid, "QmEthereum");
+  assert.equal(activity[0]?.totalQueryCount30d, 1234);
+  assert.equal(returnedSchema, schema);
+  assert.equal(contract[0]?.network, "mainnet");
+  assert.deepEqual(wire.calls.map((call) => call.tool), [
+    "search_subgraphs_by_keyword",
+    "get_deployment_30day_query_counts",
+    "get_schema_by_ipfs_hash",
+    "get_top_subgraph_deployments",
+  ]);
+  assert.equal(wire.calls.some((call) => forbiddenExecutionTools.includes(call.tool as never)), false);
+  assert.equal("executeGraphQL" in client, false);
+  assert.equal("callTool" in client, false);
+});
+
+test("restricted Graph MCP client rejects provider errors without reflecting provider content", async () => {
+  const client = new RestrictedGraphMcpClient(new FakeWire({}));
+  await assert.rejects(
+    () => client.searchSubgraphsByKeyword("Uniswap"),
+    (error: unknown) => error instanceof GraphMcpError
+      && error.code === "GRAPH_MCP_TOOL_REJECTED"
+      && !error.message.includes("provider detail"),
+  );
+});
+
+test("Graph source discovery checks activity before schemas and ranks network-compatible candidates", async () => {
+  const calls: string[] = [];
+  const graph: GraphPlanningMcpPort = {
+    async searchSubgraphsByKeyword(value) {
+      calls.push(`search:${value}`);
+      return {
+        subgraphs: [
+          {subgraphId: "sg-eth", displayName: "Uniswap V3 Ethereum", manifestIpfsCid: "QmEth"},
+          {subgraphId: "sg-arb", displayName: "Uniswap V3 Arbitrum", manifestIpfsCid: "QmArb"},
+        ],
+        total: 2,
+        returned: 2,
+      };
+    },
+    async getDeploymentActivity(values) {
+      calls.push(`activity:${values.join(",")}`);
+      return [
+        {manifestIpfsCid: "QmEth", totalQueryCount30d: 1200, dataPointsCount: 30},
+        {manifestIpfsCid: "QmArb", totalQueryCount30d: 900, dataPointsCount: 30},
+      ];
+    },
+    async getSchema(reference) {
+      calls.push(`schema:${reference.id}`);
+      return schema;
+    },
+    async getTopDeploymentsForContract() {
+      throw new Error("not expected");
+    },
+    async close() {},
+  };
+  const discovery = new GraphSourceDiscoveryService(graph);
+  const harness = new AgentHarness({
+    async complete() {
+      throw new Error("source discovery must not invoke the language model");
+    },
+  }, undefined, discovery);
+  const result = await harness.discoverGraphSources({
+    needs: [
+      {
+        id: "ethereum-swaps",
+        dataNetwork: "eip155:1",
+        networkLabel: "Ethereum",
+        keywords: ["Uniswap"],
+        ...swapNeedContract,
+      },
+      {
+        id: "arbitrum-swaps",
+        dataNetwork: "eip155:42161",
+        networkLabel: "Arbitrum",
+        keywords: ["Uniswap"],
+        ...swapNeedContract,
+      },
+    ],
+  });
+
+  assert.equal(result.searchCalls, 1);
+  assert.equal(result.inspectedSchemas, 2);
+  assert.deepEqual(calls, ["search:Uniswap", "activity:QmEth,QmArb", "schema:QmEth", "schema:QmArb"]);
+  assert.deepEqual(
+    result.candidates.filter((candidate) => candidate.status === "suitable").map((candidate) => [candidate.sourceNeedId, candidate.logicalSubgraphId]),
+    [["ethereum-swaps", "sg-eth"], ["arbitrum-swaps", "sg-arb"]],
+  );
+  assert.equal(result.candidates[0]?.entities[0]?.queryEntity, "swaps");
+  assert.deepEqual(result.candidates[0]?.entities[0]?.matchedRequirements, ["wallet", "trade_id", "timestamp", "volume_usd"]);
+  assert.match(result.candidates[0]?.limitations.join(" ") ?? "", /IPFS CID is not a Deployment ID/);
+});
+
+test("Graph source discovery keeps uninspected candidates verifiable instead of calling them incompatible", async () => {
+  const graph: GraphPlanningMcpPort = {
+    async searchSubgraphsByKeyword() {
+      return {
+        subgraphs: [
+          {subgraphId: "sg-eth-primary", displayName: "Uniswap Ethereum", manifestIpfsCid: "QmPrimary"},
+          {subgraphId: "sg-eth-secondary", displayName: "Uniswap Ethereum Archive", manifestIpfsCid: "QmSecondary"},
+        ],
+        total: 2,
+        returned: 2,
+      };
+    },
+    async getDeploymentActivity(values) {
+      return values.map((manifestIpfsCid) => ({manifestIpfsCid, totalQueryCount30d: 100, dataPointsCount: 30}));
+    },
+    async getSchema(reference) {
+      assert.equal(reference.id, "QmPrimary");
+      return schema;
+    },
+    async getTopDeploymentsForContract() {
+      throw new Error("not expected");
+    },
+    async close() {},
+  };
+  const result = await new GraphSourceDiscoveryService(graph, {
+    maxSearchCallsPerNeed: 3,
+    maxSearchResultsPerCall: 5,
+    maxSchemaInspectionsPerNeed: 1,
+    maxSchemaBytes: 5_242_880,
+  }).discover({
+    needs: [{
+      id: "ethereum-swaps",
+      dataNetwork: "eip155:1",
+      networkLabel: "Ethereum",
+      keywords: ["Uniswap"],
+      ...swapNeedContract,
+    }],
+  });
+
+  const inspected = result.candidates.find((candidate) => candidate.manifestIpfsCid === "QmPrimary");
+  const uninspected = result.candidates.find((candidate) => candidate.manifestIpfsCid === "QmSecondary");
+  assert.equal(inspected?.status, "suitable");
+  assert.equal(uninspected?.status, "needs_verification");
+  assert.deepEqual(uninspected?.entities, []);
+  assert.match(uninspected?.limitations.join(" ") ?? "", /Schema was not inspected/);
+});
+
+test("Graph source discovery does not treat another chain's mainnet label as Ethereum evidence", async () => {
+  const graph: GraphPlanningMcpPort = {
+    async searchSubgraphsByKeyword() {
+      return {
+        subgraphs: [{subgraphId: "sg-base", displayName: "Uniswap V3 Base Mainnet", manifestIpfsCid: "QmBase"}],
+        total: 1,
+        returned: 1,
+      };
+    },
+    async getDeploymentActivity() {
+      return [{manifestIpfsCid: "QmBase", totalQueryCount30d: 100, dataPointsCount: 30}];
+    },
+    async getSchema() {
+      throw new Error("network-conflicting candidates must not consume a schema inspection");
+    },
+    async getTopDeploymentsForContract() {
+      throw new Error("not expected");
+    },
+    async close() {},
+  };
+  const result = await new GraphSourceDiscoveryService(graph).discover({
+    needs: [{
+      id: "ethereum-swaps",
+      dataNetwork: "eip155:1",
+      networkLabel: "Ethereum Mainnet",
+      keywords: ["Uniswap"],
+      ...swapNeedContract,
+    }],
+  });
+
+  assert.equal(result.inspectedSchemas, 0);
+  assert.equal(result.candidates[0]?.networkEvidence, "conflict");
+  assert.equal(result.candidates[0]?.status, "incompatible");
+});
+
+test("Graph source discovery continues to a need's later search hint after a full generic result page", async () => {
+  const searches: string[] = [];
+  const irrelevant = Array.from({length: 10}, (_, index) => ({
+    subgraphId: `sg-base-${index}`,
+    displayName: `Protocol Base ${index}`,
+    manifestIpfsCid: `QmBase${index}`,
+  }));
+  const graph: GraphPlanningMcpPort = {
+    async searchSubgraphsByKeyword(value) {
+      searches.push(value);
+      const subgraphs = value === "Protocol"
+        ? irrelevant
+        : [{subgraphId: "sg-ethereum", displayName: "Protocol Ethereum", manifestIpfsCid: "QmEthereum"}];
+      return {subgraphs, total: subgraphs.length, returned: subgraphs.length};
+    },
+    async getDeploymentActivity(values) {
+      return values.map((manifestIpfsCid) => ({manifestIpfsCid, totalQueryCount30d: 100, dataPointsCount: 30}));
+    },
+    async getSchema(reference) {
+      assert.equal(reference.id, "QmEthereum");
+      return schema;
+    },
+    async getTopDeploymentsForContract() {
+      throw new Error("not expected");
+    },
+    async close() {},
+  };
+  const result = await new GraphSourceDiscoveryService(graph).discover({
+    needs: [{
+      id: "ethereum-swaps",
+      dataNetwork: "eip155:1",
+      networkLabel: "Ethereum Mainnet",
+      keywords: ["Protocol", "Protocol Ethereum"],
+      ...swapNeedContract,
+    }],
+  });
+
+  assert.deepEqual(searches, ["Protocol", "Protocol Ethereum"]);
+  assert.equal(result.searchCalls, 2);
+  assert.equal(result.candidates.find((candidate) => candidate.logicalSubgraphId === "sg-ethereum")?.status, "suitable");
+});
+
+test("Graph source discovery progressively inspects candidates independently for every source need", async () => {
+  const calls: string[] = [];
+  const incompleteSchema = `
+    scalar BigInt
+    scalar BigDecimal
+    type Swap { id: ID!, timestamp: BigInt!, amountUSD: BigDecimal! }
+    type Query { swaps(first: Int): [Swap!]! }
+  `;
+  const graph: GraphPlanningMcpPort = {
+    async searchSubgraphsByKeyword(value) {
+      calls.push(`search:${value}`);
+      return {
+        subgraphs: [
+          {subgraphId: "sg-eth-bad", displayName: "Uniswap Ethereum Primary", manifestIpfsCid: "QmEthBad"},
+          {subgraphId: "sg-eth-good", displayName: "Uniswap Ethereum Archive", manifestIpfsCid: "QmEthGood"},
+          {subgraphId: "sg-arb-bad", displayName: "Uniswap Arbitrum Primary", manifestIpfsCid: "QmArbBad"},
+          {subgraphId: "sg-arb-good", displayName: "Uniswap Arbitrum Archive", manifestIpfsCid: "QmArbGood"},
+        ],
+        total: 4,
+        returned: 4,
+      };
+    },
+    async getDeploymentActivity(values) {
+      calls.push(`activity:${values.join(",")}`);
+      const counts = new Map([
+        ["QmEthBad", 1_000],
+        ["QmEthGood", 900],
+        ["QmArbBad", 800],
+        ["QmArbGood", 700],
+      ]);
+      return values.map((manifestIpfsCid) => ({
+        manifestIpfsCid,
+        totalQueryCount30d: counts.get(manifestIpfsCid) ?? 0,
+        dataPointsCount: 30,
+      }));
+    },
+    async getSchema(reference) {
+      calls.push(`schema:${reference.id}`);
+      return reference.id.endsWith("Good") ? schema : incompleteSchema;
+    },
+    async getTopDeploymentsForContract() {
+      throw new Error("not expected");
+    },
+    async close() {},
+  };
+
+  const result = await new GraphSourceDiscoveryService(graph, {
+    maxSearchCallsPerNeed: 3,
+    maxSearchResultsPerCall: 10,
+    maxSchemaInspectionsPerNeed: 2,
+    maxSchemaBytes: 5_242_880,
+  }).discover({
+    needs: [
+      {
+        id: "ethereum-swaps",
+        dataNetwork: "eip155:1",
+        networkLabel: "Ethereum Mainnet",
+        keywords: ["Uniswap"],
+        ...swapNeedContract,
+      },
+      {
+        id: "arbitrum-swaps",
+        dataNetwork: "eip155:42161",
+        networkLabel: "Arbitrum One",
+        keywords: ["Uniswap"],
+        ...swapNeedContract,
+      },
+    ],
+  });
+
+  assert.equal(result.gatewayEnvironment, "mainnet");
+  assert.equal(result.searchCalls, 1);
+  assert.equal(result.inspectedSchemas, 4);
+  assert.deepEqual(
+    result.candidates.filter((candidate) => candidate.status === "suitable").map((candidate) => candidate.logicalSubgraphId),
+    ["sg-eth-good", "sg-arb-good", "sg-eth-bad", "sg-arb-bad"],
+  );
+  assert.deepEqual(
+    result.candidates.find((candidate) => candidate.logicalSubgraphId === "sg-eth-bad")?.entities[0]?.matchedRequirements,
+    ["trade_id", "timestamp", "volume_usd"],
+  );
+  assert.deepEqual(
+    result.candidates.find((candidate) => candidate.logicalSubgraphId === "sg-eth-good")?.entities[0]?.matchedRequirements,
+    ["wallet", "trade_id", "timestamp", "volume_usd"],
+  );
+  assert.deepEqual(calls.filter((call) => call.startsWith("schema:")), [
+    "schema:QmEthBad",
+    "schema:QmEthGood",
+    "schema:QmArbBad",
+    "schema:QmArbGood",
+  ]);
+});
+
+test("Agent derives search keywords before Graph MCP discovery and assesses composition afterward", async () => {
+  const sequence: string[] = [];
+  const debugEvents: AgentDebugEvent[] = [];
+  let feasibilityRequest: AgentModelRequest | undefined;
+  const graph: GraphPlanningMcpPort = {
+    async searchSubgraphsByKeyword(value) {
+      sequence.push(`mcp:search:${value}`);
+      return {
+        subgraphs: [
+          {subgraphId: "sg-eth", displayName: "Uniswap V3 Ethereum", manifestIpfsCid: "QmEth"},
+          {subgraphId: "sg-arb", displayName: "Uniswap V3 Arbitrum", manifestIpfsCid: "QmArb"},
+        ],
+        total: 2,
+        returned: 2,
+      };
+    },
+    async getDeploymentActivity(values) {
+      sequence.push("mcp:activity");
+      return values.map((manifestIpfsCid, index) => ({
+        manifestIpfsCid,
+        totalQueryCount30d: 1000 - index,
+        dataPointsCount: 30,
+      }));
+    },
+    async getSchema(reference) {
+      sequence.push(`mcp:schema:${reference.id}`);
+      return schema;
+    },
+    async getTopDeploymentsForContract() {
+      throw new Error("not expected");
+    },
+    async close() {},
+  };
+  const model = {
+    async complete(request: AgentModelRequest) {
+      sequence.push(`model:${request.stage}`);
+      if (request.stage === "source_feasibility") feasibilityRequest = request;
+      return {provider: "mock" as const, model: "ordered-planner", output: createMockStageOutput(request)};
+    },
+  };
+
+  const result = await new AgentHarness(model, undefined, new GraphSourceDiscoveryService(graph), (event) => {
+    debugEvents.push(event);
+  }).explore({
+    intent: "Find wallets trading through Uniswap V3 on both Ethereum and Arbitrum.",
+    availableNetworks: [
+      {dataNetwork: "eip155:1", label: "Ethereum"},
+      {dataNetwork: "eip155:42161", label: "Arbitrum"},
+    ],
+  });
+
+  assert.equal(result.kind, "feasibility");
+  if (result.kind !== "feasibility") return;
+  assert.equal(result.readyForCompilation, false);
+  assert.equal(result.model.calls, 2);
+  assert.equal(result.feasibility.selections.length, 2);
+  assert.equal(result.feasibility.composition.nodes.filter((node) => node.operator === "union").length, 1);
+  assert.deepEqual(sequence, [
+    "model:source_discovery_planning",
+    "mcp:search:Uniswap V3",
+    "mcp:activity",
+    "mcp:schema:QmEth",
+    "mcp:schema:QmArb",
+    "model:source_feasibility",
+  ]);
+  const serializedRequest = JSON.stringify(feasibilityRequest);
+  assert.equal(serializedRequest.includes("displayName"), false);
+  assert.equal(serializedRequest.includes("execute_query"), false);
+  assert.equal(serializedRequest.includes("type Query"), false);
+  assert.match(result.blockers.join(" "), /Deployment ID/);
+  assert.deepEqual(debugEvents.map((event) => event.stage), [
+    "source_discovery_planning",
+    "graph_source_discovery",
+    "source_feasibility",
+  ]);
+  const planningDebug = debugEvents.find((event) => event.stage === "source_discovery_planning");
+  assert.ok(planningDebug && "searches" in planningDebug);
+  assert.deepEqual(planningDebug.searches, [
+    {sourceNeedId: "source_1", keywords: ["Uniswap V3"]},
+    {sourceNeedId: "source_2", keywords: ["Uniswap V3"]},
+  ]);
+  const discoveryDebug = debugEvents.find((event) => event.stage === "graph_source_discovery");
+  assert.ok(discoveryDebug && "candidateCount" in discoveryDebug);
+  assert.equal(discoveryDebug.candidateCount, 4);
+});
+
+test("Agent performs one bounded repair when source-planning tool arguments fail schema validation", async () => {
+  const requests: AgentModelRequest[] = [];
+  let discoveryCalled = false;
+  const harness = new AgentHarness({
+    async complete(request: AgentModelRequest) {
+      requests.push(request);
+      return requests.length === 1
+        ? {provider: "mock" as const, model: "repair-test", output: {schemaVersion: 1, kind: "source_discovery_plan"}}
+        : {
+            provider: "mock" as const,
+            model: "repair-test",
+            output: {
+              schemaVersion: 1,
+              kind: "clarification",
+              questions: [{code: "scope_confirmation", question: "Confirm the requested network scope."}],
+            },
+          };
+    },
+  }, undefined, {
+    async discover() {
+      discoveryCalled = true;
+      throw new Error("must not run after clarification");
+    },
+  });
+
+  const result = await harness.explore({
+    intent: "Find cross-chain swap wallets on Ethereum and Arbitrum.",
+    availableNetworks: [
+      {dataNetwork: "eip155:1", label: "Ethereum"},
+      {dataNetwork: "eip155:42161", label: "Arbitrum"},
+    ],
+  });
+
+  assert.equal(result.kind, "clarification");
+  assert.equal(result.model.calls, 2);
+  assert.equal(discoveryCalled, false);
+  assert.equal(requests[1]?.stage, "source_discovery_planning");
+  assert.deepEqual(requests[1] && "repair" in requests[1] ? requests[1].repair : undefined, {
+    attempt: 1,
+    reason: "schema_validation_failed",
+    path: "schemaVersion",
+    issueCode: "invalid_value",
+  });
+});
+
+test("Agent accepts independent per-network search hints beyond the former global keyword limit", async () => {
+  let discoveryCalled = false;
+  const harness = new AgentHarness({
+    async complete(request: AgentModelRequest) {
+      const output = createMockStageOutput(request);
+      if (request.stage !== "source_discovery_planning") {
+        return {provider: "mock", model: "search-limit-test", output};
+      }
+      const plan = output as ReturnType<typeof createMockStageOutput> & {
+        searches: {sourceNeedId: string; keywords: string[]}[];
+      };
+      return {
+        provider: "mock",
+        model: "search-limit-test",
+        output: {
+          ...plan,
+          searches: [
+            {sourceNeedId: "source_1", keywords: ["Uniswap V3", "DEX swaps"]},
+            {sourceNeedId: "source_2", keywords: ["AMM trades", "Swap events"]},
+          ],
+        },
+      };
+    },
+  }, undefined, {
+    async discover() {
+      discoveryCalled = true;
+      return {
+        schemaVersion: 1,
+        provider: "the_graph",
+        gatewayEnvironment: "mainnet",
+        searchedNeeds: 2,
+        searchCalls: 4,
+        inspectedSchemas: 0,
+        candidates: [],
+        limits: {maxSearchCallsPerNeed: 3, maxSearchResultsPerCall: 10, maxSchemaInspectionsPerNeed: 10},
+      };
+    },
+  });
+
+  const result = await harness.explore({
+    intent: "Find cross-chain swap wallets on Ethereum and Arbitrum.",
+    availableNetworks: [
+      {dataNetwork: "eip155:1", label: "Ethereum"},
+      {dataNetwork: "eip155:42161", label: "Arbitrum"},
+    ],
+  });
+  assert.equal(discoveryCalled, true);
+  assert.equal(result.kind, "unsupported");
+});
+
+test("Agent rejects a post-discovery candidate reference invented by the model", async () => {
+  const harness = new AgentHarness({
+    async complete(request: AgentModelRequest) {
+      const output = createMockStageOutput(request);
+      if (request.stage !== "source_feasibility") {
+        return {provider: "mock", model: "feasibility-boundary-test", output};
+      }
+      const feasibility = output as {
+        schemaVersion: 2;
+        kind: "source_feasibility";
+        selections: Array<Record<string, unknown>>;
+        composition: unknown;
+        assumptions: string[];
+      };
+      return {
+        provider: "mock",
+        model: "feasibility-boundary-test",
+        output: {
+          ...feasibility,
+          selections: feasibility.selections.map((selection, index) => index === 0
+            ? {...selection, candidateRef: "graph:eip155_1_swap_events:cccccccccccccccccccc"}
+            : selection),
+        },
+      };
+    },
+  }, undefined, {
+    async discover() {
+      return {
+        schemaVersion: 1,
+        provider: "the_graph",
+        gatewayEnvironment: "mainnet",
+        searchedNeeds: 2,
+        searchCalls: 1,
+        inspectedSchemas: 2,
+        candidates: [
+          {
+            candidateRef: "graph:source_1:aaaaaaaaaaaaaaaaaaaa",
+            sourceNeedId: "source_1",
+            discoveryMethod: "keyword",
+            logicalSubgraphId: "sg-eth",
+            manifestIpfsCid: "QmEth",
+            displayName: "Untrusted Ethereum label",
+            reportedNetwork: null,
+            networkEvidence: "display_name",
+            totalQueryCount30d: 100,
+            queryActivityEvidence: "observed",
+            schemaHash: "sha256:eth",
+            schemaBytes: 100,
+            entities: [{
+              queryEntity: "swaps",
+              entityType: "Swap",
+              fields: [{path: "id", graphType: "ID!", valueType: "id", nullable: false, list: false}],
+              suggestedBindings: [{requirementId: "record_id", fieldPaths: ["id"]}],
+              matchedRequirements: ["record_id"],
+            }],
+            status: "suitable",
+            score: 100,
+            limitations: ["Deployment ID remains unresolved."],
+          },
+          {
+            candidateRef: "graph:source_2:bbbbbbbbbbbbbbbbbbbb",
+            sourceNeedId: "source_2",
+            discoveryMethod: "keyword",
+            logicalSubgraphId: "sg-arb",
+            manifestIpfsCid: "QmArb",
+            displayName: "Untrusted Arbitrum label",
+            reportedNetwork: null,
+            networkEvidence: "display_name",
+            totalQueryCount30d: 100,
+            queryActivityEvidence: "observed",
+            schemaHash: "sha256:arb",
+            schemaBytes: 100,
+            entities: [{
+              queryEntity: "swaps",
+              entityType: "Swap",
+              fields: [{path: "id", graphType: "ID!", valueType: "id", nullable: false, list: false}],
+              suggestedBindings: [{requirementId: "record_id", fieldPaths: ["id"]}],
+              matchedRequirements: ["record_id"],
+            }],
+            status: "suitable",
+            score: 100,
+            limitations: ["Deployment ID remains unresolved."],
+          },
+        ],
+        limits: {maxSearchCallsPerNeed: 3, maxSearchResultsPerCall: 10, maxSchemaInspectionsPerNeed: 10},
+      };
+    },
+  });
+
+  await assert.rejects(
+    () => harness.explore({
+      intent: "Find cross-chain swap wallets on Ethereum and Arbitrum.",
+      availableNetworks: [
+        {dataNetwork: "eip155:1", label: "Ethereum"},
+        {dataNetwork: "eip155:42161", label: "Arbitrum"},
+      ],
+    }),
+    (error: unknown) => error instanceof HarnessValidationError && error.code === "FEASIBILITY_CANDIDATE_INVALID",
+  );
+});
+
+test("Agent validates schema-driven time-series fields without a wallet-shaped special case", async () => {
+  const model = {
+    async complete(request: AgentModelRequest) {
+      if (request.stage === "source_discovery_planning") {
+        return {
+          provider: "mock" as const,
+          model: "generic-planner",
+          output: {
+            schemaVersion: 2,
+            kind: "source_discovery_plan",
+            semanticPlan: {
+              schemaVersion: 2,
+              kind: "semantic_plan",
+              summary: "Produce daily value statistics.",
+              sourceRequirements: [{
+                id: "metric_events",
+                dataNetwork: "eip155:1",
+                description: "Raw metric events.",
+                grain: "event",
+                fields: [
+                  {id: "event_time", description: "Event timestamp.", expectedType: "timestamp", unit: null, required: true, allowNullable: false, hints: ["blockTimestamp"]},
+                  {id: "raw_value", description: "Numeric event value.", expectedType: "decimal", unit: "USD", required: true, allowNullable: false, hints: ["amountUSD"]},
+                ],
+                constraints: ["Use complete UTC dates."],
+              }],
+              result: {
+                description: "Daily aggregate statistics.",
+                grain: "utc_day",
+                fields: [
+                  {name: "day", description: "UTC date.", type: "date", unit: null, nullable: false},
+                  {name: "total_value", description: "Daily total.", type: "decimal", unit: "USD", nullable: false},
+                  {name: "average_value", description: "Daily average.", type: "decimal", unit: "USD", nullable: false},
+                ],
+                orderBy: [{field: "day", direction: "asc"}],
+              },
+              refresh: {mode: "scheduled", timezone: "UTC"},
+              assumptions: [],
+              unresolved: [],
+            },
+            searches: [{sourceNeedId: "metric_events", keywords: ["protocol metrics"]}],
+          },
+        };
+      }
+      if (request.stage !== "source_feasibility") throw new Error("Unexpected legacy planning stage");
+      return {
+        provider: "mock" as const,
+        model: "generic-planner",
+        output: {
+          schemaVersion: 2,
+          kind: "source_feasibility",
+          selections: [{
+            sourceNeedId: "metric_events",
+            candidateRef: "graph:metric_events:aaaaaaaaaaaaaaaaaaaa",
+            queryEntity: "metricEvents",
+            fieldBindings: [
+              {requirementId: "event_time", fieldPath: "blockTimestamp"},
+              {requirementId: "raw_value", fieldPath: "amountUSD"},
+            ],
+            rationale: "Both semantic fields are present on the inspected entity.",
+          }],
+          composition: {
+            schemaVersion: 2,
+            kind: "composition_intent",
+            nodes: [
+              {
+                role: "derive_day",
+                operator: "map",
+                operatorVersion: "2",
+                config: {mode: "extend", fields: [{name: "day", expression: {op: "utc_date", inputs: [{op: "field", field: "event_time"}]}}]},
+              },
+              {
+                role: "daily_statistics",
+                operator: "aggregate",
+                operatorVersion: "2",
+                config: {
+                  groupBy: ["day"],
+                  measures: [
+                    {name: "total_value", op: "sum", field: "raw_value"},
+                    {name: "average_value", op: "average", field: "raw_value"},
+                  ],
+                },
+              },
+              {
+                role: "output_daily_statistics",
+                operator: "output",
+                operatorVersion: "2",
+                config: {fields: ["day", "total_value", "average_value"], orderBy: [{field: "day", direction: "asc"}]},
+              },
+            ],
+            connections: [
+              {fromRole: "source__metric_events", toRole: "derive_day", inputRole: "rows"},
+              {fromRole: "derive_day", toRole: "daily_statistics", inputRole: "rows"},
+              {fromRole: "daily_statistics", toRole: "output_daily_statistics", inputRole: "rows"},
+            ],
+            templateInstances: [],
+          },
+          assumptions: [],
+        },
+      };
+    },
+  };
+  const result = await new AgentHarness(model, undefined, {
+    async discover() {
+      return {
+        schemaVersion: 1,
+        provider: "the_graph",
+        gatewayEnvironment: "mainnet",
+        searchedNeeds: 1,
+        searchCalls: 1,
+        inspectedSchemas: 1,
+        candidates: [{
+          candidateRef: "graph:metric_events:aaaaaaaaaaaaaaaaaaaa",
+          sourceNeedId: "metric_events",
+          discoveryMethod: "keyword",
+          logicalSubgraphId: "metrics-subgraph",
+          manifestIpfsCid: "QmMetrics",
+          displayName: "Provider metadata",
+          reportedNetwork: null,
+          networkEvidence: "display_name",
+          totalQueryCount30d: 500,
+          queryActivityEvidence: "observed",
+          schemaHash: "sha256:metrics",
+          schemaBytes: 200,
+          entities: [{
+            queryEntity: "metricEvents",
+            entityType: "MetricEvent",
+            fields: [
+              {path: "id", graphType: "ID!", valueType: "id", nullable: false, list: false},
+              {path: "blockTimestamp", graphType: "BigInt!", valueType: "integer", nullable: false, list: false},
+              {path: "amountUSD", graphType: "BigDecimal!", valueType: "decimal", nullable: false, list: false},
+            ],
+            suggestedBindings: [
+              {requirementId: "event_time", fieldPaths: ["blockTimestamp"]},
+              {requirementId: "raw_value", fieldPaths: ["amountUSD"]},
+            ],
+            matchedRequirements: ["event_time", "raw_value"],
+          }],
+          status: "suitable",
+          score: 100,
+          limitations: ["Deployment ID remains unresolved."],
+        }],
+        limits: {maxSearchCallsPerNeed: 3, maxSearchResultsPerCall: 10, maxSchemaInspectionsPerNeed: 10},
+      };
+    },
+  }).explore({
+    intent: "Produce daily totals and averages from protocol metric events.",
+    availableNetworks: [{dataNetwork: "eip155:1", label: "Ethereum Mainnet"}],
+  });
+
+  assert.equal(result.kind, "feasibility");
+  if (result.kind !== "feasibility") return;
+  assert.deepEqual(result.discoveryPlan.semanticPlan.result.fields.map((field) => field.name), ["day", "total_value", "average_value"]);
+  assert.deepEqual(result.feasibility.composition.nodes.map((node) => node.operator), ["map", "aggregate", "output"]);
+});

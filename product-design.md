@@ -2,7 +2,9 @@
 
 ## Status
 
-Draft 1.37, updated on 2026-09-07. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. The public Entry page now contains only product explanation plus clear `Log in` and `Enter console` routes; Google and GitHub authentication is concentrated on a dedicated Login page and uses their official, unmodified brand marks rather than theme-colored generic icons. A completed Privy session is not an intermediate destination: after server-verified identity bootstrap succeeds, the Login route immediately enters the Product Dashboard without rendering a signed-in confirmation card. Provider subjects resolve to stable Sprue user IDs, creator routes require completed bootstrap, and public product access remains unauthenticated. The authenticated account control is anchored at the right edge of every Creator Console header instead of consuming persistent sidebar space; its avatar opens a compact identity, workspace, existing-destination, and sign-out menu. The menu remains open while its identity and workspace text are clicked or selected, and dismisses only through a true outside interaction, another avatar activation, destination selection, sign-out, or `Escape`. Language and account controls are top-aligned at that shared right edge. A dedicated Model Service page lets the creator configure and explicitly test the OpenAI-compatible language model used by Agent planning. Graph credential management is disclosed only when API-key access is selected and keeps its primary action next to the credential list. The Wallet and Access page shows the complete Graph-funding address with working copy feedback, removes the redundant external-wallet action, and presents Base USDC Graph spending funds separately from Hedera HBAR x402 revenue; each balance owns its transfer entry point without combining unlike assets. The Product Dashboard is focused on summary metrics and the product list; the redundant Recent Activity and Sponsor Proof panels are removed, its creation action is colocated with the All Products controls, and each product row omits a standalone version column while placing textual x402 readiness immediately after API readiness. Product names use one shared inline-edit interaction across the Dashboard and product header, and the evaluator new-product flow begins with `New Product`. The Builder canvas now uses a larger, more visible tokenized dot grid while keeping it subordinate to nodes and edges; hand mode presents one consistent grab cursor over the complete canvas interaction layer. The API view prioritizes an explicit request-parameter contract and always-visible response schema/example, while omitting the standalone deployment-evidence panel. The hackathon monetization profile charges no Sprue service fee: pricing flows entirely to the creator, and the Monetization page omits fee-allocation controls, fee rows, and the redundant retained-evidence callout. Token review remains follow-up work; durable product creation and naming, account-linking UI, durable model-secret storage, Graph, account-wallet, and payment integrations are still pending.
+Draft 1.51, updated on 2026-09-08. The user promoted the existing frontend to the maintained Sprue product and authorized continued implementation. D1, D2, and D4 are approved, D3 targets large-screen browsers, and the Evidence-First Console direction is selected. The authenticated Product Dashboard now reads workspace-scoped product summaries and 24-hour overview metrics from PostgreSQL through live backend APIs. Its create, rename, and delete actions are durable, idempotent, and concurrency protected. Each product row exposes a garbage-can action that opens a named confirmation dialog before the backend tombstones the product. Creating a product now immediately creates a blank draft and opens its Agent Planner without an intermediate intent modal. The Agent Planner starts with a localized natural-language example in the intent placeholder, reads the durable conversation, invokes the saved model and selected Graph credential on explicit generation, and renders persisted source evidence and trace summaries without a demo fallback. Its true in-flight request state uses visibly rotating indicators plus a local elapsed-time observation so synchronous provider work cannot look frozen. The small functional loading indicators retain a slower stepped rotation when the operating system requests reduced motion, while the elapsed-time text remains the primary non-motion signal. A genuinely empty workspace renders an actionable empty state, while dependency failures render a retryable error without substituting demo records. Builder, API, Monetize, and public product remain on the separately identified evaluator runtime until their durable reads are implemented. The wallet behavior and Graph credential lifecycle approved through Draft 1.46 remain unchanged.
+
+The 2026-09-08 loading-feedback amendment keeps the small functional Agent spinners visibly active under a reduced-motion operating-system preference by using a slower stepped rotation, while elapsed-time text remains the primary non-motion signal. Live model calls use a 120-second per-request bound with no automatic paid retry.
 
 This document defines the MVP information architecture, page inventory, interactions, state behavior, desktop layout behavior, accessibility requirements, and screen-to-domain contracts. The decisions are recorded in [Confirmed Design Decisions](#confirmed-design-decisions).
 
@@ -227,10 +229,12 @@ Each provider resolves through Privy to a server-verified subject, which the bac
 - Product list using cards for one to three products and a table when the list grows.
 - One `Create data product` action in the product-list toolbar; the Dashboard page header contains only the top-right global language and account controls.
 - A persistent pencil action beside each product name. It enters the same controlled inline editor used by the product header; focus leaving the field saves, `Enter` saves, `Escape` cancels, and a failed save leaves a visible recoverable error.
-- The evaluator new-product flow assigns the initial name `New Product` before opening the Agent view. This is session-scoped until durable product creation is implemented.
+- A garbage-can action at the end of each product row. It opens a destructive confirmation dialog naming the product; Cancel receives initial focus, Escape/backdrop/close cancels, and the confirm action shows a busy state. Only confirmation submits the delete command. Failure stays in the dialog with retry guidance.
+- Activating `Create data product` durably inserts a workspace-scoped PostgreSQL draft named `New Product`, using the authenticated owner and a server-verified wallet from the same workspace, then immediately opens that product's Agent route. There is no intermediate Dashboard intent modal. The new draft has no initial intent until the creator submits the first non-empty Agent message. The create command does not implicitly call a model, query The Graph, or spend funds. Inline rename uses an idempotent, lock-version-protected metadata update.
+- Confirmed deletion uses an owner-authorized, idempotent, lock-version-protected soft delete. The row disappears only after backend success. Ordinary product routes and new planning work no longer resolve it, but historical versions, runs, messages, evidence, financial facts, and its slug remain retained for auditability; this is not an archive or physical cascade.
 - Per-product facts: name, lifecycle status, last successful build, data freshness, API access mode, deployment health, x402 publication readiness, and last updated time. The compact table omits a dedicated version column and places x402 immediately after API so the two delivery states can be compared without relying on color alone.
 - Per-product actions: `Open builder`, `Open API`, and `Resume setup` when blocked.
-- Empty state with the example DEX-stickiness intent and one creation action.
+- Empty state with one creation action that follows the same direct draft-to-Agent transition.
 
 **States:**
 
@@ -251,6 +255,7 @@ Each provider resolves through Privy to a server-verified subject, which the bac
 **Sections and interaction elements:**
 
 1. **Privy account wallet**
+   - Authenticated bootstrap idempotently finds or creates one Privy Ethereum wallet owned by the verified Privy user and binds it to the stable Sprue user/default workspace. This creates no funding, signer, policy, or payment authority.
    - Control-model status, safe provider identifiers, and verification time.
    - Complete Base/Base Sepolia address for Graph spending, allowed to wrap without abbreviation, plus a working copy action with accessible success or failure feedback.
    - No separate `View wallet` action; funding, balances, policy, and evidence stay within the Wallet and Access page.
@@ -260,13 +265,18 @@ Each provider resolves through Privy to a server-verified subject, which the bac
 
 2. **Separated balances and outbound actions**
    - Base/Base Sepolia USDC available for bounded Graph purchases and Hedera testnet HBAR received from downstream x402 sales are separate balance cards with explicit purpose, network, asset, and account reference.
-   - Each balance has its own `Transfer out` entry point. An enabled transfer flow must bind the selected balance, destination, exact amount, network fee preview, creator confirmation, idempotency, submission, and reconciliation without bridging or converting assets.
-   - The evaluator UI may open a transfer detail dialog, but its final submission remains disabled with an explicit explanation while provider signing, chain submission, and the reviewed outbound-transfer command are unavailable. It never simulates success or changes the displayed balance.
+   - Each balance has its own `Transfer out` entry point. The direct creator-withdrawal flow binds the selected balance, fixed testnet chain and asset, destination, exact decimal amount, available balance, and bound Privy wallet address before opening Privy's mandatory confirmation UI. It never bridges or converts assets.
+   - Base Sepolia USDC withdrawal encodes the fixed reviewed ERC-20 `transfer(address,uint256)` call for the configured USDC contract and requires separate Base Sepolia ETH for gas. Hedera testnet HBAR withdrawal accepts a valid EVM address or a `0.0.x` account ID converted deterministically to its long-zero address, and converts eight-decimal tinybar amounts to the 18-decimal weibars required by the EVM transaction value.
+   - Disable the form while Privy is active to prevent duplicate submissions. A user rejection is recoverable and never treated as a failed chain transaction. After broadcast, show the network transaction hash and distinguish submitted, confirmed, and reverted states. Refresh the backend-owned live balance after submission/confirmation; never decrement it optimistically.
+   - A known zero balance must not make the entry point silently inert. Keep `Transfer out` operable so it opens the selected balance, explain that no funds are available, and disable the form and final submission. A missing or failed balance observation remains unavailable and disables the entry point.
+   - This creator-owned, interactive withdrawal is not a Sprue delegated-spending command and creates no Sprue payment or financial-ledger fact. The provider/chain remains the transaction authority. Durable withdrawal history, server-side receipt reconciliation, and delegated or automated transfers require a separate reviewed command.
+   - The current page reads Base Sepolia USDC from Privy and Hedera testnet HBAR from Mirror Node through the backend. A failed or absent observation is unavailable, never zero. When no Hedera account is mapped, the card presents one explicit creation action with disabled loading, success replacement, and visible retryable failure states; it never starts activation during page load.
 
 3. **Graph access resources**
    - The access-mode selector uses progressive disclosure. API-key mode shows the credential list and its colocated `Add API key` action; x402 mode hides both because credentials are not part of that payment path. Switching modes changes presentation only and does not silently delete or convert an existing credential.
-   - API-key credential cards showing label, validation status, safe prefix/fingerprint, version, last validation, and last use.
-   - `Add API key`, `Rotate`, `Validate`, and `Revoke` actions. Raw keys are submitted directly to the server, never written to browser storage, and never shown again.
+   - API-key credential rows show label, validation/selection status, safe prefix/fingerprint, and separate `Validate` and `Delete credential` actions. The radio control for `Use credential` or `Selected` stays in the right-side action cluster beside validation and deletion, rather than preceding the credential identity. It selects one validated credential as the workspace default for future source planning and never rewrites accepted product versions.
+   - Validation sends one explicit bounded `_meta` query to a fixed allowlisted Graph target, discloses possible subscription usage, and provides stable loading, success, rejection, stale-state, and dependency-error feedback. Actual source permission is checked again before execution.
+   - Deletion requires confirmation, revokes Sprue use, clears selection, destroys the encrypted secret envelope, and removes the row from the normal list while retaining non-secret lifecycle metadata. Raw keys are submitted directly to the server, never written to browser storage, and never shown again. Rotation remains unavailable.
    - Graph x402 policy editor with network, asset, allowed destination, maximum per request, period limit, period type, optional lifetime cap, and validity window.
    - Available budget, confirmed spend, and active reservations displayed separately.
 
@@ -274,6 +284,7 @@ Each provider resolves through Privy to a server-verified subject, which the bac
    - Hedera testnet account ID and observed EVM-address mapping.
    - Account completion, identity resolution, creator control, HBAR receive capability, and HBAR later-access capability.
    - `Run bounded verification` or `Refresh evidence` action when an approved implementation exists.
+   - The completed integration spike demonstrated that the authenticated creator can use Privy to sign an EVM transaction from the bound wallet and pay a Hedera testnet network fee. The temporary `Test Hedera signing` control and its result panel are no longer part of the product UI. A complete Mirror Node account at the same bound Privy EVM address now renders verified account readiness without requiring every creator to repeat the development spike. It enables only creator-confirmed direct testnet withdrawals in this page; delegated Sprue spending, native Hedera x402 signing, mainnet use, and paid publication remain separate capabilities.
    - Clear statement that receipt readiness is independent of Graph-spending funds.
 
 5. **Account activity**
@@ -295,7 +306,7 @@ Each provider resolves through Privy to a server-verified subject, which the bac
 | Hedera identity unresolved | Paid publication cannot activate | Resolve account mapping |
 | HBAR receive/access unverified | Revenue receipt is not proven | Run the bounded capability test |
 
-**Domain reads and writes:** `account_wallets`, `wallet_addresses`, `wallet_asset_capabilities`, `wallet_policies`, `wallet_signer_grants`, `spending_policies`, `budget_reservations`, `wallet_balance_snapshots`, `provider_credentials`, `payment_intents`, and `financial_ledger_entries`.
+**Domain reads and writes:** `account_wallets`, `wallet_addresses`, `wallet_asset_capabilities`, `wallet_policies`, `wallet_signer_grants`, `spending_policies`, `budget_reservations`, `wallet_balance_snapshots`, `provider_credentials`, `provider_credential_secrets`, `payment_intents`, and `financial_ledger_entries`.
 
 ### 5. Model Service
 
@@ -311,21 +322,21 @@ Each provider resolves through Privy to a server-verified subject, which the bac
 - Visible labels, field-level validation, disabled duplicate submission while saving, and explicit loading, success, and failure feedback.
 - A secondary `Test connection` control that uses the current form values, shows bounded progress and availability feedback, and discloses that the minimal provider request may incur charges.
 - A concise execution-boundary explanation: the selected model receives the creator intent plus bounded source/schema summaries and may return only a structured proposal. It receives no wallet authority, unrestricted network tools, or arbitrary code execution.
-- A clear temporary-runtime notice when durable authenticated secret storage is unavailable.
+- A clear encrypted-storage notice, with a fail-closed unavailable state when the server keyring is not configured.
 
 **Behavior:** Saving a valid profile does not call the model. `Test connection` sends one minimal fixed Chat Completions request to the current form configuration without saving it; when the key field is blank, it may reuse the current session's already-configured key. Test success exposes only availability, selected model, and latency. The next explicit `Generate plan` action uses the saved URL, key, and model. The returned JSON remains untrusted and must pass the same proposal schema, source binding, operator allowlist, acyclicity, and resource validation as mock output. Build, API test, and payment actions do not invoke the model implicitly.
 
-**Current evaluator boundary:** The demo runtime retains one redacted profile per random browser-session ID in bounded backend process memory. It returns only URL, model, configured state, key-present state, and update time; the raw key is never returned. API restart clears the profile. This UUID is session scoping, not production authentication. Durable product behavior requires verified creator identity, a workspace-owned model profile, and a server-side secret-manager reference before implementation.
+**Current implementation boundary:** The backend retains one durable profile per authenticated, owner-authorized workspace. It encrypts the API key with AES-256-GCM before PostgreSQL storage and returns only URL, model, configured state, key-present state, and update time. API restart preserves the profile; public demo routes cannot read or mutate it. The server encryption keyring is required and never reaches PostgreSQL or the browser. Explicit profile deletion/revocation, provider allowlisting, distributed abuse controls, and exact planning-call audit binding remain pending.
 
 **States:** Loading, not configured, saving, configured, saved, testing, test available, test unavailable, invalid field, and backend unavailable.
 
-**Future domain reads and writes:** A reviewed workspace model-profile resource and secret-manager reference. No raw model API key has a valid persistence field. Agent messages and planning calls retain the non-secret provider/model identity actually used.
+**Domain reads and writes:** `agent_model_profiles` stores URL/model plus authenticated ciphertext metadata; no raw model API key has a valid persistence field. Agent messages and future durable planning calls retain the non-secret provider/model identity and profile revision actually used.
 
 ### 6. Agent Planner
 
 **Purpose:** Turn a natural-language request into an inspectable source and DAG proposal without hiding the Agent's work.
 
-**Primary action:** `Generate DAG`.
+**Primary action:** `Generate plan`.
 
 **Desktop layout:**
 
@@ -333,37 +344,37 @@ Each provider resolves through Privy to a server-verified subject, which the bac
 - Side panel: a visual execution progress timeline.
 - Product header: the four-step `Agent` → `Build` → `API` → `Monetize` journey.
 
-The Agent page is the primary surface while planning. It does not show the full DAG, schema JSON, or API response by default. A completed plan offers `Review generated DAG`, which opens the Build page.
+The Agent page is the primary surface while planning. It does not show the full DAG, schema JSON, or API response by default. A compilation-ready plan offers `Review generated DAG`, which opens the Build page; a source-feasibility result with unresolved admission checks stays on Agent.
 
 **Conversation elements:**
 
-- Multiline intent composer with an explicit generate action.
+- Multiline intent composer with an explicit generate action. A new blank draft shows a localized, concrete natural-language example as placeholder guidance; placeholder text is never submitted or stored as the creator's intent.
 - User intent message and structured Agent response.
-- Discovered source chips, source count, DAG node count, and output-field count.
-- Demo-versus-live labeling and operation status.
+- Discovered source chips plus source/network, manifest CID, query entity, activity metadata, limitations, proposed registered-operator count, and unresolved admission checks.
+- Live-workspace labeling, saved-model identity, and operation status.
 - No hidden chain-of-thought is requested or displayed.
 
 **Progress elements:**
 
 - Intent admission.
-- Source planning.
-- Proposal validation.
-- Source mapping.
-- DAG execution.
-- Output preparation.
+- Semantic/source-discovery planning.
+- Compiler-owned source-need derivation.
+- Restricted Graph metadata discovery.
+- Source and operator feasibility assessment.
+- Deterministic evidence and graph-shape validation.
 
-Each step exposes a localized status and a concise evidence description. The progress view is driven by backend trace events; the frontend must not fake elapsed progress with timers.
+Each step exposes a localized status and a concise evidence description. Step completion and percentages are driven only by backend trace events. While the explicit synchronous planning request is genuinely in flight, the current reply, disabled action, and active step use rotating indeterminate indicators, and the page shows elapsed wall-clock time measured from that browser request's start. This elapsed label is activity feedback, not durable backend trace evidence; it resets when the request ends. Reduced-motion preferences may suppress rotation because the text status and elapsed duration remain visible.
 
 **Transitions:**
 
-- Before a plan exists, the composer offers `Create manually` and `Generate plan`.
-- During planning, the composer collapses to one spinning `Generating plan` action. Hovering or focusing it reveals `Abort and create manually`; activation requires confirmation before cancelling the request and opening Build.
-- After a plan exists, the composer offers `Recreate plan` and `Next`. Recreating requires confirmation; `Next` opens Build directly. Manual creation is only offered before planning or when aborting an in-flight request.
-- A successful plan moves to the Build page while preserving the returned proposal in shared runtime state.
+- Before a plan exists, the composer offers the explicit `Generate plan` action.
+- During the current synchronous implementation, the composer shows one disabled `Generating plan` action, rotating activity indicators, and `Agent running for …` elapsed feedback. It does not advertise cancellation that the server cannot perform.
+- After a persisted result exists, the composer offers `Recreate plan`. `Review generated DAG` appears only when the backend marks the proposal compilation-ready; source-feasibility results with admission blockers remain on Agent.
+- A future successful compilation-ready plan may move to Build while preserving the accepted durable proposal; the current source-exploration slice never substitutes the demo DAG.
 - A failed plan remains on the Agent page with an actionable error.
 - Returning from Build to Agent keeps the current intent available for revision.
 
-**Domain reads and writes:** `agent_sessions`, `agent_messages`, `source_snapshots`, `provider_credentials`, `spending_policies`, and proposal/version records. The demo runtime remains non-durable and does not write these records.
+**Domain reads and writes:** The implemented slice writes `agent_sessions`, `agent_messages`, `control_commands`, `planning_checkpoints`, `trace_streams`, and `trace_events`, and reads the workspace model profile plus selected active Graph credential. For a newly created blank draft only, the first accepted non-empty Agent message also initializes `data_products.original_intent` without letting later regenerations rewrite that initial objective. `source_snapshots`, access binding, proposal acceptance, and product-version creation remain the next durable boundary. Hidden chain-of-thought is never stored or returned; user-visible model summaries, source evidence, and deterministic trace messages are the review surface.
 
 ### 7. DAG Builder
 
@@ -607,6 +618,7 @@ The target is WCAG 2.2 AA for the implemented MVP path.
 - Live build/payment updates use a restrained atomic status region and do not move focus.
 - Icon-only controls have accessible names; decorative icons are hidden from assistive technology.
 - Normal text contrast is at least 4.5:1; meaningful non-text UI reaches at least 3:1.
+- Visible text never renders below 12 CSS pixels. Twelve pixels is limited to incidental metadata; operational content uses at least 14 pixels and descriptive body copy uses 16 pixels. The frontend build rejects smaller literal or token values.
 - Pointer targets meet the WCAG 2.2 AA web minimum of 24 by 24 CSS pixels or documented spacing exceptions; primary actions should use larger targets where practical.
 - Motion explains cause and effect, uses transform/opacity, and respects `prefers-reduced-motion`.
 - Charts, if added, have a table or text summary and do not rely on color alone.
@@ -634,13 +646,13 @@ The human team selected the third visual exploration on 2026-09-05. The directio
 - Motion is short, interruptible, and state-explanatory; `prefers-reduced-motion` is respected.
 - Operational text uses flat, high-contrast surfaces rather than glass or ambient animation.
 
-The maintained product frontend is in [`frontend/`](frontend/). It includes all ten page families, shared components, locale catalogs, and feature hooks. The evaluator path uses a server-generated demo runtime while durable backend integration remains unfinished. Continue implementing this source directly. [Frontend implementation status](frontend/implementation-status.md) records the remaining behavior and service gaps.
+The maintained product frontend is in [`frontend/`](frontend/). It includes all ten page families, shared components, locale catalogs, and feature hooks. Dashboard, Wallet and Access, Model Service, and Agent Planner use live workspace APIs; the remaining evaluator views use a server-generated demo runtime while their durable backend integration remains unfinished. Continue implementing this source directly. [Frontend implementation status](frontend/implementation-status.md) records the remaining behavior and service gaps.
 
 The formal token proposal is in [`design-tokens.md`](design-tokens.md). It defines primitive, semantic, and component layers; meaningful color roles; typography and spacing scales; state behavior; accessibility checks; layout contracts; and the JSON-to-CSS generation workflow. The product frontend consumes the generated CSS; DT1-DT4 remain follow-up review items.
 
 ## Screen-to-Backend Contract Summary
 
-These are logical UI contracts. Proposed HTTP paths, DTOs, authorization, and state behavior are now mapped in [api-contract.md](api-contract.md) Draft 0.6; approved M1-M3/H2 directions remain mapped in data-model 1.6 and the database foundation, while M4 durable model-profile persistence remains under review. Creator authentication/provider-identity resolution/bootstrap and the explicitly documented framework and evaluator-demo runtime surfaces are implemented; account-linking UI remains future work.
+These are logical UI contracts. Proposed HTTP paths, DTOs, authorization, and state behavior are now mapped in [api-contract.md](api-contract.md) Draft 0.14; approved M1-M4/H2 directions remain mapped in data-model 1.13 and the database foundation. Creator authentication/provider-identity resolution/bootstrap, user-owned Privy wallet provisioning and Base/Hedera live balance reads, explicit testnet account activation, complete-account creator-control projection for the demonstrated Privy EVM path, creator-confirmed direct testnet withdrawals, durable encrypted model profiles, Graph credential validation/default selection/revocation, and the explicitly documented workspace-isolated evaluator-demo surfaces are implemented. Account-linking UI, durable withdrawal history, delegated spending, and native Hedera x402 signing remain future work.
 
 | Contract | Consumer pages | Required outcome |
 |---|---|---|
@@ -652,7 +664,7 @@ These are logical UI contracts. Proposed HTTP paths, DTOs, authorization, and st
 | Product version detail | Builder, API | Canonical spec, source snapshots, DAG, layout, output schema, validation, parent diff, and status |
 | Run and trace stream | Builder, API | Logical run, attempts, node progress, source/payment facts, artifacts, and terminal state |
 | Active product view | Dashboard, API, public page | Atomic deployed version/materialization/publication, freshness, and health |
-| Credential lifecycle | Wallet, API | Create/validate/rotate/revoke Graph credentials and create/show-once/revoke API credentials |
+| Credential lifecycle | Wallet, API | Create/validate/select/revoke Graph credentials and create/show-once/revoke API credentials; Graph-key rotation remains deferred |
 | Deployment lifecycle | API | Validate and atomically activate a ready version/materialization without mutating prior evidence |
 | Publication lifecycle | Monetize | Validate recipient, asset, facilitator, price, timeout, fee terms, and immutable revision activation |
 | Consumer request receipt | Monetize, public page | Correlated HTTP attempts, one payment intent, settlement evidence, pinned version, and delivery status |
@@ -791,3 +803,19 @@ Remaining review and integration work:
 | 2026-09-07 | Recorded Draft 1.35 by making the hackathon monetization profile fee-free and removing fee-allocation controls plus the retained-evidence callout | Keep pricing focused on the buyer amount and creator proceeds without implying a Sprue deduction |
 | 2026-09-07 | Recorded Draft 1.36 by keeping the account menu open during clicks and text selection within its non-action profile content | Preserve intentional identity inspection and copying while retaining outside-click, keyboard, navigation, and sign-out dismissal |
 | 2026-09-07 | Recorded Draft 1.37 by removing the Dashboard product-table version column and adding textual x402 readiness immediately after API | Keep the product list focused on delivery readiness and make private API and paid-access state directly comparable |
+| 2026-09-07 | Amended Draft 1.37 with a 12-pixel absolute typography floor, 14-pixel operational text, and 16-pixel descriptive body copy | Improve system-wide readability while preserving dense console hierarchy through semantic type roles instead of undersized text |
+| 2026-09-07 | Recorded Draft 1.38 with durable encrypted Model Service configuration and authenticated workspace ownership | Replace evaluator-memory model credentials with restart-safe redacted storage while preserving explicit, charge-disclosed connection testing |
+| 2026-09-07 | Recorded Draft 1.39 with authenticated Privy wallet provisioning, current Base Sepolia USDC balance reads, and encrypted Graph credential create/list | Replace Wallet and Access sample data with workspace-isolated backend resources while keeping signing, spending, Hedera revenue, and Graph-key validation visibly unavailable |
+| 2026-09-08 | Recorded Draft 1.40 with explicit Hedera testnet account creation, progress, failure, canonical account ID, and live HBAR states | Let the creator initialize the bound Privy address through the server faucet adapter without accepting an arbitrary address or implying verified signing/access |
+| 2026-09-08 | Recorded Draft 1.41 with explicit Graph credential validation, one selectable workspace default, and destructive revocation behind confirmation | Let creators choose the key used for future Graph work while preserving pinned historical references and preventing accidental secret loss |
+| 2026-09-08 | Recorded Draft 1.42 by moving Graph credential selection into each row's right-side action cluster | Keep credential identity left-aligned and group all operations that act on that credential at the row end |
+| 2026-09-08 | Recorded Draft 1.43 with a temporary, creator-confirmed Privy-to-Hedera testnet signing action and explicit progress/result feedback | Verify the bound wallet path with a zero-HBAR self transaction and network fee only, without enabling general transfers or silently initiating a financial action |
+| 2026-09-08 | Recorded Draft 1.44 after the Privy-to-Hedera testnet signing action succeeded | Remove the temporary test control and derive verified creator control from a complete account at the same bound Privy EVM address, while keeping general transfer, delegated spending, native x402 signing, and mainnet paths fail closed |
+| 2026-09-08 | Recorded Draft 1.45 with creator-confirmed direct testnet withdrawals through Privy | Enable fixed-asset Base Sepolia USDC and Hedera testnet HBAR transfers without giving Sprue delegated signing authority; preserve explicit validation, provider confirmation, chain-result feedback, and live balance refresh |
+| 2026-09-08 | Recorded Draft 1.46 with an inspectable zero-balance transfer state | Keep a known zero balance understandable by opening a read-only transfer dialog with an explicit funding explanation instead of presenting a disabled control with no cause |
+| 2026-09-08 | Recorded Draft 1.47 with live, workspace-isolated Dashboard products and overview metrics plus durable create/rename metadata commands | Remove evaluator projections and silent mock fallback from the Dashboard while keeping unfinished product-detail workflows explicitly separate |
+| 2026-09-08 | Recorded Draft 1.48 with a live, workspace-isolated Agent Planner backed by durable sessions/messages, the saved model profile, bounded Graph metadata discovery, sanitized feasibility evidence, and persisted trace summaries | Remove the mock Agent from the product route without overstating feasibility as source admission, compilation, or executable DAG output |
+| 2026-09-08 | Recorded Draft 1.49 with direct blank-draft creation into Agent, a localized intent example placeholder, rotating in-flight indicators, and visible request elapsed time | Remove the redundant Dashboard intent modal and make genuine synchronous Agent activity understandable without fabricating backend stage completion |
+| 2026-09-08 | Amended Draft 1.49 with essential Agent spinners that remain visibly active under reduced-motion preferences and a 120-second bounded live-model timeout | Prevent genuine long-running model work from looking frozen or failing at the former 30-second boundary while preserving explicit elapsed-time feedback and avoiding automatic paid retries |
+| 2026-09-08 | Recorded Draft 1.50 with essential Agent spinners that remain visibly active under reduced-motion preferences and a 120-second bounded live-model timeout | Prevent genuine long-running model work from looking frozen or failing at the former 30-second boundary while preserving explicit elapsed-time feedback and avoiding automatic paid retries |
+| 2026-09-08 | Recorded Draft 1.51 with a per-row product trash action, named confirmation dialog, and durable soft-delete command | Let creators remove products without an accidental single-click loss or destroying historical audit evidence |

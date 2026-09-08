@@ -2,7 +2,9 @@
 
 The user promoted `frontend/` to the maintained Sprue product frontend on 2026-09-05. Extend this application directly. Keep route, feature, service, localization, and design-token ownership explicit as real integrations are added.
 
-The current workspace uses a server-generated evaluator projection through the backend demo runtime. Application identity and navigation must use product language; demo operations must remain distinguishable from real provider results. Never describe backend fixture output as live external data, confirmed settlement, or persisted build.
+On 2026-09-08, the user removed the Dashboard intent modal from product creation. Every Dashboard creation entry point must create a blank durable `New Product` draft and navigate directly to its Agent route. The Agent intent composer owns the first intent entry and must use a localized concrete example only as placeholder guidance. During a genuine in-flight planning request, the reply icon, disabled action icon, and active progress step rotate visibly, and the page shows elapsed request time; stage completion remains backend-trace-owned, and reduced-motion users retain explicit textual activity feedback.
+
+The Builder, API, Monetize, and public evaluator views still use a server-generated projection through the backend demo runtime. The Agent Planner is now a live workspace view: it reads durable product intent and Agent messages, invokes the saved model profile plus selected Graph credential only after an explicit generate action, and renders persisted source evidence and trace summaries. It must never fall back to demo Agent data, expose hidden chain-of-thought, or describe source feasibility as an executable DAG before source admission succeeds. Application identity and navigation must use product language; remaining demo operations must stay distinguishable from real provider results.
 
 Run the local server yourself and open the preview in the browser available to this environment. Do not give the user server-start instructions when you can run it.
 
@@ -26,9 +28,11 @@ Historical demo fixtures belong in `src/services/demo/fixtures/` for isolated te
 
 ## Product Workflow Navigation
 
-The product header uses four deep-linkable views in this order: `Agent`, `Build`, `API`, and `Monetize`. `AgentPage.jsx` owns the natural-language conversation, backend-driven planning progress, editable intent, and transition to the generated DAG. `ProductBuilderPage.jsx` owns DAG review and bounded refinement. Do not place Agent conversation and the full DAG workspace back into one route-level page. A successful Agent plan may navigate to Build after the backend response completes; preserve an explicit `Review generated DAG` path for users who revisit the Agent page.
+The product header uses four deep-linkable views in this order: `Agent`, `Build`, `API`, and `Monetize`. `AgentPage.jsx` owns the natural-language conversation, backend-driven planning progress, editable intent, and transition to the generated DAG. `ProductBuilderPage.jsx` owns DAG review and bounded refinement. Do not place Agent conversation and the full DAG workspace back into one route-level page. Show `Review generated DAG` only when the backend explicitly returns an admitted, compilation-ready proposal; source-feasibility results with unresolved admission checks remain on Agent and must not open the demo Builder as if they were executable.
 
-The persistent sidebar also exposes `Model Service` at `/app/model`. `ModelServicePage.jsx` owns the OpenAI-compatible API URL, API key, and model-name form. Never persist or echo the API key in frontend state beyond the active input; only the non-secret random demo-session identifier may use session storage. Saving a profile must not invoke the model. Only an explicit Agent plan request may use it, and the UI must distinguish the current process-memory demo boundary from future authenticated secret-manager persistence.
+Agent loading indicators must remain visibly active while a real planning request is in flight. On systems that request reduced motion, use the approved slower stepped rotation together with the elapsed-time text instead of freezing the indicator; do not remove the textual status or turn a historical failed message into an active spinner.
+
+The persistent sidebar also exposes `Model Service` at `/app/model`. `ModelServicePage.jsx` owns the OpenAI-compatible API URL, API key, and model-name form. Never persist or echo the API key in frontend state beyond the active input. Every model-profile request must use the current in-memory access token and backend-bootstrap workspace ID; no browser-generated identifier is an ownership boundary. Saving a profile must not invoke the model. Only an explicit Agent plan request may use it. The UI describes the durable workspace-scoped encrypted backend boundary and must never imply that a redacted key can be recovered into the form.
 
 ## Semantic Builder Boundary
 

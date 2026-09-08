@@ -4,6 +4,8 @@ import type {
   AgentModelRequest,
   AgentModelResponse,
 } from "./types.js";
+import {promptForStage, promptForStructuredStage} from "./prompts.js";
+import {jsonSchemaForStage} from "./schemas.js";
 
 const responseLimitBytes = 1_048_576;
 
@@ -19,40 +21,55 @@ export interface AgentModelConnectionTestResult {
   latencyMs: number;
 }
 
-const systemPrompt = `You are the Sprue data-product planner. Return one JSON object and no markdown.
-
-Build a bounded proposal with this exact top-level shape:
-{
-  "schemaVersion": 1,
-  "kind": "proposal",
-  "intentSummary": "string",
-  "window": {"kind": "complete_utc_days", "days": 30},
-  "sources": [{"sourceKey": "string", "chain": "string", "mapping": {"wallet": "field.path", "tradeId": "field.path", "pool": "field.path", "timestamp": "field.path", "amountInUsd": "field.path", "amountOutUsd": "field.path", "tokenIn": "field.path", "tokenOut": "field.path"}}],
-  "dag": {"nodes": [{"id": "string", "type": "source|filter|map|aggregate|union|join|output", "operatorVersion": "1", "config": {}}], "edges": [{"fromNode": "string", "fromPort": "string", "toNode": "string", "toPort": "string"}]},
-  "outputSchema": {"fields": [{"name": "string", "type": "string"}]},
-  "assumptions": ["string"],
-  "blockers": ["string"]
-}
-
-Use exactly the supplied sources and only their supplied field paths. For this bounded cross-chain demo, map each source to the eight canonical fields, aggregate each chain by wallet, union normalized activity, inner-join the per-chain aggregates on wallet, and expose one output with crossChain and allActivity views. Use no executable code and no operator outside the allowlist.`;
+export type AgentModelFailureReason =
+  | "configuration"
+  | "timeout"
+  | "cancelled"
+  | "connection"
+  | "http_error"
+  | "response_too_large"
+  | "invalid_envelope"
+  | "incomplete_response"
+  | "missing_content"
+  | "missing_tool_call"
+  | "invalid_json"
+  | "unexpected";
 
 export class AgentModelRequestError extends Error {
   readonly code = "AGENT_MODEL_REQUEST_FAILED";
 
-  constructor(message = "The configured Agent model request failed") {
+  constructor(
+    message = "The configured Agent model request failed",
+    readonly reason: AgentModelFailureReason = "unexpected",
+    readonly status: number | null = null,
+    readonly providerCode: string | null = null,
+    readonly providerParam: string | null = null,
+  ) {
     super(message);
     this.name = "AgentModelRequestError";
+  }
+}
+
+function safeProviderError(body: string): {code: string | null; param: string | null} {
+  try {
+    const error = (JSON.parse(body) as {error?: {code?: unknown; type?: unknown; param?: unknown}})?.error;
+    const token = (value: unknown) => typeof value === "string" && /^[A-Za-z0-9_.\[\]-]{1,160}$/.test(value)
+      ? value
+      : null;
+    return {code: token(error?.code) ?? token(error?.type), param: token(error?.param)};
+  } catch {
+    return {code: null, param: null};
   }
 }
 
 async function readBoundedBody(response: Response): Promise<string> {
   const declaredLength = Number(response.headers.get("content-length") ?? "0");
   if (Number.isFinite(declaredLength) && declaredLength > responseLimitBytes) {
-    throw new AgentModelRequestError("The Agent model response exceeded the size limit");
+    throw new AgentModelRequestError("The Agent model response exceeded the size limit", "response_too_large");
   }
   const body = await response.text();
   if (new TextEncoder().encode(body).byteLength > responseLimitBytes) {
-    throw new AgentModelRequestError("The Agent model response exceeded the size limit");
+    throw new AgentModelRequestError("The Agent model response exceeded the size limit", "response_too_large");
   }
   return body;
 }
@@ -65,7 +82,7 @@ function parseJsonContent(content: string): unknown {
   try {
     return JSON.parse(withoutFence);
   } catch {
-    throw new AgentModelRequestError("The Agent model did not return valid JSON");
+    throw new AgentModelRequestError("The Agent model did not return valid JSON", "invalid_json");
   }
 }
 
@@ -74,9 +91,11 @@ async function requestChatCompletion(
   messages: readonly ChatMessage[],
   fetchImpl: typeof fetch,
   signal?: AbortSignal,
+  tool?: {name: string; parameters: Readonly<Record<string, unknown>>},
+  toolChoice?: {type: "function"; function: {name: string}},
 ): Promise<unknown> {
   if (config.mode !== "remote" || !config.apiUrl || !config.apiKey) {
-    throw new AgentModelRequestError();
+    throw new AgentModelRequestError("The configured Agent model request failed", "configuration");
   }
   const requestSignal = signal
     ? AbortSignal.any([signal, AbortSignal.timeout(config.timeoutMs)])
@@ -91,27 +110,228 @@ async function requestChatCompletion(
         Authorization: `Bearer ${config.apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({model: config.model, messages}),
+      body: JSON.stringify({
+        model: config.model,
+        messages,
+        ...(tool ? {
+          max_tokens: 4096,
+          tools: [{
+            type: "function",
+            function: {
+              name: tool.name,
+              description: "Submit the complete bounded Sprue planning-stage result.",
+              parameters: tool.parameters,
+            },
+          }],
+          ...(toolChoice ? {tool_choice: toolChoice} : {}),
+        } : {}),
+      }),
       signal: requestSignal,
     });
   } catch {
-    throw new AgentModelRequestError();
+    const cancelledByCaller = Boolean(signal?.aborted);
+    const timedOut = requestSignal.aborted && !cancelledByCaller;
+    if (timedOut) {
+      throw new AgentModelRequestError(
+        `The Agent model request timed out after ${config.timeoutMs} ms`,
+        "timeout",
+      );
+    }
+    throw new AgentModelRequestError(
+      "The configured Agent model request failed",
+      cancelledByCaller ? "cancelled" : "connection",
+    );
   }
-  if (!response.ok) throw new AgentModelRequestError(`The Agent model returned HTTP ${response.status}`);
+  if (!response.ok) {
+    let detail = {code: null as string | null, param: null as string | null};
+    try { detail = safeProviderError(await readBoundedBody(response)); } catch {}
+    throw new AgentModelRequestError(
+      `The Agent model returned HTTP ${response.status}`,
+      "http_error",
+      response.status,
+      detail.code,
+      detail.param,
+    );
+  }
   try {
     return JSON.parse(await readBoundedBody(response));
   } catch (error) {
     if (error instanceof AgentModelRequestError) throw error;
-    throw new AgentModelRequestError("The Agent model returned an invalid response envelope");
+    throw new AgentModelRequestError("The Agent model returned an invalid response envelope", "invalid_envelope");
+  }
+}
+
+function deepSeekResponsesEndpoint(apiUrl: string): string | null {
+  try {
+    const url = new URL(apiUrl);
+    const hostname = url.hostname.toLowerCase();
+    if (hostname !== "api.deepseek.com" && !hostname.endsWith(".api.deepseek.com")) return null;
+    // The Model Service stores the provider's configured Chat Completions URL.
+    // DeepSeek's Responses API is a sibling endpoint, so derive it without
+    // accepting a caller-provided host or arbitrary path.
+    url.pathname = "/responses";
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+async function requestDeepSeekResponses(
+  config: AgentModelConfig,
+  request: AgentModelRequest,
+  url: string,
+  fetchImpl: typeof fetch,
+  signal?: AbortSignal,
+): Promise<unknown> {
+  if (config.mode !== "remote" || !config.apiUrl || !config.apiKey) {
+    throw new AgentModelRequestError("The configured Agent model request failed", "configuration");
+  }
+  const requestSignal = signal
+    ? AbortSignal.any([signal, AbortSignal.timeout(config.timeoutMs)])
+    : AbortSignal.timeout(config.timeoutMs);
+  let response: Response;
+  try {
+    response = await fetchImpl(url, {
+      method: "POST",
+      redirect: "error",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${config.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: config.model,
+        instructions: promptForStructuredStage(request.stage),
+        input: JSON.stringify(request),
+        // Keep real reasoning enabled while leaving enough bounded output
+        // budget for the schema-constrained result. DeepSeek counts reasoning
+        // tokens against max_output_tokens.
+        reasoning: {effort: "low"},
+        max_output_tokens: 8192,
+        text: {
+          format: {
+            type: "json_schema",
+            name: "sprue_plan",
+            schema: jsonSchemaForStage(request.stage),
+          },
+        },
+      }),
+      signal: requestSignal,
+    });
+  } catch {
+    const cancelledByCaller = Boolean(signal?.aborted);
+    const timedOut = requestSignal.aborted && !cancelledByCaller;
+    if (timedOut) {
+      throw new AgentModelRequestError(
+        `The Agent model request timed out after ${config.timeoutMs} ms`,
+        "timeout",
+      );
+    }
+    throw new AgentModelRequestError(
+      "The configured Agent model request failed",
+      cancelledByCaller ? "cancelled" : "connection",
+    );
+  }
+  if (!response.ok) {
+    let detail = {code: null as string | null, param: null as string | null};
+    try { detail = safeProviderError(await readBoundedBody(response)); } catch {}
+    throw new AgentModelRequestError(
+      `The Agent model returned HTTP ${response.status}`,
+      "http_error",
+      response.status,
+      detail.code,
+      detail.param,
+    );
+  }
+  try {
+    return JSON.parse(await readBoundedBody(response));
+  } catch (error) {
+    if (error instanceof AgentModelRequestError) throw error;
+    throw new AgentModelRequestError("The Agent model returned an invalid response envelope", "invalid_envelope");
   }
 }
 
 function messageContent(envelope: unknown): string {
   const content = (envelope as {choices?: {message?: {content?: unknown}}[]})?.choices?.[0]?.message?.content;
   if (typeof content !== "string" || content.trim().length === 0) {
-    throw new AgentModelRequestError("The Agent model response did not include message content");
+    throw new AgentModelRequestError("The Agent model response did not include message content", "missing_content");
   }
   return content;
+}
+
+function toolArguments(envelope: unknown, expectedName: string): string {
+  const calls = (envelope as {
+    choices?: {message?: {tool_calls?: {type?: unknown; function?: {name?: unknown; arguments?: unknown}}[]}}[];
+  })?.choices?.[0]?.message?.tool_calls;
+  if (!Array.isArray(calls) || calls.length !== 1) {
+    throw new AgentModelRequestError("The Agent model response did not include the required tool call", "missing_tool_call");
+  }
+  const call = calls[0];
+  if (
+    call?.type !== "function" ||
+    call.function?.name !== expectedName ||
+    typeof call.function.arguments !== "string" ||
+    call.function.arguments.trim().length === 0
+  ) {
+    throw new AgentModelRequestError("The Agent model response included an invalid tool call", "missing_tool_call");
+  }
+  return call.function.arguments;
+}
+
+function toolResult(envelope: unknown, expectedName: string): unknown {
+  const parsed = parseJsonContent(toolArguments(envelope, expectedName));
+  if (!parsed || typeof parsed !== "object" || !("result" in parsed)) {
+    throw new AgentModelRequestError("The Agent model tool call did not include its result", "invalid_json");
+  }
+  return (parsed as {result: unknown}).result;
+}
+
+function structuredResult(envelope: unknown): unknown {
+  const response = envelope as {
+    status?: unknown;
+    incomplete_details?: {reason?: unknown} | null;
+    output?: unknown;
+  };
+  if (response.status === "incomplete") {
+    const reason = response.incomplete_details?.reason;
+    const suffix = typeof reason === "string" && /^[A-Za-z0-9_.-]{1,80}$/.test(reason)
+      ? ` (${reason})`
+      : "";
+    throw new AgentModelRequestError(
+      `The Agent model returned an incomplete structured response${suffix}`,
+      "incomplete_response",
+    );
+  }
+  if (response.status !== "completed" || !Array.isArray(response.output)) {
+    throw new AgentModelRequestError(
+      "The Agent model returned an invalid structured response envelope",
+      "invalid_envelope",
+    );
+  }
+  const text = response.output
+    .filter((item): item is {type?: unknown; content?: unknown} => Boolean(item && typeof item === "object"))
+    .filter((item) => item.type === "message" && Array.isArray(item.content))
+    .flatMap((item) => (item.content as unknown[])
+      .filter((part): part is {type?: unknown; text?: unknown} => Boolean(part && typeof part === "object"))
+      .filter((part) => part.type === "output_text" && typeof part.text === "string")
+      .map((part) => part.text as string))
+    .join("");
+  if (!text.trim()) {
+    throw new AgentModelRequestError(
+      "The Agent model structured response did not include output text",
+      "missing_content",
+    );
+  }
+  const parsed = parseJsonContent(text);
+  if (!parsed || typeof parsed !== "object" || !("result" in parsed)) {
+    throw new AgentModelRequestError(
+      "The Agent model structured response did not include its result",
+      "invalid_json",
+    );
+  }
+  return (parsed as {result: unknown}).result;
 }
 
 export async function testOpenAICompatibleModel(
@@ -140,14 +360,31 @@ export class RemoteAgentModel implements AgentModelPort {
   ) {}
 
   async complete(request: AgentModelRequest, signal?: AbortSignal): Promise<AgentModelResponse> {
+    const tool = {name: "submit_sprue_plan", parameters: jsonSchemaForStage(request.stage)};
+    const responsesUrl = deepSeekResponsesEndpoint(this.config.apiUrl ?? "");
+    if (responsesUrl) {
+      const envelope = await requestDeepSeekResponses(
+        this.config,
+        request,
+        responsesUrl,
+        this.fetchImpl,
+        signal,
+      );
+      return {
+        provider: "remote",
+        model: this.config.model,
+        output: structuredResult(envelope),
+      };
+    }
+    const toolChoice = {type: "function" as const, function: {name: tool.name}};
     const envelope = await requestChatCompletion(this.config, [
-      {role: "system", content: systemPrompt},
+      {role: "system", content: promptForStage(request.stage)},
       {role: "user", content: JSON.stringify(request)},
-    ], this.fetchImpl, signal);
+    ], this.fetchImpl, signal, tool, toolChoice);
     return {
       provider: "remote",
       model: this.config.model,
-      output: parseJsonContent(messageContent(envelope)),
+      output: toolResult(envelope, tool.name),
     };
   }
 }

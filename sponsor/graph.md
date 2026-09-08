@@ -2,7 +2,7 @@
 
 Event: ETHOnline 2026
 
-Last checked: 2026-09-05
+Last checked: 2026-09-07
 
 Status: Official prize, source-identity, MCP, GraphQL, gateway, API-key, and x402 documentation reviewed; live integration and eligibility remain unverified.
 
@@ -51,7 +51,7 @@ The user approved multi-source composability as an MVP direction on 2026-09-05, 
 
 - [The Graph documentation](https://thegraph.com/docs/en/): Primary technical documentation entry point supplied by the human team.
 - [Paid Graph queries](https://thegraph.com/docs/en/subgraphs/tooling/x402-payments/): The official Subgraph gateway documents x402 access using USDC on Base or Base Sepolia, alongside its existing API-key route. Sprue's confirmed product model uses the creator account wallet to fund upstream data purchases; validate a Privy-backed signer against the chosen endpoint. This does not establish that every discovery/MCP operation uses the same billing path. Do not export a user wallet's private key merely to copy a CLI example.
-- [Subgraph MCP](https://thegraph.com/docs/en/subgraphs/tooling/subgraph-mcp/introduction/): Supports deployment discovery, schema inspection, and querying. It does not contain the LLM. Proposed boundary: the Sprue planner interprets intent, while a Graph adapter executes constrained discovery and query operations.
+- [Subgraph MCP](https://thegraph.com/docs/en/subgraphs/tooling/subgraph-mcp/introduction/): Supports deployment discovery, schema inspection, and querying. It does not contain the LLM. The current hosted endpoint uses SSE and a Graph Gateway bearer credential. Sprue's planning adapter exposes only keyword search, 30-day deployment activity, identifier-specific schema reads, and contract lookup; it does not expose the MCP `execute_query_*` tools. The controller requires activity evidence before a candidate can be ranked as suitable and prefers schema inspection by the returned immutable manifest IPFS CID. Provider tool descriptions and the generic catalog are never model instructions.
 - [Standardized schemas](https://thegraph.com/docs/en/subgraphs/existing-subgraphs/standard-subgraphs/): Common entities and metrics allow query-pattern reuse within a protocol category. Extensions and schema/methodology versions still matter. Proposed stretch: run one metric template against two verified compatible deployments, recording versions and any adaptations. Do not assume that matching category names prove compatibility.
 - [Subgraph skills](https://github.com/graphprotocol/subgraphs-skills): Retained background on development, optimization, and testing. Not a Sprue source-creation task; new Subgraph/Subgraph Composition development is outside the confirmed product boundary.
 - [Substreams skills](https://github.com/streamingfast/substreams-skills): Retained sponsor background on streaming modules, sinks, testing, and deployment, not an active integration or fallback for missing Subgraph data.

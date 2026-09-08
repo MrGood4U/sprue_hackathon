@@ -15,9 +15,11 @@ test("auth identity migration preserves existing Sprue user IDs", async () => {
   const client: SqlClient = { query: (sql, parameters) => db.query(sql, parameters), exec: (sql) => db.exec(sql) };
   try {
     const migrations = await readMigrations();
-    const identityMigration = migrations.at(-1);
+    const identityIndex = migrations.findIndex((migration) => migration.name === "0016_auth_identities.sql");
+    const identityMigration = migrations[identityIndex];
     assert.equal(identityMigration?.name, "0016_auth_identities.sql");
-    await migrate(client, migrations.slice(0, -1));
+    assert.ok(identityIndex > 0);
+    await migrate(client, migrations.slice(0, identityIndex));
 
     const userId = randomUUID();
     await db.query(
@@ -60,12 +62,12 @@ test("all migrations initialize empty isolated PostgreSQL, repeat safely and mat
     await migrate(client, migrations);
     assert.equal((await migrate(client, migrations)).pending.length, 0);
     const checked = await checkSchema(client);
-    assert.equal(checked.tables, 52);
+    assert.equal(checked.tables, 54);
     console.log(`Verified ${checked.tables} tables and ${checked.columns} columns on ${(await db.query<{version:string}>("SELECT version() AS version")).rows[0]?.version}`);
     await seedReferenceData(client);
     await seedReferenceData(client);
     assert.equal((await db.query<{count:number}>("SELECT count(*)::int AS count FROM networks")).rows[0]?.count, 3);
-    assert.equal((await db.query<{count:number}>("SELECT count(*)::int AS count FROM assets")).rows[0]?.count, 1);
+    assert.equal((await db.query<{count:number}>("SELECT count(*)::int AS count FROM assets")).rows[0]?.count, 2);
     assert.equal((await db.query<{count:number}>("SELECT count(*)::int AS count FROM account_wallets")).rows[0]?.count, 0);
     const altered = migrations.map((item, index) => index ? item : { ...item, sql: item.sql + "\n-- drift" });
     await assert.rejects(migrate(client, altered), /MIGRATION_HISTORY_MISMATCH/);

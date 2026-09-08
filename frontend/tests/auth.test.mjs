@@ -94,6 +94,8 @@ test("creator authentication exposes only the approved OAuth providers and redir
     "utf8",
   );
   assert.match(provider, /loginMethods: \["google", "github"\]/);
+  assert.match(provider, /supportedChains: SUPPORTED_WALLET_CHAINS/);
+  assert.match(provider, /defaultChain: baseSepolia/);
   assert.doesNotMatch(provider, /walletList:/);
   assert.match(provider, /createOnLogin: "off"/);
   assert.match(provider, /bootstrapIdentity\(\{ accessToken, signal \}\)/);

@@ -3,7 +3,7 @@ export const idSchema = z.uuid();
 export const atomicSchema = z.string().regex(/^(0|[1-9][0-9]{0,77})$/);
 export const emptyObjectSchema = z.strictObject({});
 export const featureSchema = z.strictObject({
-  graphCustomerApiKey: z.literal(false),
+  graphCustomerApiKey: z.boolean(),
   graphX402: z.literal(false),
   hederaPublication: z.literal(false),
   hostedDemoConsumer: z.boolean(),

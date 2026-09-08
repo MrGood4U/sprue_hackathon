@@ -4,7 +4,7 @@ The same Sprue source supports Windows browser testing, Docker self-hosting, and
 
 ## Current Capability Boundary
 
-The frontend requests a labeled server-generated projection from the explicit backend demo runtime. API health/readiness, public configuration, evaluator demo routes, a session-scoped OpenAI-compatible Agent model adapter, configured Privy creator authentication, provider-identity resolution to stable Sprue user IDs, and local account/workspace bootstrap are implemented. Account linking, durable product routes, durable model-secret storage, queue consumption, account-wallet operations, live Graph execution, and payments remain unavailable. Starting all four services is infrastructure readiness, not a completed live product. The public-config transport remains read-only; `DEMO_RUNTIME_ENABLED=true` explicitly enables the temporary evaluator path.
+Dashboard, Wallet and Access, Model Service, and Agent Planner use owner-authorized live workspace APIs without a fixture fallback. Product creation, renaming, Agent sessions/messages/traces, durable encrypted OpenAI-compatible model profiles, Graph credential create/list/validate/select/revoke, configured Privy creator authentication, provider-identity resolution to stable Sprue user IDs, local account/workspace bootstrap, user-owned wallet provisioning/binding, current Base Sepolia USDC balance reads, and explicit Hedera testnet Portal-faucet activation plus Mirror Node HBAR reads are implemented. Agent planning uses the saved workspace model profile and selected Graph credential for bounded live source discovery; immutable source admission and final Graph data execution remain unavailable. Build, API, Monetize, and public evaluator views retain the explicitly identified server-generated demo projection. Account linking, queue consumption, wallet signing/spending authority, Hedera publication, and outbound payments remain unavailable. Starting all four services is infrastructure readiness, not a completed live product. The public-config transport remains read-only; `DEMO_RUNTIME_ENABLED=true` enables only the temporary evaluator path that still owns those identified views.
 
 ## Windows: Complete Local Docker Stack
 
@@ -18,7 +18,7 @@ From the repository root:
 .\scripts\local.ps1 check
 ```
 
-`init` creates an ignored `.env.local` with a random local PostgreSQL password and three host ports. It never overwrites an existing file. `up` builds the API/frontend images, starts PostgreSQL, applies pending migrations through a separate one-off container, then starts and checks API, worker and frontend. Re-running it upgrades images and applies only pending migrations; it does not seed fictitious users, wallets or products. Initial image downloads require internet access.
+`init` creates an ignored `.env.local` with a random local PostgreSQL password and three host ports. It never overwrites an existing file. `up` builds the API/frontend images, starts PostgreSQL, applies pending migrations and the idempotent public network/asset reference seed through separate one-off containers, then starts and checks API, worker and frontend. Re-running it upgrades images, applies only pending migrations, and safely reconciles the same public reference metadata; it does not seed users, wallets, funds, credentials or products. Initial image downloads require internet access.
 
 | Service | Default local address | Exposure |
 |---|---|---|
@@ -44,11 +44,12 @@ Equivalent cross-platform Compose workflow, after creating a private `.env.local
 docker compose -p sprue-local --env-file .env.local -f compose.yaml build api frontend
 docker compose -p sprue-local --env-file .env.local -f compose.yaml up -d --wait postgres
 docker compose -p sprue-local --env-file .env.local -f compose.yaml --profile tools run --rm --no-deps migrate
+docker compose -p sprue-local --env-file .env.local -f compose.yaml --profile tools run --rm --no-deps seed
 docker compose -p sprue-local --env-file .env.local -f compose.yaml up -d --wait api worker frontend
 docker compose -p sprue-local --env-file .env.local -f compose.yaml stop
 ```
 
-Migration is an explicit orchestration step, never an API/worker startup side effect. Stop any locally running API/frontend before switching profiles. No command in the helper removes a database or resets Git state.
+Migration and public reference seeding are explicit orchestration steps, never API/worker startup side effects. Stop any locally running API/frontend before switching profiles. No command in the helper removes a database or resets Git state.
 
 ## Windows: Native Node Development
 
@@ -57,9 +58,13 @@ For source editing with frontend hot reload, use Node.js 24 and either the Compo
 - Backend: `DATABASE_URL` points to the intended local database. When using `sprue-local`, use the password from the root `.env.local`; do not leave the backend example password. Set API/worker ports and the console URL/CORS origin consistently. Keep `NODE_ENV=development` and `DEPLOYMENT_ENVIRONMENT=local`.
 - Frontend: `VITE_API_BASE_URL` is the backend's public origin, initially `http://127.0.0.1:3001`. It is not a database URL or a secret.
 
-To enable creator login, create a Privy application, enable Google, GitHub, and wallet login in its dashboard, and approve the exact local console origin. Set both `PRIVY_APP_ID` and `PRIVY_APP_SECRET` in the ignored root `.env.local` or backend `.env`. The app ID is returned to the browser through `/api/v1/app-config`; the secret is consumed only by the API and is intentionally absent from frontend, worker, and migration environments. Missing or partial configuration leaves creator routes fail-closed while the public product route remains available.
+To enable creator login, create a Privy application, enable Google and GitHub in its dashboard, and approve the exact local console origin. Set both `PRIVY_APP_ID` and `PRIVY_APP_SECRET` in the ignored root `.env.local` or backend `.env`. The app ID is returned to the browser through `/api/v1/app-config`; the secret is consumed only by the API and is intentionally absent from frontend, worker, and migration environments. Missing or partial configuration leaves creator routes fail-closed while the public product route remains available.
 
-Run `npm run db:status`, then explicitly `npm run db:migrate` in `backend/`. In three terminals run `npm run dev:api`, `npm run dev:worker` (both from backend), and `npm run dev` (from frontend). Open `http://127.0.0.1:4173`. Vite uses a strict port and loopback binding rather than silently selecting a new port. Stop each foreground process with Ctrl+C; stop the database separately when finished. Do not change the system Node version or install a Windows service as part of application startup.
+Durable Model Service and Graph API-key credentials require `MODEL_CREDENTIAL_KEYRING` and `MODEL_CREDENTIAL_ACTIVE_KEY_ID` on the API process. `scripts/local.ps1 init` generates a random local keyring for a new `.env.local`; an existing file is never rewritten, so add both values manually when upgrading an existing checkout. Keep old key IDs in the JSON keyring until every credential referencing them has been re-encrypted. These server secrets belong on neither the frontend, worker, migration job, nor PostgreSQL service. `GRAPH_GATEWAY_ENVIRONMENT` is separately pinned to `mainnet`; testnet values fail configuration validation and do not alter the independent Hedera settlement profile.
+
+The initial downstream settlement profile is pinned to Hedera testnet. `HEDERA_NETWORK` must be `hedera:testnet`; `HEDERA_MIRROR_NODE_URL` defaults to `https://testnet.mirrornode.hedera.com`, and `BLOCKY402_FACILITATOR_URL` defaults to `https://api.testnet.blocky402.com`. The application derives chain ID 296 and native HBAR asset ID `0.0.0` from that profile. This configuration does not enable publication or payments before the Hedera/Blocky402 adapter and financial authorization gates are implemented.
+
+Run `npm run db:status`, then explicitly run `npm run db:migrate` and `npm run db:seed` in `backend/`. In three terminals run `npm run dev:api`, `npm run dev:worker` (both from backend), and `npm run dev` (from frontend). Open `http://127.0.0.1:4173`. Vite uses a strict port and loopback binding rather than silently selecting a new port. Stop each foreground process with Ctrl+C; stop the database separately when finished. Do not change the system Node version or install a Windows service as part of application startup.
 
 ## Packaging
 
@@ -89,7 +94,7 @@ Create a PostgreSQL service and two backend services from the same commit/image 
 
 | Service | Config file | Start command | Release behavior |
 |---|---|---|---|
-| API | `/backend/railway.api.json` | `node dist/src/app/api.js` | Pre-deploy runs `node dist/scripts/migrate.js` against the configured DB |
+| API | `/backend/railway.api.json` | `node dist/src/app/api.js` | Pre-deploy runs migration followed by the idempotent public reference seed against the configured DB |
 | Worker | `/backend/railway.worker.json` | `node dist/src/app/worker.js` | No migration; deploy after API migration succeeds |
 
 The Dockerfile path is `Dockerfile` within the backend build root. Set the shared runtime variables below on both services; set the final two Privy variables on the API service only:
@@ -109,8 +114,15 @@ The Dockerfile path is `Dockerfile` within the backend build root. Set the share
 | `CORS_ALLOWED_ORIGINS` | Exact console origin(s), comma-separated |
 | `DEMO_RUNTIME_ENABLED` | `true` for the temporary evaluator-facing backend projection; otherwise `false` |
 | `AGENT_MODE` | `mock` for the default evaluator projection; `remote` enables the configured OpenAI-compatible Chat Completions endpoint after all Agent variables are supplied |
+| `AGENT_DEBUG` | `true` enables additional server-side planning metadata diagnostics (search keywords, candidate evidence and stage outcomes); keep `false` outside local debugging |
+| `GRAPH_GATEWAY_ENVIRONMENT` | `mainnet`; the current Graph MCP discovery and data-network catalog reject testnet configuration |
 | `PRIVY_APP_ID` | Privy application's public identifier; API reads it and exposes it through public app config only when the matching secret is configured |
 | `PRIVY_APP_SECRET` | API-only Railway secret used by the Privy server SDK to verify access tokens; never configure it on Vercel or the worker |
+| `MODEL_CREDENTIAL_KEYRING` | API-only JSON keyring of 32-byte base64url keys used to encrypt durable model and Graph API-key credentials; configure as a Railway secret |
+| `MODEL_CREDENTIAL_ACTIVE_KEY_ID` | API-only identifier naming the keyring entry used for new model and Graph credential writes |
+| `HEDERA_NETWORK` | `hedera:testnet`; mainnet is intentionally rejected by the current build |
+| `HEDERA_MIRROR_NODE_URL` | `https://testnet.mirrornode.hedera.com` |
+| `BLOCKY402_FACILITATOR_URL` | `https://api.testnet.blocky402.com` |
 
 Only the API needs a public Railway domain. The worker and database remain private. Both services use `/readyz` as a deployment check; worker readiness currently means compatible database access, not implemented job execution. Configure the Vercel production origin and any intentionally retained preview origins in both Privy's dashboard and backend CORS. A public Privy app ID alone does not enable login; the API also requires the app secret. Wallet signing keys and payment-provider configuration remain separate and are not enabled by authentication.
 
@@ -118,7 +130,7 @@ Pre-deploy migration targets whatever `DATABASE_URL` is configured: inspect the 
 
 ### Evaluator Acceptance
 
-Check frontend deep links, exact-origin CORS/public configuration, Google/GitHub redirects, MetaMask signature login, session restoration/sign-out, account bootstrap reuse, API/worker readiness, database persistence across restart, and private worker/database networking. Then separately validate the real creator/consumer workflow and sponsor evidence. A deployed demo frontend, working login, and healthy backend framework alone do not satisfy the live-data/payment MVP.
+Check frontend deep links, exact-origin CORS/public configuration, Google/GitHub redirects, session restoration/sign-out, account bootstrap reuse, encrypted Model Service persistence across an API restart, API/worker readiness, database persistence, and private worker/database networking. Then separately validate the real creator/consumer workflow and sponsor evidence. A deployed demo frontend, working login, and healthy backend framework alone do not satisfy the live-data/payment MVP.
 
 Official configuration references: [Vite on Vercel](https://vercel.com/docs/frameworks/frontend/vite), [Railway config as code](https://docs.railway.com/config-as-code/reference), [Railway monorepo roots](https://docs.railway.com/deployments/monorepo), [Railway pre-deploy commands](https://docs.railway.com/deployments/pre-deploy-command), and [Compose startup ordering](https://docs.docker.com/compose/how-tos/startup-order/).
 
@@ -126,4 +138,4 @@ Official configuration references: [Vite on Vercel](https://vercel.com/docs/fram
 
 Verification results for this implementation are recorded in [plan.md](plan.md). Local container checks do not prove cloud deployment or the unfinished sponsor/business integrations. No wallet, payment, or Graph query is required for these infrastructure checks.
 
-On the development host, Docker startup and restart passed for all four services; PostgreSQL 17 applied all 16 forward migrations and reports no pending migration. The current schema contains 52 domain tables and 705 columns, including the provider-binding backfill. HTTP deep links, missing resource 404s and exact-origin CORS passed. The checked local environment uses frontend port 4174 because an existing Vite preview already occupied the default 4173; the earlier preview was left untouched. This is HTTP/infrastructure verification, not browser interaction QA or cloud deployment evidence.
+Earlier development-host checks passed Docker startup/restart for all four services, PostgreSQL 17 migrations, HTTP deep links, missing-resource 404s, and exact-origin CORS. On 2026-09-08, the version 1.14 model was rerun against the native Docker/PostgreSQL stack: all 21 migrations were applied with none pending; the API, worker, PostgreSQL, and frontend containers were healthy; and the API readiness and frontend root probes returned HTTP 200. The current model uses 54 domain tables and 731 columns; migration 0021 adds the product-deletion tombstone without physically deleting historical product versions, runs, or evidence. The checked frontend uses port 4174 because another Vite preview occupied 4173. This is infrastructure verification, not cloud deployment or paid-provider evidence.

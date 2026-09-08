@@ -39,9 +39,9 @@ function RuntimeGate({ children }) {
   return children;
 }
 
-function RuntimeBoundary({ children }) {
+function RuntimeBoundary({ children, scope = "public" }) {
   return (
-    <DemoRuntimeProvider>
+    <DemoRuntimeProvider scope={scope}>
       <RuntimeGate>{children}</RuntimeGate>
     </DemoRuntimeProvider>
   );
@@ -82,11 +82,10 @@ function CreatorRoute({ path, navigate }) {
         </div>
       </main>
     );
-  return (
-    <RuntimeBoundary>
-      <AppShell path={path} navigate={navigate} />
-    </RuntimeBoundary>
-  );
+  const shell = <AppShell path={path} navigate={navigate} />;
+  return path.includes("/products/") && !path.endsWith("/agent")
+    ? <RuntimeBoundary scope="creator">{shell}</RuntimeBoundary>
+    : shell;
 }
 
 export function App() {

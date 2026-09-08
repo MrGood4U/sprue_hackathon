@@ -53,7 +53,7 @@ export function validateWorkflow(nodes, edges) {
     const definition = node.data.node;
     const inputPorts = getInputPorts(definition.type);
     const connected = incoming.get(node.id) ?? new Set();
-    if (definition.type === "source" && !definition.config?.sourceKey) errors.push({ code: "SOURCE_CONFIG", nodeId: node.id });
+    if (definition.type === "source" && !(definition.config?.sourceId || definition.config?.sourceKey)) errors.push({ code: "SOURCE_CONFIG", nodeId: node.id });
     if (["filter", "map", "aggregate"].includes(definition.type) && !connected.has("rows")) errors.push({ code: "MISSING_ROWS_INPUT", nodeId: node.id });
     if (["union", "join"].includes(definition.type) && inputPorts.some((port) => !connected.has(port))) errors.push({ code: "MISSING_BRANCH_INPUT", nodeId: node.id });
     if (definition.type === "output" && connected.size === 0) errors.push({ code: "MISSING_OUTPUT_INPUT", nodeId: node.id });

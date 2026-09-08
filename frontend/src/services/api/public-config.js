@@ -1,5 +1,6 @@
-// This read-only transport exposes public server configuration; business data
-// is requested through the backend demo client during the current evaluator slice.
+// This read-only transport exposes public server configuration. Authenticated
+// features choose their own live domain client; only explicitly identified
+// evaluator-only views may use the temporary demo runtime.
 export function parseApiBaseUrl(value) {
   if (!value) return null;
   let url;

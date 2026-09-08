@@ -7,11 +7,16 @@ import {
   Wallet,
 } from "@phosphor-icons/react";
 import { IconButton } from "../ui/Button.jsx";
+import { useAuth } from "../../features/auth/AuthProvider.jsx";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
 
 export function Sidebar({ path, navigate }) {
   const { t } = useI18n();
+  const { identity } = useAuth();
   const isProducts = path === "/app" || path.includes("/products/");
+  const workspace = identity?.workspaces?.find(
+    (item) => item.id === identity.defaultWorkspaceId,
+  );
 
   return (
     <aside className="sidebar">
@@ -45,7 +50,9 @@ export function Sidebar({ path, navigate }) {
           <span>{t("sidebar.settings")}</span>
         </button>
       </nav>
-      <div className="workspace-status">{t("sidebar.workspaceStatus")}</div>
+      <div className="workspace-status">
+        {t("sidebar.workspaceStatus", { workspace: workspace?.name ?? "--" })}
+      </div>
     </aside>
   );
 }

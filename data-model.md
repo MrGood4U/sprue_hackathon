@@ -2,11 +2,11 @@
 
 ## Status
 
-Version: 1.6
+Version: 1.14
 
-Date: 2026-09-07
+Date: 2026-09-08
 
-Stage: Approved MVP design baseline. Version 1.6 separates Sprue's permanent user identity from replaceable authentication-provider subjects: `users.id` is the application-owned identifier and `auth_identities` binds one or more provider accounts to it. Version 1.5 incorporated the user's multi-Subgraph composition decision: a product version may reference multiple existing source snapshots and combine their normalized results through explicit Union/Join DAG operators. Version 1.4 incorporated the user-approved durable command, anonymous recovery, lifecycle, checkpoint and compilation-provenance directions into the initial persistence specification. Version 1.3 included Draft 1.2's The Graph source and dual-access refinements plus Draft 1.3's Hedera x402 v2 `exact`, account/asset capability, facilitator-capability, and normalized settlement-reconciliation refinements. External integration and implementation validation remain open.
+Stage: Approved MVP design baseline. Version 1.14 adds a recoverable product tombstone for the creator-confirmed Dashboard delete action. A deleted product disappears from ordinary creator reads and cannot accept new planning work, while its immutable versions, runs, source/payment evidence, and slug remain retained for auditability and identity safety. Version 1.13 defines creator-confirmed direct withdrawals from the user-owned Privy wallet as browser-to-Privy transactions rather than Sprue delegated-spending commands. Earlier version history remains recorded below. Delegated spending, x402 settlement, and mainnet capability remain unverified.
 
 This document is the source of truth for Sprue's MVP domain model, PostgreSQL persistence model, lifecycle rules, financial separation, and runtime records. It translates the product and architecture decisions in [agents.md](agents.md), [plan.md](plan.md), and [project-structure.md](project-structure.md) into an implementation-ready model.
 
@@ -22,12 +22,13 @@ The model describes intended behavior. It is not evidence that an external walle
 - Product edits create auditable versions; an unsuccessful edit must not replace the last working version.
 - A published product pins a validated Graph source snapshot and immutable deployment target. Following a Subgraph ID's current deployment is allowed only for discovery/preview unless a later product version revalidates the resolved deployment and schema.
 - For each Graph source, the creator explicitly chooses either a customer-supplied Graph API key tied to their existing subscription or creator-wallet x402 pay-per-query access. Sprue never changes modes automatically.
-- The creator has an account-level Privy-backed wallet and can authorize bounded Graph spending.
+- Authenticated bootstrap idempotently ensures one user-owned Privy Ethereum account wallet is bound to the Sprue user and default workspace. This creates no signer grant, spending policy, funding transaction, or payment authority.
+- A creator may explicitly request Hedera testnet account activation for that bound wallet. The browser supplies no address or account ID. The API resolves the workspace-owned Privy EVM address, checks Mirror Node first, submits at most one configured Portal faucet request, and then polls Mirror Node for the canonical `0.0.x` account and balance. A timeout or ambiguous faucet response is reconciled without another transfer submission under the same command.
 - The intended Privy control pattern is a user-owned wallet with a Sprue-controlled additional signer restricted by a provider policy. Sprue may hold the additional signer's authorization key in a secret manager, but never the wallet private key. Live enforcement remains an integration gate.
 - Graph purchases use a Base or Base Sepolia payment path and remain separate from Hedera API-sale proceeds.
 - A product can remain private or be published behind Sprue's x402 gate, using x402 v2's Hedera `exact` scheme and Hedera settlement through Blocky402.
 - The initial downstream integration and default demo path use `hedera:testnet` with HBAR (`0.0.0`, eight decimals). HTS remains modeled but is deferred until explicitly selected later.
-- The creator controls the intended sales recipient. Privy-to-Hedera compatibility remains unverified and must be represented as a verification state.
+- The creator controls the intended sales recipient. The current Privy wallet has demonstrated an EVM transaction that completed and spent the network fee from its mapped Hedera testnet account. Treat this as creator-control evidence for the same complete bound account, while keeping native Hedera x402 signing, facilitator settlement, delegated spending, and mainnet compatibility as separate verification gates.
 - The hackathon MVP charges no Sprue service fee. Future-compatible fee fields remain disabled and zero; enabling them is outside the active product profile and would require a new reviewed decision and settlement mechanism.
 - The evaluator deployment uses Vercel plus Railway; the same application must run through Docker Compose without source changes.
 - PostgreSQL is the source of truth. Service and container filesystems are ephemeral.
@@ -44,31 +45,48 @@ The human team confirmed these defaults on 2026-09-05.
 
 The existing fee decision is not reopened here: the default fee remains zero/disabled.
 
-## Proposed Model Service Extension (M4)
+## Confirmed Account Isolation Boundary
 
-The user approved a workspace-level Model Service UI on 2026-09-06: a creator supplies an OpenAI-compatible API URL, API key, and model name, and the next explicit Agent-plan operation uses that model. The current evaluator implementation is deliberately process-memory-only and does not change the approved relational baseline. The following durable shape is proposed for review before any migration or authenticated handler is added.
+The authenticated Sprue workspace is the tenant boundary for creator-private data. Authentication first resolves a verified provider subject to an application-owned `users.id`; authorization then resolves an active workspace owned by that user. A browser-supplied user ID, workspace ID, wallet ID, product ID, or nested resource ID is never identity evidence.
 
-`agent_model_profiles` would represent one creator-selected planning service per workspace:
+- Every Creator Console read and write must include a server-authorized workspace scope. Queries filter by that workspace even when a resource UUID is globally unique.
+- A nested lookup must match both its parent path and authorized workspace. A foreign or inaccessible resource returns `RESOURCE_NOT_FOUND` rather than revealing that it exists.
+- Wallets, addresses, credentials, model profiles, Agent sessions, products, versions, layouts, deployments, runs, artifacts, traces, schedules, source records, commands, payment records, and private financial views are workspace-private unless an explicit publication record exposes a bounded public projection.
+- Creator-attributed configuration and command rows must reference a user who is a member of the same workspace. Service authorization still requires current user, membership, role, and workspace status checks; the database membership constraint is defense in depth, not authorization by itself. `api_access_requests.caller_user_id` identifies a caller of a product rather than its creator and may therefore belong to a different workspace.
+- Public product routes expose only the active publication projection and consumer protocol. They cannot mutate creator state or read creator credentials, unpublished drafts, wallet controls, or model-service settings.
+- Temporary evaluator state is process-memory-only and keyed by a workspace ID that has already passed server-side creator authorization. Anonymous public demo state is immutable and contains no private model profile. Browser-generated session identifiers are not an account-isolation mechanism.
+- The MVP has one active owner per workspace. The relational model remains forward-compatible with additional members, but invitations and non-owner roles do not become authorized merely because their rows exist.
+
+## Confirmed Durable Model Service (M4)
+
+The user approved a workspace-level Model Service UI on 2026-09-06 and durable API-key storage on 2026-09-07. A creator supplies an OpenAI-compatible API URL, API key, and model name, and the next explicit Agent-plan operation uses that profile. Saving never invokes the provider. Reading never returns the API key, ciphertext, fingerprint, IV, authentication tag, or encryption-key identifier.
+
+The portable MVP stores only application-layer AES-256-GCM ciphertext in PostgreSQL. A random 96-bit IV is generated for every secret revision, the workspace ID and secret version are authenticated as additional data, and a 128-bit authentication tag rejects tampering. Encryption keys remain exclusively in a server environment keyring; an active key identifier selects new writes while stored key identifiers preserve controlled rotation. A database backup alone cannot decrypt credentials. Removing an old key before all rows have been re-encrypted is prohibited. The repository and service port may later be backed by an external secret manager without changing the HTTP contract.
+
+#### `agent_model_profiles`
+
+One creator-selected planning service per workspace:
 
 | Column | Type | Null | Rules and purpose |
 |---|---|---:|---|
 | `id` | `uuid` | no | Primary key |
 | `workspace_id` | `uuid` | no | FK to `workspaces`; unique for the single-profile MVP |
 | `created_by_user_id` | `uuid` | no | FK to the creator who configured the profile |
+| `updated_by_user_id` | `uuid` | no | FK to the most recent creator who changed the profile |
 | `protocol` | `text` | no | MVP `openai_compatible_chat_completions` |
 | `api_url` | `text` | no | Validated HTTPS endpoint without credentials, query parameters, or fragments |
 | `model_name` | `text` | no | Exact provider model identifier |
-| `secret_ref` | `text` | no | Secret-manager reference, never the raw API key |
-| `secret_version` | `text` | no | Non-secret version used for rotation/audit |
-| `credential_fingerprint` | `text` | no | One-way fingerprint for correlation and rotation checks |
-| `status` | `text` | no | Proposed `pending_validation`, `active`, `invalid`, or `revoked` |
-| `validated_at` | `timestamptz` | yes | Last bounded capability validation |
-| `last_used_at` | `timestamptz` | yes | Last attempted model use |
+| `api_key_ciphertext` | `bytea` | no | AES-256-GCM ciphertext; never plaintext |
+| `encryption_key_id` | `text` | no | Non-secret identifier selecting a server-side keyring entry |
+| `encryption_iv` | `bytea` | no | Unique 12-byte IV for this secret revision |
+| `encryption_auth_tag` | `bytea` | no | 16-byte GCM authentication tag |
+| `secret_version` | `integer` | no | Monotonic positive version bound into authenticated encryption data |
+| `credential_fingerprint` | `text` | no | Keyed SHA-256 fingerprint for rotation correlation without exposing the credential |
 | `created_at` | `timestamptz` | no | Creation time |
-| `updated_at` | `timestamptz` | no | Profile or secret-rotation update time |
-| `lock_version` | `integer` | no | Optimistic concurrency for update/revocation |
+| `updated_at` | `timestamptz` | no | Last configuration change |
+| `lock_version` | `integer` | no | Optimistic concurrency token |
 
-Proposed constraints: raw keys and credential-bearing URLs have no persistence field; profile reads expose only redacted key presence; rotation replaces secret reference/version/fingerprint atomically; revocation blocks new planning calls; and model use requires the same-workspace active profile selected by the authenticated creator. `planning_calls` for `call_kind = 'model'` should pin `agent_model_profile_id`, profile revision, secret version, and credential fingerprint so later profile edits cannot rewrite historical evidence. Exact validation, allowlist/private-network policy, rate limits, cost accounting, and deletion behavior remain part of M4 review.
+The raw API key must never appear in SQL parameters, browser storage, API responses, logs, traces, Agent messages, or audit payloads. Encryption occurs before the repository write and decryption occurs only immediately before an explicit connection test or Agent planning call. Updating URL/model without supplying a new key retains and re-encrypts the existing secret; supplying a new key creates the next secret revision. Optimistic compare-and-swap prevents concurrent updates from silently restoring an older key. Saving does not test or call the provider. Connection testing may use current form values but does not persist them. Provider output remains untrusted and subject to proposal/DAG validation. Planning-call audit binding, rate limits, cost accounting, and explicit credential revocation remain follow-up implementation work.
 
 ## Confirmed Hedera MVP Integration Profile
 
@@ -80,7 +98,7 @@ The human team approved this initial implementation profile on 2026-09-05:
 - facilitator: Blocky402, with the fee payer discovered from `/supported`;
 - recipient: a resolved, complete, creator-controlled Hedera account ID with demonstrated HBAR receipt and later access.
 
-HTS fungible-token support remains in the domain model for later use, but no HTS token, association flow, or stable-denomination promise belongs to the first integration. HBAR selection does not resolve Privy-to-Hedera account control; that remains a live validation gate.
+HTS fungible-token support remains in the domain model for later use, but no HTS token, association flow, or stable-denomination promise belongs to the first integration. HBAR selection alone does not resolve Privy-to-Hedera account control. For the current testnet ECDSA-alias path, a complete Mirror Node account at the bound Privy EVM address is accepted only because the creator-confirmed live transaction demonstrated signing and fee spend through that path.
 
 ## Modeling Conventions
 
@@ -239,7 +257,7 @@ This illustration was corrected on 2026-09-05 to retain all active wallets in th
       "schemaHash": "demo-not-verified",
       "access": {
         "mode": "x402",
-        "gatewayEnvironment": "testnet",
+        "gatewayEnvironment": "mainnet",
         "providerCredentialId": null,
         "spendingPolicyId": "00000000-0000-0000-0000-000000000000"
       },
@@ -739,7 +757,7 @@ Constraints and indexes:
 
 - Unique `(network_id, address_kind, normalized_address)`.
 - A Hedera account may have an account ID, an EVM Address from Public Key, and an EVM Address from Account ID. Store each observed representation separately and group it through the resolved `network_account_ref`; never infer the mapping from string shape alone.
-- For the MVP Hedera x402 `payTo`, require a resolved `hedera_account_id`. Alias-triggered auto-account creation is not an activation path because facilitator policies differ and a hollow account cannot spend until completed.
+- For the MVP Hedera x402 `payTo`, require a resolved `hedera_account_id`. The user-triggered testnet faucet command may auto-create the account from the server-selected Privy EVM address. While Mirror Node reports a hollow account, record control as pending and spend capability as false. Once Mirror Node reports that the account mapped to the same bound Privy EVM address is complete, record creator control as verified and HBAR spend capability as true for this tested EVM path. A hollow account, a positive balance, or an unresolved mapping alone does not make publication ready or prove later access to proceeds.
 - A publication cannot activate unless its recipient address has `can_receive = true`, `control_status = 'verified'`, `identity_status = 'resolved'`, and a matching active asset-capability row.
 - `can_spend` and `can_receive` are independent.
 
@@ -769,7 +787,7 @@ Constraints and indexes:
 - The address and asset must belong to the same network.
 - HBAR uses `association_status = 'not_required'`; an HTS publication requires `association_status = 'associated'`. `auto_association_available` is only a preflight observation and must be replaced by confirmed association evidence after any test transfer.
 - If `receiver_signature_required = true`, `can_receive` remains false unless the exact payment path has been shown to collect the required recipient signature.
-- `can_spend = true` for Hedera requires a complete account and demonstrated creator-controlled signing. Receipt alone does not prove access to proceeds.
+- `can_spend = true` for Hedera requires a complete account and demonstrated creator-controlled signing. For the current testnet ECDSA-alias path, completion at the bound Privy EVM address is accepted as this evidence because the creator-confirmed Privy transaction signed successfully and paid the network fee from that account. Receipt alone does not prove access to proceeds, and this flag does not enable a general transfer command.
 
 #### `wallet_policies`
 
@@ -907,6 +925,14 @@ Constraints and indexes:
 - Index `(wallet_address_id, asset_id, observed_at desc)`.
 - Snapshots are observations, not proof of ownership or authorization.
 
+#### Creator-confirmed direct withdrawals
+
+The MVP permits the authenticated creator to withdraw Base Sepolia USDC or Hedera testnet HBAR directly from the user-owned Privy wallet through Privy's visible confirmation prompt. This is a wallet-owner action, not a Sprue service command, delegated signer action, Graph expense, x402 payment, or creator-revenue settlement. The browser must bind the operation to the active backend-returned wallet address and one fixed reviewed network/asset profile; it cannot accept an arbitrary token contract or chain.
+
+The UI validates the destination, exact positive amount, asset precision, and current observed balance before opening Privy. Base Sepolia USDC uses the seeded ERC-20 contract and six decimals; the creator separately needs Base Sepolia ETH for gas. Hedera HBAR uses chain ID 296 and an 18-decimal EVM `value`, derived exactly from the eight-decimal tinybar amount. A Hedera `0.0.x` destination may be deterministically represented by its long-zero EVM address; other account-ID shapes fail closed.
+
+Disable resubmission while Privy is active and never silently retry a rejected, failed, or uncertain transaction. A returned network hash is a submitted-transaction correlation reference, not a confirmed financial fact. The UI may poll the configured public RPC for a receipt, show submitted/confirmed/reverted states, and request a fresh backend balance observation, but it must not optimistically mutate a balance or write a financial ledger entry. Durable withdrawal intents, fee quotes stored by Sprue, reload-safe history, server-side receipt reconciliation, and automated or delegated transfers require a future reviewed schema and command.
+
 ### 4. Agent Conversation
 
 #### `agent_sessions`
@@ -952,7 +978,7 @@ Constraints and indexes:
 
 #### `provider_credentials`
 
-A logical, user-supplied upstream provider credential. The Graph API key value remains in a server-side secret manager; this row stores only ownership, lifecycle, validation, and non-secret version evidence.
+A logical, user-supplied upstream provider credential. This row stores only ownership, lifecycle, validation, and non-secret version evidence. In the current evaluator profile, the Graph API key value is held as authenticated ciphertext in the companion `provider_credential_secrets` row; a managed secret service remains the production direction.
 
 | Column | Type | Null | Rules and purpose |
 |---|---|---:|---|
@@ -964,12 +990,13 @@ A logical, user-supplied upstream provider credential. The Graph API key value r
 | `ownership_model` | `text` | no | MVP `customer_supplied` |
 | `billing_model` | `text` | no | MVP `customer_subscription` |
 | `label` | `text` | no | User-facing credential name |
-| `secret_ref` | `text` | no | Secret-manager alias/reference, never the API key |
+| `secret_ref` | `text` | no | Opaque encrypted-secret alias/reference, never the API key |
 | `secret_version` | `text` | no | Non-secret vault/provider version identifier used for audit |
 | `public_prefix` | `text` | yes | Minimal redacted prefix for user recognition |
 | `credential_fingerprint` | `text` | no | One-way fingerprint for correlation and rotation checks |
 | `provider_constraints_json` | `jsonb` | yes | Sanitized observed subgraph/domain/spending constraints; informative unless live-enforced |
 | `status` | `text` | no | `pending_validation`, `active`, `invalid`, or `revoked` |
+| `is_selected` | `boolean` | no | Workspace default for future Graph source planning; only one active credential may be selected |
 | `validated_at` | `timestamptz` | yes | Last successful provider validation |
 | `last_used_at` | `timestamptz` | yes | Last attempted use |
 | `revoked_at` | `timestamptz` | yes | Required when revoked |
@@ -980,11 +1007,37 @@ A logical, user-supplied upstream provider credential. The Graph API key value r
 Constraints and indexes:
 
 - Unique `(workspace_id, provider, label)` and `(workspace_id, provider, credential_fingerprint)`.
+- At most one credential is selected per `(workspace_id, provider)`, and only an `active` credential may be selected.
 - Index `(workspace_id, provider, status)`.
 - `active` requires a resolvable secret reference and successful validation. `revoked` requires `revoked_at` and blocks new requests immediately.
 - API key rotation updates the secret reference/version/fingerprint atomically while retaining the logical credential ID. In-flight and completed source requests retain the version/fingerprint they used.
-- Raw API keys, bearer headers, and credential-bearing endpoint URLs have no valid persistence field.
+- Raw API keys, bearer headers, and credential-bearing endpoint URLs have no valid persistence field. Ciphertext is valid only in the companion secret row.
 - Provider-side domain, Subgraph, or spending controls are recorded when observable but do not replace Sprue authorization and resource limits.
+- Selection is a workspace default for future planning only. Accepted product versions retain the exact credential ID and secret version they already reference.
+- User-visible deletion revokes the logical record, clears selection, and destroys its encrypted secret envelope. Non-secret lifecycle metadata remains for audit and referential history.
+
+#### `provider_credential_secrets`
+
+The current evaluator profile's encrypted Graph API-key envelope. The logical credential owns this row. Reads resolve it only through a same-workspace `provider_credentials` join, and authenticated additional data binds decryption to the workspace, logical credential ID, and integer secret version. The API never returns any field from this table.
+
+| Column | Type | Null | Rules and purpose |
+|---|---|---:|---|
+| `provider_credential_id` | `uuid` | no | Primary key and FK to `provider_credentials` |
+| `api_key_ciphertext` | `bytea` | no | AES-256-GCM ciphertext, never plaintext |
+| `encryption_key_id` | `text` | no | Server keyring version identifier |
+| `encryption_iv` | `bytea` | no | Unique 12-byte GCM IV |
+| `encryption_auth_tag` | `bytea` | no | 16-byte GCM authentication tag |
+| `secret_version` | `integer` | no | Positive encryption-envelope version bound into AAD |
+| `created_at` | `timestamptz` | no | Initial encrypted write time |
+| `updated_at` | `timestamptz` | no | Rotation/re-encryption time |
+
+Constraints and indexes:
+
+- Exactly one encrypted envelope exists per logical credential in the current implementation.
+- The IV and authentication tag have exact byte lengths; `secret_version` is positive.
+- Index `(encryption_key_id, secret_version)` supports controlled key rotation audits.
+- Application decryption first scopes the logical credential by authenticated workspace. The workspace ID, credential ID, and secret version are authenticated additional data, so copying ciphertext between workspaces or credentials fails closed.
+- Raw keys are transient request values and must not enter SQL parameters except after encryption, response DTOs, logs, traces, Agent messages, or browser persistence.
 
 #### `source_snapshots`
 
@@ -1032,10 +1085,11 @@ Constraints and indexes:
 | `slug` | `text` | no | Stable product endpoint identity |
 | `name` | `text` | no | Display name |
 | `description` | `text` | yes | User-facing description |
-| `original_intent` | `text` | no | Initial natural-language objective |
+| `original_intent` | `text` | no | Initial natural-language objective; empty only while a newly created draft awaits its first Agent submission |
 | `status` | `text` | no | `draft`, `active`, `suspended`, `archived` |
 | `created_at` | `timestamptz` | no | Creation time |
 | `updated_at` | `timestamptz` | no | Metadata/status update |
+| `deleted_at` | `timestamptz` | yes | Recoverable product tombstone; ordinary product reads exclude non-null rows |
 | `lock_version` | `integer` | no | Optimistic concurrency |
 
 Constraints and indexes:
@@ -1043,6 +1097,8 @@ Constraints and indexes:
 - Unique `(workspace_id, slug)`.
 - Wallet must belong to the same workspace.
 - Index `(workspace_id, status, updated_at desc)`.
+- The Dashboard may create a `draft` with `original_intent = ''` so it can navigate directly to Agent. The first accepted non-empty Agent planning message atomically initializes this field and increments `lock_version`; later messages never overwrite the initial objective. The empty placeholder example is presentation only and is never persisted as intent.
+- Product deletion is an owner-authorized, idempotent, lock-version-protected soft delete that sets `deleted_at`; physical deletion remains prohibited. Ordinary product lists, details, overview counts, new Agent-session binding, and new planning work must exclude tombstoned products. Historical versions, runs, messages, evidence, financial records, and the workspace-unique slug remain intact; public deployment resolution must also reject a tombstoned product before that route is enabled.
 
 #### `data_product_versions`
 
@@ -2113,10 +2169,12 @@ Do not cache a derived balance as authoritative unless the cache records its sou
 26. Every Hedera x402 payment requirement uses version `2`, scheme `exact`, a supported `hedera:*` network, a fungible HBAR/HTS asset, a resolved Hedera account ID recipient, and the current facilitator-advertised fee payer.
 27. A facilitator success response is not sufficient for financial confirmation until one normalized settlement row matches the payment intent's network, asset, amount, and recipient and contains successful network evidence.
 28. An HTS recipient is not treated as receive-capable from wallet ownership alone; token association or a completed, tested automatic-association path is required.
+29. Every creator-private request is authorized against one workspace, every resource query is filtered by that workspace, and every creator-attributed configuration or command record names a member of that same workspace.
 
 ## Security and Retention
 
-- Authorize every workspace-scoped query with membership and role checks; do not rely only on UI filtering.
+- Resolve the authenticated provider identity to a Sprue user, then authorize every workspace-scoped query with membership, role, user-status, and workspace-status checks; do not rely on UI filtering or client identifiers.
+- Include workspace scope in every private repository lookup and mutation predicate. Return not found for foreign resources and never disclose cross-workspace existence through different errors.
 - Hash API keys with a slow keyed or password-grade strategy appropriate to random credentials; compare in constant time.
 - Redact authorization headers, query URL credentials, provider error bodies, and wallet tokens before logs or JSON metadata.
 - Restrict payment and wallet metadata access more tightly than public product metadata.
@@ -2142,8 +2200,12 @@ The initial series is implemented in backend/migrations, not one monolithic file
 4. 0012 adds scoped ownership and immutable-history protections.
 5. 0013-0014 define and register lineage, lifecycle, planner-reservation and recovery-retention guards.
 6. 0015 adds network/asset/payment consistency and evidence bindings.
+7. 0016 moves authentication-provider subjects into explicit many-to-one bindings without changing Sprue user IDs.
+8. 0017 requires every creator-attributed configuration or command record to reference a member of that same workspace.
+9. 0018 stores one encrypted, workspace-owned Model Service profile.
+10. 0019 stores authenticated Graph API-key ciphertext behind the existing logical credential reference.
 
-Each migration runs transactionally with a checksummed journal. Failure rolls back only that unapplied migration; committed history is preserved and later changes use forward fixes. Explicit seeds contain only public network identities and HBAR metadata, never wallets, funds, credentials or unapproved limits. See [database.md](backend/database.md) for commands, schema authority, retention, test evidence and unimplemented service invariants.
+Each migration runs transactionally with a checksummed journal. Failure rolls back only that unapplied migration; committed history is preserved and later changes use forward fixes. Explicit seeds contain only public network and asset identities, including Base Sepolia USDC and Hedera testnet HBAR metadata, never wallets, funds, credentials or unapproved limits. See [database.md](backend/database.md) for commands, schema authority, retention, test evidence and unimplemented service invariants.
 
 ## Representative MVP Record Flow
 
@@ -2151,7 +2213,7 @@ Each migration runs transactionally with a checksummed journal. Failure rolls ba
 User + Workspace
   -> AccountWallet
       -> Base wallet address (verified spending capability)
-      -> Hedera account ID and mapped address representations (unverified until integration spike)
+      -> Hedera account ID and mapped address representations (verified for a complete bound testnet EVM account)
       -> WalletAssetCapability for Hedera testnet HBAR
   -> WalletPolicy snapshot + WalletSignerGrant + SpendingPolicy
   -> AgentSession + AgentMessages
@@ -2194,6 +2256,7 @@ User + Workspace
 - [ ] The initial live Graph source and actual x402 payment responses fit the documented source, request, HTTP-attempt, and payment fields.
 - [ ] A live customer-supplied Graph API key validates, rotates, revokes, and executes through its selected source without persistence leakage, wallet expense records, or automatic x402 fallback.
 - [x] Official Privy documentation confirms that wallet, owner, additional-signer/key-quorum, policy, provider reference, request-expiry, and idempotency identifiers can be stored without wallet or authorization private-key material.
+- [x] Authenticated bootstrap has an idempotent provider adapter and workspace-scoped persistence path that ensures one user-owned Privy Ethereum wallet without creating signer or payment authority.
 - [ ] A live Privy user-owned wallet, policy-bound signer grant, revocation, policy-drift check, permitted action, and rejected action fit the documented fields and transitions.
 - [x] Current official Hedera documentation confirms x402 v2 `exact`, `hedera:testnet`/`hedera:mainnet`, HBAR entity ID `0.0.0`, HTS fungible-token IDs, facilitator fee-payer requirements, account-ID recipients, and Mirror Node transaction evidence can be represented without wallet private keys or reusable payment payloads.
 - [x] Current official Hedera documentation lists Blocky402's hosted testnet/mainnet facilitator URLs and standard `/supported`, `/verify`, and `/settle` endpoints; both live `/supported` responses advertised their corresponding Hedera network on 2026-09-05.
@@ -2203,7 +2266,7 @@ User + Workspace
 - [ ] The DAG JSON schema and operator configuration schemas are versioned and testable.
 - [ ] All statuses have explicit transition tests, including uncertain payment and revoked authorization paths.
 - [ ] The 5 MiB inline artifact proposal is tested against the representative DEX result.
-- [x] All 52 tables and 705 columns match Drizzle query mappings and model 1.6 in isolated SQL tests; SQL migrations own foreign keys, checks, indexes and triggers that are intentionally not duplicated in Drizzle metadata.
+- [x] All 54 tables and 731 columns match Drizzle query mappings and model 1.14 in isolated SQL tests; SQL migrations own foreign keys, checks, indexes and triggers that are intentionally not duplicated in Drizzle metadata. Migration 0021 adds the product tombstone and its visible-product index without changing the table count.
 - [ ] Indexes are checked against expected creator dashboard, worker polling, API, and reconciliation queries.
 - [ ] Migration and fixture plans run identically on Railway PostgreSQL and Docker PostgreSQL.
 - [ ] No table or JSON document provides a place for raw secrets or hidden model reasoning.
@@ -2223,7 +2286,9 @@ Provider-specific metadata that proves necessary should first be added to valida
 
 ## Change Control
 
-On 2026-09-05 the human approved items 1-5: M1 durable commands, M2 anonymous request recovery, M3 lifecycle clarification, and H2 durable planning/run recovery plus immutable compilation provenance. Version 1.5 recorded their persistence implementation together with the multi-Subgraph composition boundary. On 2026-09-07 the human approved the version 1.6 identity boundary: stable Sprue users are independent from one-or-more provider login bindings. The HTTP contract remains a draft for endpoint implementation, and account linking, H1 exact executable schemas, H3 live methodology/limits, E1/E2 provider and buyer capabilities, and fee policy remain open. No runtime, funds movement or deployed provider capability is approved merely by creating these tables.
+On 2026-09-05 the human approved items 1-5: M1 durable commands, M2 anonymous request recovery, M3 lifecycle clarification, and H2 durable planning/run recovery plus immutable compilation provenance. Version 1.5 recorded their persistence implementation together with the multi-Subgraph composition boundary. On 2026-09-07 the human approved the version 1.6 identity boundary: stable Sprue users are independent from one-or-more provider login bindings. Version 1.7 adds the workspace tenant boundary and same-workspace actor constraints. Version 1.8 adds durable workspace model profiles with application-layer authenticated encryption and server-only key rotation. Version 1.9 adds encrypted Graph credential envelopes and idempotent user-owned Privy wallet provisioning during bootstrap. On 2026-09-08, version 1.10 approves one explicit Hedera testnet faucet activation command; version 1.11 implements Graph credential validation, default selection, and revocation with secret-envelope destruction; version 1.12 records the successful creator-confirmed Privy EVM transaction on the mapped Hedera testnet account and the resulting complete-account control projection. Account linking, Graph-key rotation, exact planning-call audit binding, H1 exact executable schemas, H3 live methodology/limits, general transfer commands, delegated spending, and the remaining x402 buyer/facilitator capabilities remain open. The testnet evidence does not prove native Hedera x402 signing, publication readiness, or any mainnet capability.
+
+Version 1.14 adds the creator-approved product deletion tombstone, implemented by migration 0021 and enforced by owner authorization, idempotency, and lock-version checks in the product service. The existing physical-delete prohibition remains unchanged.
 
 After human approval, changes to this model require:
 
@@ -2232,4 +2297,4 @@ After human approval, changes to this model require:
 3. Tests for affected transitions, constraints, and derived views.
 4. An AI contribution and project change-log entry in [plan.md](plan.md) when AI materially influenced the change.
 
-The human team approved the version 1.3 baseline, version 1.4 persistence directions, and version 1.5 multi-Subgraph composition boundary on 2026-09-05, followed by the version 1.6 provider-independent user identity boundary on 2026-09-07. This retains Draft 1.2's Graph source/customer-credential/per-query x402 refinements and Draft 1.3's Hedera x402/recipient-capability/settlement refinements. The forward migrations and typed schema implement the current persistence baseline; see backend/database.md for tested structural guards and remaining service/native-database verification. The initial downstream profile is Hedera testnet with HBAR; account linking, Union/Join schemas, and all other open checklist items remain implementation and external-integration validation gates.
+The human team approved the version 1.3 baseline, version 1.4 persistence directions, and version 1.5 multi-Subgraph composition boundary on 2026-09-05, followed by the version 1.6 provider-independent user identity boundary, version 1.7 workspace tenant boundary, version 1.8 durable encrypted model-profile boundary, and version 1.9 wallet/Graph-credential implementation boundary on 2026-09-07. Version 1.10 adds the user-triggered Hedera testnet activation behavior, version 1.11 adds Graph credential validation, default selection, and secure revocation, and version 1.12 records verified control/spend projection for a complete Hedera testnet account mapped to the bound Privy EVM wallet. This retains Draft 1.2's Graph source/customer-credential/per-query x402 refinements and Draft 1.3's Hedera x402/recipient-capability/settlement refinements. The forward migrations and typed schema implement the current persistence baseline; see backend/database.md for tested structural guards and remaining service/native-database verification. The initial downstream profile is Hedera testnet with HBAR; account linking, Graph-key rotation, exact planning-call audit binding, Union/Join schemas, and all other open checklist items remain implementation and external-integration validation gates.

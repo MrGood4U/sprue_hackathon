@@ -18,7 +18,11 @@ if ($Action -eq 'init') {
     $randomSource = [Security.Cryptography.RandomNumberGenerator]::Create()
     try { $randomSource.GetBytes($randomBytes) } finally { $randomSource.Dispose() }
     $localPassword = [BitConverter]::ToString($randomBytes).Replace('-', '').ToLowerInvariant()
-    $contents = "# Local-only settings. Never commit this file.`nPOSTGRES_PASSWORD=$localPassword`nPOSTGRES_PORT=15432`nAPI_PORT=3001`nFRONTEND_PORT=4173`n# Set both values to enable creator login.`nPRIVY_APP_ID=`nPRIVY_APP_SECRET=`n"
+    $modelBytes = New-Object byte[] 32
+    $modelSource = [Security.Cryptography.RandomNumberGenerator]::Create()
+    try { $modelSource.GetBytes($modelBytes) } finally { $modelSource.Dispose() }
+    $modelKey = [Convert]::ToBase64String($modelBytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
+    $contents = "# Local-only settings. Never commit this file.`nPOSTGRES_PASSWORD=$localPassword`nPOSTGRES_PORT=15432`nAPI_PORT=3001`nFRONTEND_PORT=4173`nAGENT_DEBUG=false`n# Set both values to enable creator login.`nPRIVY_APP_ID=`nPRIVY_APP_SECRET=`n# Server-only keyring for durable Model Service credentials.`nMODEL_CREDENTIAL_KEYRING={`"local-v1`":`"$modelKey`"}`nMODEL_CREDENTIAL_ACTIVE_KEY_ID=local-v1`n# The Graph source discovery and data gateway environment.`nGRAPH_GATEWAY_ENVIRONMENT=mainnet`n# Hedera testnet settlement profile.`nHEDERA_NETWORK=hedera:testnet`nHEDERA_MIRROR_NODE_URL=https://testnet.mirrornode.hedera.com`nHEDERA_PORTAL_PAT=`nHEDERA_FAUCET_URL=https://portal.hedera.com/api/disbursement/cli`nHEDERA_FAUCET_AMOUNT_HBAR=1`nBLOCKY402_FACILITATOR_URL=https://api.testnet.blocky402.com`n"
     # CreateNew prevents an initialization race from overwriting existing credentials.
     $stream = [IO.File]::Open($localEnvPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write)
     $writer = New-Object IO.StreamWriter($stream, (New-Object Text.UTF8Encoding($false)))
@@ -29,7 +33,7 @@ if ($Action -eq 'init') {
 
 if (-not (Test-Path -LiteralPath $localEnvPath)) { throw 'Run scripts/local.ps1 init first.' }
 $settings = @{}
-$allowedKeys = @('POSTGRES_PASSWORD', 'POSTGRES_PORT', 'API_PORT', 'FRONTEND_PORT', 'PRIVY_APP_ID', 'PRIVY_APP_SECRET')
+$allowedKeys = @('POSTGRES_PASSWORD', 'POSTGRES_PORT', 'API_PORT', 'FRONTEND_PORT', 'PRIVY_APP_ID', 'PRIVY_APP_SECRET', 'MODEL_CREDENTIAL_KEYRING', 'MODEL_CREDENTIAL_ACTIVE_KEY_ID', 'AGENT_TIMEOUT_MS', 'AGENT_DEBUG', 'GRAPH_GATEWAY_ENVIRONMENT', 'HEDERA_NETWORK', 'HEDERA_MIRROR_NODE_URL', 'HEDERA_PORTAL_PAT', 'HEDERA_FAUCET_URL', 'HEDERA_FAUCET_AMOUNT_HBAR', 'BLOCKY402_FACILITATOR_URL')
 foreach ($line in [IO.File]::ReadAllLines($localEnvPath)) {
     if ($line.Trim() -eq '' -or $line.Trim().StartsWith('#')) { continue }
     if ($line -notmatch '^([A-Z_]+)=([^\s]*)$' -or $allowedKeys -notcontains $Matches[1]) {
@@ -42,10 +46,45 @@ $requiredKeys = @('POSTGRES_PASSWORD', 'POSTGRES_PORT', 'API_PORT', 'FRONTEND_PO
 if (@($requiredKeys | Where-Object { -not $settings.ContainsKey($_) }).Count -ne 0 -or $settings['POSTGRES_PASSWORD'] -notmatch '^[a-fA-F0-9]{64}$') {
     throw 'Local configuration needs the four required keys and a 64-character hex database password.'
 }
+if ($settings.ContainsKey('AGENT_TIMEOUT_MS') -and ($settings['AGENT_TIMEOUT_MS'] -notmatch '^\d+$' -or [int]$settings['AGENT_TIMEOUT_MS'] -lt 250 -or [int]$settings['AGENT_TIMEOUT_MS'] -gt 120000)) {
+    throw 'AGENT_TIMEOUT_MS must be an integer from 250 through 120000.'
+}
+if ($settings.ContainsKey('AGENT_DEBUG') -and $settings['AGENT_DEBUG'] -notmatch '^(true|false)$') {
+    throw 'AGENT_DEBUG must be true or false.'
+}
 $privyAppId = if ($settings.ContainsKey('PRIVY_APP_ID')) { $settings['PRIVY_APP_ID'] } else { '' }
 $privyAppSecret = if ($settings.ContainsKey('PRIVY_APP_SECRET')) { $settings['PRIVY_APP_SECRET'] } else { '' }
 if ([string]::IsNullOrEmpty($privyAppId) -ne [string]::IsNullOrEmpty($privyAppSecret)) {
     throw 'PRIVY_APP_ID and PRIVY_APP_SECRET must be configured together.'
+}
+$modelKeyring = if ($settings.ContainsKey('MODEL_CREDENTIAL_KEYRING')) { $settings['MODEL_CREDENTIAL_KEYRING'] } else { '' }
+$modelActiveKey = if ($settings.ContainsKey('MODEL_CREDENTIAL_ACTIVE_KEY_ID')) { $settings['MODEL_CREDENTIAL_ACTIVE_KEY_ID'] } else { '' }
+if ([string]::IsNullOrEmpty($modelKeyring) -ne [string]::IsNullOrEmpty($modelActiveKey)) {
+    throw 'MODEL_CREDENTIAL_KEYRING and MODEL_CREDENTIAL_ACTIVE_KEY_ID must be configured together.'
+}
+if (-not [string]::IsNullOrEmpty($modelKeyring)) {
+    try { $parsedKeyring = $modelKeyring | ConvertFrom-Json } catch { throw 'MODEL_CREDENTIAL_KEYRING must be a JSON object.' }
+    $activeProperty = $parsedKeyring.PSObject.Properties[$modelActiveKey]
+    if ($modelActiveKey -notmatch '^[A-Za-z0-9._-]{1,64}$' -or $null -eq $activeProperty -or $activeProperty.Value -notmatch '^[A-Za-z0-9_-]{43}$') {
+        throw 'The active model credential key must be a 32-byte base64url value in MODEL_CREDENTIAL_KEYRING.'
+    }
+}
+$graphGatewayEnvironment = if ($settings.ContainsKey('GRAPH_GATEWAY_ENVIRONMENT')) { $settings['GRAPH_GATEWAY_ENVIRONMENT'] } else { 'mainnet' }
+if ($graphGatewayEnvironment -ne 'mainnet') {
+    throw 'GRAPH_GATEWAY_ENVIRONMENT must be mainnet in the current build.'
+}
+$hederaNetwork = if ($settings.ContainsKey('HEDERA_NETWORK')) { $settings['HEDERA_NETWORK'] } else { 'hedera:testnet' }
+if ($hederaNetwork -ne 'hedera:testnet') {
+    throw 'HEDERA_NETWORK must be hedera:testnet in the current build.'
+}
+$hederaFaucetUrl = if ($settings.ContainsKey('HEDERA_FAUCET_URL')) { $settings['HEDERA_FAUCET_URL'] } else { 'https://portal.hedera.com/api/disbursement/cli' }
+if ($hederaFaucetUrl -ne 'https://portal.hedera.com/api/disbursement/cli') {
+    throw 'HEDERA_FAUCET_URL must use the reviewed Hedera Portal testnet endpoint.'
+}
+$hederaFaucetAmount = if ($settings.ContainsKey('HEDERA_FAUCET_AMOUNT_HBAR')) { $settings['HEDERA_FAUCET_AMOUNT_HBAR'] } else { '1' }
+$parsedFaucetAmount = 0
+if (-not [int]::TryParse($hederaFaucetAmount, [ref]$parsedFaucetAmount) -or $parsedFaucetAmount -lt 1 -or $parsedFaucetAmount -gt 100) {
+    throw 'HEDERA_FAUCET_AMOUNT_HBAR must be an integer from 1 to 100.'
 }
 foreach ($key in @('POSTGRES_PORT', 'API_PORT', 'FRONTEND_PORT')) {
     $parsedPort = 0
@@ -82,7 +121,11 @@ function Test-LocalStack {
         throw 'Public configuration or CORS validation failed.'
     }
     Invoke-Compose -Arguments @('exec', '-T', 'worker', 'node', '-e', "fetch('http://127.0.0.1:3002/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))")
-    Write-Output "Local framework ready: $consoleUrl (business pages use the backend demo runtime)."
+    & docker @composeBase exec -T frontend sh -c "grep -R -q -- 'agent-sessions' /usr/share/nginx/html/assets"
+    if ($LASTEXITCODE -ne 0) {
+        throw 'The served frontend image is stale and does not include the live Agent client. Run scripts/local.ps1 up to rebuild it.'
+    }
+    Write-Output "Local framework ready: $consoleUrl (Dashboard, Wallet, Model Service, and Agent Planner use live authenticated data; Build, API, and Monetize remain on the identified demo runtime)."
 }
 
 # Prevent inherited shell values from silently overriding the reviewed local file.
@@ -101,6 +144,8 @@ try {
             Invoke-Compose -Arguments @('up', '--detach', '--wait', '--wait-timeout', '120', 'postgres')
             Write-Output 'Applying pending migrations to the local sprue-local database as an explicit one-off step.'
             Invoke-Compose -Arguments @('--profile', 'tools', 'run', '--rm', '--no-deps', 'migrate')
+            Write-Output 'Loading idempotent public network and asset reference metadata.'
+            Invoke-Compose -Arguments @('--profile', 'tools', 'run', '--rm', '--no-deps', 'seed')
             Invoke-Compose -Arguments @('up', '--detach', '--wait', '--wait-timeout', '120', 'api', 'worker', 'frontend')
             Test-LocalStack
         }

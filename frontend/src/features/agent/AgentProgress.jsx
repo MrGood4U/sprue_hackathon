@@ -1,14 +1,14 @@
-import { CheckCircle, Circle, Sparkle } from "@phosphor-icons/react";
+import { CheckCircle, CircleNotch, Sparkle } from "@phosphor-icons/react";
 import { Status } from "../../components/ui/Status.jsx";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
 
 const stageDefinitions = [
   ["admit", "agent.stage.admit", "agent.stage.admitDetail"],
-  ["model", "agent.stage.model", "agent.stage.modelDetail"],
-  ["proposal_validation", "agent.stage.validation", "agent.stage.validationDetail"],
-  ["source_mapping", "agent.stage.sources", "agent.stage.sourcesDetail"],
-  ["dag_execution", "agent.stage.dag", "agent.stage.dagDetail"],
-  ["output", "agent.stage.output", "agent.stage.outputDetail"],
+  ["source_discovery_planning", "agent.stage.discoveryPlan", "agent.stage.discoveryPlanDetail"],
+  ["source_needs", "agent.stage.sourceNeeds", "agent.stage.sourceNeedsDetail"],
+  ["graph_source_discovery", "agent.stage.graphDiscovery", "agent.stage.graphDiscoveryDetail"],
+  ["source_feasibility", "agent.stage.feasibility", "agent.stage.feasibilityDetail"],
+  ["feasibility_validation", "agent.stage.validation", "agent.stage.validationDetail"],
 ];
 
 function latestByStage(trace) {
@@ -29,7 +29,7 @@ export function AgentProgress({ trace = [], planState }) {
   const progress = Math.round((completed / stageDefinitions.length) * 100);
 
   return (
-    <aside className="agent-progress-panel">
+    <aside className="agent-progress-panel" aria-live="polite">
       <div className="agent-progress-heading">
         <div>
           <span className="section-label">{t("agent.progressLabel")}</span>
@@ -47,11 +47,11 @@ export function AgentProgress({ trace = [], planState }) {
           return (
             <li className={`agent-trace-item agent-trace-${state}`} key={stage}>
               <span className="agent-trace-icon">
-                {state === "complete" ? <CheckCircle size={20} weight="fill" /> : state === "active" ? <Circle size={20} weight="fill" /> : index + 1}
+                {state === "complete" ? <CheckCircle size={20} weight="fill" /> : state === "active" ? <CircleNotch className="agent-trace-spinner" size={19} weight="bold" /> : index + 1}
               </span>
               <div>
                 <div className="agent-trace-title"><strong>{t(titleKey)}</strong><Status tone={state === "complete" ? "green" : state === "failed" ? "amber" : state === "active" ? "violet" : "neutral"}>{t(`agent.status.${state}`)}</Status></div>
-                <p>{t(detailKey)}</p>
+                <p>{events.get(stage)?.summary ?? t(detailKey)}</p>
               </div>
             </li>
           );

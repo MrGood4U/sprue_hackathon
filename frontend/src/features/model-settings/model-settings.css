@@ -36,7 +36,7 @@
 .model-service-guide p {
   margin: 0;
   color: var(--color-foreground-secondary);
-  font-size: 11px;
+  font-size: var(--typography-size-label);
   line-height: 1.55;
 }
 
@@ -67,7 +67,7 @@
 
 .model-field-error {
   color: var(--color-accent-danger);
-  font-size: 10px;
+  font-size: var(--typography-size-caption);
   line-height: 1.45;
 }
 
@@ -91,7 +91,7 @@
   gap: 5px;
   min-height: 20px;
   color: var(--color-foreground-secondary);
-  font-size: 10px;
+  font-size: var(--typography-size-caption);
   line-height: 1.45;
 }
 
@@ -151,7 +151,7 @@
   grid-template-columns: 24px minmax(0, 1fr);
   gap: 10px;
   color: var(--color-foreground-secondary);
-  font-size: 11px;
+  font-size: var(--typography-size-label);
   line-height: 1.5;
 }
 
@@ -164,7 +164,7 @@
   border-radius: 50%;
   color: var(--color-accent-agent);
   font-family: var(--typography-family-code);
-  font-size: 9px;
+  font-size: var(--typography-size-micro);
 }
 
 .model-service-session-note {
@@ -176,7 +176,7 @@
   border-radius: var(--radius-control);
   color: var(--color-foreground-secondary);
   background: var(--color-background-input);
-  font-size: 10px;
+  font-size: var(--typography-size-caption);
   line-height: 1.5;
 }
 

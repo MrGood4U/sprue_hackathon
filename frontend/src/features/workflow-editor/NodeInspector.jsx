@@ -30,7 +30,13 @@ function SourceConfig({ node, draft, update, mode, onModeChange }) {
   const [identifierType, setIdentifierType] = useState("subgraph");
   const [identifier, setIdentifier] = useState("");
   const sources = draft.specification.sources ?? [];
-  const selected = sources.find((source) => source.id === node.config?.sourceKey);
+  const sourceId = node.config?.sourceId ?? node.config?.sourceKey ?? "";
+  const selected = sources.find((source) => source.id === sourceId);
+
+  const selectSource = (value) => {
+    const { sourceKey: _legacySourceKey, ...config } = node.config ?? {};
+    update({ ...config, sourceId: value, queryPlan: value === sourceId ? config.queryPlan : null });
+  };
 
   return (
     <div className="workflow-source-config">
@@ -58,7 +64,7 @@ function SourceConfig({ node, draft, update, mode, onModeChange }) {
 
       {mode === "discovered" ? (
         <Field id={`source-${node.id}`} label={t("workflowEditor.inspector.source")} hint={t("workflowEditor.inspector.sourceHint")}>
-          <select id={`source-${node.id}`} value={node.config?.sourceKey ?? ""} onChange={(event) => update({ ...node.config, sourceKey: event.target.value })}>
+          <select id={`source-${node.id}`} value={sourceId} onChange={(event) => selectSource(event.target.value)}>
             <option value="">{t("workflowEditor.inspector.selectSource")}</option>
             {sources.map((source) => (
               <option key={source.id} value={source.id}>{source.id} · {source.target?.logicalSubgraphId ?? source.kind ?? "subgraph"}</option>
@@ -163,6 +169,13 @@ function MapConfig({ node, update }) {
   const { t } = useI18n();
   const mapping = node.config?.mapping ?? {};
   const entries = Object.entries(mapping);
+  if (node.config?.recipe) {
+    return (
+      <Field id={`map-recipe-${node.id}`} label={t("workflowEditor.inspector.recipe")}>
+        <input id={`map-recipe-${node.id}`} value={node.config.recipe} readOnly />
+      </Field>
+    );
+  }
   return (
     <div className="workflow-inspector-section">
       <span className="workflow-inspector-subtitle">{t("workflowEditor.inspector.mapping")}</span>
@@ -198,29 +211,21 @@ function AggregateConfig({ node, update }) {
 function UnionConfig({ node, update }) {
   const { t } = useI18n();
   return (
-    <>
-      <Field id={`union-schema-${node.id}`} label={t("workflowEditor.inspector.schema")}>
-        <select id={`union-schema-${node.id}`} value={node.config?.schema ?? "canonical_swap"} onChange={(event) => update({ ...node.config, schema: event.target.value })}>
-          <option value="canonical_swap">canonical_swap</option>
-          <option value="canonical_rows">canonical_rows</option>
-        </select>
-      </Field>
-      <Field id={`union-view-${node.id}`} label={t("workflowEditor.inspector.outputView")}>
-        <select id={`union-view-${node.id}`} value={node.config?.outputView ?? "allActivity"} onChange={(event) => update({ ...node.config, outputView: event.target.value })}>
-          <option value="allActivity">allActivity</option>
-          <option value="rows">rows</option>
-        </select>
-      </Field>
-    </>
+    <Field id={`union-mode-${node.id}`} label={t("workflowEditor.inspector.unionMode")}>
+      <select id={`union-mode-${node.id}`} value={node.config?.mode ?? "append_compatible_rows"} onChange={(event) => update({mode: event.target.value})}>
+        <option value="append_compatible_rows">append_compatible_rows</option>
+      </select>
+    </Field>
   );
 }
 
 function JoinConfig({ node, update }) {
   const { t } = useI18n();
+  const keyNames = (node.config?.keys ?? []).map((key) => typeof key === "string" ? key : key.left).filter(Boolean);
   return (
     <>
       <Field id={`join-keys-${node.id}`} label={t("workflowEditor.inspector.joinKeys")} hint={t("workflowEditor.inspector.listHint")}>
-        <input id={`join-keys-${node.id}`} value={listValue(node.config?.keys)} onChange={(event) => update({ ...node.config, keys: parseList(event.target.value) })} />
+        <input id={`join-keys-${node.id}`} value={listValue(keyNames)} onChange={(event) => update({ ...node.config, keys: parseList(event.target.value).map((key) => ({left: key, right: key})) })} />
       </Field>
       <Field id={`join-type-${node.id}`} label={t("workflowEditor.inspector.joinType")}>
         <select id={`join-type-${node.id}`} value={node.config?.type ?? "inner"} onChange={(event) => update({ ...node.config, type: event.target.value })}>
@@ -229,8 +234,8 @@ function JoinConfig({ node, update }) {
         </select>
       </Field>
       <Field id={`join-cardinality-${node.id}`} label={t("workflowEditor.inspector.cardinality")}>
-        <select id={`join-cardinality-${node.id}`} value={node.config?.cardinality ?? "one_to_one_after_aggregate"} onChange={(event) => update({ ...node.config, cardinality: event.target.value })}>
-          <option value="one_to_one_after_aggregate">one_to_one_after_aggregate</option>
+        <select id={`join-cardinality-${node.id}`} value={node.config?.cardinality ?? "one_to_one"} onChange={(event) => update({ ...node.config, cardinality: event.target.value })}>
+          <option value="one_to_one">one_to_one</option>
           <option value="bounded_many_to_one">bounded_many_to_one</option>
         </select>
       </Field>
@@ -240,18 +245,19 @@ function JoinConfig({ node, update }) {
 
 function OutputConfig({ node, update }) {
   const { t } = useI18n();
-  const views = node.config?.views ?? [];
-  const toggle = (view) => update({ ...node.config, views: views.includes(view) ? views.filter((item) => item !== view) : [...views, view] });
+  const order = node.config?.orderBy?.[0] ?? {field: "wallet", direction: "asc"};
   return (
-    <fieldset className="workflow-inspector-section workflow-inspector-checks">
-      <legend>{t("workflowEditor.inspector.views")}</legend>
-      {["crossChain", "allActivity", "rows"].map((view) => (
-        <label key={view}>
-          <input type="checkbox" checked={views.includes(view)} onChange={() => toggle(view)} />
-          <span>{view}</span>
-        </label>
-      ))}
-    </fieldset>
+    <>
+      <Field id={`output-order-field-${node.id}`} label={t("workflowEditor.inspector.orderField")}>
+        <input id={`output-order-field-${node.id}`} value={order.field} onChange={(event) => update({...node.config, orderBy: [{...order, field: event.target.value}]})} />
+      </Field>
+      <Field id={`output-order-direction-${node.id}`} label={t("workflowEditor.inspector.orderDirection")}>
+        <select id={`output-order-direction-${node.id}`} value={order.direction} onChange={(event) => update({...node.config, orderBy: [{...order, direction: event.target.value}]})}>
+          <option value="asc">asc</option>
+          <option value="desc">desc</option>
+        </select>
+      </Field>
+    </>
   );
 }
 

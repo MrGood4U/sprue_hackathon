@@ -18,5 +18,6 @@ export class IdentityService {
     if (result.userStatus !== "active") throw new AppError("USER_SUSPENDED");
     if (result.workspaceStatus !== "active")
       throw new AppError("WORKSPACE_SUSPENDED");
+    return {userId: result.userId, workspaceId};
   }
 }

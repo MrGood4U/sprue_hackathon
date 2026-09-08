@@ -2,7 +2,7 @@
 
 Describe it. Shape it. Sell it.
 
-Sprue is a hosted web product that turns natural-language onchain data logic into persistent, reusable, and optionally monetizable APIs. It is a browser application, not a Windows or macOS native client. Product structure, technical selection, and data-model version 1.6 are approved. MVP implementation now includes the maintained frontend, backend database foundation, API/standby-worker framework, Privy creator authentication with provider-independent Sprue user IDs, an offline schema-driven DAG runtime for the cross-chain target, and an explicit backend demo runtime. The ten-page application in `frontend/` is the maintained product frontend, using the selected Evidence-First Console design and English/Simplified Chinese localization. Route-level pages request server-generated demo data and do not own browser fixtures while durable business handlers and provider adapters proceed. The initial downstream payment profile is Hedera testnet with HBAR through Blocky402. No complete live MVP or live payment integration exists yet. See [mvp-flow.md](mvp-flow.md) for the end-to-end flow and support matrix.
+Sprue is a hosted web product that turns natural-language onchain data logic into persistent, reusable, and optionally monetizable APIs. It is a browser application, not a Windows or macOS native client. Product structure, technical selection, and data-model version 1.12 are approved. MVP implementation now includes the maintained frontend, backend database foundation, API/standby-worker framework, Privy creator authentication with provider-independent Sprue user IDs, workspace-isolated creator state, durable encrypted Model Service profiles, an offline schema-driven DAG runtime for the cross-chain target, and an explicit backend demo runtime. The ten-page application in `frontend/` is the maintained product frontend, using the selected Evidence-First Console design and English/Simplified Chinese localization. Route-level pages request server-generated demo data and do not own browser fixtures while durable business handlers and provider adapters proceed. The initial downstream payment profile is Hedera testnet with HBAR through Blocky402. The current Privy wallet has demonstrated interactive control of its mapped Hedera testnet account, but no complete live MVP or x402 payment integration exists yet. See [mvp-flow.md](mvp-flow.md) for the end-to-end flow and support matrix.
 
 ## Product Boundary
 
@@ -16,7 +16,7 @@ Sprue does not create, deploy, or maintain new Subgraphs or Subgraph Composition
 - [Privy](sponsor/privy.md): Creator account wallet and bounded Graph-spending authorization.
 - [Hedera](sponsor/Hedera.md): Downstream x402 v2 `exact` settlement through Blocky402; Sprue hosts the API and implements its payment gate.
 
-Official documentation establishes the Hedera x402 wire profile and Blocky402's hosted testnet/mainnet capability. The team selected testnet HBAR for the first integration; creator-controlled Hedera account resolution, HBAR receipt/access, live settlement reconciliation, wallet compatibility, and fee settlement remain validation gates. Graph-spending funds and API-sale proceeds must be tracked separately by network and asset. Bazantic was replaced on 2026-09-05; [its reference](sponsor/bazantic.md) remains historical only.
+Official documentation establishes the Hedera x402 wire profile and Blocky402's hosted testnet/mainnet capability. The team selected testnet HBAR for the first integration; creator-controlled Hedera testnet account resolution and HBAR access are evidenced for the current complete Privy EVM path; native x402 signing, live settlement reconciliation, independent buyer receipt, delegated controls, and mainnet support remain validation gates. Graph-spending funds and API-sale proceeds must be tracked separately by network and asset. Bazantic was replaced on 2026-09-05; [its reference](sponsor/bazantic.md) remains historical only.
 
 ## Deployment Profiles
 
@@ -29,7 +29,7 @@ Vercel and Railway are temporary delivery targets, not application dependencies.
 
 ## Product Frontend
 
-The React application under [`frontend/`](frontend/) covers Entry, Creator Login, Dashboard, Wallet and Access, Model Service, Agent Planner, Product Builder, API and Deployment, Monetization and Revenue, and the Public Consumer Demo. It supports English and Simplified Chinese UI copy, persists the user's locale choice in the browser, and uses the backend demo client for the current evaluator workflow. The Entry page routes signed-out creators to `/login`, where Google, GitHub, and MetaMask login are unified through Privy; creator routes bootstrap a backend-verified local account/workspace, while the public consumer route remains open. Model Service may configure an OpenAI-compatible Agent planner for the current backend process session and explicitly test current form values without saving them; its API key is concealed by default, never stored in the browser, and never returned by the backend. Each route-level page lives in its own file, with shared UI, navigation, feature hooks, services, and locale catalogs separated by responsibility. Continue implementing this frontend directly; remaining integration and interaction work is tracked in [`frontend/implementation-status.md`](frontend/implementation-status.md).
+The React application under [`frontend/`](frontend/) covers Entry, Creator Login, Dashboard, Wallet and Access, Model Service, Agent Planner, Product Builder, API and Deployment, Monetization and Revenue, and the Public Consumer Demo. It supports English and Simplified Chinese UI copy, persists the user's locale choice in the browser, and uses the backend demo client for the current evaluator workflow. The Entry page routes signed-out creators to `/login`, where Google and GitHub login are unified through Privy; creator routes bootstrap a backend-verified local account/workspace, while the public consumer route remains open. Model Service configures a durable workspace OpenAI-compatible Agent planner and explicitly tests current form values without saving them; its API key is concealed by default, encrypted before PostgreSQL storage, never stored in the browser, and never returned by the backend. Each route-level page lives in its own file, with shared UI, navigation, feature hooks, services, and locale catalogs separated by responsibility. Continue implementing this frontend directly; remaining integration and interaction work is tracked in [`frontend/implementation-status.md`](frontend/implementation-status.md).
 
 ```bash
 cd frontend
@@ -41,14 +41,14 @@ Open `http://127.0.0.1:4173`. Use a browser window at least 1024 CSS pixels wide
 
 ## Database Foundation
 
-The backend now has 52 domain tables, 16 ordered SQL migrations, typed Drizzle query mappings, explicit reference seeds and isolated tests. Read [backend/database.md](backend/database.md) for local PostgreSQL setup, commands, schema authority and remaining verification. Database structure, the API/standby-worker framework, Privy access-token verification, provider-identity resolution, and transactional account/workspace bootstrap are implemented; account linking, other business handlers, and live integrations are not. See [backend/framework.md](backend/framework.md) for startup commands, security boundaries, generated OpenAPI and reserved routes. Native PostgreSQL 17 schema/migrations and Docker service startup now pass the Windows-local checks in [deployment.md](deployment.md); real provider login, Railway deployment and multi-connection behavior remain unverified.
+The backend now has 53 domain tables, 18 ordered SQL migrations, typed Drizzle query mappings, explicit reference seeds and isolated tests. Read [backend/database.md](backend/database.md) for local PostgreSQL setup, commands, schema authority and remaining verification. Database structure, workspace actor isolation, the API/standby-worker framework, Privy access-token verification, provider-identity resolution, transactional account/workspace bootstrap, and encrypted Model Service persistence are implemented; account linking, other durable business handlers, and live integrations are not. See [backend/framework.md](backend/framework.md) for startup commands, security boundaries, generated OpenAPI and reserved routes. Native PostgreSQL 17 verification for migration 0018 and Railway deployment remain pending.
 
 ## Project Records
 
 - [Product intent and repository rules](agents.md)
 - [Plan, decisions, and AI contribution log](plan.md)
 - [Proposed project structure and financial model](project-structure.md)
-- [Approved MVP data model version 1.6 and validation gates](data-model.md)
+- [Approved MVP data model version 1.8 and validation gates](data-model.md)
 - [Proposed frontend/backend API contract and review gates](api-contract.md)
 - [Proposed Agent harness workflow, tools, operators, and constraints](backend/harness/README.md)
 - [Approved page architecture and interaction design](product-design.md)
@@ -57,6 +57,6 @@ The backend now has 52 domain tables, 16 ordered SQL migrations, typed Drizzle q
 - [Frontend structure and file-ownership plan](frontend/README.md)
 - [Backend boundary and source-layout plan](backend/README.md)
 
-Product-design Draft 1.26 records the maintained frontend, ten page families, route ownership, interactions, accessibility, and screen-to-data contracts. Token review remains follow-up work; durable model-secret storage, the capped consumer's funding boundary, and real provider compatibility remain integration gates.
+Product-design Draft 1.41 records the maintained frontend, ten page families, route ownership, interactions, accessibility, and screen-to-data contracts, including Graph credential validation, selection, and deletion. Token review remains follow-up work; explicit model-profile revocation/audit binding, the capped consumer's funding boundary, and real source-specific provider compatibility remain integration gates.
 
 Participation: Start Fresh. All repository text is written in English; team communication may use Chinese. Preserve meaningful Git history and update the AI contribution record as work progresses. Runnable setup and verified demo evidence will be added with implementation.

@@ -1,6 +1,6 @@
 # Product and Builder APIs
 
-Draft 0.1. All creator operations follow the [shared contract](../../api-contract.md). `W` in the tables is shorthand for `/api/v1/workspaces/{workspaceId}` and is not a literal route segment. Every referenced session, source, version, run, credential, policy, deployment, and artifact must resolve to the same workspace.
+Draft 0.3. All creator operations follow the [shared contract](../../api-contract.md). `W` in the tables is shorthand for `/api/v1/workspaces/{workspaceId}` and is not a literal route segment. Every referenced session, source, version, run, credential, policy, deployment, and artifact must resolve to the same workspace.
 
 ## 1. Products and Dashboard
 
@@ -10,18 +10,21 @@ Draft 0.1. All creator operations follow the [shared contract](../../api-contrac
 | POST | `W/products` | `{name, description?, originalIntent, accountWalletId}` | 201 `ProductDetail` | data_products; server generates workspace-unique slug |
 | GET | `W/products/{productId}` | None | 200 `ProductDetail` + ETag | Product metadata and separate draft/active pointers |
 | PATCH | `W/products/{productId}` | `{name?, description?}` + If-Match | 200 `ProductDetail` | Metadata only; no spec/access/status/pointer update |
+| DELETE | `W/products/{productId}` | Empty + If-Match + Idempotency-Key | 200 `ProductDeletion` | Set data_products.deleted_at; retain historical records |
 | GET | `W/products/{productId}/runs` | `status?`, `versionId?`, pagination | 200 RunSummary collection | execution_runs |
 | GET | `W/products/{productId}/versions` | Pagination | 200 VersionSummary collection | data_product_versions |
 
-name is 1-120 trimmed characters; description at most 2000; originalIntent is 1-8000 characters after trimming and redaction. Product creation does not start the Agent, build, deploy, or spend. An initial unbound Agent session can precede product/wallet creation; later acceptance creates the product through the explicit product endpoint and binds the producing session to it.
+name is 1-120 trimmed characters; description at most 2000; originalIntent is at most 8000 characters after trimming. It may be empty only for a newly created draft that immediately opens in Agent; placeholder guidance is never sent as data. The first accepted non-empty message for that product initializes the empty `original_intent` and advances its lock version, while later messages remain conversation revisions and do not rewrite the initial objective. Product creation does not start the Agent, build, deploy, or spend. An initial unbound Agent session can precede product/wallet creation; later acceptance creates the product through the explicit product endpoint and binds the producing session to it.
 
 `ProductSummary = {id, slug, name, description: string | null, status, updatedAt, latestVersion: VersionSummary | null, activeDeployment: DeploymentSummary | null, latestRun: RunSummary | null, nextAction: string | null}`. nextAction is a frontend routing hint (`open_builder`, `resolve_access`, `build`, `deploy`, `inspect_run`, or null), not authorization. `ProductDetail` adds `{workspaceId, accountWalletId, originalIntent, createdAt, lockVersion}`. No field named simply version may conflate draft and active versions.
 
-`VersionSummary = {id, versionNo, parentVersionId: Id | null, specHash, status, validatedAt: Timestamp | null, readyAt: Timestamp | null, createdAt}`. Version statuses remain proposed/validating/invalid/building/ready/retired; successful non-paid validation awaiting explicit Build follows approved M3/model 1.5.
+`ProductDeletion = {productId, deletedAt}`. Delete is an idempotent soft-delete command, guarded by the current product ETag. It removes the product from ordinary list/detail/overview reads and blocks new product-bound Agent work. It does not physically delete or cascade versions, runs, messages, evidence, financial records, or reuse the slug. A stale lock version returns `412 PRECONDITION_FAILED`; an already deleted or cross-workspace product is indistinguishable from not found unless the same idempotency key is replayed.
+
+`VersionSummary = {id, versionNo, sourceCount: Count, parentVersionId: Id | null, specHash, status, validatedAt: Timestamp | null, readyAt: Timestamp | null, createdAt}`. `sourceCount` is the count of persisted `data_product_version_sources` rows for that exact version; consumers must not infer source readiness from version existence. Version statuses remain proposed/validating/invalid/building/ready/retired; successful non-paid validation awaiting explicit Build follows approved M3/model 1.5.
 
 `DeploymentSummary = {id, environment, status, endpointSlug, endpointUrl: string | null, activeVersionId: Id | null, activeMaterializationId: Id | null, activePublicationVersionId: Id | null, accessMode: private | api_key | x402 | null, sourceFreshnessAt: Timestamp | null}`. Values come from one consistent active-pointer read.
 
-Archiving/restoring products, slug renaming, invitations, and account administration are not added to the MVP API just because the database can represent them.
+Archiving/restoring products, slug renaming, invitations, and account administration are not added to the MVP API just because the database can represent them. Product deletion is the explicit tombstone operation above, not archival or physical erasure.
 
 ## 2. Agent Sessions, Messages, and Proposals
 
@@ -31,7 +34,7 @@ Archiving/restoring products, slug renaming, invitations, and account administra
 | GET | `W/agent-sessions` | `productId?`, `status?`, pagination | 200 AgentSession collection | Owner-visible conversations |
 | GET | `W/agent-sessions/{sessionId}` | None | 200 `AgentSession` | Includes current command/trace references from M1 |
 | GET | `W/agent-sessions/{sessionId}/messages` | `afterSequence=0`, `limit=50` (max 100) | 200 `{items: AgentMessage[], nextAfterSequence, hasMore}` | agent_messages in ascending sequence order |
-| POST | `W/agent-sessions/{sessionId}/messages` | `MessageInput` | 202 `CommandAccepted` | Durable user message + planning command + trace; returns subject when accepted |
+| POST | `W/agent-sessions/{sessionId}/messages` | `MessageInput` | Current: 200 terminal `CommandAccepted`; target: 202 | Durable user message + planning command + trace; the initial implementation runs synchronously |
 | POST | `W/agent-sessions/{sessionId}/proposals/{messageId}/discard` | `{expectedProposalHash}` | 200 `Proposal` with status discarded | Append a structured user decision to agent_messages; M1 deduplicates decisions |
 | POST | `W/agent-sessions/{sessionId}/planning/{commandId}/cancel` | `{}` | 202 `CommandAccepted` | Cancel supported planner work, not an execution run or external payment |
 | GET | `W/agent-sessions/{sessionId}/proposals/{messageId}` | None | 200 `Proposal` | Validated structured assistant-message projection |
@@ -39,7 +42,9 @@ Archiving/restoring products, slug renaming, invitations, and account administra
 
 `AgentSession = {id, productId: Id | null, title: string | null, status, createdAt, closedAt: Timestamp | null, activeCommandId: Id | null, traceStreamId: Id | null}`. One planning command per session may be active; another distinct submission returns `409 OPERATION_IN_PROGRESS`. Retrying the same key returns the existing command. This does not serialize unrelated sessions or prohibit resuming a completed planning result.
 
-`AgentMessage = {id, sequenceNo: Count, role: user | assistant | tool, contentText: string | null, contentJson: AgentContent | null, redactionStatus, createdAt}`. Tool messages expose sanitized summaries, not raw provider output. AgentContent is a discriminated schema with `schemaVersion: 1` and `kind: proposal | clarification | tool_result | error | proposal_decision`; fields are allowlisted per kind, and proposal_decision is server-created only. Hidden reasoning has no type or endpoint.
+`AgentMessage = {id, sequenceNo: Count, role: user | assistant | tool, contentText: string | null, contentJson: AgentContent | null, redactionStatus, createdAt}`. Tool messages expose sanitized summaries, not raw provider output. AgentContent is a discriminated schema with `schemaVersion: 1` and `kind: proposal | clarification | tool_result | error | proposal_decision`; completed model-produced proposal, clarification, and error variants include the server-measured `durationMs`. Fields are allowlisted per kind, and proposal_decision is server-created only. Hidden reasoning has no type or endpoint.
+
+The implemented `proposal` projection contains the model-produced intent summary, remote model identity/call count, real discovered Subgraph evidence (network, logical ID when available, manifest CID, query entity, matched facts, observed 30-day query count, rationale, and limitations), registered-operator composition counts, deterministic issues, and persisted sanitized trace summaries. It currently has `specification: null` and `readyForCompilation: false`: immutable Deployment ID resolution, exact field/coverage validation, access binding, and durable source-snapshot admission are still required. The frontend must not translate this feasibility result into a fake compiled DAG. Queue dispatch, polling/SSE progress, and server cancellation remain target behavior; the synchronous handler does not advertise cancellation.
 
 `MessageInput = {contentText, parentVersionId?: Id, accessSelections?: SourceAccessSelection[], responseLocale?: en | zh-CN}`. Text is 1-8000 characters. parentVersionId is required for a conversational edit and pins the intended parent; it must belong to the session's product. Selections are planning preferences only until a version is accepted. An unbound planning session may omit them and return a clarification.
 

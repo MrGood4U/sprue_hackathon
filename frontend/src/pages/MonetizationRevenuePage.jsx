@@ -18,7 +18,7 @@ import { useDemoRuntime } from "../features/runtime/DemoRuntimeProvider.jsx";
 
 export function MonetizationRevenuePage({ navigate }) {
   const { t } = useI18n();
-  const { state } = useDemoRuntime();
+  const { state, runAction } = useDemoRuntime();
   const { product, monetization } = state;
   const [published, setPublished] = useState(monetization.published);
   const [price, setPrice] = useState(monetization.price);
@@ -30,6 +30,7 @@ export function MonetizationRevenuePage({ navigate }) {
         product={product}
         active="monetize"
         navigate={navigate}
+        onRename={(name) => runAction("rename_product", {name})}
       />
       <main className="product-content">
         <div className="content-heading">

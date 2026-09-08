@@ -28,6 +28,16 @@ const definitions = {
     "Identity initialization is required.",
     "resolve_blocker",
   ],
+  RESOURCE_CONFLICT: [
+    409,
+    "A resource with the same protected identity already exists.",
+    "reload_resource",
+  ],
+  RATE_LIMITED: [
+    429,
+    "The provider limit prevents this operation from completing now.",
+    "resolve_blocker",
+  ],
   INVALID_REQUEST: [
     400,
     "The request does not match the transport contract.",
@@ -36,6 +46,11 @@ const definitions = {
   PRECONDITION_REQUIRED: [
     428,
     "The current resource ETag is required.",
+    "reload_resource",
+  ],
+  PRECONDITION_FAILED: [
+    412,
+    "The resource changed after it was read.",
     "reload_resource",
   ],
   PAYLOAD_TOO_LARGE: [413, "The request exceeds the transport limit.", "none"],

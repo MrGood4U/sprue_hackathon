@@ -1,6 +1,12 @@
 // Database-first column mapping. SQL migrations own foreign keys, indexes and triggers.
 // Never use schema push to replace the reviewed migrations.
-import { pgTable, uuid, text, integer, smallint, bigint, numeric, timestamp, boolean, jsonb, primaryKey } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, integer, smallint, bigint, numeric, timestamp, boolean, jsonb, primaryKey, customType } from "drizzle-orm/pg-core";
+
+const bytea = customType<{data: Buffer}>({
+  dataType() {
+    return "bytea";
+  },
+});
 
 export const provider_credentials = pgTable("provider_credentials", {
   id: uuid("id").notNull().primaryKey().defaultRandom(),
@@ -17,12 +23,24 @@ export const provider_credentials = pgTable("provider_credentials", {
   credential_fingerprint: text("credential_fingerprint").notNull(),
   provider_constraints_json: jsonb("provider_constraints_json"),
   status: text("status").notNull(),
+  is_selected: boolean("is_selected").notNull().default(false),
   validated_at: timestamp("validated_at", { withTimezone: true, mode: "date" }),
   last_used_at: timestamp("last_used_at", { withTimezone: true, mode: "date" }),
   revoked_at: timestamp("revoked_at", { withTimezone: true, mode: "date" }),
   created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   updated_at: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   lock_version: integer("lock_version").notNull().default(0),
+});
+
+export const provider_credential_secrets = pgTable("provider_credential_secrets", {
+  provider_credential_id: uuid("provider_credential_id").notNull().primaryKey(),
+  api_key_ciphertext: bytea("api_key_ciphertext").notNull(),
+  encryption_key_id: text("encryption_key_id").notNull(),
+  encryption_iv: bytea("encryption_iv").notNull(),
+  encryption_auth_tag: bytea("encryption_auth_tag").notNull(),
+  secret_version: integer("secret_version").notNull(),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
 });
 
 export const source_snapshots = pgTable("source_snapshots", {
@@ -84,6 +102,7 @@ export const data_products = pgTable("data_products", {
   status: text("status").notNull(),
   created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   updated_at: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  deleted_at: timestamp("deleted_at", { withTimezone: true, mode: "date" }),
   lock_version: integer("lock_version").notNull().default(0),
 });
 

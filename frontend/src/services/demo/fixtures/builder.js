@@ -64,7 +64,7 @@ export function createDemoDraft(parameters = defaultParameters) {
       intent: { summary: `Measure repeat activity by protocol over ${windowDays} complete UTC days; repeat means at least ${minimumActiveDays} active dates.` },
       sources: [{ id: "source_dex_activity", sourceSnapshotId: "00000000-0000-0000-0000-000000000000", provider: "the_graph", kind: "subgraph", adapterVersion: "1", dataNetwork: "eip155:8453",
         target: { type: "deployment_id", id: "demo-not-a-live-deployment", logicalSubgraphId: null, manifestIpfsCid: null }, schemaHash: "demo-not-verified",
-        access: { mode: "x402", gatewayEnvironment: "testnet", providerCredentialId: null, spendingPolicyId: "00000000-0000-0000-0000-000000000000" }, consistency: { mode: "pinned_block", indexingErrorPolicy: "deny" } }],
+        access: { mode: "x402", gatewayEnvironment: "mainnet", providerCredentialId: null, spendingPolicyId: "00000000-0000-0000-0000-000000000000" }, consistency: { mode: "pinned_block", indexingErrorPolicy: "deny" } }],
       dag: { nodes, edges }, outputSchema: structuredClone(outputSchema),
       refreshPolicy: { mode: "scheduled", cronExpression: "0 0 * * *", timezone: "UTC" },
       resourcePolicy: { maxNodes: 12, maxSourceRows: 50000, maxSourceRequests: 100, maxOutputRows: 5000, maxOutputBytes: 5242880, maxStoredBytes: 20971520, maxRuntimeMs: 120000 },

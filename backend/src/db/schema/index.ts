@@ -7,3 +7,4 @@ export * from "./execution.js";
 export * from "./evidence.js";
 export * from "./payments.js";
 export * from "./recovery.js";
+export * from "./model-settings.js";

@@ -7,15 +7,52 @@ import {
   saveDemoModelProfile,
   testDemoModelProfile,
 } from "../src/services/api/demo-runtime.js";
+import {
+  createProduct,
+  deleteProduct,
+  getWorkspaceOverview,
+  listProducts,
+  updateProduct,
+} from "../src/services/api/products.js";
+import {
+  createAgentSession,
+  listAgentMessages,
+  listAgentSessions,
+  submitAgentMessage,
+} from "../src/services/api/agent.js";
 
 const state = {
   dataSource: "backend_demo",
   product: { draft: {} },
 };
+const workspaceId = "7ff7ec9e-1bc4-48ae-bac1-e7703d021834";
+const creatorScope = {scope: "creator", workspaceId, accessToken: "creator-token"};
 
 function response(data) {
   return Response.json({data, meta: {apiVersion: "1", dataSource: "demo"}});
 }
+
+function liveResponse(data) {
+  return Response.json({data, meta: {apiVersion: "1", dataSource: "live"}});
+}
+
+const product = {
+  id: "20000000-0000-4000-8000-000000000001",
+  workspaceId,
+  accountWalletId: "20000000-0000-4000-8000-000000000002",
+  slug: "new-product-20000000",
+  name: "New Product",
+  description: null,
+  originalIntent: "Find active wallets.",
+  status: "draft",
+  createdAt: "2026-09-08T00:00:00.000Z",
+  updatedAt: "2026-09-08T00:00:00.000Z",
+  lockVersion: 0,
+  latestVersion: null,
+  activeDeployment: null,
+  latestRun: null,
+  nextAction: "open_builder",
+};
 
 test("frontend requests backend demo state without a fixture fallback", async () => {
   const result = await getDemoState({
@@ -24,7 +61,8 @@ test("frontend requests backend demo state without a fixture fallback", async ()
       assert.equal(url, "http://127.0.0.1:3001/api/v1/public/demo/state");
       assert.equal(options.method, "GET");
       assert.equal(options.credentials, "omit");
-      assert.match(options.headers["X-Sprue-Demo-Session"], /^[0-9a-f-]{36}$/i);
+      assert.equal(options.headers.Authorization, undefined);
+      assert.equal(options.headers["X-Sprue-Demo-Session"], undefined);
       return response(state);
     },
   });
@@ -47,12 +85,13 @@ test("model profile client sends the key once and accepts only a redacted respon
   }, {
     apiBaseUrl: "https://api.example.test",
     fetchImpl: async (url, options) => {
-      assert.equal(url, "https://api.example.test/api/v1/public/demo/model-profile");
+      assert.equal(url, `https://api.example.test/api/v1/workspaces/${workspaceId}/model-profile`);
       assert.equal(options.method, "PUT");
       assert.equal(JSON.parse(options.body).apiKey, "browser-input-only");
-      assert.match(options.headers["X-Sprue-Demo-Session"], /^[0-9a-f-]{36}$/i);
-      return response(profile);
+      assert.equal(options.headers.Authorization, "Bearer creator-token");
+      return liveResponse(profile);
     },
+    ...creatorScope,
   });
   assert.deepEqual(saved, profile);
   assert.equal(JSON.stringify(saved).includes("browser-input-only"), false);
@@ -64,16 +103,18 @@ test("model profile client sends the key once and accepts only a redacted respon
   }, {
     apiBaseUrl: "https://api.example.test",
     fetchImpl: async (url, options) => {
-      assert.equal(url, "https://api.example.test/api/v1/public/demo/model-profile/test");
+      assert.equal(url, `https://api.example.test/api/v1/workspaces/${workspaceId}/model-profile/test`);
       assert.equal(options.method, "POST");
       assert.equal(JSON.parse(options.body).apiKey, "browser-input-only");
-      return response({
+      assert.equal(options.headers.Authorization, "Bearer creator-token");
+      return liveResponse({
         available: true,
         protocol: "openai_compatible_chat_completions",
         model: profile.model,
         latencyMs: 18,
       });
     },
+    ...creatorScope,
   });
   assert.deepEqual(tested, {
     available: true,
@@ -85,10 +126,13 @@ test("model profile client sends the key once and accepts only a redacted respon
 
   const loaded = await getDemoModelProfile({
     apiBaseUrl: "https://api.example.test",
-    fetchImpl: async (_url, options) => {
+    fetchImpl: async (url, options) => {
+      assert.equal(url, `https://api.example.test/api/v1/workspaces/${workspaceId}/model-profile`);
       assert.equal(options.method, "GET");
-      return response(profile);
+      assert.equal(options.headers.Authorization, "Bearer creator-token");
+      return liveResponse(profile);
     },
+    ...creatorScope,
   });
   assert.deepEqual(loaded, profile);
 });
@@ -98,14 +142,16 @@ test("frontend action client sends strict backend actions and returns server sta
     apiBaseUrl: "https://api.example.test",
     intent: "Find wallets across two chains.",
     fetchImpl: async (url, options) => {
-      assert.equal(url, "https://api.example.test/api/v1/public/demo/actions");
+      assert.equal(url, `https://api.example.test/api/v1/workspaces/${workspaceId}/demo/actions`);
       assert.equal(options.method, "POST");
+      assert.equal(options.headers.Authorization, "Bearer creator-token");
       assert.deepEqual(JSON.parse(options.body), {
         action: "agent_plan",
         intent: "Find wallets across two chains.",
       });
       return response({state, result: {data: []}});
     },
+    ...creatorScope,
   });
   assert.deepEqual(result.state, state);
   assert.deepEqual(result.result, {data: []});
@@ -113,6 +159,7 @@ test("frontend action client sends strict backend actions and returns server sta
   await runDemoAction("api_request", {
     apiBaseUrl: "https://api.example.test",
     parameters: {limit: 100},
+    ...creatorScope,
     fetchImpl: async (_url, options) => {
       assert.deepEqual(JSON.parse(options.body), {
         action: "api_request",
@@ -125,6 +172,7 @@ test("frontend action client sends strict backend actions and returns server sta
   await runDemoAction("rename_product", {
     apiBaseUrl: "https://api.example.test",
     name: "New Product",
+    ...creatorScope,
     fetchImpl: async (_url, options) => {
       assert.deepEqual(JSON.parse(options.body), {
         action: "rename_product",
@@ -133,12 +181,187 @@ test("frontend action client sends strict backend actions and returns server sta
       return response({state, result: {status: "renamed", name: "New Product"}});
     },
   });
+
+  await runDemoAction("consumer_request", {
+    apiBaseUrl: "https://api.example.test",
+    fetchImpl: async (url, options) => {
+      assert.equal(url, "https://api.example.test/api/v1/public/demo/actions");
+      assert.equal(options.headers.Authorization, undefined);
+      assert.deepEqual(JSON.parse(options.body), {action: "consumer_request"});
+      return response({state, result: {data: []}});
+    },
+  });
 });
 
 test("frontend action client rejects unsupported actions and invalid backend metadata", async () => {
   await assert.rejects(runDemoAction("unsupported", {apiBaseUrl: "https://api.example.test"}), /INVALID_DEMO_ACTION/);
+  await assert.rejects(runDemoAction("agent_plan", {apiBaseUrl: "https://api.example.test"}), /INVALID_DEMO_ACTION/);
+  await assert.rejects(getDemoModelProfile({apiBaseUrl: "https://api.example.test"}), /AUTH_REQUIRED/);
   await assert.rejects(getDemoState({
     apiBaseUrl: "https://api.example.test",
     fetchImpl: async () => Response.json({data: state, meta: {apiVersion: "1", dataSource: "live"}}),
   }), /INVALID_DEMO_API_RESPONSE/);
+});
+
+test("product dashboard client uses only authenticated live workspace records", async () => {
+  const listed = await listProducts({
+    apiBaseUrl: "https://api.example.test",
+    fetchImpl: async (url, options) => {
+      assert.equal(url, `https://api.example.test/api/v1/workspaces/${workspaceId}/products?limit=100`);
+      assert.equal(options.headers.Authorization, "Bearer creator-token");
+      return Response.json({
+        data: [{...product, workspaceId: undefined, accountWalletId: undefined, originalIntent: undefined, createdAt: undefined, lockVersion: undefined}],
+        page: {nextCursor: null, hasMore: false},
+        meta: {apiVersion: "1", dataSource: "live", observedAt: "2026-09-08T00:00:00.000Z"},
+      });
+    },
+    ...creatorScope,
+  });
+  assert.equal(listed.products[0].name, "New Product");
+
+  const overview = await getWorkspaceOverview({
+    apiBaseUrl: "https://api.example.test",
+    fetchImpl: async (url) => {
+      assert.equal(url, `https://api.example.test/api/v1/workspaces/${workspaceId}/overview?period=24h`);
+      return liveResponse({
+        period: {startsAt: "2026-09-07T00:00:00.000Z", endsAt: "2026-09-08T00:00:00.000Z"},
+        activeProductCount: "0",
+        draftVersionCount: "0",
+        apiRequestCount: "0",
+        graphExpenses: [],
+        grossSales: [],
+        readiness: [],
+        recentActivity: [],
+      });
+    },
+    ...creatorScope,
+  });
+  assert.equal(overview.overview.apiRequestCount, "0");
+
+  const created = await createProduct({
+    name: "New Product",
+    originalIntent: product.originalIntent,
+    accountWalletId: product.accountWalletId,
+  }, {
+    apiBaseUrl: "https://api.example.test",
+    idempotencyKey: "dashboard-create-0001",
+    fetchImpl: async (_url, options) => {
+      assert.equal(options.method, "POST");
+      assert.equal(options.headers["Idempotency-Key"], "dashboard-create-0001");
+      return liveResponse(product);
+    },
+    ...creatorScope,
+  });
+  assert.equal(created.workspaceId, workspaceId);
+
+  const renamed = await updateProduct(product.id, {name: "Live product"}, {
+    apiBaseUrl: "https://api.example.test",
+    lockVersion: 0,
+    idempotencyKey: "dashboard-update-0001",
+    fetchImpl: async (_url, options) => {
+      assert.equal(options.method, "PATCH");
+      assert.equal(options.headers["If-Match"], '"0"');
+      return liveResponse({...product, name: "Live product", lockVersion: 1});
+    },
+    ...creatorScope,
+  });
+  assert.equal(renamed.name, "Live product");
+
+  const deleted = await deleteProduct(product.id, {
+    apiBaseUrl: "https://api.example.test",
+    lockVersion: 1,
+    idempotencyKey: "dashboard-delete-0001",
+    fetchImpl: async (url, options) => {
+      assert.equal(url, `https://api.example.test/api/v1/workspaces/${workspaceId}/products/${product.id}`);
+      assert.equal(options.method, "DELETE");
+      assert.equal(options.headers.Authorization, "Bearer creator-token");
+      assert.equal(options.headers["Idempotency-Key"], "dashboard-delete-0001");
+      assert.equal(options.headers["If-Match"], '"1"');
+      assert.equal(options.body, undefined);
+      return liveResponse({productId: product.id, deletedAt: "2026-09-08T00:05:00.000Z"});
+    },
+    ...creatorScope,
+  });
+  assert.equal(deleted.productId, product.id);
+});
+
+test("Agent client uses live durable sessions and messages", async () => {
+  const session = {
+    id: "30000000-0000-4000-8000-000000000001",
+    productId: product.id,
+    title: product.name,
+    status: "active",
+    createdAt: "2026-09-08T01:00:00.000Z",
+    closedAt: null,
+    activeCommandId: null,
+    traceStreamId: null,
+  };
+  const created = await createAgentSession({productId: product.id, title: product.name}, {
+    apiBaseUrl: "https://api.example.test",
+    idempotencyKey: "agent-session-create-0001",
+    fetchImpl: async (url, options) => {
+      assert.equal(url, `https://api.example.test/api/v1/workspaces/${workspaceId}/agent-sessions`);
+      assert.equal(options.method, "POST");
+      assert.equal(options.headers.Authorization, "Bearer creator-token");
+      assert.equal(options.headers["Idempotency-Key"], "agent-session-create-0001");
+      return liveResponse(session);
+    },
+    ...creatorScope,
+  });
+  assert.equal(created.productId, product.id);
+
+  const sessions = await listAgentSessions({
+    apiBaseUrl: "https://api.example.test",
+    productId: product.id,
+    fetchImpl: async (url) => {
+      assert.equal(url, `https://api.example.test/api/v1/workspaces/${workspaceId}/agent-sessions?productId=${product.id}`);
+      return liveResponse([session]);
+    },
+    ...creatorScope,
+  });
+  assert.equal(sessions[0].id, session.id);
+
+  const message = {
+    id: "30000000-0000-4000-8000-000000000002",
+    sequenceNo: "1",
+    role: "user",
+    contentText: product.originalIntent,
+    contentJson: null,
+    redactionStatus: "none",
+    modelProvider: null,
+    modelName: null,
+    createdAt: "2026-09-08T01:01:00.000Z",
+  };
+  const listed = await listAgentMessages(session.id, {
+    apiBaseUrl: "https://api.example.test",
+    fetchImpl: async (url) => {
+      assert.equal(url, `https://api.example.test/api/v1/workspaces/${workspaceId}/agent-sessions/${session.id}/messages?afterSequence=0&limit=100`);
+      return liveResponse({items: [message], nextAfterSequence: "1", hasMore: false});
+    },
+    ...creatorScope,
+  });
+  assert.equal(listed.messages[0].contentText, product.originalIntent);
+
+  const command = {
+    commandId: "30000000-0000-4000-8000-000000000003",
+    status: "succeeded",
+    subject: {type: "agent_session", id: session.id},
+    traceStreamId: "30000000-0000-4000-8000-000000000004",
+    pollAfterMs: 0,
+  };
+  const submitted = await submitAgentMessage(session.id, {
+    contentText: product.originalIntent,
+    responseLocale: "zh-CN",
+  }, {
+    apiBaseUrl: "https://api.example.test",
+    idempotencyKey: "agent-message-create-0001",
+    fetchImpl: async (url, options) => {
+      assert.equal(url, `https://api.example.test/api/v1/workspaces/${workspaceId}/agent-sessions/${session.id}/messages`);
+      assert.equal(options.headers["Idempotency-Key"], "agent-message-create-0001");
+      assert.deepEqual(JSON.parse(options.body), {contentText: product.originalIntent, responseLocale: "zh-CN"});
+      return liveResponse(command);
+    },
+    ...creatorScope,
+  });
+  assert.equal(submitted.status, "succeeded");
 });

@@ -1,8 +1,8 @@
 # Database Foundation
 
-Status: persistence implementation for data-model 1.6, updated 2026-09-07.
+Status: persistence implementation for data-model 1.14, updated 2026-09-08.
 
-The human approved M1, M2, M3, the two H2 persistence directions (planning/run recovery and semantic compilation provenance), and the provider-independent Sprue user identity boundary. This foundation contains 52 domain tables and 705 columns, 16 ordered SQL migrations, typed Drizzle query mappings, a migration journal, public reference seeds and offline tests. Migration 0016 preserves each existing Sprue user UUID while moving provider subjects into the many-to-one `auth_identities` table. It is not an account-linking API, queue relay, Agent, payment system or deployed database.
+The human approved M1, M2, M3, the two H2 persistence directions (planning/run recovery and semantic compilation provenance), the provider-independent Sprue user identity boundary, workspace-level account isolation, durable encrypted Model Service profiles, encrypted Graph API credentials, and product tombstones that preserve historical versions, runs, and evidence. This foundation contains 54 domain tables and 731 columns, 21 ordered SQL migrations, typed Drizzle query mappings, a migration journal, public reference seeds and offline tests. Migration 0016 preserves each existing Sprue user UUID while moving provider subjects into the many-to-one `auth_identities` table. Migration 0017 rejects creator-attributed configuration and command records whose user does not belong to the record's workspace; API consumers are not publisher-workspace actors. Migration 0018 stores one workspace model profile using AES-256-GCM ciphertext and same-workspace actor checks. Migration 0019 stores Graph key ciphertext behind a logical workspace credential; migration 0020 permits one active selected Graph credential per workspace/provider; migration 0021 adds workspace-visible soft deletion for data products. Raw API keys never enter SQL. It is not an account-linking API, queue relay, payment system or deployed database.
 
 ## Ownership and Schema Authority
 
@@ -16,7 +16,12 @@ The human approved M1, M2, M3, the two H2 persistence directions (planning/run r
 | `migrations/0013_lifecycle_lineage.sql`, `0014_register_guards.sql` | Lifecycle, lineage, planner reservation and recovery retention guards |
 | `migrations/0015_financial_and_evidence_guards.sql` | Network/asset consistency, settlement links and evidence protection |
 | `migrations/0016_auth_identities.sql` | Provider-independent users, existing-subject backfill and multi-identity bindings |
-| `src/db/schema/` | Nine domain-specific Drizzle query mappings; SQL remains authoritative for relational constraints |
+| `migrations/0017_account_isolation.sql` | Same-workspace membership checks for wallet, product, credential, Agent, deployment, execution and command actors |
+| `migrations/0018_agent_model_profiles.sql` | Workspace model profile, authenticated-encryption metadata, key rotation identifier, and actor isolation |
+| `migrations/0019_wallet_and_graph_credentials.sql` | Authenticated Graph API-key ciphertext envelope behind the workspace-owned logical credential |
+| `migrations/0020_graph_credential_lifecycle.sql` | One active selected Graph credential per workspace/provider for future planning defaults |
+| `migrations/0021_product_soft_deletion.sql` | Product tombstones that hide deleted products from active workspace operations while retaining dependent history |
+| `src/db/schema/` | Ten domain-specific Drizzle query mappings; SQL remains authoritative for relational constraints |
 | `src/db/client.ts` | Standard pg connection, environment validation and TLS handling |
 | `src/db/migrations.ts` | Dedicated-client lock, checksummed journal and transaction per migration |
 | `src/db/seed.ts` | Explicit, idempotent public reference seed |
@@ -53,21 +58,24 @@ Connections outside the known local development hosts default to certificate-ver
 
 ## Seed Boundary
 
-The explicit seed contains only Base and Base Sepolia network identities, Hedera testnet, and native HBAR metadata (`0.0.0`, eight decimals). Existing matching records are reused and incompatible identities cause failure; disabled records are not silently reenabled. Reference metadata does not authorize mainnet access or prove provider capabilities.
+The explicit seed contains only Base and Base Sepolia network identities, Hedera testnet, Base Sepolia USDC metadata (official contract identity, six decimals), and native HBAR metadata (`0.0.0`, eight decimals). Existing matching records are reused and incompatible identities cause failure; disabled records are not silently reenabled. Reference metadata does not authorize mainnet access or prove provider capabilities.
 
-There are no users, wallets, signer grants, API keys, balances, payments, products, subscriptions, publication prices, service-fee terms or planner limits in the seed. USDC contract metadata must be verified against the chosen Graph payment requirement before a future seed/configuration update. Test fixtures live only in disposable test databases and are not sponsor evidence.
+There are no users, wallets, signer grants, API keys, balances, payments, products, subscriptions, publication prices, service-fee terms or planner limits in the seed. The Base Sepolia USDC identity is reference metadata for the current Privy balance read and must still match each accepted Graph x402 payment requirement. Test fixtures live only in disposable test databases and are not sponsor evidence.
 
 ## What the Database Enforces
 
 | Concern | Implemented structural protection | Still required in services |
 |---|---|---|
-| Ownership | Foreign keys, stable Sprue user UUIDs, unique provider bindings, one active owner, workspace consistency for scoped links | Account linking/unlinking/recovery, every read/write authorization, polymorphic command subjects; no RLS policy is installed |
+| Ownership | Foreign keys, stable Sprue user UUIDs, unique provider bindings, one active owner, workspace consistency for scoped links, same-workspace membership for user-attributed records | Account linking/unlinking/recovery, every read/write authorization and workspace-filtered repository query, polymorphic command subjects; no RLS policy is installed |
 | M1 commands | Null-safe actor/workspace/operation/key uniqueness, immutable fingerprints, required transactional outbox, terminal-state guard | Keyed canonical fingerprint generation/comparison, HTTP 409/replay behavior, registered operation dispatch, queue relay, worker leases, serialized proposal acceptance/discard |
 | M2 recovery | Unique hashed capability, key version/expiry fields, frozen request identity, unique proof binding, one sale per logical request, retained immutable output | Capability generation/constant-time verification, key retention, cryptographic proof checks, authorized receipts, browser restoration, expiry profile and cleanup |
 | M3 lifecycle | Validation/build state guard, source projections, ready version/output pairing; no build trigger moves deployment pointers | Explicit human commands, complete compiler validation, successful build transaction, refresh/activation compare-and-swap race handling |
 | H2 planning | Fixed checkpoint limits/deadline, row-locked call reservations, immutable reservations and monotonic observed use; failed/uncertain attempts remain counted | Global/workspace admission, chosen model/pricing, provider cancellation/reconciliation, dispatch deadlines and process-crash tests |
 | H2 execution | Immutable queued-time anchor and source context, frozen block before data pages, cross-attempt logical source uniqueness | Exact query/binding schemas and hashes, cursor progression, pinned adapter execution, artifact-input compatibility and safe reuse |
 | H2 provenance | Immutable proposal/version-owned records, envelope/hash links, acceptance copy comparison | Exact template schema, deterministic expansion, node mapping, canonical content hashes and frontend DTO projection |
+| Model credentials | One profile per workspace, same-workspace actor enforcement, ciphertext/authentication-metadata shape and optimistic concurrency | Server keyring custody, decryption, managed-key rotation, explicit profile revocation and exact planning-call audit binding |
+| Graph credentials | Workspace-owned logical records, unique labels/fingerprints, one AES-256-GCM envelope per available credential, explicit bounded validation, one active selected default, concurrency-checked revocation and secret-envelope destruction | Rotation, managed key custody, durable command deduplication, and exact source-use/audit binding |
+| Privy account wallet | Same-workspace wallet owner, provider-wallet uniqueness, network/address identity, append-only balance observations | Live provider ownership evidence, signer/policy synchronization, balance freshness policy and all E1 payment controls |
 | Money | Nonnegative finite atomic amounts, network/asset links, immutable intent terms, unique consumed purchase, confirmed settlement structural evidence | Canonical integer-string validation before SQL (numeric(78,0) can round fractional input), cumulative Graph budget locking/reconciliation, live transfer verification, recognition/allocation/reversal conservation |
 
 SQL validates JSON envelopes and selected links, not arbitrary JSON semantics. Sanitized JSON columns are not permission to store secrets, signatures, raw model reasoning, arbitrary code or uncontrolled provider responses. Redaction, size limits and exact schemas remain required before writes. Evidence hashes are supplied by trusted services, not computed or cryptographically verified by these migrations. An object URI cannot guarantee immutable remote contents; object storage remains deferred for the initial inline-artifact flow.
@@ -83,7 +91,7 @@ npm run typecheck
 npm test
 ```
 
-Tests always create isolated, in-memory PGlite databases and ignore `DATABASE_URL`; they never migrate an existing database. They verify empty initialization, repeated migration/seed, checksum drift rejection, failed-migration rollback, all 52 tables/705 fields, provider-binding resolution, multiple identities for one stable user, and representative negative transaction/retry/ownership/money/provenance cases. Fixture DAGs test relational structure only and are deliberately not executable H1 schemas.
+Tests always create isolated, in-memory PGlite databases and ignore `DATABASE_URL`; they never migrate an existing database. They verify empty initialization, repeated migration/seed, checksum drift rejection, failed-migration rollback, all 54 tables/729 fields, provider-binding resolution, multiple identities for one stable user, cross-workspace actor rejection, encrypted model-profile and Graph-key persistence/restart/isolation/tamper rejection, idempotent Privy wallet binding, real-balance adapter projection, and representative negative transaction/retry/ownership/money/provenance cases. Fixture DAGs test relational structure only and are deliberately not executable H1 schemas.
 
 The recorded run used Node 24.20.0 and PGlite 0.5.8 (PostgreSQL 18.3 compiled to WASM). Docker was installed but its engine was unavailable. Therefore native PostgreSQL 17, multi-connection races, pg-boss behavior, Docker service startup and Railway compatibility are **not yet verified**. PGlite is a test dependency, not the production database or proof of distributed locking.
 

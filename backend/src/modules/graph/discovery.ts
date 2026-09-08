@@ -1,0 +1,508 @@
+import {createHash} from "node:crypto";
+import {
+  Kind,
+  parse,
+  type FieldDefinitionNode,
+  type ObjectTypeDefinitionNode,
+  type ObjectTypeExtensionNode,
+  type TypeNode,
+} from "graphql";
+import {z} from "zod";
+import type {
+  GraphDeploymentActivity,
+  GraphDiscoveredSourceCandidate,
+  GraphFieldRequirement,
+  GraphInspectedField,
+  GraphPlanningMcpPort,
+  GraphSchemaEntityInspection,
+  GraphSemanticValueType,
+  GraphSourceDiscoveryPort,
+  GraphSourceDiscoveryRequest,
+  GraphSourceDiscoveryResult,
+  GraphSourceDiscoveryNeed,
+} from "./types.js";
+
+const identifier = z.string().trim().min(1).max(100).regex(/^[a-z][a-z0-9_]*$/);
+const needIdentifier = z.string().trim().min(1).max(100).regex(/^[a-z][a-z0-9_-]*$/);
+const semanticValueType = z.enum([
+  "boolean",
+  "string",
+  "id",
+  "address",
+  "bytes",
+  "integer",
+  "decimal",
+  "timestamp",
+  "date",
+  "json",
+]);
+const fieldRequirementSchema = z.object({
+  id: identifier,
+  description: z.string().trim().min(1).max(1000),
+  expectedType: semanticValueType,
+  unit: z.string().trim().max(40).nullable(),
+  required: z.boolean(),
+  allowNullable: z.boolean(),
+  hints: z.array(z.string().trim().min(1).max(80).regex(/^[A-Za-z0-9_.-]+$/)).min(1).max(8),
+}).strict();
+const needSchema = z.object({
+  id: needIdentifier,
+  dataNetwork: z.string().trim().min(3).max(100).regex(/^[a-z0-9]+:[A-Za-z0-9._-]+$/),
+  networkLabel: z.string().trim().min(1).max(80).regex(/^[A-Za-z0-9 _.-]+$/),
+  keywords: z.array(z.string().trim().min(2).max(80).regex(/^[^\u0000-\u001f\u007f]+$/)).min(1).max(3),
+  description: z.string().trim().min(1).max(1000),
+  grain: z.string().trim().min(1).max(200),
+  fields: z.array(fieldRequirementSchema).min(1).max(32),
+  constraints: z.array(z.string().trim().min(1).max(1000)).max(16),
+  contract: z.object({
+    address: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+    chain: z.string().trim().min(1).max(64).regex(/^[a-z0-9-]+$/),
+  }).optional(),
+});
+
+const requestSchema = z.object({needs: z.array(needSchema).min(1).max(4)});
+
+interface RawCandidate {
+  sourceNeedId: string;
+  discoveryMethod: "keyword" | "contract";
+  logicalSubgraphId: string | null;
+  manifestIpfsCid: string;
+  displayName: string;
+  reportedNetwork: string | null;
+}
+
+interface CandidateSchemaInspection {
+  schemaHash: string | null;
+  schemaBytes: number | null;
+  entities: readonly GraphSchemaEntityInspection[];
+  schemaInspected: boolean;
+  error: string | null;
+}
+
+const knownNetworkAliases: Readonly<Record<string, readonly string[]>> = {
+  "eip155:1": ["ethereum"],
+  "eip155:10": ["optimism"],
+  "eip155:56": ["bsc", "bnb chain", "binance smart chain"],
+  "eip155:100": ["gnosis"],
+  "eip155:137": ["polygon", "matic"],
+  "eip155:250": ["fantom"],
+  "eip155:8453": ["base"],
+  "eip155:42161": ["arbitrum", "arbitrum one"],
+  "eip155:43114": ["avalanche", "avalanche c-chain"],
+};
+
+export class GraphSourceDiscoveryError extends Error {
+  constructor(readonly code: string, message: string) {
+    super(message);
+    this.name = "GraphSourceDiscoveryError";
+  }
+}
+
+function fail(code: string, message: string): never {
+  throw new GraphSourceDiscoveryError(code, message);
+}
+
+function namedType(type: TypeNode): string {
+  return type.kind === Kind.NAMED_TYPE ? type.name.value : namedType(type.type);
+}
+
+function normalize(value: string): string {
+  return value.toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function terminal(path: string): string {
+  return normalize(path.split(".").at(-1) ?? path).replace(/\s/g, "");
+}
+
+function graphValueType(name: string): GraphSemanticValueType {
+  if (name === "Boolean") return "boolean";
+  if (name === "ID") return "id";
+  if (name === "Bytes") return "bytes";
+  if (name === "Int" || name === "BigInt") return "integer";
+  if (name === "Float" || name === "BigDecimal") return "decimal";
+  if (name === "String") return "string";
+  return "json";
+}
+
+function typeShape(type: TypeNode): {graphType: string; valueType: GraphSemanticValueType; nullable: boolean; list: boolean} {
+  const nullable = type.kind !== Kind.NON_NULL_TYPE;
+  const unwrapped = type.kind === Kind.NON_NULL_TYPE ? type.type : type;
+  const list = unwrapped.kind === Kind.LIST_TYPE;
+  let current: TypeNode = list ? unwrapped.type : unwrapped;
+  if (current.kind === Kind.NON_NULL_TYPE) current = current.type;
+  const graphType = namedType(current);
+  return {graphType, valueType: graphValueType(graphType), nullable, list};
+}
+
+function collectFields(
+  objectName: string,
+  objectFields: ReadonlyMap<string, readonly FieldDefinitionNode[]>,
+  leafTypes: ReadonlySet<string>,
+  depth = 0,
+  prefix = "",
+  ancestors: ReadonlySet<string> = new Set(),
+  inheritedNullable = false,
+  inheritedList = false,
+): GraphInspectedField[] {
+  if (depth > 2 || ancestors.has(objectName)) return [];
+  const fieldsForObject = objectFields.get(objectName) ?? [];
+  const nextAncestors = new Set(ancestors).add(objectName);
+  const fields: GraphInspectedField[] = [];
+  for (const fieldDefinition of fieldsForObject.slice(0, 256)) {
+    const path = prefix ? `${prefix}.${fieldDefinition.name.value}` : fieldDefinition.name.value;
+    const target = namedType(fieldDefinition.type);
+    const shape = typeShape(fieldDefinition.type);
+    const nullable = inheritedNullable || shape.nullable;
+    const list = inheritedList || shape.list;
+    if (leafTypes.has(target) || !objectFields.has(target)) {
+      fields.push({...shape, path, nullable, list});
+    } else {
+      fields.push(...collectFields(target, objectFields, leafTypes, depth + 1, path, nextAncestors, nullable, list));
+    }
+    if (fields.length >= 256) break;
+  }
+  return fields.slice(0, 256);
+}
+
+function typeCompatible(requirement: GraphFieldRequirement, field: GraphInspectedField): boolean {
+  if (field.list && requirement.expectedType !== "json") return false;
+  if (!requirement.allowNullable && field.nullable) return false;
+  if (requirement.expectedType === "json" || requirement.expectedType === field.valueType) return true;
+  const textual = new Set<GraphSemanticValueType>(["string", "id", "address", "bytes"]);
+  if (textual.has(requirement.expectedType) && textual.has(field.valueType)) return true;
+  if (requirement.expectedType === "timestamp") return field.valueType === "integer" || field.valueType === "string";
+  if (requirement.expectedType === "date") return field.valueType === "string" || field.valueType === "integer";
+  return requirement.expectedType === "decimal" && field.valueType === "integer";
+}
+
+function requirementPathScore(requirement: GraphFieldRequirement, field: GraphInspectedField): number {
+  if (!typeCompatible(requirement, field)) return 0;
+  const leaf = terminal(field.path);
+  const full = normalize(field.path).replace(/[.\s]/g, "");
+  const hints = [...requirement.hints, requirement.id]
+    .map((hint) => normalize(hint).replace(/[.\s]/g, ""))
+    .filter(Boolean);
+  let score = 0;
+  for (const hint of hints) {
+    if (leaf === hint) score = Math.max(score, 100);
+    else if (full === hint) score = Math.max(score, 95);
+    else if (full.endsWith(hint) || hint.endsWith(full)) score = Math.max(score, 80);
+    else if (full.includes(hint) || hint.includes(leaf)) score = Math.max(score, 55);
+  }
+  return score;
+}
+
+function inspectSchema(sdl: string, requirements: readonly GraphFieldRequirement[]): readonly GraphSchemaEntityInspection[] {
+  const document = parse(sdl, {maxTokens: 100_000});
+  const objectFields = new Map<string, FieldDefinitionNode[]>();
+  const leafTypes = new Set(["ID", "String", "Boolean", "Int", "Float", "BigInt", "BigDecimal", "Bytes"]);
+  for (const definition of document.definitions) {
+    if (definition.kind === Kind.SCALAR_TYPE_DEFINITION || definition.kind === Kind.ENUM_TYPE_DEFINITION) {
+      leafTypes.add(definition.name.value);
+      continue;
+    }
+    if (definition.kind !== Kind.OBJECT_TYPE_DEFINITION && definition.kind !== Kind.OBJECT_TYPE_EXTENSION) continue;
+    const objectDefinition = definition as ObjectTypeDefinitionNode | ObjectTypeExtensionNode;
+    const existing = objectFields.get(objectDefinition.name.value) ?? [];
+    existing.push(...(objectDefinition.fields ?? []));
+    objectFields.set(objectDefinition.name.value, existing);
+  }
+  const queryFields = objectFields.get("Query") ?? [];
+  const inspections = queryFields.slice(0, 128).map((queryField) => {
+    const entityType = namedType(queryField.type);
+    const fields = [...new Map(collectFields(entityType, objectFields, leafTypes).map((field) => [field.path, field])).values()]
+      .sort((left, right) => left.path.localeCompare(right.path));
+    const suggestedBindings = requirements.map((requirement) => ({
+      requirementId: requirement.id,
+      fieldPaths: fields
+        .map((field) => ({path: field.path, score: requirementPathScore(requirement, field)}))
+        .filter((item) => item.score > 0)
+        .sort((left, right) => right.score - left.score || left.path.localeCompare(right.path))
+        .slice(0, 8)
+        .map((item) => item.path),
+    }));
+    return {
+      queryEntity: queryField.name.value,
+      entityType,
+      fields,
+      suggestedBindings,
+      matchedRequirements: requirements
+        .filter((requirement) => requirement.required && suggestedBindings.find((item) => item.requirementId === requirement.id)!.fieldPaths.length > 0)
+        .map((requirement) => requirement.id),
+    } satisfies GraphSchemaEntityInspection;
+  });
+  return inspections.sort((left, right) =>
+    right.matchedRequirements.length - left.matchedRequirements.length
+    || right.fields.length - left.fields.length
+    || left.queryEntity.localeCompare(right.queryEntity));
+}
+
+function networkEvidence(
+  need: GraphSourceDiscoveryNeed,
+  candidate: RawCandidate,
+): GraphDiscoveredSourceCandidate["networkEvidence"] {
+  if (candidate.discoveryMethod === "contract") {
+    return normalize(candidate.reportedNetwork ?? "") === normalize(need.contract?.chain ?? "") ? "contract_filter" : "conflict";
+  }
+  const displayName = normalize(candidate.displayName);
+  const targetAliases = new Set([normalize(need.networkLabel), ...(knownNetworkAliases[need.dataNetwork] ?? []).map(normalize)]);
+  const targetNetworkMentioned = [...targetAliases].some((alias) => alias.length > 0 && displayName.includes(alias));
+  const otherNetworkMentioned = Object.entries(knownNetworkAliases)
+    .some(([dataNetwork, aliases]) => dataNetwork !== need.dataNetwork && aliases.some((alias) => displayName.includes(normalize(alias))));
+  if (otherNetworkMentioned) return "conflict";
+  return targetNetworkMentioned ? "display_name" : "unknown";
+}
+
+function baseRank(need: GraphSourceDiscoveryNeed, candidate: RawCandidate, totalQueryCount30d: number | null): number {
+  const evidence = networkEvidence(need, candidate);
+  const normalizedName = normalize(candidate.displayName);
+  const keywordMatch = need.keywords.some((value) => normalizedName.includes(normalize(value)));
+  const activityScore = totalQueryCount30d === null ? 0 : Math.min(20, Math.floor(Math.log10(totalQueryCount30d + 1) * 5));
+  return (evidence === "contract_filter" ? 30 : evidence === "display_name" ? 25 : evidence === "conflict" ? -100 : 0)
+    + (keywordMatch ? 20 : 0)
+    + activityScore;
+}
+
+function candidateRef(needId: string, manifestIpfsCid: string): string {
+  const digest = createHash("sha256").update(`${needId}\u0000${manifestIpfsCid}`).digest("hex").slice(0, 20);
+  return `graph:${needId}:${digest}`;
+}
+
+export class GraphSourceDiscoveryService implements GraphSourceDiscoveryPort {
+  constructor(
+    private readonly graph: GraphPlanningMcpPort,
+    private readonly limits: {
+      maxSearchCallsPerNeed: number;
+      maxSearchResultsPerCall: number;
+      maxSchemaInspectionsPerNeed: number;
+      maxSchemaBytes: number;
+    } = {
+      maxSearchCallsPerNeed: 3,
+      maxSearchResultsPerCall: 10,
+      maxSchemaInspectionsPerNeed: 10,
+      maxSchemaBytes: 5_242_880,
+    },
+  ) {}
+
+  async discover(input: GraphSourceDiscoveryRequest, signal?: AbortSignal): Promise<GraphSourceDiscoveryResult> {
+    const request = requestSchema.parse(input);
+    if (new Set(request.needs.map((need) => need.id)).size !== request.needs.length) {
+      fail("GRAPH_DISCOVERY_NEED_DUPLICATE", "Graph source discovery need IDs must be unique");
+    }
+    for (const need of request.needs) {
+      if (new Set(need.fields.map((field) => field.id)).size !== need.fields.length) {
+        fail("GRAPH_DISCOVERY_FIELD_DUPLICATE", `Graph source discovery fields must be unique for ${need.id}`);
+      }
+    }
+    let searchCalls = 0;
+    const rawByNeed = new Map<string, RawCandidate[]>();
+    const keywordCache = new Map<string, Awaited<ReturnType<GraphPlanningMcpPort["searchSubgraphsByKeyword"]>>>();
+
+    for (const need of request.needs) {
+      let needSearchCalls = 0;
+      const raw: RawCandidate[] = [];
+      if (need.contract) {
+        if (needSearchCalls >= this.limits.maxSearchCallsPerNeed) {
+          fail("GRAPH_DISCOVERY_SEARCH_LIMIT", `Graph source discovery search-call limit exceeded for ${need.id}`);
+        }
+        needSearchCalls += 1;
+        searchCalls += 1;
+        const deployments = await this.graph.getTopDeploymentsForContract({
+          contractAddress: need.contract.address,
+          chain: need.contract.chain,
+        }, signal);
+        raw.push(...deployments.slice(0, this.limits.maxSearchResultsPerCall).map((deployment) => ({
+          sourceNeedId: need.id,
+          discoveryMethod: "contract" as const,
+          logicalSubgraphId: null,
+          manifestIpfsCid: deployment.manifestIpfsCid,
+          displayName: `Contract ${need.contract!.address}`,
+          reportedNetwork: deployment.network,
+        })));
+      } else {
+        for (const searchKeyword of need.keywords) {
+          const cacheKey = normalize(searchKeyword);
+          let result = keywordCache.get(cacheKey);
+          if (!result) {
+            if (needSearchCalls >= this.limits.maxSearchCallsPerNeed) break;
+            needSearchCalls += 1;
+            searchCalls += 1;
+            result = await this.graph.searchSubgraphsByKeyword(searchKeyword, signal);
+            keywordCache.set(cacheKey, result);
+          }
+          raw.push(...result.subgraphs.slice(0, this.limits.maxSearchResultsPerCall).map((subgraph) => ({
+            sourceNeedId: need.id,
+            discoveryMethod: "keyword" as const,
+            logicalSubgraphId: subgraph.subgraphId,
+            manifestIpfsCid: subgraph.manifestIpfsCid,
+            displayName: subgraph.displayName,
+            reportedNetwork: null,
+          })));
+        }
+      }
+      const deduplicated = [...new Map(raw.map((candidate) => [candidate.manifestIpfsCid, candidate])).values()];
+      rawByNeed.set(need.id, deduplicated);
+    }
+
+    // The official Subgraph MCP flow requires 30-day activity evidence for
+    // every potentially relevant candidate before selection. The MCP activity
+    // tool accepts at most ten deployment hashes, so preserve that rule while
+    // batching the complete bounded candidate set instead of silently dropping
+    // candidates after the first ten.
+    const uniqueManifestCids = [...new Set([...rawByNeed.values()].flat().map((candidate) => candidate.manifestIpfsCid))];
+    const activity: GraphDeploymentActivity[] = [];
+    for (let offset = 0; offset < uniqueManifestCids.length; offset += 10) {
+      activity.push(...await this.graph.getDeploymentActivity(uniqueManifestCids.slice(offset, offset + 10), signal));
+    }
+    const activityByCid = new Map(activity.map((item) => [item.manifestIpfsCid, item]));
+
+    const schemaByCid = new Map<string, {sdl: string; error: string | null}>();
+    const inspectionByNeedAndCid = new Map<string, CandidateSchemaInspection>();
+    const inspectionKey = (needId: string, manifestIpfsCid: string) => `${needId}\u0000${manifestIpfsCid}`;
+    const loadSchema = async (candidate: RawCandidate): Promise<{sdl: string; error: string | null}> => {
+      const cached = schemaByCid.get(candidate.manifestIpfsCid);
+      if (cached) return cached;
+      let loaded: {sdl: string; error: string | null};
+      try {
+        const sdl = await this.graph.getSchema({type: "ipfs_hash", id: candidate.manifestIpfsCid}, signal);
+        loaded = Buffer.byteLength(sdl, "utf8") > this.limits.maxSchemaBytes
+          ? {sdl: "", error: "Schema exceeded the bounded inspection size"}
+          : {sdl, error: null};
+      } catch {
+        loaded = {sdl: "", error: "Schema inspection failed"};
+      }
+      schemaByCid.set(candidate.manifestIpfsCid, loaded);
+      return loaded;
+    };
+    const inspectCandidate = async (
+      need: GraphSourceDiscoveryNeed,
+      candidate: RawCandidate,
+    ): Promise<CandidateSchemaInspection> => {
+      const key = inspectionKey(need.id, candidate.manifestIpfsCid);
+      const cached = inspectionByNeedAndCid.get(key);
+      if (cached) return cached;
+      const schema = await loadSchema(candidate);
+      let inspection: CandidateSchemaInspection;
+      if (schema.error) {
+        inspection = {schemaHash: null, schemaBytes: null, entities: [], schemaInspected: false, error: schema.error};
+      } else {
+        const schemaBytes = Buffer.byteLength(schema.sdl, "utf8");
+        const schemaHash = `sha256:${createHash("sha256").update(schema.sdl).digest("hex")}`;
+        try {
+          inspection = {
+            schemaHash,
+            schemaBytes,
+            entities: inspectSchema(schema.sdl, need.fields).slice(0, 8),
+            schemaInspected: true,
+            error: null,
+          };
+        } catch {
+          inspection = {schemaHash, schemaBytes, entities: [], schemaInspected: false, error: "Schema SDL could not be parsed safely."};
+        }
+      }
+      inspectionByNeedAndCid.set(key, inspection);
+      return inspection;
+    };
+
+    // Treat every source need as its own MCP discovery problem. Candidates are
+    // ranked after the mandatory activity check. Inspect every candidate in
+    // the per-need budget because no generic pre-model heuristic can prove
+    // semantic field fit for arbitrary schemas.
+    for (const need of request.needs) {
+      const ordered = (rawByNeed.get(need.id) ?? []).slice().sort((left, right) =>
+        baseRank(need, right, activityByCid.get(right.manifestIpfsCid)?.totalQueryCount30d ?? null)
+        - baseRank(need, left, activityByCid.get(left.manifestIpfsCid)?.totalQueryCount30d ?? null));
+      let inspectedForNeed = 0;
+      for (const candidate of ordered) {
+        if (inspectedForNeed >= this.limits.maxSchemaInspectionsPerNeed) break;
+        if (networkEvidence(need, candidate) === "conflict") continue;
+        const activityEvidence = activityByCid.get(candidate.manifestIpfsCid);
+        if (!activityEvidence || activityEvidence.totalQueryCount30d === 0) continue;
+        inspectedForNeed += 1;
+        await inspectCandidate(need, candidate);
+      }
+    }
+
+    const candidates: GraphDiscoveredSourceCandidate[] = [];
+    for (const need of request.needs) {
+      for (const raw of rawByNeed.get(need.id) ?? []) {
+        const activityEvidence = activityByCid.get(raw.manifestIpfsCid);
+        const inspection = inspectionByNeedAndCid.get(inspectionKey(need.id, raw.manifestIpfsCid));
+        const limitations = [
+          "Historical coverage and current indexing freshness require a separately authorized bounded validation query.",
+          "Gateway Deployment ID and a workspace-owned immutable source snapshot remain unresolved; the manifest IPFS CID is not a Deployment ID.",
+          "Discovery metadata does not establish the source-query access price.",
+          "Semantic field meaning and units remain subject to model proposal and deterministic source admission.",
+        ];
+        const entities = inspection?.entities ?? [];
+        const schemaHash = inspection?.schemaHash ?? null;
+        const schemaBytes = inspection?.schemaBytes ?? null;
+        const schemaInspected = inspection?.schemaInspected ?? false;
+        if (!inspection) {
+          const skipReason = networkEvidence(need, raw) === "conflict"
+            ? "Schema was not inspected because returned network evidence conflicts with this source need."
+            : !activityEvidence || activityEvidence.totalQueryCount30d === 0
+              ? "Schema was not inspected because mandatory 30-day activity evidence was absent or zero."
+              : "Schema was not inspected because this source need's bounded inspection budget was exhausted.";
+          limitations.unshift(skipReason);
+        } else if (inspection.error) {
+          limitations.unshift(inspection.error);
+        }
+        const evidence = networkEvidence(need, raw);
+        if (evidence === "unknown") limitations.unshift("Data network is not evidenced by the returned display name.");
+        if (evidence === "conflict") limitations.unshift("Returned network evidence conflicts with the requested data network.");
+        if (!activityEvidence) limitations.unshift("Required 30-day query activity evidence is missing.");
+        if (activityEvidence?.totalQueryCount30d === 0) limitations.unshift("The deployment has zero observed queries during the last 30 days.");
+
+        const status = evidence === "conflict"
+          ? "incompatible"
+          : (!schemaInspected || entities.length === 0 || evidence === "unknown" || !activityEvidence || activityEvidence.totalQueryCount30d === 0)
+            ? "needs_verification"
+            : "suitable";
+        const bestMatchedRequirements = entities[0]?.matchedRequirements.length ?? 0;
+        const score = baseRank(need, raw, activityEvidence?.totalQueryCount30d ?? null)
+          + bestMatchedRequirements * 15;
+        candidates.push({
+          candidateRef: candidateRef(need.id, raw.manifestIpfsCid),
+          sourceNeedId: need.id,
+          discoveryMethod: raw.discoveryMethod,
+          logicalSubgraphId: raw.logicalSubgraphId,
+          manifestIpfsCid: raw.manifestIpfsCid,
+          displayName: raw.displayName,
+          reportedNetwork: raw.reportedNetwork,
+          networkEvidence: evidence,
+          totalQueryCount30d: activityEvidence?.totalQueryCount30d ?? null,
+          queryActivityEvidence: activityEvidence ? "observed" : "missing",
+          schemaHash,
+          schemaBytes,
+          entities,
+          status,
+          score,
+          limitations,
+        });
+      }
+    }
+
+    candidates.sort((left, right) => {
+      const statusRank = {suitable: 2, needs_verification: 1, incompatible: 0};
+      return statusRank[right.status] - statusRank[left.status]
+        || right.score - left.score
+        || (right.totalQueryCount30d ?? -1) - (left.totalQueryCount30d ?? -1)
+        || left.candidateRef.localeCompare(right.candidateRef);
+    });
+    return {
+      schemaVersion: 1,
+      provider: "the_graph",
+      gatewayEnvironment: "mainnet",
+      searchedNeeds: request.needs.length,
+      searchCalls,
+      inspectedSchemas: schemaByCid.size,
+      candidates,
+      limits: {
+        maxSearchCallsPerNeed: this.limits.maxSearchCallsPerNeed,
+        maxSearchResultsPerCall: this.limits.maxSearchResultsPerCall,
+        maxSchemaInspectionsPerNeed: this.limits.maxSchemaInspectionsPerNeed,
+      },
+    };
+  }
+}

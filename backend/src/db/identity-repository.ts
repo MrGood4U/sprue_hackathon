@@ -28,7 +28,7 @@ export function identityRepository(
     },
     async findOwnedWorkspace(identity, workspaceId) {
       const { rows } = await client.query(
-        `SELECT u.status AS user_status,w.status AS workspace_status
+        `SELECT u.id AS user_id,u.status AS user_status,w.status AS workspace_status
         FROM auth_identities ai JOIN users u ON u.id=ai.user_id
         JOIN workspace_members m ON m.user_id=u.id AND m.role='owner' AND m.status='active'
         JOIN workspaces w ON w.id=m.workspace_id AND w.owner_user_id=u.id
@@ -36,7 +36,8 @@ export function identityRepository(
         [identity.provider, identity.subject, workspaceId],
       );
       return rows[0]
-        ? {
+          ? {
+            userId: String(rows[0].user_id),
             userStatus: String(rows[0].user_status),
             workspaceStatus: String(rows[0].workspace_status),
           }

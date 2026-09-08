@@ -1,15 +1,17 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ArrowClockwise,
   ArrowUpRight,
+  CheckCircle,
+  CircleNotch,
   Copy,
   CreditCard,
   CurrencyDollar,
-  DotsThree,
   Key,
   LockKey,
   Plus,
   ShieldCheck,
-  SlidersHorizontal,
+  Trash,
   Wallet,
   WarningCircle,
 } from "@phosphor-icons/react";
@@ -18,28 +20,119 @@ import { Button, IconButton } from "../components/ui/Button.jsx";
 import { Field } from "../components/ui/Field.jsx";
 import { Modal } from "../components/ui/Modal.jsx";
 import { Status } from "../components/ui/Status.jsx";
-import { useI18n } from "../i18n/I18nProvider.jsx";
-import { useDemoRuntime } from "../features/runtime/DemoRuntimeProvider.jsx";
+import { useAuth } from "../features/auth/AuthProvider.jsx";
 import { copyText } from "../features/wallet/copyText.js";
 import { GRAPH_ACCESS_MODE, showsGraphCredentials } from "../features/wallet/graphAccessMode.js";
+import { WalletTransferModal } from "../features/wallet/WalletTransferModal.jsx";
+import { useI18n } from "../i18n/I18nProvider.jsx";
+import {
+  createGraphCredential,
+  createHederaAccount,
+  deleteGraphCredential,
+  getWalletAccess,
+  selectGraphCredential,
+  validateGraphCredential,
+} from "../services/api/wallet.js";
+
+function readinessTone(status) {
+  if (status === "ready") return "green";
+  if (status === "pending") return "amber";
+  return "neutral";
+}
+
+function readinessLabel(t, status) {
+  return t(`wallet.readiness.${status}`);
+}
+
+function blockerLabel(t, readiness) {
+  const code = readiness?.blockers?.[0]?.code;
+  if (!code) return t("wallet.readiness.noBlocker");
+  const translated = t(`wallet.blocker.${code}`);
+  return translated === `wallet.blocker.${code}` ? code : translated;
+}
 
 export function WalletAccessPage({ navigate }) {
   const { t } = useI18n();
-  const { state } = useDemoRuntime();
-  const { wallet } = state;
+  const { identity, getAccessToken } = useAuth();
+  const workspaceId = identity?.defaultWorkspaceId;
+  const [walletAccess, setWalletAccess] = useState(null);
+  const [loadState, setLoadState] = useState("loading");
+  const [reloadToken, setReloadToken] = useState(0);
   const [modal, setModal] = useState(null);
-  const [mode, setMode] = useState(wallet.access.defaultMode);
+  const [mode, setMode] = useState(GRAPH_ACCESS_MODE.X402);
   const [copyStatus, setCopyStatus] = useState("idle");
+  const [credentialForm, setCredentialForm] = useState({ label: "", apiKey: "" });
+  const [credentialState, setCredentialState] = useState("idle");
+  const [credentialAction, setCredentialAction] = useState(null);
+  const [hederaCreateState, setHederaCreateState] = useState("idle");
   const copyFeedbackTimer = useRef(null);
   const credentialsVisible = showsGraphCredentials(mode);
+  const visibleCredentials = walletAccess?.credentials?.filter(
+    (credential) => credential.status !== "revoked",
+  ) ?? [];
 
-  useEffect(() => () => window.clearTimeout(copyFeedbackTimer.current), []);
+  const loadWalletAccess = useCallback(async (signal) => {
+    if (!workspaceId) return;
+    setLoadState("loading");
+    try {
+      const accessToken = await getAccessToken();
+      if (!accessToken) throw new Error("AUTH_REQUIRED");
+      const data = await getWalletAccess({ workspaceId, accessToken, signal });
+      setWalletAccess(data);
+      setLoadState("ready");
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+      setLoadState("error");
+    }
+  }, [getAccessToken, workspaceId]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void loadWalletAccess(controller.signal);
+    return () => controller.abort();
+  }, [loadWalletAccess, reloadToken]);
+
+  useEffect(() => () => {
+    window.clearTimeout(copyFeedbackTimer.current);
+  }, []);
+
+  const wallet = walletAccess?.wallets?.[0] ?? null;
+  const address = wallet?.addresses?.find(
+    (item) => item.addressKind === "evm" && item.network === "Base Sepolia" && item.status === "active",
+  ) ?? null;
+  const hederaAddress = wallet?.addresses?.find(
+    (item) => item.addressKind === "hedera_account_id" && item.status === "active",
+  ) ?? null;
+  const graphBalance = walletAccess?.balances?.find(
+    (item) => item.walletAddressId === address?.id && item.symbol === "USDC",
+  ) ?? null;
+  const hederaBalance = walletAccess?.balances?.find(
+    (item) => item.walletAddressId === hederaAddress?.id && item.symbol === "HBAR",
+  ) ?? null;
+
+  const createHedera = async () => {
+    if (!wallet?.id || !workspaceId || hederaCreateState === "loading") return;
+    setHederaCreateState("loading");
+    try {
+      const accessToken = await getAccessToken();
+      if (!accessToken) throw new Error("AUTH_REQUIRED");
+      const data = await createHederaAccount(
+        {walletId: wallet.id},
+        {workspaceId, accessToken},
+      );
+      setWalletAccess(data);
+      setHederaCreateState("idle");
+    } catch {
+      setHederaCreateState("error");
+    }
+  };
 
   const copyWalletAddress = async () => {
+    if (!address?.address) return;
     window.clearTimeout(copyFeedbackTimer.current);
     setCopyStatus("copying");
     try {
-      await copyText(wallet.address);
+      await copyText(address.address);
       setCopyStatus("copied");
     } catch {
       setCopyStatus("failed");
@@ -53,13 +146,137 @@ export function WalletAccessPage({ navigate }) {
       ? t("wallet.addressCopyFailed")
       : "";
 
+  const openCredentialModal = () => {
+    setCredentialForm({ label: "", apiKey: "" });
+    setCredentialState("idle");
+    setModal("credential");
+  };
+
+  const closeCredentialModal = () => {
+    setCredentialForm({ label: "", apiKey: "" });
+    setCredentialState("idle");
+    setModal(null);
+  };
+
+  const saveCredential = async (event) => {
+    event.preventDefault();
+    const label = credentialForm.label.trim();
+    const apiKey = credentialForm.apiKey.trim();
+    if (!label || !apiKey || label.length > 80 || apiKey.length > 4096) {
+      setCredentialState("invalid");
+      return;
+    }
+    setCredentialState("saving");
+    try {
+      const accessToken = await getAccessToken();
+      if (!accessToken || !workspaceId) throw new Error("AUTH_REQUIRED");
+      await createGraphCredential({ label, apiKey }, { workspaceId, accessToken });
+      setCredentialForm({ label: "", apiKey: "" });
+      setModal(null);
+      setReloadToken((value) => value + 1);
+    } catch {
+      setCredentialState("error");
+    }
+  };
+
+  const runCredentialAction = async (type, credential) => {
+    if (credentialAction?.state === "loading" || !workspaceId) return false;
+    setCredentialAction({type, credentialId: credential.id, state: "loading"});
+    try {
+      const accessToken = await getAccessToken();
+      if (!accessToken) throw new Error("AUTH_REQUIRED");
+      const input = {
+        credentialId: credential.id,
+        lockVersion: credential.lockVersion,
+      };
+      const operation = type === "validate"
+        ? validateGraphCredential
+        : type === "select"
+          ? selectGraphCredential
+          : deleteGraphCredential;
+      const updated = await operation(input, {workspaceId, accessToken});
+      setWalletAccess((current) => current ? {
+        ...current,
+        credentials: type === "delete"
+          ? current.credentials.filter((item) => item.id !== credential.id)
+          : current.credentials.map((item) => item.id === updated.id
+            ? updated
+            : type === "select"
+              ? {...item, isSelected: false}
+              : item),
+      } : current);
+      setCredentialAction({
+        type,
+        credentialId: credential.id,
+        state: "success",
+        resultStatus: updated.status,
+      });
+      setReloadToken((value) => value + 1);
+      return true;
+    } catch (error) {
+      setCredentialAction({
+        type,
+        credentialId: credential.id,
+        state: "error",
+        errorCode: error?.message,
+      });
+      return false;
+    }
+  };
+
+  const confirmCredentialDelete = async () => {
+    const credential = modal?.type === "deleteCredential" ? modal.credential : null;
+    if (!credential) return;
+    if (await runCredentialAction("delete", credential)) setModal(null);
+  };
+
+  const credentialFeedback = (credential) => {
+    if (credentialAction?.credentialId !== credential.id || credentialAction.state === "loading") {
+      return "";
+    }
+    if (credentialAction.state === "error") {
+      return credentialAction.errorCode === "PRECONDITION_FAILED"
+        ? t("wallet.credentialChangedError")
+        : t(`wallet.credential${credentialAction.type === "validate" ? "Validation" : credentialAction.type === "select" ? "Selection" : "Delete"}Error`);
+    }
+    if (credentialAction.type === "validate") {
+      return credentialAction.resultStatus === "active"
+        ? t("wallet.credentialValidated")
+        : t("wallet.credentialRejected");
+    }
+    return credentialAction.type === "select"
+      ? t("wallet.credentialSelected")
+      : "";
+  };
+
+  if (loadState === "loading" && !walletAccess) {
+    return (
+      <div className="page">
+        <AppHeader title={t("wallet.title")} subtitle={t("wallet.subtitle")} navigate={navigate} />
+        <section className="panel wallet-page-state" aria-live="polite">
+          <CircleNotch className="is-spinning" size={22} />
+          <p>{t("wallet.loading")}</p>
+        </section>
+      </div>
+    );
+  }
+
+  if (loadState === "error" && !walletAccess) {
+    return (
+      <div className="page">
+        <AppHeader title={t("wallet.title")} subtitle={t("wallet.subtitle")} navigate={navigate} />
+        <section className="panel wallet-page-state" role="alert">
+          <WarningCircle size={22} />
+          <div><h2>{t("wallet.loadErrorTitle")}</h2><p>{t("wallet.loadErrorDetail")}</p></div>
+          <Button icon={ArrowClockwise} onClick={() => setReloadToken((value) => value + 1)}>{t("wallet.retry")}</Button>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="page">
-      <AppHeader
-        title={t("wallet.title")}
-        subtitle={t("wallet.subtitle")}
-        navigate={navigate}
-      />
+      <AppHeader title={t("wallet.title")} subtitle={t("wallet.subtitle")} navigate={navigate} />
 
       <div className="wallet-grid">
         <section className="panel wallet-hero">
@@ -67,38 +284,91 @@ export function WalletAccessPage({ navigate }) {
           <div className="wallet-address-row">
             <div>
               <span>{t("wallet.creatorWallet")}</span>
-              <strong>{wallet.address}</strong>
-              <small>{t("wallet.addressNetwork")}</small>
+              <strong>{address?.address ?? t("wallet.addressUnavailable")}</strong>
+              <small>{address ? t("wallet.addressNetwork", { network: address.network }) : t("wallet.walletUnavailable")}</small>
             </div>
-            <div className="wallet-copy-action">
-              <IconButton
-                label={copyStatus === "copied" ? t("wallet.addressCopied") : t("wallet.copyAddress")}
-                onClick={copyWalletAddress}
-                disabled={copyStatus === "copying"}
-              >
-                <Copy size={18} />
-              </IconButton>
-              <span className="wallet-copy-feedback" role="status" aria-live="polite">{copyFeedback}</span>
-            </div>
+            {address && (
+              <div className="wallet-copy-action">
+                <IconButton
+                  label={copyStatus === "copied" ? t("wallet.addressCopied") : t("wallet.copyAddress")}
+                  onClick={copyWalletAddress}
+                  disabled={copyStatus === "copying"}
+                >
+                  <Copy size={18} />
+                </IconButton>
+                <span className="wallet-copy-feedback" role="status" aria-live="polite">{copyFeedback}</span>
+              </div>
+            )}
           </div>
           <div className="wallet-balance-grid">
-            {wallet.balances.map((balance) => (
-              <article className="wallet-balance-card" key={balance.id}>
-                <div className="wallet-balance-heading">
-                  <span>{t(balance.kind === "graph_spend" ? "wallet.graphBalance" : "wallet.revenueBalance")}</span>
-                  <Status tone="neutral">{t("wallet.demoBalance")}</Status>
+            <article className="wallet-balance-card">
+              <div className="wallet-balance-heading">
+                <span>{t("wallet.graphBalance")}</span>
+                <Status tone={graphBalance ? "green" : "neutral"}>{graphBalance ? t("wallet.liveBalance") : t("wallet.balanceUnavailable")}</Status>
+              </div>
+              <strong>{graphBalance?.displayAmount ?? "\u2014"} USDC</strong>
+              <small>{address?.network ?? "Base Sepolia"} {"\u00b7"} {address?.address ?? t("wallet.addressUnavailable")}</small>
+              <p>{t("wallet.graphBalanceDetail")}</p>
+              <div className="wallet-balance-actions">
+                <Button variant="primary" icon={CreditCard} onClick={() => setModal("fund")} disabled={!address}>{t("wallet.fund")}</Button>
+                <Button
+                  icon={ArrowUpRight}
+                  onClick={() => setModal({ type: "transfer", balance: graphBalance })}
+                  disabled={!address || !graphBalance}
+                >
+                  {t("wallet.transferOut")}
+                </Button>
+              </div>
+            </article>
+            <article className="wallet-balance-card">
+              <div className="wallet-balance-heading">
+                <span>{t("wallet.revenueBalance")}</span>
+                <Status tone={hederaBalance ? "green" : "neutral"}>
+                  {hederaBalance ? t("wallet.hederaLiveBalance") : t("wallet.notConnected")}
+                </Status>
+              </div>
+              <strong>{hederaBalance?.displayAmount ?? "\u2014"} HBAR</strong>
+              <small>
+                {hederaAddress
+                  ? `${hederaAddress.network} \u00b7 ${hederaAddress.address}`
+                  : t("wallet.hederaAccountUnavailable")}
+              </small>
+              <p>
+                {hederaAddress
+                  ? t("wallet.hederaAccountCreatedDetail")
+                  : t("wallet.revenueBalancePendingDetail")}
+              </p>
+              <div className="wallet-balance-actions">
+                {!hederaAddress ? (
+                  <Button
+                    variant="primary"
+                    icon={hederaCreateState === "loading" ? CircleNotch : undefined}
+                    className={hederaCreateState === "loading" ? "wallet-create-hedera is-loading" : "wallet-create-hedera"}
+                    disabled={!wallet || hederaCreateState === "loading"}
+                    aria-busy={hederaCreateState === "loading"}
+                    onClick={createHedera}
+                  >
+                    {hederaCreateState === "loading"
+                      ? t("wallet.creatingHederaAccount")
+                      : t("wallet.createHederaAccount")}
+                  </Button>
+                ) : (
+                  <Button
+                    icon={ArrowUpRight}
+                    onClick={() => setModal({ type: "transfer", balance: hederaBalance })}
+                    disabled={!address || !hederaAddress.canSpend || !hederaBalance}
+                  >
+                    {t("wallet.transferOut")}
+                  </Button>
+                )}
+              </div>
+              {hederaCreateState === "error" && (
+                <div className="wallet-card-error" role="alert">
+                  <WarningCircle size={17} />
+                  <span>{t("wallet.hederaAccountCreateError")}</span>
                 </div>
-                <strong>{balance.amount} {balance.asset}</strong>
-                <small>{balance.network} · {balance.accountRef}</small>
-                <p>{t(balance.kind === "graph_spend" ? "wallet.graphBalanceDetail" : "wallet.revenueBalanceDetail")}</p>
-                <div className="wallet-balance-actions">
-                  {balance.kind === "graph_spend" && (
-                    <Button variant="primary" icon={CreditCard} onClick={() => setModal("fund")}>{t("wallet.fund")}</Button>
-                  )}
-                  <Button icon={ArrowUpRight} onClick={() => setModal({ type: "transfer", balance })}>{t("wallet.transferOut")}</Button>
-                </div>
-              </article>
-            ))}
+              )}
+            </article>
           </div>
           <div className="security-line">
             <LockKey size={17} />
@@ -107,21 +377,24 @@ export function WalletAccessPage({ navigate }) {
         </section>
 
         <section className="panel policy-card">
-          <div className="panel-title"><ShieldCheck size={19} /><h3>{t("wallet.spendAuthority")}</h3><Status>{wallet.spendAuthority.status}</Status></div>
-          <dl className="detail-list">
-            <div><dt>{t("wallet.perRequest")}</dt><dd>{wallet.spendAuthority.perRequest}</dd></div>
-            <div><dt>{t("wallet.dailyCeiling")}</dt><dd>{wallet.spendAuthority.dailyCeiling}</dd></div>
-            <div><dt>{t("wallet.allowedPayee")}</dt><dd>{wallet.spendAuthority.allowedPayee}</dd></div>
-            <div><dt>{t("wallet.expires")}</dt><dd>{wallet.spendAuthority.expires}</dd></div>
-          </dl>
-          <Button icon={SlidersHorizontal} onClick={() => setModal("policy")}>{t("wallet.editPolicy")}</Button>
+          <div className="panel-title"><ShieldCheck size={19} /><h3>{t("wallet.integrationReadiness")}</h3></div>
+          <div className="wallet-readiness-list">
+            {walletAccess?.readiness?.map((item) => (
+              <article key={item.kind}>
+                <div><strong>{t(`wallet.readinessKind.${item.kind}`)}</strong><Status tone={readinessTone(item.status)}>{readinessLabel(t, item.status)}</Status></div>
+                <p>{blockerLabel(t, item)}</p>
+              </article>
+            ))}
+          </div>
         </section>
       </div>
 
       <section className="panel access-panel">
         <div className="panel-toolbar">
           <div><h2>{t("wallet.graphAccess")}</h2><p>{t("wallet.graphAccessDetail")}</p></div>
-          <Status>{t("common.configured")}</Status>
+          <Status tone={visibleCredentials.length ? "green" : "neutral"}>
+            {visibleCredentials.length ? t("common.configured") : t("wallet.notConfigured")}
+          </Status>
         </div>
         <div className="segmented" role="radiogroup" aria-label={t("wallet.accessMode")}>
           <button
@@ -145,7 +418,7 @@ export function WalletAccessPage({ navigate }) {
         </div>
         <div className="access-detail">
           {mode === GRAPH_ACCESS_MODE.X402 ? (
-            <><Status tone="amber">{t("wallet.costProtected")}</Status><p>{t("wallet.costProtectedDetail")}</p></>
+            <><Status tone="amber">{t("wallet.x402Pending")}</Status><p>{t("wallet.x402PendingDetail")}</p></>
           ) : (
             <><Status tone="violet">{t("wallet.credentialVault")}</Status><p>{t("wallet.credentialVaultDetail")}</p></>
           )}
@@ -156,14 +429,56 @@ export function WalletAccessPage({ navigate }) {
         <section className="panel">
           <div className="panel-toolbar">
             <div><h2>{t("wallet.credentials")}</h2><p>{t("wallet.credentialsDetail")}</p></div>
-            <Button icon={Plus} onClick={() => setModal("credential")}>{t("wallet.addCredential")}</Button>
+            <Button icon={Plus} onClick={openCredentialModal}>{t("wallet.addCredential")}</Button>
           </div>
-          {wallet.credentials.map((credential) => <div className="credential-row" key={credential.name}>
-            <span className="credential-icon"><Key size={19} /></span>
-            <span><strong>{credential.name}</strong><small>{credential.detail}</small></span>
-            <Status tone="violet">{credential.status}</Status>
-            <IconButton label={t("wallet.credentialActions")}><DotsThree size={21} /></IconButton>
-          </div>)}
+          {visibleCredentials.length ? visibleCredentials.map((credential) => (
+            <div className={`credential-row ${credential.isSelected ? "is-selected" : ""}`.trim()} key={credential.id}>
+              <span className="credential-icon"><Key size={19} /></span>
+              <span className="credential-summary"><strong>{credential.label}</strong><small>{credential.publicPrefix ?? "\u2022\u2022\u2022\u2022"} {"\u00b7"} {credential.fingerprint.slice(0, 12)}</small></span>
+              <div className="credential-actions" aria-label={t("wallet.credentialActions")}>
+                <Status tone={credential.status === "active" ? "green" : "amber"}>{t(`wallet.credentialStatus.${credential.status}`)}</Status>
+                <label className="credential-choice">
+                  <input
+                    type="radio"
+                    name="selected-graph-credential"
+                    checked={credential.isSelected}
+                    disabled={credential.status !== "active" || credentialAction?.state === "loading"}
+                    onChange={() => void runCredentialAction("select", credential)}
+                  />
+                  <span>{credential.isSelected ? t("wallet.selectedCredential") : t("wallet.useCredential")}</span>
+                </label>
+                <Button
+                  icon={credentialAction?.state === "loading" && credentialAction.credentialId === credential.id && credentialAction.type === "validate" ? CircleNotch : CheckCircle}
+                  className={credentialAction?.state === "loading" && credentialAction.credentialId === credential.id && credentialAction.type === "validate" ? "is-loading" : ""}
+                  disabled={credentialAction?.state === "loading"}
+                  aria-busy={credentialAction?.state === "loading" && credentialAction.credentialId === credential.id && credentialAction.type === "validate"}
+                  onClick={() => void runCredentialAction("validate", credential)}
+                >
+                  {credentialAction?.state === "loading" && credentialAction.credentialId === credential.id && credentialAction.type === "validate"
+                    ? t("wallet.validatingCredential")
+                    : t("wallet.validateCredential")}
+                </Button>
+                <IconButton
+                  label={t("wallet.deleteCredential")}
+                  disabled={credentialAction?.state === "loading"}
+                  onClick={() => setModal({type: "deleteCredential", credential})}
+                >
+                  <Trash size={18} />
+                </IconButton>
+              </div>
+              {credentialFeedback(credential) && (
+                <p className={`credential-feedback ${credentialAction?.state === "error" || credentialAction?.resultStatus === "invalid" ? "is-error" : "is-success"}`} role={credentialAction?.state === "error" ? "alert" : "status"}>
+                  {credentialFeedback(credential)}
+                </p>
+              )}
+            </div>
+          )) : (
+            <div className="wallet-empty-state"><Key size={20} /><p>{t("wallet.noCredentials")}</p></div>
+          )}
+          <div className="credential-validation-notice">
+            <WarningCircle size={17} />
+            <p>{t("wallet.credentialValidationNotice")}</p>
+          </div>
         </section>
       )}
 
@@ -171,68 +486,78 @@ export function WalletAccessPage({ navigate }) {
         <Modal
           title={t("wallet.addCredentialTitle")}
           eyebrow={t("wallet.encryptedReference")}
-          onClose={() => setModal(null)}
-          footer={<><Button onClick={() => setModal(null)}>{t("common.cancel")}</Button><Button variant="primary" onClick={() => setModal(null)}>{t("wallet.saveReference")}</Button></>}
-        >
-          <Field label={t("wallet.credentialName")}><input defaultValue="graph-production-02" /></Field>
-          <Field label={t("wallet.apiKey")} hint={t("wallet.secretHint")}><input type="password" placeholder={t("wallet.secretPlaceholder")} /></Field>
-        </Modal>
-      )}
-      {modal === "fund" && (
-        <Modal
-          title={t("wallet.fundTitle")}
-          eyebrow={t("wallet.demoFunding")}
-          onClose={() => setModal(null)}
-          footer={<><Button onClick={() => setModal(null)}>{t("common.cancel")}</Button><Button variant="primary" onClick={() => setModal(null)}>{t("wallet.simulateDeposit")}</Button></>}
-        >
-          <div className="big-number">10.00 <span>USDC</span></div>
-          <div className="inline-notice"><WarningCircle size={18} /><span>{t("wallet.noDeposit")}</span></div>
-        </Modal>
-      )}
-      {modal === "policy" && (
-        <Modal
-          title={t("wallet.editPolicyTitle")}
-          eyebrow={t("wallet.boundedDelegation")}
-          onClose={() => setModal(null)}
-          footer={<><Button onClick={() => setModal(null)}>{t("common.cancel")}</Button><Button variant="primary" onClick={() => setModal(null)}>{t("wallet.savePolicy")}</Button></>}
-        >
-          <div className="field-grid">
-            <Field label={t("wallet.perRequest")}><input defaultValue="0.05 USDC" /></Field>
-            <Field label={t("wallet.dailyCeiling")}><input defaultValue="5.00 USDC" /></Field>
-          </div>
-          <Field label={t("wallet.allowedPayee")}><input defaultValue="The Graph x402" /></Field>
-        </Modal>
-      )}
-      {modal?.type === "transfer" && (
-        <Modal
-          title={t("wallet.transferTitle", { asset: modal.balance.asset })}
-          eyebrow={t("wallet.transferEyebrow", { network: modal.balance.network })}
-          onClose={() => setModal(null)}
+          onClose={closeCredentialModal}
           footer={
             <>
-              <Button onClick={() => setModal(null)}>{t("common.cancel")}</Button>
-              <Button variant="primary" disabled>{t("wallet.transferUnavailable")}</Button>
+              <Button onClick={closeCredentialModal} disabled={credentialState === "saving"}>{t("common.cancel")}</Button>
+              <Button type="submit" form="graph-credential-form" variant="primary" disabled={credentialState === "saving"}>
+                {credentialState === "saving" ? t("wallet.savingCredential") : t("wallet.saveReference")}
+              </Button>
             </>
           }
         >
-          <div className="transfer-balance-summary">
-            <span>{t("wallet.transferAvailable")}</span>
-            <strong>{modal.balance.amount} {modal.balance.asset}</strong>
-            <small>{modal.balance.network} · {modal.balance.accountRef}</small>
-          </div>
-          <div className="field-grid">
-            <Field label={t("wallet.transferDestination")}>
-              <input disabled placeholder={t("wallet.transferDestinationPlaceholder")} />
+          <form id="graph-credential-form" className="wallet-credential-form" onSubmit={saveCredential}>
+            <Field htmlFor="graph-credential-label" label={t("wallet.credentialName")}>
+              <input id="graph-credential-label" value={credentialForm.label} onChange={(event) => setCredentialForm((value) => ({ ...value, label: event.target.value }))} autoComplete="off" disabled={credentialState === "saving"} />
             </Field>
-            <Field label={t("wallet.transferAmount")}>
-              <input disabled placeholder={`0.00 ${modal.balance.asset}`} />
+            <Field htmlFor="graph-api-key" label={t("wallet.apiKey")} hint={t("wallet.secretHint")}>
+              <input id="graph-api-key" value={credentialForm.apiKey} onChange={(event) => setCredentialForm((value) => ({ ...value, apiKey: event.target.value }))} type="password" placeholder={t("wallet.secretPlaceholder")} autoComplete="new-password" disabled={credentialState === "saving"} />
             </Field>
-          </div>
-          <div className="inline-notice">
-            <WarningCircle size={18} />
-            <span><strong>{t("wallet.transferUnavailableTitle")}</strong><br />{t("wallet.transferUnavailableDetail")}</span>
-          </div>
+            {(credentialState === "invalid" || credentialState === "error") && (
+              <div className="inline-notice" role="alert"><WarningCircle size={18} /><span>{t(credentialState === "invalid" ? "wallet.credentialInvalid" : "wallet.credentialSaveError")}</span></div>
+            )}
+          </form>
         </Modal>
+      )}
+      {modal?.type === "deleteCredential" && (
+        <Modal
+          title={t("wallet.deleteCredentialTitle")}
+          eyebrow={t("wallet.credentialActions")}
+          onClose={() => credentialAction?.state !== "loading" && setModal(null)}
+          footer={
+            <>
+              <Button onClick={() => setModal(null)} disabled={credentialAction?.state === "loading"}>{t("common.cancel")}</Button>
+              <Button
+                variant="danger"
+                icon={credentialAction?.state === "loading" ? CircleNotch : Trash}
+                className={credentialAction?.state === "loading" ? "is-loading" : ""}
+                disabled={credentialAction?.state === "loading"}
+                aria-busy={credentialAction?.state === "loading"}
+                onClick={() => void confirmCredentialDelete()}
+              >
+                {credentialAction?.state === "loading" ? t("wallet.deletingCredential") : t("wallet.deleteCredential")}
+              </Button>
+            </>
+          }
+        >
+          <p>{t("wallet.deleteCredentialDetail", {name: modal.credential.label})}</p>
+          {credentialAction?.state === "error" && credentialAction.type === "delete" && (
+            <div className="inline-notice" role="alert"><WarningCircle size={18} /><span>{t("wallet.credentialDeleteError")}</span></div>
+          )}
+        </Modal>
+      )}
+      {modal === "fund" && address && (
+        <Modal
+          title={t("wallet.fundTitle")}
+          eyebrow={t("wallet.liveFunding")}
+          onClose={() => setModal(null)}
+          footer={<><Button onClick={() => setModal(null)}>{t("common.close")}</Button><Button variant="primary" icon={Copy} onClick={copyWalletAddress}>{t("wallet.copyAddress")}</Button></>}
+        >
+          <div className="transfer-balance-summary">
+            <span>{t("wallet.fundingNetwork")}</span>
+            <strong>{address.network}</strong>
+            <small>{address.address}</small>
+          </div>
+          <div className="inline-notice"><WarningCircle size={18} /><span>{t("wallet.fundingWarning")}</span></div>
+        </Modal>
+      )}
+      {modal?.type === "transfer" && modal.balance && address && (
+        <WalletTransferModal
+          balance={modal.balance}
+          senderAddress={address.address}
+          onClose={() => setModal(null)}
+          onRefresh={() => setReloadToken((value) => value + 1)}
+        />
       )}
     </div>
   );

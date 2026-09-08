@@ -41,10 +41,11 @@ test("complete Compose topology isolates secrets, worker and durable database", 
       },
     ),
   );
-  const { api, worker, postgres, frontend, migrate } = config.services;
+  const { api, worker, postgres, frontend, migrate, seed } = config.services;
   assert.equal(config.name, "sprue-local");
   assert.equal(api.image, worker.image);
   assert.equal(migrate.image, api.image);
+  assert.equal(seed.image, api.image);
   assert.equal(worker.ports, undefined);
   for (const service of [api, postgres, frontend])
     assert.equal(service.ports[0].host_ip, "127.0.0.1");
@@ -61,8 +62,26 @@ test("complete Compose topology isolates secrets, worker and durable database", 
   assert.equal(frontend.environment, undefined);
   assert.deepEqual(migrate.command, ["node", "dist/scripts/migrate.js"]);
   assert.deepEqual(migrate.profiles, ["tools"]);
+  assert.deepEqual(seed.command, ["node", "dist/scripts/seed.js"]);
+  assert.deepEqual(seed.profiles, ["tools"]);
   assert.equal(api.command ?? null, null);
   assert.deepEqual(worker.command, ["node", "dist/src/app/worker.js"]);
+  assert.equal(typeof api.environment.MODEL_CREDENTIAL_KEYRING, "string");
+  assert.equal(worker.environment.MODEL_CREDENTIAL_KEYRING, undefined);
+  assert.equal(migrate.environment.MODEL_CREDENTIAL_KEYRING, undefined);
+  assert.equal(seed.environment.MODEL_CREDENTIAL_KEYRING, undefined);
+  assert.equal(api.environment.HEDERA_NETWORK, "hedera:testnet");
+  assert.equal(worker.environment.HEDERA_NETWORK, "hedera:testnet");
+  assert.equal(api.environment.GRAPH_GATEWAY_ENVIRONMENT, "mainnet");
+  assert.equal(worker.environment.GRAPH_GATEWAY_ENVIRONMENT, "mainnet");
+  assert.equal(
+    api.environment.HEDERA_MIRROR_NODE_URL,
+    "https://testnet.mirrornode.hedera.com",
+  );
+  assert.equal(
+    api.environment.BLOCKY402_FACILITATOR_URL,
+    "https://api.testnet.blocky402.com",
+  );
 });
 
 test("cloud manifests share source builds and separate migration from worker startup", () => {
@@ -72,6 +91,7 @@ test("cloud manifests share source builds and separate migration from worker sta
   assert.deepEqual(api.build, worker.build);
   assert.deepEqual(api.deploy.preDeployCommand, [
     "node dist/scripts/migrate.js",
+    "node dist/scripts/seed.js",
   ]);
   assert.equal(worker.deploy.preDeployCommand, undefined);
   assert.equal(api.deploy.healthcheckPath, "/readyz");

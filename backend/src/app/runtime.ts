@@ -1,4 +1,5 @@
 import pg from "pg";
+import {createHash} from "node:crypto";
 import type { Server } from "node:http";
 import type { AppConfig } from "./config.js";
 import type { Logger } from "../shared/logger.js";
@@ -13,6 +14,21 @@ import { privyIdentityVerifier } from "../modules/auth/privy-verifier.js";
 import { createHttpApp } from "../http/app.js";
 import { standbyWorker } from "../jobs/worker-runtime.js";
 import { DemoRuntime } from "../modules/demo/runtime.js";
+import {ModelCredentialCipher} from "../modules/model-profile/cipher.js";
+import {postgresModelProfileRepository} from "../modules/model-profile/postgres-repository.js";
+import {ModelProfileService} from "../modules/model-profile/service.js";
+import {GraphCredentialCipher} from "../modules/graph-credential/cipher.js";
+import {postgresGraphCredentialRepository} from "../modules/graph-credential/postgres-repository.js";
+import {GraphCredentialService} from "../modules/graph-credential/service.js";
+import {graphCredentialValidator} from "../modules/graph-credential/validator.js";
+import {postgresWalletRepository} from "../modules/wallet/postgres-repository.js";
+import {privyWalletProvider} from "../modules/wallet/privy-provider.js";
+import {hederaAccountProvider} from "../modules/wallet/hedera-provider.js";
+import {WalletService} from "../modules/wallet/service.js";
+import {postgresProductRepository} from "../modules/products/postgres-repository.js";
+import {ProductService} from "../modules/products/service.js";
+import {postgresAgentRepository} from "../modules/agent/postgres-repository.js";
+import {AgentService} from "../modules/agent/service.js";
 import { listen, drain } from "./server.js";
 export async function startRuntime(
   config: AppConfig,
@@ -28,23 +44,87 @@ export async function startRuntime(
   pool.on("error", () => logger.write({ event: "pool_error", role }));
   let stopping = false;
   const worker = role === "worker" ? standbyWorker(logger) : null;
+  const modelProfiles = role === "api" && config.modelCredentialEncryption
+    ? new ModelProfileService(
+        postgresModelProfileRepository(pool),
+        new ModelCredentialCipher(config.modelCredentialEncryption),
+        config.agent.timeoutMs,
+      )
+    : undefined;
+  const graphCredentials = role === "api" && config.modelCredentialEncryption
+    ? new GraphCredentialService(
+        postgresGraphCredentialRepository(pool),
+        new GraphCredentialCipher(config.modelCredentialEncryption),
+        graphCredentialValidator(),
+      )
+    : undefined;
   const demo = role === "api" && config.demoRuntimeEnabled
-    ? new DemoRuntime(config)
+    ? new DemoRuntime(config, undefined, modelProfiles)
     : undefined;
   let listeningServer: Server | undefined;
   try {
     const verifier = config.privyAppId && config.privyAppSecret
       ? privyIdentityVerifier(config.privyAppId, config.privyAppSecret)
       : unavailableIdentity;
-    const auth = new AuthService(
-      postgresAuthRepository(async () => {
+    const authRepository = postgresAuthRepository(async () => {
         const client = await pool.connect();
         return {
           query: (sql, parameters) => client.query(sql, parameters),
           release: () => client.release(),
         };
-      }),
-    );
+      });
+    const wallets = config.privyAppId && config.privyAppSecret
+      ? new WalletService(
+          postgresWalletRepository(pool),
+          privyWalletProvider(config.privyAppId, config.privyAppSecret, undefined, {
+            logger,
+          }),
+          graphCredentials,
+          {
+            provider: hederaAccountProvider(
+              {
+                mirrorNodeUrl: config.hedera.mirrorNodeUrl,
+                faucetUrl: config.hedera.faucetUrl,
+                portalPat: config.hedera.portalPat,
+                faucetAmountHbar: config.hedera.faucetAmountHbar,
+              },
+              {logger},
+            ),
+            commandFingerprintKey: createHash("sha256")
+              .update("sprue-hedera-activation-v1\0")
+              .update(config.hedera.portalPat ?? config.privyAppSecret)
+              .digest(),
+            fingerprintKeyVersion: "hedera-activation-v1",
+          },
+        )
+      : undefined;
+    const products = config.privyAppSecret
+      ? new ProductService(
+          postgresProductRepository(pool),
+          createHash("sha256")
+            .update("sprue-product-command-v1\0")
+            .update(config.privyAppSecret)
+            .digest(),
+          "product-command-v1",
+        )
+      : undefined;
+    const agents = config.privyAppSecret && modelProfiles && graphCredentials
+      ? new AgentService(
+          postgresAgentRepository(pool),
+          modelProfiles,
+          graphCredentials,
+          createHash("sha256")
+            .update("sprue-agent-command-v1\0")
+            .update(config.privyAppSecret)
+            .digest(),
+          "agent-command-v1",
+          undefined,
+          logger,
+          config.agent.debug,
+          config.graph.gatewayEnvironment,
+        )
+      : undefined;
+    const auth = new AuthService(authRepository, wallets, logger);
     const app = createHttpApp(
       {
         config,
@@ -53,6 +133,11 @@ export async function startRuntime(
         auth,
         identity: new IdentityService(identityRepository(pool)),
         demo,
+        modelProfiles,
+        graphCredentials,
+        wallets,
+        products,
+        agents,
         ready: databaseReadiness(pool, migrations),
         stopping: () => stopping,
       },

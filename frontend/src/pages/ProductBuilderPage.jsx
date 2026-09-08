@@ -11,7 +11,7 @@ import { useDemoRuntime } from "../features/runtime/DemoRuntimeProvider.jsx";
 
 export function ProductBuilderPage({ navigate }) {
   const { t } = useI18n();
-  const { state } = useDemoRuntime();
+  const { state, runAction } = useDemoRuntime();
   const { buildState, startBuild } = useBuildRun();
   const [modal, setModal] = useState(null);
   const [readinessCollapsed, setReadinessCollapsed] = useState(false);
@@ -24,7 +24,7 @@ export function ProductBuilderPage({ navigate }) {
   const saveDraft = () => setDraftSaveState("demo");
   return (
     <div className="product-page">
-      <ProductHeader product={product} active="build" navigate={navigate} />
+      <ProductHeader product={product} active="build" navigate={navigate} onRename={(name) => runAction("rename_product", {name})} />
       <div className={`builder-layout ${readinessCollapsed ? "readiness-collapsed" : ""}`}>
         <WorkflowEditor editor={editor} />
         <BuildReadiness draft={workingDraft} validation={editor.validation} onInspect={setModal} collapsed={readinessCollapsed} onToggle={() => setReadinessCollapsed((value) => !value)} />

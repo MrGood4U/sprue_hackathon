@@ -58,7 +58,7 @@ test("HTTP framework boundaries through real local sockets", async (t) => {
     async findOwnedWorkspace(_subject, id) {
       ownerCalls++;
       return id === workspace
-        ? { userStatus: "active", workspaceStatus: "active" }
+        ? { userId: user, userStatus: "active", workspaceStatus: "active" }
         : null;
     },
   });
@@ -68,6 +68,65 @@ test("HTTP framework boundaries through real local sockets", async (t) => {
       bootstrapCalls++;
       return { kind: "ready", bootstrap };
     },
+  });
+  const credential = {
+    id: "10000000-0000-4000-8000-000000000006",
+    label: "production",
+    provider: "the_graph" as const,
+    credentialType: "graph_api_key" as const,
+    ownershipModel: "customer_supplied" as const,
+    billingModel: "customer_subscription" as const,
+    publicPrefix: "grap...",
+    fingerprint: "credential-fingerprint",
+    secretVersion: "1",
+    status: "pending_validation" as const,
+    isSelected: false,
+    validatedAt: null,
+    lastUsedAt: null,
+    revokedAt: null,
+    observedConstraints: null,
+    createdAt: "2026-09-07T00:00:00.000Z",
+    updatedAt: "2026-09-07T00:00:00.000Z",
+    lockVersion: 0,
+  };
+  let graphCredentialInput: unknown;
+  const graphCredentialMutations: unknown[] = [];
+  let hederaActivationInput: unknown;
+  let productCreateInput: unknown;
+  let productDeleteInput: unknown;
+  const product = {
+    id: "10000000-0000-4000-8000-000000000007",
+    workspaceId: workspace,
+    accountWalletId: "10000000-0000-4000-8000-000000000008",
+    slug: "new-product-10000000",
+    name: "New Product",
+    description: null,
+    originalIntent: "Find active wallets.",
+    status: "draft" as const,
+    createdAt: "2026-09-08T00:00:00.000Z",
+    updatedAt: "2026-09-08T00:00:00.000Z",
+    lockVersion: 0,
+    latestVersion: null,
+    activeDeployment: null,
+    latestRun: null,
+    nextAction: "open_builder" as const,
+  };
+  const walletAccessProjection = () => ({
+    wallets: [],
+    credentials: [credential],
+    balances: [],
+    signerGrants: [],
+    spendingPolicies: [],
+    recipientCapabilities: [],
+    readiness: [{
+      kind: "account_wallet" as const,
+      status: "blocked" as const,
+      observedAt: null,
+      blockers: [{
+        code: "WALLET_NOT_PROVISIONED",
+        message: "No Privy account wallet is bound to this workspace.",
+      }],
+    }],
   });
   const dependencies = {
     config: parseConfig(environment),
@@ -79,6 +138,75 @@ test("HTTP framework boundaries through real local sockets", async (t) => {
     identity,
     auth: authService,
     verifier,
+    wallets: {
+      async readAccess(readWorkspaceId: string) {
+        assert.equal(readWorkspaceId, workspace);
+        return walletAccessProjection();
+      },
+      async activateHedera(input: unknown) {
+        hederaActivationInput = input;
+        return walletAccessProjection();
+      },
+    } as never,
+    graphCredentials: {
+      async list(readWorkspaceId: string) {
+        assert.equal(readWorkspaceId, workspace);
+        return [credential];
+      },
+      async create(
+        writeWorkspaceId: string,
+        actorUserId: string,
+        input: unknown,
+      ) {
+        assert.equal(writeWorkspaceId, workspace);
+        assert.equal(actorUserId, user);
+        graphCredentialInput = input;
+        return credential;
+      },
+      async validate(writeWorkspaceId: string, credentialId: string, lockVersion: number) {
+        graphCredentialMutations.push({operation: "validate", writeWorkspaceId, credentialId, lockVersion});
+        return {...credential, status: "active", validatedAt: "2026-09-08T00:00:00.000Z", lockVersion: 1};
+      },
+      async select(writeWorkspaceId: string, credentialId: string, lockVersion: number) {
+        graphCredentialMutations.push({operation: "select", writeWorkspaceId, credentialId, lockVersion});
+        return {...credential, status: "active", isSelected: true, lockVersion: 2};
+      },
+      async revoke(writeWorkspaceId: string, credentialId: string, lockVersion: number) {
+        graphCredentialMutations.push({operation: "revoke", writeWorkspaceId, credentialId, lockVersion});
+        return {...credential, status: "revoked", revokedAt: "2026-09-08T00:00:00.000Z", lockVersion: 3};
+      },
+    } as never,
+    products: {
+      async list() {
+        return {items: [product], nextCursor: null, hasMore: false};
+      },
+      async overview() {
+        return {
+          period: {startsAt: "2026-09-07T00:00:00.000Z", endsAt: "2026-09-08T00:00:00.000Z"},
+          activeProductCount: "0",
+          draftVersionCount: "0",
+          apiRequestCount: "0",
+          graphExpenses: [],
+          grossSales: [],
+          readiness: [],
+          recentActivity: [],
+        };
+      },
+      async create(input: unknown) {
+        productCreateInput = input;
+        return product;
+      },
+      async read() {
+        return product;
+      },
+      async update() {
+        return {...product, name: "Renamed", lockVersion: 1};
+      },
+      async delete(input: unknown) {
+        productDeleteInput = input;
+        return {productId: product.id, deletedAt: "2026-09-08T00:05:00.000Z"};
+      },
+    } as never,
     ready: async () => ready,
     stopping: () => stopping,
   };
@@ -160,6 +288,24 @@ test("HTTP framework boundaries through real local sockets", async (t) => {
           null,
         );
         assert.deepEqual([authenticationCalls, ownerCalls], before);
+        const deleteResponse = await call(
+          `/api/v1/workspaces/${workspace}/products/22222222-2222-4222-8222-222222222222`,
+          {
+            method: "OPTIONS",
+            headers: {
+              Origin: environment.CONSOLE_PUBLIC_URL,
+              "Access-Control-Request-Method": "DELETE",
+              "Access-Control-Request-Headers":
+                "Authorization, Idempotency-Key, If-Match",
+            },
+          },
+        );
+        assert.equal(deleteResponse.status, 204);
+        assert.match(
+          deleteResponse.headers.get("access-control-allow-methods") ?? "",
+          /(?:^|, )DELETE(?:,|$)/,
+        );
+        assert.deepEqual([authenticationCalls, ownerCalls], before);
         assert.equal(
           (
             await call("/api/v1/app-config", {
@@ -235,7 +381,7 @@ test("HTTP framework boundaries through real local sockets", async (t) => {
       },
     );
     await t.test(
-      "reserved routes reject without fake acceptance and require command headers",
+      "product metadata routes are live while unimplemented build commands stay unavailable",
       async () => {
         assert.equal(
           (
@@ -262,16 +408,50 @@ test("HTTP framework boundaries through real local sockets", async (t) => {
             method: "POST",
             headers: jsonHeaders,
             body: JSON.stringify({
-              name: "No operation accepted",
-              ownerUserId: "not-accepted",
+              name: "New Product",
+              originalIntent: "Find active wallets.",
+              accountWalletId: product.accountWalletId,
             }),
           },
         );
-        assert.equal(response.status, 503);
-        assert.equal(
-          (await response.json()).error.code,
-          "CAPABILITY_NOT_IMPLEMENTED",
+        assert.equal(response.status, 201);
+        assert.equal((await response.json()).data.name, "New Product");
+        assert.deepEqual(productCreateInput, {
+          workspaceId: workspace,
+          actorUserId: user,
+          name: "New Product",
+          originalIntent: "Find active wallets.",
+          accountWalletId: product.accountWalletId,
+          idempotencyKey: "test-idempotency-key",
+        });
+        const missingDeletePrecondition = await call(
+          `/api/v1/workspaces/${workspace}/products/${product.id}`,
+          {
+            method: "DELETE",
+            headers: {...auth, "Idempotency-Key": "delete-product-key-0001"},
+          },
         );
+        assert.equal(missingDeletePrecondition.status, 428);
+        const deleted = await call(
+          `/api/v1/workspaces/${workspace}/products/${product.id}`,
+          {
+            method: "DELETE",
+            headers: {
+              ...auth,
+              "Idempotency-Key": "delete-product-key-0001",
+              "If-Match": '"0"',
+            },
+          },
+        );
+        assert.equal(deleted.status, 200);
+        assert.equal((await deleted.json()).data.productId, product.id);
+        assert.deepEqual(productDeleteInput, {
+          workspaceId: workspace,
+          productId: product.id,
+          actorUserId: user,
+          expectedLockVersion: 0,
+          idempotencyKey: "delete-product-key-0001",
+        });
         const patch = await call(
           `/api/v1/workspaces/${workspace}/products/${user}`,
           { method: "PATCH", headers: jsonHeaders, body: "{}" },
@@ -290,6 +470,75 @@ test("HTTP framework boundaries through real local sockets", async (t) => {
           ).status,
           503,
         );
+      },
+    );
+    await t.test(
+      "wallet and Graph credential routes use the authorized workspace without returning secrets",
+      async () => {
+        const walletResponse = await call(
+          `/api/v1/workspaces/${workspace}/wallet-access`,
+          {headers: auth},
+        );
+        assert.equal(walletResponse.status, 200);
+        assert.deepEqual((await walletResponse.json()).data.credentials, [credential]);
+
+        const hederaResponse = await call(
+          `/api/v1/workspaces/${workspace}/wallets/${user}/resolve-hedera`,
+          {method: "POST", headers: jsonHeaders, body: "{}"},
+        );
+        assert.equal(hederaResponse.status, 200);
+        assert.deepEqual(hederaActivationInput, {
+          workspaceId: workspace,
+          userId: user,
+          walletId: user,
+          idempotencyKey: jsonHeaders["Idempotency-Key"],
+        });
+
+        const listResponse = await call(
+          `/api/v1/workspaces/${workspace}/graph-credentials`,
+          {headers: auth},
+        );
+        assert.equal(listResponse.status, 200);
+        assert.deepEqual((await listResponse.json()).data, [credential]);
+
+        const secret = "graph-api-key-write-only";
+        const createResponse = await call(
+          `/api/v1/workspaces/${workspace}/graph-credentials`,
+          {
+            method: "POST",
+            headers: jsonHeaders,
+            body: JSON.stringify({label: "production", apiKey: secret}),
+          },
+        );
+        assert.equal(createResponse.status, 201);
+        const body = await createResponse.json();
+        assert.deepEqual(graphCredentialInput, {
+          label: "production",
+          apiKey: secret,
+        });
+        assert.deepEqual(body.data, credential);
+        assert.equal(JSON.stringify(body).includes(secret), false);
+        assert.equal(JSON.stringify(logs).includes(secret), false);
+
+        const mutationHeaders = {...jsonHeaders, "If-Match": '"0"'};
+        for (const operation of ["validate", "select", "revoke"]) {
+          const response = await call(
+            `/api/v1/workspaces/${workspace}/graph-credentials/${credential.id}/${operation}`,
+            {method: "POST", headers: mutationHeaders, body: "{}"},
+          );
+          assert.equal(response.status, 200, operation);
+        }
+        assert.deepEqual(graphCredentialMutations, [
+          {operation: "validate", writeWorkspaceId: workspace, credentialId: credential.id, lockVersion: 0},
+          {operation: "select", writeWorkspaceId: workspace, credentialId: credential.id, lockVersion: 0},
+          {operation: "revoke", writeWorkspaceId: workspace, credentialId: credential.id, lockVersion: 0},
+        ]);
+
+        const missingPrecondition = await call(
+          `/api/v1/workspaces/${workspace}/graph-credentials/${credential.id}/validate`,
+          {method: "POST", headers: jsonHeaders, body: "{}"},
+        );
+        assert.equal(missingPrecondition.status, 428);
       },
     );
     await t.test(
@@ -435,6 +684,17 @@ test("configuration rejects unsafe public URLs and money rejects lossy encodings
   assert.equal(config.port, 3001);
   assert.equal(config.privyAppId, null);
   assert.equal(config.privyAppSecret, null);
+  assert.deepEqual(config.hedera, {
+    network: "hedera:testnet",
+    evmChainId: 296,
+    mirrorNodeUrl: "https://testnet.mirrornode.hedera.com",
+    portalPat: null,
+    faucetUrl: "https://portal.hedera.com/api/disbursement/cli",
+    faucetAmountHbar: 1,
+    hbarAssetId: "0.0.0",
+    hbarDecimals: 8,
+    facilitatorUrl: "https://api.testnet.blocky402.com",
+  });
   const privy = parseConfig({
     ...environment,
     PRIVY_APP_ID: "test-app-id",
@@ -451,6 +711,10 @@ test("configuration rejects unsafe public URLs and money rejects lossy encodings
     { API_BASE_URL: "https://example.test/?secret=value" },
     { PRIVY_APP_ID: "test-app-id" },
     { PRIVY_APP_SECRET: "server-only-secret" },
+    { HEDERA_NETWORK: "hedera:mainnet" },
+    { HEDERA_FAUCET_URL: "https://example.test/faucet" },
+    { HEDERA_FAUCET_AMOUNT_HBAR: "0" },
+    { HEDERA_FAUCET_AMOUNT_HBAR: "101" },
   ])
     assert.throws(
       () => parseConfig({ ...environment, ...changes }),

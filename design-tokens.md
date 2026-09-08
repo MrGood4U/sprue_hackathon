@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft 0.1, proposed on 2026-09-05 for human review. This document formalizes the selected Evidence-First Console direction. DT1-DT4 remain open review items alongside the authorized frontend implementation.
+Draft 0.2, revised on 2026-09-07 after approval of the system-wide readability floor. This document formalizes the selected Evidence-First Console direction. DT1-DT4 remain open review items alongside the authorized frontend implementation.
 
 The machine-readable source is [`frontend/src/design-tokens.json`](frontend/src/design-tokens.json). [`frontend/src/tokens.css`](frontend/src/tokens.css) is generated from that source and is consumed by the maintained product frontend.
 
@@ -62,13 +62,16 @@ Measured against the base canvas, primary text is approximately 18.0:1, secondar
 
 Inter is the interface family. DM Mono is reserved for code, GraphQL, JSON, identifiers, hashes, wallet/account addresses, atomic amounts, and settlement evidence.
 
+Visible interface text has an absolute minimum of 12 CSS pixels. Twelve pixels is reserved for short, incidental metadata and compact badges; content that a creator must read or act on uses at least 14 pixels, descriptive body copy uses 16 pixels, and dense code or tabular content uses 13-14 pixels. Shared size roles use typography tokens, and source styles must not introduce literal `px` or `rem` sizes below the minimum. The frontend typography validation command enforces this floor during the build.
+
 | Semantic role | Size | Typical use |
 |---|---:|---|
-| Micro | 9px | Dense evidence metadata; avoid for long prose |
-| Caption | 10px | Table headers, code labels, compact helper text |
-| Label | 11px | Navigation metadata, field labels, secondary controls |
-| Body | 12px | Dense console content |
-| Body large | 14px | Descriptions and public explanatory text |
+| Minimum | 12px | Absolute floor; never a default text role |
+| Micro | 12px | Short incidental metadata and compact badges only |
+| Caption | 13px | Captions and compact code labels |
+| Label | 14px | Navigation metadata, table text, field labels, and secondary controls |
+| Body | 14px | Dense console content |
+| Body large | 16px | Descriptions and public explanatory text |
 | Subheading | 16px | Compact section title |
 | Heading | 18px | Modal and prominent section title |
 | Product | 22px | Product-shell title |

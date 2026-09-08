@@ -11,6 +11,7 @@ test("all documented HTTP operations have one domain-owned route reservation", a
     "docs/api/products-builder.md",
     "docs/api/deployment-publication.md",
     "docs/api/consumer-payments.md",
+    "docs/api/model-service.md",
     "docs/api/demo-runtime.md",
   ]) {
     const content = await readFile(
@@ -18,7 +19,7 @@ test("all documented HTTP operations have one domain-owned route reservation", a
       "utf8",
     );
     for (const match of content.matchAll(
-      /^\| (GET|POST|PATCH|PUT) \| `([^`]+)`/gm,
+      /^\| (GET|POST|PATCH|PUT|DELETE) \| `([^`]+)`/gm,
     )) {
       const path = match[2]!
         .replace(/^W(?=\/)/, "/api/v1/workspaces/{workspaceId}")

@@ -6,5 +6,5 @@ export interface IdentityRepository {
   findOwnedWorkspace(
     identity: AuthIdentityKey,
     workspaceId: string,
-  ): Promise<{ userStatus: string; workspaceStatus: string } | null>;
+  ): Promise<{ userId: string; userStatus: string; workspaceStatus: string } | null>;
 }

@@ -9,6 +9,7 @@ import {
 } from "react";
 import { getPublicAppConfig } from "../../services/api/public-config.js";
 import { bootstrapIdentity } from "../../services/api/identity.js";
+import { baseSepolia, SUPPORTED_WALLET_CHAINS } from "../wallet/chains.js";
 
 const AuthContext = createContext(null);
 
@@ -110,6 +111,7 @@ function PrivySession({ children, appConfig }) {
       identity,
       accountLabel: accountLabel(user),
       error: authError ?? sdkError,
+      getAccessToken,
       loginWith,
       signOut,
       retry: () => initialize(),
@@ -119,6 +121,7 @@ function PrivySession({ children, appConfig }) {
       authError,
       identity,
       initialize,
+      getAccessToken,
       loginWith,
       sdkError,
       signOut,
@@ -166,6 +169,7 @@ export function AuthProvider({ children }) {
       identity: null,
       accountLabel: null,
       error: configuration.error,
+      async getAccessToken() { return null; },
       loginWith() {},
       async signOut() {},
       retry() {},
@@ -178,6 +182,8 @@ export function AuthProvider({ children }) {
       appId={configuration.appConfig.privyAppId}
       config={{
         loginMethods: ["google", "github"],
+        supportedChains: SUPPORTED_WALLET_CHAINS,
+        defaultChain: baseSepolia,
         appearance: {
           theme: "dark",
         },

@@ -4,6 +4,11 @@ import type { IdentityVerifier } from "../modules/auth/ports.js";
 import type { AuthService } from "../modules/auth/service.js";
 import type { IdentityService } from "../modules/identity/service.js";
 import type { DemoRuntime } from "../modules/demo/runtime.js";
+import type {ModelProfileService} from "../modules/model-profile/service.js";
+import type {GraphCredentialService} from "../modules/graph-credential/service.js";
+import type {WalletService} from "../modules/wallet/service.js";
+import type {ProductService} from "../modules/products/service.js";
+import type {AgentService} from "../modules/agent/service.js";
 import { AppError } from "../shared/errors.js";
 import { routeCatalog } from "./contracts/catalog.js";
 import { idSchema } from "./contracts/common.js";
@@ -11,21 +16,43 @@ import { requireIdentity, requireRecovery } from "./middleware/auth.js";
 import {
   publicConfiguration,
   bootstrapIdentity,
+  createHederaAccount,
+  createGraphCredential,
+  listGraphCredentials,
+  revokeGraphCredential,
   readIdentity,
+  readWalletAccess,
+  selectGraphCredential,
+  validateGraphCredential,
 } from "./control/identity.controller.js";
+import {demoCreatorAction, demoCreatorState, demoPublicAction, demoPublicState} from "./demo/demo.controller.js";
+import {readModelProfile, testModelProfile, updateModelProfile} from "./model-profile/model-profile.controller.js";
 import {
-  demoAction,
-  demoModelProfile,
-  demoState,
-  testDemoModelProfile,
-  updateDemoModelProfile,
-} from "./demo/demo.controller.js";
+  createProduct,
+  deleteProduct,
+  listProducts,
+  readProduct,
+  readWorkspaceOverview,
+  updateProduct,
+} from "./products/product.controller.js";
+import {
+  createAgentSession,
+  listAgentMessages,
+  listAgentSessions,
+  readAgentSession,
+  submitAgentMessage,
+} from "./agent/agent.controller.js";
 export interface RouteDependencies {
   config: AppConfig;
   verifier: IdentityVerifier;
   auth: AuthService;
   identity: IdentityService;
   demo?: DemoRuntime;
+  modelProfiles?: ModelProfileService;
+  graphCredentials?: GraphCredentialService;
+  wallets?: WalletService;
+  products?: ProductService;
+  agents?: AgentService;
 }
 export function registerRoutes(app: Express, deps: RouteDependencies) {
   const auth = requireIdentity(deps.verifier);
@@ -50,7 +77,7 @@ export function registerRoutes(app: Express, deps: RouteDependencies) {
           throw new AppError("INVALID_REQUEST");
       }
       if (route.audience === "creator" && req.params.workspaceId)
-        await deps.identity.requireOwner(
+        res.locals.workspaceAuthorization = await deps.identity.requireOwner(
           res.locals.identity,
           String(req.params.workspaceId),
         );
@@ -78,20 +105,60 @@ export function registerRoutes(app: Express, deps: RouteDependencies) {
           ? bootstrapIdentity(deps.auth)
         : route.implementation === "me"
           ? readIdentity(deps.identity)
-          : route.implementation === "demo-state"
-            ? demoState(deps.demo)
-          : route.implementation === "demo-action"
-              ? demoAction(deps.demo)
-              : route.implementation === "demo-model-profile-read"
-                ? demoModelProfile(deps.demo)
-                : route.implementation === "demo-model-profile-write"
-                  ? updateDemoModelProfile(deps.demo)
-                  : route.implementation === "demo-model-profile-test"
-                    ? testDemoModelProfile(deps.demo)
+          : route.implementation === "demo-public-state"
+            ? demoPublicState(deps.demo)
+          : route.implementation === "demo-public-action"
+              ? demoPublicAction(deps.demo)
+              : route.implementation === "demo-creator-state"
+                ? demoCreatorState(deps.demo)
+                : route.implementation === "demo-creator-action"
+                  ? demoCreatorAction(deps.demo)
+                  : route.implementation === "model-profile-read"
+                    ? readModelProfile(deps.modelProfiles)
+                    : route.implementation === "model-profile-write"
+                      ? updateModelProfile(deps.modelProfiles)
+                    : route.implementation === "model-profile-test"
+                      ? testModelProfile(deps.modelProfiles)
+                      : route.implementation === "wallet-access"
+                        ? readWalletAccess(deps.wallets)
+                        : route.implementation === "wallet-hedera-create"
+                          ? createHederaAccount(deps.wallets)
+                        : route.implementation === "graph-credentials-list"
+                          ? listGraphCredentials(deps.graphCredentials)
+                          : route.implementation === "graph-credentials-create"
+                            ? createGraphCredential(deps.graphCredentials)
+                            : route.implementation === "graph-credentials-validate"
+                              ? validateGraphCredential(deps.graphCredentials)
+                              : route.implementation === "graph-credentials-select"
+                              ? selectGraphCredential(deps.graphCredentials)
+                              : route.implementation === "graph-credentials-revoke"
+                                  ? revokeGraphCredential(deps.graphCredentials)
+                                  : route.implementation === "workspace-overview"
+                                    ? readWorkspaceOverview(deps.products)
+                                    : route.implementation === "products-list"
+                                      ? listProducts(deps.products)
+                                      : route.implementation === "products-create"
+                                        ? createProduct(deps.products)
+                                        : route.implementation === "products-read"
+                                          ? readProduct(deps.products)
+                                          : route.implementation === "products-update"
+                                            ? updateProduct(deps.products)
+                                            : route.implementation === "products-delete"
+                                              ? deleteProduct(deps.products)
+                                          : route.implementation === "agent-sessions-create"
+                                            ? createAgentSession(deps.agents)
+                                            : route.implementation === "agent-sessions-list"
+                                              ? listAgentSessions(deps.agents)
+                                              : route.implementation === "agent-sessions-read"
+                                                ? readAgentSession(deps.agents)
+                                                : route.implementation === "agent-messages-list"
+                                                  ? listAgentMessages(deps.agents)
+                                                  : route.implementation === "agent-messages-submit"
+                                                    ? submitAgentMessage(deps.agents)
               : () => {
                   throw new AppError("CAPABILITY_NOT_IMPLEMENTED");
                 };
-    app[route.method.toLowerCase() as "get" | "post" | "put" | "patch"](
+    app[route.method.toLowerCase() as "get" | "post" | "put" | "patch" | "delete"](
       path,
       ...middleware,
       handler,

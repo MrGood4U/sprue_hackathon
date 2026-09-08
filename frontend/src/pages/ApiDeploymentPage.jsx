@@ -17,7 +17,7 @@ import { useDemoRuntime } from "../features/runtime/DemoRuntimeProvider.jsx";
 
 export function ApiDeploymentPage({ navigate }) {
   const { t } = useI18n();
-  const { state } = useDemoRuntime();
+  const { state, runAction } = useDemoRuntime();
   const { product, api } = state;
   const parameter = api.requestParameters[0];
   const [limit, setLimit] = useState(String(parameter.default));
@@ -38,7 +38,7 @@ export function ApiDeploymentPage({ navigate }) {
 
   return (
     <div className="product-page">
-      <ProductHeader product={product} active="api" navigate={navigate} />
+      <ProductHeader product={product} active="api" navigate={navigate} onRename={(name) => runAction("rename_product", {name})} />
       <main className="product-content">
         <div className="content-heading">
           <div>

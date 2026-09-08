@@ -22,6 +22,11 @@ test("language options use each language's native name", () => {
   assert.equal(zhCN["language.zh-CN"], "\u4e2d\u6587");
 });
 
+test("Hedera account creation labels do not duplicate an add icon", () => {
+  assert.equal(en["wallet.createHederaAccount"], "Create Hedera account");
+  assert.equal(zhCN["wallet.createHederaAccount"], "\u521b\u5efaHedera\u8d26\u6237");
+});
+
 test("the Chinese catalog explicitly translates every fallback message", async () => {
   const source = await readFile(new URL("../src/i18n/messages/zh-CN.js", import.meta.url), "utf8");
   const declaredKeys = [...source.matchAll(/^\s+"([^"]+)":/gm)].map((match) => match[1]).sort();

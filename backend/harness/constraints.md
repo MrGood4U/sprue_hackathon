@@ -40,7 +40,7 @@ Effective limits are the minimum of platform profile, authenticated workspace al
 | Model invocations | 6 per logical planning command, including repairs/retries | PLANNING_LIMIT_EXCEEDED; return current diagnostics |
 | Model token reservation | 32,000 total input and 8,000 total output per command | Reserve upper bounds before each call; no undisclosed auto-upgrade |
 | Tool dispatches | 20 total per command, including attempts | TOOL_LIMIT_EXCEEDED; controller budgets its mandatory final checks within this ceiling |
-| Source exploration | 3 search calls, 5 results each, 3 distinct full inspections | Report search bound and missing facts, not exhaustive-unavailability claims |
+| Source exploration | Per SourceNeed: up to 3 keyword searches, 10 results per search, and 10 full-schema inspections; activity checks cover every bounded candidate in batches of 10 | Inspect every candidate inside the independent per-need budget; expose actual entity/field/type/nullability evidence and report the bound, not exhaustive-unavailability claims |
 | Model-facing tool result | 16 KiB sanitized payload per result; summarize/reference larger artifacts | TOOL_RESULT_TOO_LARGE or bounded explicit truncation |
 | Planning wall time | 90 seconds across the command; model call <= 30 seconds, metadata call <= 10 seconds | Stop launching new work; preserve durable outcome and diagnostics |
 | Automatic semantic repairs | At most 2 within the above model/tool/time limits | Return unsupported/needs_input result with remaining failures |

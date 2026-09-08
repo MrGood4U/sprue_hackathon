@@ -10,7 +10,7 @@ import { WalletAccessPage } from "../pages/WalletAccessPage.jsx";
 function resolveCreatorPage(path, navigate) {
   if (path === "/app/wallet") return <WalletAccessPage navigate={navigate} />;
   if (path === "/app/model") return <ModelServicePage navigate={navigate} />;
-  if (path.endsWith("/agent")) return <AgentPage navigate={navigate} />;
+  if (path.endsWith("/agent")) return <AgentPage path={path} navigate={navigate} />;
   if (path.endsWith("/build")) return <ProductBuilderPage navigate={navigate} />;
   if (path.endsWith("/api")) return <ApiDeploymentPage navigate={navigate} />;
   if (path.endsWith("/monetize")) return <MonetizationRevenuePage navigate={navigate} />;

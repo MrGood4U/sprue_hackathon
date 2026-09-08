@@ -4,7 +4,7 @@ For Windows local browser testing, complete Docker hosting, and Vercel/Railway d
 
 This directory is the maintained Sprue product frontend: the Creator Console, public consumer page, localization, design tokens, build, and deployment adapter. The user promoted this source to the product frontend on 2026-09-05. Continue implementation here.
 
-The currently available workspace uses a server-generated evaluator projection backed by the Agent harness and deterministic DAG runtime. Creator routes are guarded by Privy authentication with Google and GitHub options; after token verification, the backend transactionally bootstraps the local user and default owner workspace, then the Login route enters the Dashboard automatically. Public consumer routes remain unauthenticated. The Model Service page can configure an OpenAI-compatible planner for the current browser session and explicitly test the current form values without saving them; the mock planner remains the default. A connection test is a real minimal provider request and may incur provider charges. The browser owns no product fixtures and has no silent fallback when the backend is unavailable. Durable model-profile storage, durable product operations, live Graph queries, account-wallet provisioning, and payments remain pending. See [implementation-status.md](implementation-status.md) for concrete gaps and their implementation order.
+The currently available workspace uses a server-generated evaluator projection backed by the Agent harness and deterministic DAG runtime. Creator routes are guarded by Privy authentication with Google and GitHub options; after token verification, the backend transactionally bootstraps the local user and default owner workspace, idempotently provisions one user-owned Privy Ethereum wallet, then the Login route enters the Dashboard automatically. Creator demo reads and actions carry the in-memory provider token and are isolated by the backend-authorized workspace. Public routes expose only immutable demo state and the simulated consumer request. Wallet and Access reads the authenticated workspace's complete wallet address plus current Base Sepolia USDC and Hedera testnet HBAR balances through the backend, creates/lists encrypted redacted Graph API-key records, and permits creator-confirmed direct testnet withdrawals through Privy's visible transaction UI. Model Service likewise uses a durable owner-authorized workspace resource. A model connection test is a real minimal provider request and may incur provider charges. The browser owns no credential or product fixtures and has no silent fallback when the backend is unavailable. Durable product operations, live Graph queries, delegated wallet authority, durable withdrawal reconciliation, x402 settlement, and publication remain pending. See [implementation-status.md](implementation-status.md) for concrete gaps and their implementation order.
 
 ## Current Commands
 
@@ -39,7 +39,7 @@ src/
 │   ├── auth/               # Privy provider, creator session, and workspace bootstrap state
 │   ├── builder/            # Readiness, execution trace, and build-run hook
 │   ├── workflow-editor/    # Editable DAG canvas, palette, inspector, and editor state
-│   ├── model-settings/     # Redacted session model profile and form lifecycle
+│   ├── model-settings/     # Redacted workspace model profile and form lifecycle
 │   ├── deployment/         # API request-test hook
 │   ├── consumer/           # Consumer request-flow hook
 │   └── runtime/            # Backend demo projection provider and connection boundary
@@ -81,7 +81,7 @@ src/
 └── styles/                 # Global reset plus feature or component style modules
 ```
 
-Do not create frontend adapters for Graph payments, private wallet signing material, Hedera settlement, database access, or secret management. Those capabilities belong to the backend even when the UI initiates them.
+Do not create frontend adapters for Graph payments, private wallet signing material, delegated signing, Hedera x402 settlement, database access, or secret management. Creator-owned interactive transfers may be prepared in a wallet feature only for reviewed fixed chain/asset profiles and must always use Privy's visible confirmation UI; the frontend never receives signing material or records a settlement fact.
 
 ## File Ownership Rules
 

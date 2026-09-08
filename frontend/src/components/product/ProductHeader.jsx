@@ -1,13 +1,11 @@
 import { ArrowLeft } from "@phosphor-icons/react";
 import { AccountMenu } from "../../features/auth/AccountMenu.jsx";
-import { useDemoRuntime } from "../../features/runtime/DemoRuntimeProvider.jsx";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
 import { LanguageSwitcher } from "../navigation/LanguageSwitcher.jsx";
 import { EditableProductName } from "./EditableProductName.jsx";
 
-export function ProductHeader({ product, active, navigate }) {
+export function ProductHeader({ product, active, navigate, onRename }) {
   const { t } = useI18n();
-  const { runAction } = useDemoRuntime();
   const tabs = [
     ["agent", "productHeader.agent", `/app/products/${product.slug}/agent`],
     ["build", "productHeader.build", `/app/products/${product.slug}/build`],
@@ -25,7 +23,7 @@ export function ProductHeader({ product, active, navigate }) {
           <EditableProductName
             name={product.name}
             titleActivatesEdit
-            onCommit={(name) => runAction("rename_product", { name })}
+            onCommit={onRename}
           />
         </div>
         <div className="product-head-actions">

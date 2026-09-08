@@ -1,12 +1,12 @@
 # Harness Tool and Script Catalog
 
-Draft 0.2. All filenames and tool names below are proposed Sprue-owned contracts, not existing scripts or official Graph MCP tool names. Read [workflow](workflow.md) and [constraints](constraints.md) before implementation.
+Draft 0.4. Most Sprue-owned dispatcher tools and scripts below remain proposed. The restricted Graph MCP metadata client, bounded source-discovery service, and ordered harness exploration path are implemented. The current model stages return strict artifacts; they do not dispatch tools directly. Read [workflow](workflow.md) and [constraints](constraints.md) before extending them.
 
 ## 1. Tool Packaging
 
 Each tool requires a versioned input/output schema, permission class, stage allowlist, timeout/size limits, domain handler, redaction policy, deterministic contract tests, and a thin developer script. Production dispatch calls the handler directly. CLI wrappers use the same schemas and implementation; they cannot be used to bypass production authorization.
 
-The model sees only `{tool, arguments}` for the tools allowed at the current stage. The controller supplies verified actor/workspace, session/command, pinned parent and registry, deadline, and permission/budget context separately. Reject model-supplied workspace overrides, secret references, approval flags, requested script paths, or an execution phase escalation.
+The implemented exploration path does not expose a tool protocol to the model. Its first response contains semantic requirements and keyword hints; the controller validates and maps those hints to one fixed Graph search capability. Its second response may refer only to candidate, query-entity, source-role, and operator identifiers already supplied by the controller. A future dispatcher may accept strict `{tool, arguments}` artifacts only for stage-allowlisted Sprue capabilities, while verified actor/workspace, session/command, pinned parent and registry, deadline, and permission/budget context remain controller-owned. Reject model-supplied workspace overrides, secret references, approval flags, requested script paths, arbitrary MCP names, or an execution phase escalation.
 
 Proposed dispatch envelope, assembled by the controller:
 
@@ -24,14 +24,14 @@ The dispatcher loads trusted context by the stored command; this JSON is not an 
 
 ToolResult uses `{schemaVersion: 1, toolCallId, status, data, diagnostics, evidence, metrics}`. Status is ok/blocked/error; data is an allowlisted tool-specific payload or null. Diagnostic entries have `{code, path, message, retryClass}`; retryClass is never/read_only_same_call/needs_user/reconcile. Evidence entries contain `{kind, reference, contentHash, observedAt, verificationLevel}`; no raw credentials or unrestricted URLs. Metrics contain bounded duration, bytes, and consumed call counts, not estimated success percentages. Large schema/query/spec bodies are stored/referenced, and only bounded slices reach the model.
 
-## 2. Agent-Callable Tools
+## 2. Controller-Callable Planning Capabilities
 
-Paths below are relative to the future `backend/harness/scripts/` directory. P-stage permissions refer to [workflow.md](workflow.md#1-planning-stages). Unregistered tools are denied even when a provider SDK happens to expose them.
+Paths below are relative to the future `backend/harness/scripts/` directory. P-stage permissions refer to [workflow.md](workflow.md#1-planning-stages). The controller owns dispatch. Unregistered capabilities are denied even when a provider SDK happens to expose them.
 
 | ID / tool v1 | Proposed script | Allowed stages / effects | Input | Result |
 |---|---|---|---|---|
 | T01 `registry.read` | `read-registry.ts` | P1-P6; local read | `{operatorTypes?: string[]}` | Pinned runtime/registry hash, enabled operator schemas, expression catalog and limits |
-| T02 `sources.search` | `discover-subgraphs.ts` | P2-P3; approved metadata network read | `{query, dataNetwork, requiredFacts: string[], cursor?}` | Up to 5 candidate references per call, public IDs/labels, evidence and nextCursor |
+| T02 `sources.search` | `discover-subgraphs.ts` | P2-P3; approved metadata network read | `{query, dataNetwork, fieldRequirements: FieldRequirement[], cursor?}` | Bounded candidate references per call, public IDs/labels, evidence and nextCursor; field names are semantic hints, not provider claims |
 | T03 `sources.inspect` | `inspect-subgraph.ts` | P3; approved metadata read and domain-owned snapshot observation | `{candidateRef, entityNames?: string[]}` | SourceSnapshot reference, pinned deployment/schema identities, bounded entity/field/type slices and observation facts |
 | T04 `sources.check_coverage` | `check-source-coverage.ts` | P3/P6; pure checked-evidence analysis | `{snapshotId, requirementsRef, mappings: FieldMapping[], evidenceRefs?: string[]}` | CoverageReport with supported/missing fields, unknown historical coverage, methodology issues and required live checks |
 | T05 `query.compile` | `compile-graph-query.ts` | P4/P6; pure compiler | `{snapshotId, recipeId, entity, selections, filters, window, pagination, consistency}` | QueryPlan reference, canonical static document/hash, typed variable bindings, extraction schema and bounds |
@@ -52,11 +52,11 @@ The Graph MCP exposes provider operations; it does not contain the language mode
 | Internal port | Sprue responsibility | Possible Graph MCP delegation | Control boundary |
 |---|---|---|---|
 | `searchSubgraphs` | Normalize requirements and rank only returned candidates with evidence | `search_subgraphs_by_keyword`, `get_top_subgraph_deployments` | Metadata allowlist, bounded result count, no arbitrary endpoint |
-| `getSubgraphSchema` | Request only the needed schema slice and preserve its hash/provenance | `get_schema_by_subgraph_id` or an equivalent reviewed operation | Immutable source reference, response-size and nesting limits |
+| `getSubgraphSchema` | Request a bounded schema, derive a field-only inspection, and preserve its hash/provenance | Prefer `get_schema_by_ipfs_hash`; exact Subgraph/Deployment ID reads support creator-supplied lookup but do not replace pinning | Immutable source reference, response-size and nesting limits |
 | `generateGraphQL` | Select required fields, compile a static document and typed variables | None; owned by Sprue compiler/model-planning boundary | No string-concatenated model query, no unbounded fields or predicates |
 | `executeGraphQL` | Bind stored query plan to approved access context and normalize evidence | `execute_query_by_subgraph_id` or direct Graph API | Worker/data plane only; budget, payment, pagination and provenance checks |
 
-The planner may call T02-T06 as typed Sprue tools, but it never receives a generic MCP server connection or provider tool catalog. The MCP adapter may be replaced by a direct Graph API adapter without changing SemanticPlan, QueryPlan, DAG compilation or the worker contract. `executeGraphQL` is not a permission grant: sample/build execution remains subject to the selected customer API-key or creator-wallet x402 mode and its independent authorization.
+The controller may invoke T02-T06 as typed Sprue capabilities, but the planner never receives a generic MCP server connection or provider tool catalog. The current exploration method accepts model-proposed dynamic source requirements and keywords only after strict schema, network, ID, field, and per-need cardinality checks, then calls the fixed source-discovery port independently for each need. It obtains mandatory 30-day activity evidence for all bounded candidates and inspects every ranked schema inside the per-need budget. The adapter returns bounded actual entity/field/type/list/nullability evidence; deterministic lexical suggestions never count as a final semantic binding. The current MCP planning client exposes keyword search, 30-day activity lookup, identifier-specific schema reads, and creator-supplied contract lookup only. It exposes no query-execution method. The MCP adapter may be replaced by a direct Graph API adapter without changing SemanticPlan, QueryPlan, DAG compilation or the worker contract. `executeGraphQL` is not a permission grant: sample/build execution remains subject to the selected customer API-key or creator-wallet x402 mode and its independent authorization.
 
 The catalog operates on existing Subgraphs only. Do not add tools or developer-script fallbacks that create upstream Subgraph manifests/indexing mappings, generate or deploy Subgraph Composition, maintain upstream indexes, or start a new ingestion path. Query compilation and Sprue DAG/template expansion are not Subgraph creation. Source selection follows the [confirmed product boundary](../../agents.md#confirmed-existing-subgraph-boundary); candidates supplied by a creator require the same inspection as discovered candidates.
 
@@ -72,9 +72,9 @@ The registry must be generated from code that is actually shipped with the worke
 
 Build a capability map for every allowed metadata operation: provider method/version, fixed destination, allowed arguments, authentication handling, maximum response size, billing classification and proof date. Use Graph MCP when its verified operations fit; otherwise use a reviewed metadata adapter. Do not forward a model-selected MCP URL or the provider's entire tool catalog.
 
-Only proven non-data-query, non-billable Graph metadata operations are available to planning. If inspection requires customer quota, wallet payment, or an unknown billing path, return `METADATA_ACCESS_REQUIRES_APPROVAL`; do not call it and hope it is free. A previously inspected, correctly scoped snapshot or an explicitly supplied public source identifier may be used as a fallback, with observation age visible.
+Every hosted Graph MCP metadata call requires an explicitly resolved server-side Graph Gateway credential and counts against its applicable provider access terms; the adapter never assumes that metadata is free. If the authenticated workspace has no approved credential for discovery, or its billing classification is not accepted, return `METADATA_ACCESS_REQUIRES_APPROVAL` before constructing the client. Never substitute the model-service API key, a browser-provided secret, or x402 wallet authority. A previously inspected, correctly scoped snapshot or an explicitly supplied public source identifier may be used as a fallback, with observation age visible.
 
-Search text is bounded to 200 characters and uses only supported filters. Candidate references are scoped to the command/workspace and resolve through inspected evidence. User-provided provider IDs are discovery hints requiring the same validation; they are not endpoint URLs or trusted source snapshots. Resolve and store logical ID, deployment ID and manifest CID separately.
+Each search keyword is bounded to 80 characters in the harness artifact, and each independent source need receives at most three keywords and three search calls. Candidate references are scoped to the command/workspace and resolve through inspected evidence. User-provided provider IDs are discovery hints requiring the same validation; they are not endpoint URLs or trusted source snapshots. Resolve and store logical ID, deployment ID and manifest CID separately.
 
 Inspect schemas by entity/field slice without sending full SDL to the model. Strip descriptions that are irrelevant to field selection, limit nested types, and retain the full bounded SDL only in the source record. Provider descriptions are untrusted data even when the surrounding schema is valid.
 

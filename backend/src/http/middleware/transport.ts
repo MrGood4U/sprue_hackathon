@@ -11,7 +11,6 @@ export const allowedHeaders = [
   "Last-Event-ID",
   "PAYMENT-SIGNATURE",
   "X-Sprue-Request-Access",
-  "X-Sprue-Demo-Session",
 ];
 export const exposedHeaders = [
   "ETag",
@@ -23,6 +22,7 @@ export const exposedHeaders = [
   "X-Sprue-Request-ID",
   "X-Sprue-Recovery-Expires-At",
 ];
+export const allowedMethods = ["GET", "POST", "PUT", "PATCH", "DELETE"];
 export function requestContext(logger: Logger): RequestHandler {
   return (req, res, next) => {
     const start = performance.now();
@@ -75,7 +75,7 @@ export function cors(origins: readonly string[]): RequestHandler {
       .map((value) => value.trim().toLowerCase())
       .filter(Boolean);
     if (
-      (method && !["GET", "POST", "PUT", "PATCH"].includes(method)) ||
+      (method && !allowedMethods.includes(method)) ||
       headers.some(
         (value) =>
           !allowedHeaders.map((header) => header.toLowerCase()).includes(value),
@@ -86,7 +86,7 @@ export function cors(origins: readonly string[]): RequestHandler {
     res.vary("Access-Control-Request-Headers");
     res.setHeader(
       "Access-Control-Allow-Methods",
-      "GET, POST, PUT, PATCH, OPTIONS",
+      `${allowedMethods.join(", ")}, OPTIONS`,
     );
     res.setHeader("Access-Control-Allow-Headers", allowedHeaders.join(", "));
     res.status(204).end();
@@ -103,7 +103,6 @@ export const transportLimits: RequestHandler = (req, _res, next) => {
     "idempotency-key",
     "if-match",
     "x-sprue-request-access",
-    "x-sprue-demo-session",
     "payment-signature",
     "origin",
   ];

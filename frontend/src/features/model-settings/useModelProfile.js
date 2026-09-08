@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { frontendServices } from "../../services/index.js";
+import { useAuth } from "../auth/AuthProvider.jsx";
 
 export function useModelProfile() {
+  const {identity, getAccessToken} = useAuth();
+  const workspaceId = identity?.defaultWorkspaceId;
   const [profile, setProfile] = useState(null);
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState(null);
@@ -9,9 +12,16 @@ export function useModelProfile() {
   const [testResult, setTestResult] = useState(null);
   const activeTest = useRef(null);
 
+  const requestScope = useCallback(async () => {
+    const accessToken = await getAccessToken();
+    if (!workspaceId || !accessToken) throw new Error("AUTH_REQUIRED");
+    return {scope: "creator", workspaceId, accessToken};
+  }, [getAccessToken, workspaceId]);
+
   useEffect(() => {
     const controller = new AbortController();
-    frontendServices.getModelProfile({signal: controller.signal})
+    requestScope()
+      .then((scope) => frontendServices.getModelProfile({signal: controller.signal, ...scope}))
       .then((next) => {
         if (!controller.signal.aborted) {
           setProfile(next);
@@ -25,7 +35,7 @@ export function useModelProfile() {
         }
       });
     return () => controller.abort();
-  }, []);
+  }, [requestScope]);
 
   useEffect(() => () => activeTest.current?.abort(), []);
 
@@ -41,7 +51,7 @@ export function useModelProfile() {
     setStatus("saving");
     setError(null);
     try {
-      const next = await frontendServices.saveModelProfile(values);
+      const next = await frontendServices.saveModelProfile(values, await requestScope());
       setProfile(next);
       setStatus("saved");
       return next;
@@ -50,7 +60,7 @@ export function useModelProfile() {
       setStatus("error");
       throw nextError;
     }
-  }, [resetTest]);
+  }, [requestScope, resetTest]);
 
   const test = useCallback(async (values) => {
     activeTest.current?.abort();
@@ -59,7 +69,7 @@ export function useModelProfile() {
     setTestStatus("testing");
     setTestResult(null);
     try {
-      const next = await frontendServices.testModelProfile(values, {signal: controller.signal});
+      const next = await frontendServices.testModelProfile(values, {signal: controller.signal, ...await requestScope()});
       if (!controller.signal.aborted) {
         setTestResult(next);
         setTestStatus("success");
@@ -71,7 +81,7 @@ export function useModelProfile() {
     } finally {
       if (activeTest.current === controller) activeTest.current = null;
     }
-  }, []);
+  }, [requestScope]);
 
   return {profile, status, error, save, test, testStatus, testResult, resetTest};
 }

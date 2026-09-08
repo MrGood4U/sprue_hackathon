@@ -2,11 +2,11 @@
 
 Event: ETHOnline 2026
 
-Last checked: 2026-09-05
+Last checked: 2026-09-08
 
 Participation: Start Fresh, confirmed by the user on 2026-09-05.
 
-Status: Selected to replace Bazantic for downstream x402 payments. Award requirements and current official Hedera x402/Blocky402 documentation reviewed. Hedera testnet HBAR is approved for the initial integration. Live integration, creator-wallet compatibility, and final qualification remain unverified.
+Status: Selected to replace Bazantic for downstream x402 payments. Award requirements and current official Hedera x402/Blocky402 documentation reviewed. Hedera testnet HBAR is approved for the initial integration. The creator-confirmed Privy EVM transaction, canonical account mapping, account completion, and fee spend are verified for the current Hedera testnet account. A fixed-profile creator-confirmed HBAR withdrawal interface is implemented, but no live nonzero withdrawal has been submitted as implementation evidence. Blocky402 x402 settlement, independent buyer receipt, delegated controls, and final qualification remain unverified.
 
 This document separates official requirements from Sprue's implementation proposals. The [official prize page](https://ethglobal.com/events/ethonline2026/prizes/hedera) remains authoritative; recheck it before submission. Sponsor selection does not establish eligibility or authorize funded actions.
 
@@ -70,6 +70,10 @@ This diagram is a logical flow. The documented wire profile is recorded below, b
 - [Hedera account properties](https://docs.hedera.com/learn/core-concepts/accounts/account-properties): Distinguishes an account ID, EVM Address from Public Key, and long-zero EVM Address from Account ID. An EVM address must be resolved to its network account rather than treated as an interchangeable string.
 - [Hedera Mirror Node account API](https://docs.hedera.com/api-reference/accounts/get-account-by-alias-id-or-evm-address): Provides account-ID/address resolution, balance, token relationship, completion-related key, automatic-association, and receiver-signature facts for validation evidence.
 - [Hedera Mirror Node transaction API](https://docs.hedera.com/api-reference/transactions/get-transaction-by-id): Exposes transaction ID, transaction hash, consensus timestamp, result, HBAR transfers, HTS transfers, and assessed fees for post-facilitator reconciliation.
+- [Hedera Ethereum transaction SDK reference](https://docs.hedera.com/hedera/sdks-and-apis/sdks/smart-contracts/ethereum-transaction): Defines the Ethereum transaction value field in weibar, requiring an explicit 18-decimal conversion from HBAR values represented to users with eight decimals.
+- [Hedera Mirror Node contract-result API](https://docs.hedera.com/api-reference/contracts/get-the-contract-result-from-a-contract-on-the-network-for-a-given-transactionid-or-ethereum-transaction-hash): Supports result lookup by Ethereum transaction hash for creator-confirmed EVM withdrawals.
+- [Hedera testnet faucet](https://portal.hedera.com/faucet): The Hedera-operated web faucet can fund a testnet account ID or EVM address. The official documentation states that funding an EVM address with no existing Hedera account triggers auto account creation.
+- [Hedera Portal faucet API](https://docs.hedera.com/learn/getting-started/faucet-api): Supports programmatic testnet funding with a Portal personal access token. As checked on 2026-09-07, it allows 1-100 HBAR per request, at most 100 HBAR per rolling 24 hours per Portal account, and one funding event per destination per 24 hours. This is development funding, not a production treasury or an application entitlement.
 - [Blocky402 documentation](https://blocky402.com/docs/): Confirms the x402 v2 wire format, live capability discovery, Hedera account-ID examples, facilitator fee payer, and standard verification/settlement calls. Treat examples containing a private key as buyer-side local signing examples, never as permission to export a creator's Privy key.
 - [Graph x402 payments](https://thegraph.com/docs/en/subgraphs/tooling/x402-payments/): Upstream queries use USDC on Base or Base Sepolia. Our downstream Hedera receipts must be accounted for separately; no automatic bridge or conversion is planned.
 - [Privy x402](https://docs.privy.io/recipes/agent-integrations/x402): Describes wallet authorization with facilitator settlement. It does not validate our Hedera signer or receiving-account setup. Test buyer signing, creator receipt, and creator access to those funds as distinct capabilities.
@@ -97,7 +101,7 @@ The official scheme also permits HTS fungible tokens, but the human team selecte
 Before implementation, resolve:
 
 1. Configure the initial spike for `hedera:testnet` and HBAR (`0.0.0`), with prices stored and advertised in tinybars.
-2. Validate Privy-backed creator ownership, EVM-address-to-Hedera-account resolution, account completion, receipt, and subsequent access to proceeds. A displayed EVM address alone is not proof. A separate account or custody change requires an explicit decision.
+2. Preserve the verified Privy-backed creator-control evidence for the current testnet ECDSA-alias account: the EVM-address-to-Hedera-account mapping, account completion, creator-confirmed transaction, and network-fee spend are recorded in [the evidence note](../docs/evidence/hedera/privy-testnet-control.md). Validate actual x402 receipt and settlement separately. A displayed EVM address alone is not proof, and a separate account or custody change requires an explicit decision.
 3. Pin compatible `@x402/core`, `@x402/hedera`, and Blocky402 versions; recheck `/supported`, its fee payer, and the concrete response/error fields. The buyer's working signer does not establish the creator's recipient control.
 4. Validate per-product price/recipient configuration and reconcile the facilitator transaction reference through Mirror Node. No native split or platform-fee mechanism is assumed.
 5. Exercise verification failure, settlement failure, replay rejection, facilitator timeout, and payment-success/data-delivery-failure recovery. Avoid duplicate charges and fail closed on unresolved payment status.
@@ -107,14 +111,15 @@ Keep Graph funding and Hedera income separate by network and asset. The user's i
 
 ## Development Gates and Evidence
 
-These are Sprue's proposed acceptance checks, not extra official requirements. Documentation checks are complete; all live technical gates remain pending. Preserve sanitized artifacts under a future `docs/evidence/hedera/` directory.
+These are Sprue's proposed acceptance checks, not extra official requirements. Documentation checks and the current creator recipient/control gate are complete. Other live technical gates remain pending. Preserve sanitized artifacts under `docs/evidence/hedera/`.
 
 | Status | Check | Evidence to preserve | Related gate |
 |---|---|---|---|
 | [x] | Record sponsor replacement and participation | User selected Hedera and confirmed Start Fresh; see `plan.md` | Planning only |
 | [x] | Confirm the protocol and facilitator documentation profile | Official x402 v2 `exact` fields, hosted Blocky402 endpoints, and a 2026-09-05 read-only `/supported` capability check | Planning only |
 | [x] | Choose the initial environment and asset | Human selected Hedera testnet HBAR on 2026-09-05 | Planning only |
-| [ ] | Validate the creator's recipient/control model | Account-ID mapping, completion, HBAR receipt/access capability, and proof of creator access without key export | Sprue product/security |
+| [x] | Validate the creator's recipient/control model for the current Hedera testnet ECDSA-alias path | Account-ID mapping, completed account, creator-confirmed Privy EVM transaction, network-fee spend, and no key export; see [the evidence note](../docs/evidence/hedera/privy-testnet-control.md) | Sprue product/security |
+| [ ] | Exercise one nonzero creator-confirmed HBAR withdrawal | Privy confirmation, Ethereum transaction hash, Mirror Node result, exact amount, network fee, destination, and refreshed balance | P3 candidate evidence; not H1/H2 x402 evidence |
 | [ ] | Connect the payment adapter to Hedera testnet | Pinned package versions, non-secret configuration, live capability snapshot, and fee payer | H1 |
 | [ ] | Run an independent consumer against a derived-data API | Correlated challenge, authorization, settlement, response, and product version | H1, H2 |
 | [ ] | Exercise unpaid, invalid, duplicate, and uncertain requests | Redacted verify/settle/replay/retry traces; no public bypass or duplicate charge | Sprue safety |
@@ -122,7 +127,7 @@ These are Sprue's proposed acceptance checks, not extra official requirements. D
 | [ ] | Reproduce the demo from a clean checkout | Setup commands, environment names, funding prerequisites, source locations, and bounded access | H3 |
 | [ ] | Prepare submission and recheck eligibility | Public source, recording, and source-to-payment evidence index | H3 |
 
-Suggested first spike: use the approved Hedera testnet HBAR profile; resolve and verify the creator's Hedera account ID; protect one minimal API with x402 v2 `exact`; discover Blocky402's current fee payer; run a separate consumer; reconcile settlement through Mirror Node; then replace the test response with the actual Sprue data product. Fixtures are useful during development but are not final live integration evidence. No account, wallet, deployment, paid request, or fee has been created as part of this documentation work.
+Next spike: protect one minimal API with the approved Hedera testnet HBAR x402 v2 `exact` profile; discover Blocky402's current fee payer; run a separate consumer; reconcile settlement and creator receipt through Mirror Node; then replace the test response with the actual Sprue data product. Fixtures are useful during development but are not final live integration evidence. The creator account-control test is complete, but no paid x402 request or publication has been demonstrated yet.
 
 ## Maintenance
 

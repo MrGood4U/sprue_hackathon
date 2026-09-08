@@ -1,18 +1,28 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { backendServices } from "../../services/api/demo-runtime.js";
+import { useAuth } from "../auth/AuthProvider.jsx";
 
 const DemoRuntimeContext = createContext(null);
 
-export function DemoRuntimeProvider({ children }) {
+export function DemoRuntimeProvider({ children, scope = "public" }) {
+  const {identity, getAccessToken} = useAuth();
+  const workspaceId = identity?.defaultWorkspaceId;
   const [state, setState] = useState(null);
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState(null);
+
+  const requestScope = useCallback(async () => {
+    if (scope === "public") return {scope};
+    const accessToken = await getAccessToken();
+    if (!workspaceId || !accessToken) throw new Error("AUTH_REQUIRED");
+    return {scope: "creator", workspaceId, accessToken};
+  }, [getAccessToken, scope, workspaceId]);
 
   const refresh = useCallback(async (signal) => {
     setStatus("loading");
     setError(null);
     try {
-      const next = await backendServices.getDemoState({ signal });
+      const next = await backendServices.getDemoState({signal, ...await requestScope()});
       setState(next);
       setStatus("ready");
       return next;
@@ -23,7 +33,7 @@ export function DemoRuntimeProvider({ children }) {
       }
       throw nextError;
     }
-  }, []);
+  }, [requestScope]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -41,10 +51,10 @@ export function DemoRuntimeProvider({ children }) {
     };
     const service = serviceByAction[action];
     if (!service) throw new Error("INVALID_DEMO_ACTION");
-    const response = await service(options);
+    const response = await service({...options, ...await requestScope()});
     if (response.state) setState(response.state);
     return response;
-  }, []);
+  }, [requestScope]);
 
   const value = useMemo(() => ({ state, status, error, refresh, runAction }), [state, status, error, refresh, runAction]);
   return <DemoRuntimeContext.Provider value={value}>{children}</DemoRuntimeContext.Provider>;

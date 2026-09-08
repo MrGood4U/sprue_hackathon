@@ -3,105 +3,336 @@ import type {
   AgentModelPort,
   AgentModelRequest,
   AgentModelResponse,
-  MockAgentProposal,
+  CompositionIntent,
+  DiscoverySemanticPlan,
+  FlexibleCompositionIntent,
+  SemanticPlan,
+  SourceDiscoveryPlan,
+  SourceFeasibilityOutput,
+  SourceSelectionOutput,
 } from "./types.js";
 
 export const MVP_ETHEREUM_SOURCE_KEY = "uniswap-v3-ethereum";
 export const MVP_ARBITRUM_SOURCE_KEY = "uniswap-v3-arbitrum";
 
-const swapMapping = {
-  wallet: "account.id",
-  tradeId: "id",
-  pool: "pool.id",
-  timestamp: "timestamp",
-  amountInUsd: "amountInUSD",
-  amountOutUsd: "amountOutUSD",
-  tokenIn: "tokenIn.id",
-  tokenOut: "tokenOut.id",
-} as const;
-
-function sourceNode(id: string, sourceKey: string): {id: string; type: "source"; operatorVersion: "1"; config: Record<string, unknown>} {
-  return {id, type: "source", operatorVersion: "1", config: {sourceKey}};
+function slug(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 70);
 }
 
-function mapNode(id: string, sourceKey: string): {id: string; type: "map"; operatorVersion: "1"; config: Record<string, unknown>} {
-  return {id, type: "map", operatorVersion: "1", config: {sourceKey, mapping: swapMapping}};
-}
-
-function filterNode(id: string, sourceKey: string): {id: string; type: "filter"; operatorVersion: "1"; config: Record<string, unknown>} {
-  return {id, type: "filter", operatorVersion: "1", config: {sourceKey, window: "run.window.completeUtcDays"}};
-}
-
-function aggregateNode(id: string, sourceKey: string): {id: string; type: "aggregate"; operatorVersion: "1"; config: Record<string, unknown>} {
-  return {id, type: "aggregate", operatorVersion: "1", config: {sourceKey, groupBy: ["wallet"], measures: ["tradeCount", "volumeUsd", "firstSeenAt", "lastSeenAt"]}};
-}
-
-export function createMockMvpProposal(intent: string): MockAgentProposal {
-  const ethereumSource = sourceNode("source-ethereum", MVP_ETHEREUM_SOURCE_KEY);
-  const ethereumMap = mapNode("map-ethereum", MVP_ETHEREUM_SOURCE_KEY);
-  const ethereumFilter = filterNode("filter-ethereum", MVP_ETHEREUM_SOURCE_KEY);
-  const ethereumAggregate = aggregateNode("aggregate-ethereum", MVP_ETHEREUM_SOURCE_KEY);
-  const arbitrumSource = sourceNode("source-arbitrum", MVP_ARBITRUM_SOURCE_KEY);
-  const arbitrumMap = mapNode("map-arbitrum", MVP_ARBITRUM_SOURCE_KEY);
-  const arbitrumFilter = filterNode("filter-arbitrum", MVP_ARBITRUM_SOURCE_KEY);
-  const arbitrumAggregate = aggregateNode("aggregate-arbitrum", MVP_ARBITRUM_SOURCE_KEY);
-
+function semanticPlan(
+  intent: string,
+  availableNetworks: readonly {dataNetwork: string; label: string}[],
+): SemanticPlan {
   return {
     schemaVersion: 1,
-    kind: "proposal",
-    intentSummary: intent.trim(),
+    kind: "semantic_plan",
+    summary: intent.trim(),
+    population: {
+      entity: "wallet",
+      inclusion: "At least one qualifying swap on every requested network.",
+      exclusion: [],
+    },
+    facts: [
+      {id: "wallet", type: "address", required: true},
+      {id: "trade_id", type: "string", required: true},
+      {id: "timestamp", type: "timestamp", required: true},
+      {id: "volume_usd", type: "decimal", unit: "USD", required: true},
+    ],
+    networks: availableNetworks.map((network) => network.dataNetwork),
+    grain: "swap_event",
     window: {kind: "complete_utc_days", days: 30},
-    sources: [
-      {sourceKey: MVP_ETHEREUM_SOURCE_KEY, chain: "ethereum", mapping: swapMapping},
-      {sourceKey: MVP_ARBITRUM_SOURCE_KEY, chain: "arbitrum", mapping: swapMapping},
-    ],
-    dag: {
-      nodes: [
-        ethereumSource,
-        ethereumMap,
-        ethereumFilter,
-        ethereumAggregate,
-        arbitrumSource,
-        arbitrumMap,
-        arbitrumFilter,
-        arbitrumAggregate,
-        {id: "union-activity", type: "union", operatorVersion: "1", config: {schema: "canonical_swap", outputView: "allActivity"}},
-        {id: "join-wallets", type: "join", operatorVersion: "1", config: {keys: ["wallet"], type: "inner", cardinality: "one_to_one_after_aggregate"}},
-        {id: "output-footprint", type: "output", operatorVersion: "1", config: {views: ["crossChain", "allActivity"]}},
-      ],
-      edges: [
-        {fromNode: ethereumSource.id, fromPort: "rows", toNode: ethereumMap.id, toPort: "rows"},
-        {fromNode: ethereumMap.id, fromPort: "rows", toNode: ethereumFilter.id, toPort: "rows"},
-        {fromNode: ethereumFilter.id, fromPort: "rows", toNode: ethereumAggregate.id, toPort: "rows"},
-        {fromNode: ethereumMap.id, fromPort: "rows", toNode: "union-activity", toPort: "left"},
-        {fromNode: arbitrumSource.id, fromPort: "rows", toNode: arbitrumMap.id, toPort: "rows"},
-        {fromNode: arbitrumMap.id, fromPort: "rows", toNode: arbitrumFilter.id, toPort: "rows"},
-        {fromNode: arbitrumFilter.id, fromPort: "rows", toNode: arbitrumAggregate.id, toPort: "rows"},
-        {fromNode: arbitrumMap.id, fromPort: "rows", toNode: "union-activity", toPort: "right"},
-        {fromNode: ethereumAggregate.id, fromPort: "rows", toNode: "join-wallets", toPort: "left"},
-        {fromNode: arbitrumAggregate.id, fromPort: "rows", toNode: "join-wallets", toPort: "right"},
-        {fromNode: "join-wallets", fromPort: "rows", toNode: "output-footprint", toPort: "crossChain"},
-        {fromNode: "union-activity", fromPort: "rows", toNode: "output-footprint", toPort: "allActivity"},
-      ],
-    },
-    outputSchema: {
-      fields: [
-        {name: "wallet", type: "address"},
-        {name: "ethereum", type: "wallet_chain_summary"},
-        {name: "arbitrum", type: "wallet_chain_summary"},
-        {name: "combinedTradeCount", type: "count"},
-        {name: "combinedVolumeUsd", type: "decimal"},
-        {name: "firstSeenAt", type: "timestamp"},
-        {name: "lastSeenAt", type: "timestamp"},
-      ],
-    },
+    metrics: ["trade_count", "volume_usd", "first_seen_at", "last_seen_at"],
+    combination: {kind: "intersection", keys: ["wallet"]},
+    output: {shape: "wallet_rows", orderBy: ["wallet"]},
+    refresh: {mode: "scheduled", timezone: "UTC"},
     assumptions: [
-      "The two source schemas expose a compatible Swap-shaped field mapping.",
-      "Volume prefers amountInUsd and falls back to amountOutUsd when the input-side value is unavailable.",
-      "The cross-chain Join is an inner Join on normalized wallet addresses after per-chain aggregation.",
+      "Volume uses the input-side USD amount and falls back to the output-side USD amount when needed.",
     ],
-    blockers: [],
+    unresolved: [],
   };
+}
+
+function semanticOutput(request: Extract<AgentModelRequest, {stage: "semantic_interpretation"}>): SemanticPlan {
+  return semanticPlan(request.intent, request.availableNetworks);
+}
+
+function searchKeywords(intent: string): readonly string[] {
+  const normalized = intent.toLowerCase();
+  if (normalized.includes("uniswap v3")) return ["Uniswap V3"];
+  for (const protocol of ["Uniswap", "SushiSwap", "PancakeSwap", "Curve", "Aave"]) {
+    if (normalized.includes(protocol.toLowerCase())) return [protocol];
+  }
+  return ["DEX swaps"];
+}
+
+function sourceDiscoveryPlanningOutput(
+  request: Extract<AgentModelRequest, {stage: "source_discovery_planning"}>,
+): SourceDiscoveryPlan {
+  const sourceRequirements = request.availableNetworks.map((network, index) => ({
+    id: `source_${index + 1}`,
+    dataNetwork: network.dataNetwork,
+    description: `Existing indexed records relevant to the stated intent on ${network.label}.`,
+    grain: "provider_defined_record",
+    fields: [{
+      id: "record_id",
+      description: "Stable identifier for one returned record.",
+      expectedType: "id" as const,
+      unit: null,
+      required: true,
+      allowNullable: false,
+      hints: ["id"],
+    }],
+    constraints: [],
+  }));
+  const plan: DiscoverySemanticPlan = {
+    schemaVersion: 2,
+    kind: "semantic_plan",
+    summary: request.intent.trim(),
+    sourceRequirements,
+    result: {
+      description: "Bounded records from the selected existing Subgraphs.",
+      grain: "provider_defined_record",
+      fields: [
+        {name: "record_id", description: "Stable source record identifier.", type: "id", unit: null, nullable: false},
+        {name: "data_network", description: "CAIP-2 network of the source record.", type: "string", unit: null, nullable: false},
+      ],
+      orderBy: [{field: "record_id", direction: "asc"}],
+    },
+    refresh: {mode: "manual", timezone: "UTC"},
+    assumptions: ["This deterministic mock output validates harness plumbing only; remote model planning is schema-driven."],
+    unresolved: [],
+  };
+  const keywords = searchKeywords(request.intent).slice(0, request.limits.maxKeywordsPerNetwork);
+  return {
+    schemaVersion: 2,
+    kind: "source_discovery_plan",
+    semanticPlan: plan,
+    searches: plan.sourceRequirements.map((need) => ({sourceNeedId: need.id, keywords})),
+  };
+}
+
+function requiredPath(fields: Readonly<Record<string, string>>, preferred: readonly string[], label: string): string {
+  const match = preferred.find((path) => Object.prototype.hasOwnProperty.call(fields, path));
+  if (!match) throw new Error(`Mock planner could not map ${label}`);
+  return match;
+}
+
+function sourceSelectionOutput(request: Extract<AgentModelRequest, {stage: "source_selection"}>): SourceSelectionOutput {
+  return {
+    schemaVersion: 1,
+    kind: "source_selection",
+    selections: request.sourceNeeds.map((need) => {
+      const candidate = request.candidates.find((value) => value.sourceNeedId === need.id);
+      if (!candidate) throw new Error(`Mock planner found no candidate for ${need.id}`);
+      return {
+        sourceNeedId: need.id,
+        candidateRef: candidate.candidateRef,
+        mapping: {
+          wallet: requiredPath(candidate.fields, ["account.id", "sender.id", "wallet.id", "wallet"], "wallet"),
+          tradeId: requiredPath(candidate.fields, ["id", "transaction.id", "tradeId"], "tradeId"),
+          pool: requiredPath(candidate.fields, ["pool.id", "pool"], "pool"),
+          timestamp: requiredPath(candidate.fields, ["timestamp", "blockTimestamp"], "timestamp"),
+          amountInUsd: requiredPath(candidate.fields, ["amountInUSD", "amountInUsd"], "amountInUsd"),
+          amountOutUsd: requiredPath(candidate.fields, ["amountOutUSD", "amountOutUsd"], "amountOutUsd"),
+          tokenIn: requiredPath(candidate.fields, ["tokenIn.id", "tokenIn"], "tokenIn"),
+          tokenOut: requiredPath(candidate.fields, ["tokenOut.id", "tokenOut"], "tokenOut"),
+        },
+        rationale: `The admitted candidate matches ${need.dataNetwork} and exposes the required swap-event fields.`,
+      };
+    }),
+    assumptions: ["Historical coverage and freshness remain unverified until an authorized build."],
+  };
+}
+
+function compositionFor(
+  semanticPlanValue: SemanticPlan,
+  sourceRoles: readonly {role: string; sourceNeedId: string; rowSchema: string}[],
+): CompositionIntent {
+  const branches = sourceRoles.map((source, index) => ({
+    source,
+    normalizeRole: `normalize_${slug(source.sourceNeedId)}`,
+    aggregateRole: `aggregate_${slug(source.sourceNeedId)}_wallet`,
+    inputRole: index === 0 ? "left" as const : "right" as const,
+  }));
+  if (branches.length !== 2) {
+    return {
+      schemaVersion: 1,
+      kind: "composition_intent",
+      nodes: [],
+      connections: [],
+      templateInstances: [],
+    };
+  }
+  if (semanticPlanValue.combination.kind === "append") {
+    return {
+      schemaVersion: 1,
+      kind: "composition_intent",
+      nodes: [
+        ...branches.map((branch) => ({
+          role: branch.normalizeRole,
+          operator: "map" as const,
+          operatorVersion: "1" as const,
+          config: {sourceNeedId: branch.source.sourceNeedId},
+        })),
+        {role: "union_activity", operator: "union", operatorVersion: "1", config: {mode: "append_compatible_rows"}},
+        {role: "output_activity", operator: "output", operatorVersion: "1", config: {orderBy: [{field: "wallet", direction: "asc"}]}},
+      ],
+      connections: [
+        ...branches.flatMap((branch) => [
+          {fromRole: branch.source.role, toRole: branch.normalizeRole, inputRole: "rows" as const},
+          {fromRole: branch.normalizeRole, toRole: "union_activity", inputRole: branch.inputRole},
+        ]),
+        {fromRole: "union_activity", toRole: "output_activity", inputRole: "rows"},
+      ],
+      templateInstances: [],
+    };
+  }
+  return {
+    schemaVersion: 1,
+    kind: "composition_intent",
+    nodes: [
+      ...branches.flatMap((branch) => [
+        {
+          role: branch.normalizeRole,
+          operator: "map" as const,
+          operatorVersion: "1" as const,
+          config: {sourceNeedId: branch.source.sourceNeedId},
+        },
+        {
+          role: branch.aggregateRole,
+          operator: "aggregate" as const,
+          operatorVersion: "1" as const,
+          config: {
+            groupBy: ["wallet"],
+            measures: ["tradeCount", "volumeUsd", "firstSeenAt", "lastSeenAt"],
+          },
+        },
+      ]),
+      {
+        role: "join_wallets",
+        operator: "join",
+        operatorVersion: "1",
+        config: {
+          type: "inner",
+          keys: [{left: "wallet", right: "wallet"}],
+          cardinality: "one_to_one",
+        },
+      },
+      {
+        role: "compute_combined_fields",
+        operator: "map",
+        operatorVersion: "1",
+        config: {recipe: "cross_chain_wallet_summary_v1"},
+      },
+      {
+        role: "output_footprint",
+        operator: "output",
+        operatorVersion: "1",
+        config: {orderBy: [{field: "wallet", direction: "asc"}]},
+      },
+    ],
+    connections: [
+      ...branches.flatMap((branch) => [
+        {fromRole: branch.source.role, toRole: branch.normalizeRole, inputRole: "rows" as const},
+        {fromRole: branch.normalizeRole, toRole: branch.aggregateRole, inputRole: "rows" as const},
+        {fromRole: branch.aggregateRole, toRole: "join_wallets", inputRole: branch.inputRole},
+      ]),
+      {fromRole: "join_wallets", toRole: "compute_combined_fields", inputRole: "rows"},
+      {fromRole: "compute_combined_fields", toRole: "output_footprint", inputRole: "rows"},
+    ],
+    templateInstances: [],
+  };
+}
+
+function compositionOutput(request: Extract<AgentModelRequest, {stage: "dag_composition"}>): CompositionIntent {
+  return compositionFor(request.semanticPlan, request.sourceRoles);
+}
+
+function sourceFeasibilityOutput(
+  request: Extract<AgentModelRequest, {stage: "source_feasibility"}>,
+): SourceFeasibilityOutput {
+  const selections = request.sourceNeeds.map((need) => {
+    const candidate = request.candidates
+      .filter((value) => value.sourceNeedId === need.id && value.status === "suitable" && value.entities.length > 0)
+      .sort((left, right) => {
+        const leftStatus = left.status === "suitable" ? 1 : 0;
+        const rightStatus = right.status === "suitable" ? 1 : 0;
+        return rightStatus - leftStatus || (right.totalQueryCount30d ?? -1) - (left.totalQueryCount30d ?? -1);
+      })[0];
+    const entity = candidate?.entities.find((item) => need.fields.every((requirement) =>
+      !requirement.required || item.suggestedBindings.some((binding) =>
+        binding.requirementId === requirement.id && binding.fieldPaths.length > 0)));
+    if (!candidate || !entity) return null;
+    const fieldBindings = need.fields.flatMap((requirement) => {
+      const fieldPath = entity.suggestedBindings.find((binding) => binding.requirementId === requirement.id)?.fieldPaths[0];
+      return fieldPath ? [{requirementId: requirement.id, fieldPath}] : [];
+    });
+    return {
+      sourceNeedId: need.id,
+      candidateRef: candidate.candidateRef,
+      queryEntity: entity.queryEntity,
+      fieldBindings,
+      rationale: `The inspected entity binds every required semantic field for ${need.dataNetwork}.`,
+    };
+  });
+  if (selections.some((selection) => selection === null)) {
+    const missingNeeds = request.sourceNeeds
+      .filter((need, index) => selections[index] === null)
+      .map((need) => need.dataNetwork);
+    return {
+      schemaVersion: 1,
+      kind: "unsupported",
+      code: "source_facts_unavailable",
+      reason: "No inspected existing Subgraph entity binds every required semantic field.",
+      missingFacts: missingNeeds.map((network) => `${network}:required_schema_fields`),
+    };
+  }
+  const sourceRoles = request.sourceRoles.map((source) => source.role);
+  const nodes: FlexibleCompositionIntent["nodes"][number][] = [];
+  const connections: FlexibleCompositionIntent["connections"][number][] = [];
+  let currentRole = sourceRoles[0]!;
+  for (let index = 1; index < sourceRoles.length; index += 1) {
+    const unionRole = `union_${index + 1}`;
+    nodes.push({
+      role: unionRole,
+      operator: "union",
+      operatorVersion: "2",
+      config: {mode: "append_compatible_rows", sourceDiscriminator: null},
+    });
+    connections.push(
+      {fromRole: currentRole, toRole: unionRole, inputRole: "left"},
+      {fromRole: sourceRoles[index]!, toRole: unionRole, inputRole: "right"},
+    );
+    currentRole = unionRole;
+  }
+  nodes.push({
+    role: "output_records",
+    operator: "output",
+    operatorVersion: "2",
+    config: {fields: ["record_id", "data_network"], orderBy: [{field: "record_id", direction: "asc"}]},
+  });
+  connections.push({fromRole: currentRole, toRole: "output_records", inputRole: "rows"});
+  return {
+    schemaVersion: 2,
+    kind: "source_feasibility",
+    selections: selections.filter((selection) => selection !== null),
+    composition: {
+      schemaVersion: 2,
+      kind: "composition_intent",
+      nodes,
+      connections,
+      templateInstances: [],
+    },
+    assumptions: ["This deterministic mock composition validates generic field binding and operator wiring only."],
+  };
+}
+
+export function createMockStageOutput(request: AgentModelRequest): unknown {
+  if (request.stage === "source_discovery_planning") return sourceDiscoveryPlanningOutput(request);
+  if (request.stage === "source_feasibility") return sourceFeasibilityOutput(request);
+  if (request.stage === "semantic_interpretation") return semanticOutput(request);
+  if (request.stage === "source_selection") return sourceSelectionOutput(request);
+  return compositionOutput(request);
 }
 
 export class MockAgentModel implements AgentModelPort {
@@ -112,7 +343,7 @@ export class MockAgentModel implements AgentModelPort {
     return {
       provider: "mock",
       model: this.config.model,
-      output: createMockMvpProposal(request.intent),
+      output: createMockStageOutput(request),
     };
   }
 }

@@ -102,11 +102,12 @@
       "mono": { "$value": "\"DM Mono\", \"SFMono-Regular\", Consolas, monospace", "$type": "fontFamily", "$description": "Code, identifier, hash, JSON, and amount font stack." }
     },
     "fontSize": {
-      "micro": { "$value": "0.5625rem", "$type": "dimension", "$description": "Nine-pixel metadata and dense evidence text." },
-      "caption": { "$value": "0.625rem", "$type": "dimension", "$description": "Ten-pixel captions and code labels." },
-      "label": { "$value": "0.6875rem", "$type": "dimension", "$description": "Eleven-pixel labels and secondary controls." },
-      "body": { "$value": "0.75rem", "$type": "dimension", "$description": "Twelve-pixel dense application body text." },
-      "body-lg": { "$value": "0.875rem", "$type": "dimension", "$description": "Fourteen-pixel descriptive body text." },
+      "minimum": { "$value": "0.75rem", "$type": "dimension", "$description": "Twelve-pixel absolute minimum for any visible interface text." },
+      "micro": { "$value": "0.75rem", "$type": "dimension", "$description": "Twelve-pixel incidental metadata and compact badges." },
+      "caption": { "$value": "0.8125rem", "$type": "dimension", "$description": "Thirteen-pixel captions and compact code labels." },
+      "label": { "$value": "0.875rem", "$type": "dimension", "$description": "Fourteen-pixel labels, table text, and secondary controls." },
+      "body": { "$value": "0.875rem", "$type": "dimension", "$description": "Fourteen-pixel dense application body text." },
+      "body-lg": { "$value": "1rem", "$type": "dimension", "$description": "Sixteen-pixel descriptive body text." },
       "subheading": { "$value": "1rem", "$type": "dimension", "$description": "Sixteen-pixel compact heading." },
       "heading": { "$value": "1.125rem", "$type": "dimension", "$description": "Eighteen-pixel modal heading." },
       "product": { "$value": "1.375rem", "$type": "dimension", "$description": "Twenty-two-pixel product title." },
@@ -260,6 +261,7 @@
     "typography": {
       "family-interface": { "$value": "{primitive.fontFamily.sans}", "$type": "fontFamily", "$description": "Interface font family." },
       "family-code": { "$value": "{primitive.fontFamily.mono}", "$type": "fontFamily", "$description": "Technical content font family." },
+      "size-minimum": { "$value": "{primitive.fontSize.minimum}", "$type": "dimension", "$description": "Absolute minimum size for visible interface text." },
       "size-micro": { "$value": "{primitive.fontSize.micro}", "$type": "dimension", "$description": "Dense evidence and metadata text." },
       "size-caption": { "$value": "{primitive.fontSize.caption}", "$type": "dimension", "$description": "Caption and compact code text." },
       "size-label": { "$value": "{primitive.fontSize.label}", "$type": "dimension", "$description": "Labels and secondary controls." },
