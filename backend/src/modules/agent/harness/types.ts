@@ -56,6 +56,7 @@ export type AgentDebugEvent =
       stage: "source_discovery_planning";
       networks: readonly string[];
       searches: readonly SourceDiscoverySearch[];
+      deferredDiscoveryNoteCount?: number;
     }
   | {
       stage: "graph_source_discovery";
@@ -381,7 +382,7 @@ export type SourceFeasibilityOutput = SourceFeasibilityPlan | PlannerClarificati
 
 export interface SourceDiscoveryPlanningModelRequest {
   stage: "source_discovery_planning";
-  promptVersion: "4";
+  promptVersion: "5";
   intent: string;
   availableNetworks: readonly {dataNetwork: string; label: string}[];
   limits: {maxNetworks: number; maxUniqueKeywordsPerNetwork: number; maxKeywordsPerNetwork: number};

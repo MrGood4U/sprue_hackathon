@@ -506,6 +506,7 @@ The central explanation for judges is:
 
 | Date | Change | Reason |
 |---|---|---|
+| 2026-09-10 | Distinguished creator-blocking clarification from source-discoverable planning notes | Let a complete source-discovery plan continue when exact deployments, entities, fields, versions, pools, or contracts are intentionally delegated to bounded Graph metadata discovery. Such notes are preserved as non-blocking assumptions; only an explicit clarification result pauses the run. |
 | 2026-09-09 | Split live feasibility into compact entity selection and post-selection field/DAG planning, and raised remote planning output to 16,384 tokens | Keep full schema fields out of entity choice, let the Harness expand only validated selections, reduce model output pressure, and preserve exact deterministic field/path validation |
 | 2026-09-09 | Reworked Graph MCP discovery around independent SourceNeeds and pinned Graph access to mainnet | Follow the official search-to-activity-to-schema order per data network, replace the shared three-Schema ceiling with progressive per-need budgets, and defer multi-source composition until each need has an admitted candidate. Added deterministic mainnet configuration, prompt version 2, candidate batching, and regression coverage; live data probes remain separately authorized and pending. |
 | 2026-09-05 | Created the initial project plan and AI usage record | Establish a transparent hackathon development record |

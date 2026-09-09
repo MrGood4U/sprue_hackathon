@@ -242,6 +242,31 @@ function validateSourceDiscoveryPlan(
   }
 }
 
+function settleDiscoveryPlanNotes(output: SourceDiscoveryPlan): {
+  plan: SourceDiscoveryPlan;
+  deferredNoteCount: number;
+} {
+  const deferredNoteCount = output.semanticPlan.unresolved.length;
+  if (deferredNoteCount === 0) return {plan: output, deferredNoteCount};
+
+  const assumptions = [...output.semanticPlan.assumptions];
+  for (const note of output.semanticPlan.unresolved) {
+    if (assumptions.length >= 16) break;
+    if (!assumptions.includes(note)) assumptions.push(note);
+  }
+  return {
+    plan: {
+      ...output,
+      semanticPlan: {
+        ...output.semanticPlan,
+        assumptions,
+        unresolved: [],
+      },
+    },
+    deferredNoteCount,
+  };
+}
+
 const maximumSearchKeywordLength = 80;
 
 function boundedSearchKeyword(parts: readonly string[]): string | null {
@@ -900,26 +925,30 @@ export class AgentHarness {
     emitTrace("source_discovery_planning", "started", "Model is deriving bounded semantic requirements and Subgraph search keywords");
     const discoveryPlanningRequest: SourceDiscoveryPlanningModelRequest = {
       stage: "source_discovery_planning",
-      promptVersion: "4",
+      promptVersion: "5",
       intent,
       availableNetworks: request.availableNetworks,
       limits: {maxNetworks: this.limits.maxSources, maxUniqueKeywordsPerNetwork: 3, maxKeywordsPerNetwork: 3},
     };
     const discoveryPlanningResponse = await invoke(discoveryPlanningRequest);
-    const discoveryPlanningOutput = await parseWithRepair(
+    const parsedDiscoveryPlanningOutput = await parseWithRepair(
       discoveryPlanningRequest,
       discoveryPlanningResponse,
       parseSourceDiscoveryPlanning,
       2,
     );
-    if (discoveryPlanningOutput.kind === "clarification") {
+    if (parsedDiscoveryPlanningOutput.kind === "clarification") {
       emitTrace("source_discovery_planning", "passed", "Search planning requires creator clarification");
-      return {kind: "clarification", clarification: discoveryPlanningOutput, trace, model: modelResult()};
+      return {kind: "clarification", clarification: parsedDiscoveryPlanningOutput, trace, model: modelResult()};
     }
-    if (discoveryPlanningOutput.kind === "unsupported") {
+    if (parsedDiscoveryPlanningOutput.kind === "unsupported") {
       emitTrace("source_discovery_planning", "passed", "Intent is outside the registered operators or supplied network catalog");
-      return {kind: "unsupported", unsupported: discoveryPlanningOutput, trace, model: modelResult()};
+      return {kind: "unsupported", unsupported: parsedDiscoveryPlanningOutput, trace, model: modelResult()};
     }
+    const {
+      plan: discoveryPlanningOutput,
+      deferredNoteCount,
+    } = settleDiscoveryPlanNotes(parsedDiscoveryPlanningOutput);
     try {
       validateSourceDiscoveryPlan(discoveryPlanningOutput, request.availableNetworks, 3);
     } catch (error) {
@@ -933,11 +962,18 @@ export class AgentHarness {
       });
       throw error;
     }
-    emitTrace("source_discovery_planning", "passed", "Search keywords and semantic requirements passed strict validation");
+    emitTrace(
+      "source_discovery_planning",
+      "passed",
+      deferredNoteCount > 0
+        ? `Search requirements passed validation; deferred ${deferredNoteCount} source-discoverable ${deferredNoteCount === 1 ? "detail" : "details"}`
+        : "Search keywords and semantic requirements passed strict validation",
+    );
     this.emitDebug({
       stage: "source_discovery_planning",
       networks: [...new Set(discoveryPlanningOutput.semanticPlan.sourceRequirements.map((need) => need.dataNetwork))],
       searches: discoveryPlanningOutput.searches,
+      deferredDiscoveryNoteCount: deferredNoteCount,
     });
 
     const sourceNeeds = deriveDiscoverySourceNeeds(discoveryPlanningOutput.semanticPlan);

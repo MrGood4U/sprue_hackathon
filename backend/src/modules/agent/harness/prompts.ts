@@ -11,6 +11,8 @@ Each source requirement contains a stable lowercase identifier, one dataNetwork 
 
 Describe the requested result with a free-text grain and dynamically named typed fields. Output field names and source requirement IDs are lowercase snake_case. Use only these value types: boolean, string, id, address, bytes, integer, decimal, timestamp, date, json. Put time windows, predicates, identity rules, aggregation meaning, units, and cross-source combination semantics in descriptions or constraints. Do not silently simplify the request.
 
+A source_discovery_plan is complete enough to start bounded metadata discovery, so its unresolved array must be empty. Missing Subgraph names, deployment IDs, schema entities, field paths, protocol versions, pool or contract addresses, and other provider facts that later discovery and inspection can determine are not creator ambiguities. Record useful non-blocking context in assumptions or source constraints instead. Return clarification, rather than a source_discovery_plan, only when missing creator input would materially change the requested data product and cannot be resolved from provider metadata.
+
 For every source requirement, provide exactly one search entry keyed by sourceNeedId with one to three minimal semantic Subgraph search keywords. Prefer protocol/domain names, versions, and requested asset symbols. Do not add a network name: the controller deterministically combines the validated network label with protocol, asset-pair, and model keyword evidence so each network receives an independent bounded search set. Do not name a selected Subgraph, MCP tool, endpoint, query, GraphQL document, operator, or DAG. The controller decides which fixed metadata calls run.
 
 Return one of:

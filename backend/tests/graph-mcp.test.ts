@@ -1571,35 +1571,46 @@ test("Agent performs one bounded repair when source-planning tool arguments fail
   assert.match(schemaFailure.schemaIssueMessage ?? "", /Invalid input/);
 });
 
-test("Agent debug logs expose full structured output and exact semantic validation diagnostics before source discovery", async () => {
+test("Agent defers non-blocking discovery notes instead of rejecting a complete source plan", async () => {
   const debugEvents: AgentDebugEvent[] = [];
+  const requests: AgentModelRequest[] = [];
   let discoveryCalled = false;
-  const sensitiveUnresolvedText = "private user-derived ambiguity";
+  const sourceDiscoverableNote = "The exact provider deployment and query entity must be selected from inspected metadata.";
   const harness = new AgentHarness({
     async complete(request: AgentModelRequest) {
-      const output = createMockStageOutput(request) as {semanticPlan: {unresolved: string[]}};
-      output.semanticPlan.unresolved = [sensitiveUnresolvedText];
+      requests.push(request);
+      const output = createMockStageOutput(request);
+      if (request.stage === "source_discovery_planning") {
+        (output as {semanticPlan: {unresolved: string[]}}).semanticPlan.unresolved = [sourceDiscoverableNote];
+      }
       return {provider: "mock" as const, model: "debug-test", output};
     },
   }, undefined, {
     async discover() {
       discoveryCalled = true;
-      throw new Error("must not discover after semantic validation failure");
+      return {
+        schemaVersion: 1,
+        provider: "the_graph",
+        gatewayEnvironment: "mainnet",
+        searchedNeeds: 2,
+        searchCalls: 2,
+        inspectedSchemas: 0,
+        candidates: [],
+        limits: {maxSearchCallsPerNeed: 3, maxSearchResultsPerCall: 10, maxSchemaInspectionsPerNeed: 10},
+      };
     },
   }, (event) => debugEvents.push(event));
 
-  await assert.rejects(
-    () => harness.explore({
-      intent: "Compare protocol activity on Ethereum and Arbitrum.",
-      availableNetworks: [
-        {dataNetwork: "eip155:1", label: "Ethereum"},
-        {dataNetwork: "eip155:42161", label: "Arbitrum"},
-      ],
-    }),
-    (error: unknown) => error instanceof HarnessValidationError && error.code === "SEMANTIC_PLAN_UNRESOLVED",
-  );
+  const result = await harness.explore({
+    intent: "Compare protocol activity on Ethereum and Arbitrum.",
+    availableNetworks: [
+      {dataNetwork: "eip155:1", label: "Ethereum"},
+      {dataNetwork: "eip155:42161", label: "Arbitrum"},
+    ],
+  });
 
-  assert.equal(discoveryCalled, false);
+  assert.equal(result.kind, "unsupported");
+  assert.equal(discoveryCalled, true);
   const received = debugEvents.find((event) => "phase" in event && event.phase === "model_response_received");
   assert.ok(received && "outputBytes" in received);
   assert.equal(received.callNumber, 1);
@@ -1607,14 +1618,14 @@ test("Agent debug logs expose full structured output and exact semantic validati
   assert.equal(received.unresolvedCount, 1);
   assert.equal(received.sourceRequirementCount, 2);
   assert.equal(received.searchCount, 2);
-  assert.equal((received.modelOutput as {semanticPlan: {unresolved: string[]}}).semanticPlan.unresolved[0], sensitiveUnresolvedText);
+  assert.equal((received.modelOutput as {semanticPlan: {unresolved: string[]}}).semanticPlan.unresolved[0], sourceDiscoverableNote);
 
-  const rejected = debugEvents.find((event) => "phase" in event && event.phase === "semantic_validation_failed");
-  assert.ok(rejected && "validationCode" in rejected);
-  assert.equal(rejected.validationCode, "SEMANTIC_PLAN_UNRESOLVED");
-  assert.equal(rejected.validationMessage, "Discovery plan cannot retain unresolved semantics");
-  assert.equal(rejected.unresolvedCount, 1);
-  assert.equal(JSON.stringify(debugEvents).includes(sensitiveUnresolvedText), true);
+  const entitySelectionRequest = requests.find((request) => request.stage === "source_entity_selection");
+  assert.ok(entitySelectionRequest && entitySelectionRequest.stage === "source_entity_selection");
+  assert.deepEqual(entitySelectionRequest.semanticPlan.unresolved, []);
+  assert.ok(entitySelectionRequest.semanticPlan.assumptions.includes(sourceDiscoverableNote));
+  const planningSummary = debugEvents.find((event) => event.stage === "source_discovery_planning" && "searches" in event);
+  assert.equal(planningSummary?.deferredDiscoveryNoteCount, 1);
 });
 
 test("Agent accepts independent per-network search hints beyond the former global keyword limit", async () => {

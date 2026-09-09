@@ -87,6 +87,7 @@ export type LogEvent =
       searchCount?: number;
       networks?: readonly string[];
       searches?: readonly {sourceNeedId: string; keywords: readonly string[]}[];
+      deferredDiscoveryNoteCount?: number;
       searchCalls?: number;
       candidateCount?: number;
       inspectedSchemas?: number;
