@@ -343,26 +343,106 @@ function deriveNetworkScopedSearchKeywords(
 }
 
 const maxFeasibilityEntitiesPerNeed = 16;
+const maxFeasibilityFieldsPerEntity = 96;
+const maxFeasibilityFieldBytesPerEntity = 12_000;
+const feasibilityTextEncoder = new TextEncoder();
+
+function feasibilityTokens(value: string): ReadonlySet<string> {
+  return new Set(value
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((token) => token.length > 1));
+}
+
+function feasibilityFieldRelevance(
+  field: GraphInspectedField,
+  needTokens: ReadonlySet<string>,
+  requirements: readonly GraphFieldRequirement[],
+): number {
+  const pathTokens = feasibilityTokens(field.path);
+  const overlap = [...pathTokens].filter((token) => needTokens.has(token)).length;
+  const compatibleRequirements = requirements.filter((requirement) => graphTypeCompatible(requirement, field)).length;
+  const depth = field.path.split(".").length - 1;
+  return overlap * 100
+    + compatibleRequirements * 10
+    + Number(depth === 0) * 20
+    + Number(!field.list) * 5
+    - depth;
+}
 
 function compactFeasibilityEntity(
   entity: GraphSchemaEntityInspection,
+  need: DiscoverySourceNeed,
 ): SourceFeasibilityCandidate["entities"][number] {
-  const suggested = new Set(entity.suggestedBindings.flatMap((binding) => binding.fieldPaths));
-  const fields = entity.fields.slice()
+  const fieldsByPath = new Map(entity.fields.map((field) => [field.path, field]));
+  const required = new Set(need.fields.filter((field) => field.required).map((field) => field.id));
+  const bindings = entity.suggestedBindings.slice().sort((left, right) =>
+    Number(required.has(right.requirementId)) - Number(required.has(left.requirementId))
+    || left.requirementId.localeCompare(right.requirementId));
+  const needTokens = feasibilityTokens([
+    need.description,
+    need.grain,
+    ...need.constraints,
+    ...need.fields.flatMap((field) => [field.id, field.description, ...field.hints]),
+    need.protocol?.name ?? "",
+    need.protocol?.version ?? "",
+    ...need.assets.map((asset) => asset.symbol),
+  ].join(" "));
+  const ordered: GraphInspectedField[] = [];
+  const orderedPaths = new Set<string>();
+  const addPath = (path: string | undefined) => {
+    if (!path || orderedPaths.has(path)) return;
+    const field = fieldsByPath.get(path);
+    if (!field) return;
+    orderedPaths.add(path);
+    ordered.push(field);
+  };
+
+  // Give every semantic requirement its strongest inspected alternative first.
+  for (const binding of bindings) addPath(binding.fieldPaths[0]);
+  // Preserve row-local scalar context before less direct relationship paths.
+  for (const field of entity.fields
+    .filter((value) => !value.path.includes("."))
     .sort((left, right) =>
-      Number(suggested.has(right.path)) - Number(suggested.has(left.path))
-      || Number(!right.path.includes(".")) - Number(!left.path.includes("."))
-      || left.path.localeCompare(right.path));
+      feasibilityFieldRelevance(right, needTokens, need.fields) - feasibilityFieldRelevance(left, needTokens, need.fields)
+      || left.path.localeCompare(right.path))) {
+    addPath(field.path);
+  }
+  // Interleave remaining alternatives so one requirement cannot consume the view.
+  const maximumSuggestedPaths = Math.max(0, ...bindings.map((binding) => binding.fieldPaths.length));
+  for (let rank = 1; rank < maximumSuggestedPaths; rank += 1) {
+    for (const binding of bindings) addPath(binding.fieldPaths[rank]);
+  }
+  for (const field of entity.fields.slice().sort((left, right) =>
+    feasibilityFieldRelevance(right, needTokens, need.fields) - feasibilityFieldRelevance(left, needTokens, need.fields)
+    || left.path.localeCompare(right.path))) {
+    addPath(field.path);
+  }
+
+  const fields: GraphInspectedField[] = [];
+  let fieldBytes = 0;
+  for (const field of ordered) {
+    if (fields.length === maxFeasibilityFieldsPerEntity) break;
+    const encodedBytes = feasibilityTextEncoder.encode(JSON.stringify(field)).byteLength + Number(fields.length > 0);
+    if (fieldBytes + encodedBytes > maxFeasibilityFieldBytesPerEntity) continue;
+    fields.push(field);
+    fieldBytes += encodedBytes;
+  }
   const included = new Set(fields.map((field) => field.path));
+  const suggestedBindings = entity.suggestedBindings.map((binding) => ({
+    requirementId: binding.requirementId,
+    fieldPaths: binding.fieldPaths.filter((path) => included.has(path)),
+  }));
   return {
     queryEntity: entity.queryEntity,
     entityType: entity.entityType,
+    fieldCount: entity.fields.length,
+    omittedFieldCount: entity.fields.length - fields.length,
     fields,
-    suggestedBindings: entity.suggestedBindings.map((binding) => ({
-      requirementId: binding.requirementId,
-      fieldPaths: binding.fieldPaths.filter((path) => included.has(path)),
-    })),
-    matchedRequirements: entity.matchedRequirements,
+    suggestedBindings,
+    matchedRequirements: entity.matchedRequirements.filter((requirementId) =>
+      suggestedBindings.some((binding) => binding.requirementId === requirementId && binding.fieldPaths.length > 0)),
     grainHint: entity.grainHint ?? "unknown",
   };
 }
@@ -591,7 +671,31 @@ function expandSelectedEntities(
       queryActivityEvidence: candidate.queryActivityEvidence,
       schemaHash: candidate.schemaHash,
       status: candidate.status,
-      entities: [compactFeasibilityEntity(entity)],
+      entities: [{
+        queryEntity: entity.queryEntity,
+        entityType: entity.entityType,
+        fieldCount: entity.fields.length,
+        omittedFieldCount: 0,
+        fields: entity.fields,
+        suggestedBindings: entity.suggestedBindings,
+        matchedRequirements: entity.matchedRequirements,
+        grainHint: entity.grainHint ?? "unknown",
+      }],
+    };
+  });
+}
+
+function compactFeasibilityCandidates(
+  candidates: readonly SourceFeasibilityCandidate[],
+  needs: readonly DiscoverySourceNeed[],
+): readonly SourceFeasibilityCandidate[] {
+  const needsById = new Map(needs.map((need) => [need.id, need]));
+  return candidates.map((candidate) => {
+    const need = needsById.get(candidate.sourceNeedId);
+    if (!need) fail("Selected candidate does not have a matching source need", "ENTITY_SELECTION_SOURCE_NEED_INVALID");
+    return {
+      ...candidate,
+      entities: candidate.entities.map((entity) => compactFeasibilityEntity(entity, need)),
     };
   });
 }
@@ -638,38 +742,57 @@ function validateSourceFeasibility(
   needs: readonly DiscoverySourceNeed[],
   discovery: GraphSourceDiscoveryResult,
   evidenceCandidates: readonly SourceFeasibilityCandidate[],
+  presentedCandidates: readonly SourceFeasibilityCandidate[],
   limits: {maxNodes: number; maxEdges: number},
 ): readonly string[] {
   if (output.selections.length !== needs.length) {
     fail("Feasibility selection must satisfy every source need exactly once", "FEASIBILITY_SOURCE_NEED_UNSATISFIED");
   }
   const candidates = new Map(evidenceCandidates.map((candidate) => [candidate.candidateRef, candidate]));
+  const presented = new Map(presentedCandidates.map((candidate) => [candidate.candidateRef, candidate]));
   const discoveredCandidates = new Map(discovery.candidates.map((candidate) => [candidate.candidateRef, candidate]));
   const seenNeeds = new Set<string>();
   const auxiliaryFieldsByNeed = new Map<string, readonly SourceRoleAuxiliaryFieldShape[]>();
   const selected = output.selections.map((selection) => {
     const need = needs.find((candidate) => candidate.id === selection.sourceNeedId);
     const candidate = candidates.get(selection.candidateRef);
+    const presentedCandidate = presented.get(selection.candidateRef);
     const discoveredCandidate = discoveredCandidates.get(selection.candidateRef);
     if (!need || seenNeeds.has(need.id)) {
       fail("Feasibility output contains an unknown or duplicate source need", "FEASIBILITY_SOURCE_NEED_INVALID");
     }
-    if (!candidate || !discoveredCandidate || candidate.sourceNeedId !== need.id) {
+    if (
+      !candidate
+      || !presentedCandidate
+      || !discoveredCandidate
+      || candidate.sourceNeedId !== need.id
+      || presentedCandidate.sourceNeedId !== need.id
+    ) {
       fail("Feasibility output selected a candidate outside the discovered set", "FEASIBILITY_CANDIDATE_INVALID");
     }
     if (candidate.status !== "suitable") {
       fail("Feasibility output selected a candidate without complete network, activity, and schema evidence", "FEASIBILITY_CANDIDATE_INCOMPATIBLE");
     }
     const entity = candidate.entities.find((value) => value.queryEntity === selection.queryEntity);
-    if (!entity) fail("Feasibility output selected an uninspected query entity", "FEASIBILITY_SCHEMA_EVIDENCE_INVALID");
+    const presentedEntity = presentedCandidate.entities.find((value) => value.queryEntity === selection.queryEntity);
+    if (!entity || !presentedEntity) {
+      fail("Feasibility output selected an uninspected query entity", "FEASIBILITY_SCHEMA_EVIDENCE_INVALID");
+    }
     const requirements = new Map(need.fields.map((requirement) => [requirement.id, requirement]));
     const fields = new Map(entity.fields.map((field) => [field.path, field]));
+    const presentedPaths = new Set(presentedEntity.fields.map((field) => field.path));
     const bound = new Set<string>();
     const boundPaths = new Set<string>();
     for (const binding of selection.fieldBindings) {
       const requirement = requirements.get(binding.requirementId);
       const inspectedField = fields.get(binding.fieldPath);
-      if (!requirement || bound.has(requirement.id) || !inspectedField || !graphTypeCompatible(requirement, inspectedField)) {
+      if (
+        !requirement
+        || bound.has(requirement.id)
+        || !presentedPaths.has(binding.fieldPath)
+        || !inspectedField
+        || !graphTypeCompatible(requirement, inspectedField)
+      ) {
         fail("Feasibility field binding is not supported by inspected schema evidence", "FEASIBILITY_FIELD_BINDING_INVALID");
       }
       bound.add(requirement.id);
@@ -690,6 +813,7 @@ function validateSourceFeasibility(
         || auxiliaryNames.has(binding.name)
         || auxiliaryPaths.has(binding.fieldPath)
         || boundPaths.has(binding.fieldPath)
+        || !presentedPaths.has(binding.fieldPath)
         || !inspectedField
         || inspectedField.list
       ) {
@@ -1108,7 +1232,6 @@ export class AgentHarness {
     this.emitDebug({stage: "source_entity_selection", outcome: "selection", selectionCount: entitySelectionOutput.selections.length});
     emitTrace("source_entity_selection", "passed", `Selected ${entitySelectionOutput.selections.length} query entities from compact schema evidence`);
 
-    emitTrace("source_feasibility", "started", "Harness expanded selected entity fields; the model is binding fields and composing registered operators");
     const sourceRoles = sourceNeeds.map((need) => ({
       role: sourceRole(need.id),
       sourceNeedId: need.id,
@@ -1123,12 +1246,34 @@ export class AgentHarness {
       ],
     }));
     const candidateEvidence = expandSelectedEntities(discovery, entitySelectionOutput.selections);
+    const presentedCandidateEvidence = compactFeasibilityCandidates(candidateEvidence, sourceNeeds);
+    const inspectedFieldCount = candidateEvidence.reduce(
+      (count, candidate) => count + candidate.entities.reduce((entityCount, entity) => entityCount + entity.fields.length, 0),
+      0,
+    );
+    const presentedFieldCount = presentedCandidateEvidence.reduce(
+      (count, candidate) => count + candidate.entities.reduce((entityCount, entity) => entityCount + entity.fields.length, 0),
+      0,
+    );
+    this.emitDebug({
+      stage: "source_feasibility",
+      phase: "field_evidence_compacted",
+      selectedEntityCount: presentedCandidateEvidence.reduce((count, candidate) => count + candidate.entities.length, 0),
+      inspectedFieldCount,
+      presentedFieldCount,
+      omittedFieldCount: inspectedFieldCount - presentedFieldCount,
+    });
+    emitTrace(
+      "source_feasibility",
+      "started",
+      `Harness retained ${presentedFieldCount} requirement-ranked fields from ${inspectedFieldCount} inspected fields; the model is binding fields and composing registered operators`,
+    );
     const feasibilityRequest: SourceFeasibilityModelRequest = {
       stage: "source_feasibility",
-      promptVersion: "5",
+      promptVersion: "6",
       semanticPlan: discoveryPlanningOutput.semanticPlan,
       sourceNeeds,
-      candidates: candidateEvidence,
+      candidates: presentedCandidateEvidence,
       sourceRoles,
       operatorRegistry: flexibleOperatorRegistry,
       limits: {maxNodes: this.limits.maxNodes, maxEdges: this.limits.maxEdges},
@@ -1136,7 +1281,7 @@ export class AgentHarness {
     const feasibilityResponse = await invoke(feasibilityRequest);
     let feasibilityOutput = await parseWithRepair(feasibilityRequest, feasibilityResponse, parseSourceFeasibility, 0);
     if (feasibilityOutput.kind === "unsupported") {
-      const counterEvidence = unsupportedSourceEvidenceConflict(feasibilityOutput, sourceNeeds, candidateEvidence);
+      const counterEvidence = unsupportedSourceEvidenceConflict(feasibilityOutput, sourceNeeds, presentedCandidateEvidence);
       if (counterEvidence.length > 0) {
         if (repairCalls > 0 || modelCalls >= this.limits.maxModelCalls) {
           fail("Model unsupported claim conflicts with inspected source evidence", "FEASIBILITY_UNSUPPORTED_EVIDENCE_CONFLICT");
@@ -1157,7 +1302,7 @@ export class AgentHarness {
         });
         feasibilityOutput = parseSourceFeasibility(repaired.output);
         if (feasibilityOutput.kind === "unsupported"
-          && unsupportedSourceEvidenceConflict(feasibilityOutput, sourceNeeds, candidateEvidence).length > 0) {
+          && unsupportedSourceEvidenceConflict(feasibilityOutput, sourceNeeds, presentedCandidateEvidence).length > 0) {
           fail("Model repeated an unsupported claim that conflicts with inspected source evidence", "FEASIBILITY_UNSUPPORTED_EVIDENCE_CONFLICT");
         }
       }
@@ -1183,6 +1328,7 @@ export class AgentHarness {
         sourceNeeds,
         discovery,
         candidateEvidence,
+        presentedCandidateEvidence,
         {maxNodes: this.limits.maxNodes, maxEdges: this.limits.maxEdges},
       );
     } catch (error) {

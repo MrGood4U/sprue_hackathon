@@ -89,6 +89,14 @@ export type AgentDebugEvent =
     }
   | {
       stage: "source_feasibility";
+      phase: "field_evidence_compacted";
+      selectedEntityCount: number;
+      inspectedFieldCount: number;
+      presentedFieldCount: number;
+      omittedFieldCount: number;
+    }
+  | {
+      stage: "source_feasibility";
       outcome: "feasibility" | "clarification" | "unsupported" | "repair";
       code?: string;
       selectionCount?: number;
@@ -287,6 +295,8 @@ export interface SourceFeasibilityCandidate {
   entities: readonly {
     queryEntity: string;
     entityType: string;
+    fieldCount: number;
+    omittedFieldCount: number;
     fields: readonly GraphInspectedField[];
     suggestedBindings: readonly {requirementId: string; fieldPaths: readonly string[]}[];
     matchedRequirements: readonly string[];
@@ -391,7 +401,7 @@ export interface SourceDiscoveryPlanningModelRequest {
 
 export interface SourceFeasibilityModelRequest {
   stage: "source_feasibility";
-  promptVersion: "5";
+  promptVersion: "6";
   semanticPlan: DiscoverySemanticPlan;
   sourceNeeds: readonly DiscoverySourceNeed[];
   candidates: readonly SourceFeasibilityCandidate[];

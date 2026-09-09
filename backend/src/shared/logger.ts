@@ -67,6 +67,7 @@ export type LogEvent =
         | "embedding_request_started"
         | "embedding_response_received"
         | "embedding_request_failed"
+        | "field_evidence_compacted"
         | "request_started"
         | "request_failed";
       callNumber?: number;
@@ -84,6 +85,10 @@ export type LogEvent =
       sourceNeedCount?: number;
       sourceNeedId?: string;
       entityCount?: number;
+      selectedEntityCount?: number;
+      inspectedFieldCount?: number;
+      presentedFieldCount?: number;
+      omittedFieldCount?: number;
       searchCount?: number;
       networks?: readonly string[];
       searches?: readonly {sourceNeedId: string; keywords: readonly string[]}[];

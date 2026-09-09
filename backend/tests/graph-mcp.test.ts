@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {AgentHarness, createMockStageOutput, HarnessValidationError} from "../src/modules/agent/harness/index.js";
-import type {AgentDebugEvent, AgentModelRequest, HarnessTraceEvent, SourceDiscoveryPlan} from "../src/modules/agent/harness/index.js";
+import type {AgentDebugEvent, AgentModelRequest, HarnessTraceEvent, SourceDiscoveryPlan, SourceFeasibilityPlan} from "../src/modules/agent/harness/index.js";
 import {
   GraphMcpError,
   GraphSourceDiscoveryService,
@@ -1141,9 +1141,16 @@ test("Agent ranks relevant evidence first without hiding bounded schema fallback
   assert.equal(entitySelectionRequest?.candidates[0]?.entities[0]?.fieldCount, 121);
   assert.equal(JSON.stringify(entitySelectionRequest).includes("pool.metric119"), false);
   assert.deepEqual(feasibilityRequest?.candidates[0]?.entities.map((entity) => entity.queryEntity), ["swaps"]);
-  assert.equal(feasibilityRequest?.candidates[0]?.entities[0]?.fields[0]?.path, "id");
-  assert.equal(feasibilityRequest?.candidates[0]?.entities[0]?.fields.length, 121);
-  assert.ok(feasibilityRequest?.candidates[0]?.entities[0]?.fields.some((field) => field.path === "pool.metric119"));
+  const feasibilityEntity = feasibilityRequest?.candidates[0]?.entities[0];
+  assert.equal(feasibilityEntity?.fields[0]?.path, "id");
+  assert.equal(feasibilityEntity?.fieldCount, 121);
+  assert.ok((feasibilityEntity?.fields.length ?? 121) < 121);
+  assert.equal(
+    feasibilityEntity?.omittedFieldCount,
+    (feasibilityEntity?.fieldCount ?? 0) - (feasibilityEntity?.fields.length ?? 0),
+  );
+  assert.ok(new TextEncoder().encode(JSON.stringify(feasibilityEntity?.fields)).byteLength <= 12_002);
+  assert.ok(feasibilityEntity?.suggestedBindings[0]?.fieldPaths.includes("id"));
 });
 
 test("Agent gives compact entity selection evidence a fair share across candidates", async () => {
@@ -1206,6 +1213,92 @@ test("Agent gives compact entity selection evidence a fair share across candidat
   });
 
   assert.deepEqual(entitySelectionRequest?.candidates.map((item) => item.entities.length), [6, 5, 5]);
+});
+
+test("Agent rejects a feasibility field path omitted from the bounded model view", async () => {
+  let feasibilityRequest: Extract<AgentModelRequest, {stage: "source_feasibility"}> | undefined;
+  const fields = [
+    {path: "id", graphType: "ID", valueType: "id" as const, nullable: false, list: false},
+    ...Array.from({length: 140}, (_, index) => ({
+      path: `nested.reference${String(index).padStart(3, "0")}`,
+      graphType: "ID",
+      valueType: "id" as const,
+      nullable: false,
+      list: false,
+    })),
+    {path: "nested.zzz", graphType: "ID", valueType: "id" as const, nullable: false, list: false},
+  ];
+  const harness = new AgentHarness({
+    async complete(request: AgentModelRequest) {
+      const output = createMockStageOutput(request);
+      if (request.stage !== "source_feasibility") {
+        return {provider: "mock", model: "bounded-field-view-test", output};
+      }
+      feasibilityRequest = request;
+      const plan = output as SourceFeasibilityPlan;
+      return {
+        provider: "mock",
+        model: "bounded-field-view-test",
+        output: {
+          ...plan,
+          selections: plan.selections.map((selection) => ({
+            ...selection,
+            fieldBindings: [{requirementId: "record_id", fieldPath: "nested.zzz"}],
+          })),
+        },
+      };
+    },
+  }, undefined, {
+    async discover() {
+      return {
+        schemaVersion: 1 as const,
+        provider: "the_graph" as const,
+        gatewayEnvironment: "mainnet" as const,
+        searchedNeeds: 1,
+        searchCalls: 1,
+        inspectedSchemas: 1,
+        candidates: [{
+          candidateRef: "graph:source_1:aaaaaaaaaaaaaaaaaaaa",
+          sourceNeedId: "source_1",
+          discoveryMethod: "keyword" as const,
+          logicalSubgraphId: "sg-bounded-fields",
+          manifestIpfsCid: "QmBoundedFields",
+          displayName: "Bounded Fields Ethereum",
+          reportedNetwork: null,
+          networkEvidence: "display_name" as const,
+          totalQueryCount30d: 1,
+          queryActivityEvidence: "observed" as const,
+          schemaHash: "sha256:bounded-fields",
+          schemaBytes: 1,
+          entities: [{
+            queryEntity: "records",
+            entityType: "Record",
+            fields,
+            suggestedBindings: [{requirementId: "record_id", fieldPaths: ["id"]}],
+            matchedRequirements: ["record_id"],
+            grainHint: "matched" as const,
+          }],
+          status: "suitable" as const,
+          score: 1,
+          limitations: [],
+        }],
+        limits: {maxSearchCallsPerNeed: 3, maxSearchResultsPerCall: 10, maxSchemaInspectionsPerNeed: 10},
+      };
+    },
+  });
+
+  await assert.rejects(
+    () => harness.explore({
+      intent: "Read records from Ethereum.",
+      availableNetworks: [{dataNetwork: "eip155:1", label: "Ethereum"}],
+    }),
+    (error: unknown) => error instanceof HarnessValidationError
+      && error.code === "FEASIBILITY_FIELD_BINDING_INVALID",
+  );
+  const presentedEntity = feasibilityRequest?.candidates[0]?.entities[0];
+  assert.equal(presentedEntity?.fieldCount, fields.length);
+  assert.ok((presentedEntity?.omittedFieldCount ?? 0) > 0);
+  assert.equal(presentedEntity?.fields.some((field) => field.path === "nested.zzz"), false);
 });
 
 test("Agent uses embedding similarity to order compact entity evidence before model selection", async () => {
@@ -1503,7 +1596,7 @@ test("Agent can select inspected fields when no lexical grain or field hint matc
   const obscureEntity = feasibilityRequest?.candidates[0]?.entities.find((entity) => entity.queryEntity === "obscuras");
   assert.deepEqual(obscureEntity?.matchedRequirements, []);
   assert.equal(obscureEntity?.grainHint, "unknown");
-  assert.deepEqual(obscureEntity?.fields.map((field) => field.path), ["payload.flarn", "payload.zorb"]);
+  assert.deepEqual(obscureEntity?.fields.map((field) => field.path), ["payload.zorb", "payload.flarn"]);
   if (result.kind === "feasibility") {
     assert.deepEqual(result.feasibility.selections[0]?.auxiliaryFieldBindings, [
       {name: "observation_kind", fieldPath: "payload.flarn", purpose: "filter"},

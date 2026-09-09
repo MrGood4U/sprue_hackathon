@@ -10,6 +10,8 @@ On 2026-09-09, the user approved splitting live source feasibility into a compac
 
 On 2026-09-10, the user approved an optional no-cache embedding retrieval step before compact entity selection. When enabled through API-only environment configuration, embed bounded source-need text and actual inspected entity/field documents, compute similarity in the Harness, retain fair candidate coverage, and give the selector only compact references and advisory scores. Do not cache vectors or responses, let embeddings choose a source, expose full field arrays to the selector, or weaken deterministic network, candidate, schema, operator, and resource validation. If configured retrieval fails, report it explicitly; when disabled, retain the deterministic compatibility ranking.
 
+On 2026-09-10, the user approved a bounded requirement-ranked field view for the source-feasibility model stage. Keep the complete selected-entity schema in trusted Harness memory, but expose only a byte- and count-bounded subset that prioritizes one suggested path per semantic requirement, row-local fields, fair alternative bindings, and generic requirement-token relevance. Report total and omitted field counts, permit model bindings only to presented paths, and validate those paths again against the complete inspected schema. Do not hardcode protocols, assets, networks, or provider field names.
+
 All repository text, code comments, test names, migration notes, and commit messages must be written in English. Communication with the user may be in Chinese.
 
 Use the approved root `data-model.md` as the persistence baseline. Do not invent durable fields in endpoint code; update the reviewed model first when a missing concept is discovered.
