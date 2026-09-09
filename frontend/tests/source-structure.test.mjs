@@ -124,6 +124,7 @@ test("keeps Agent Planner on live durable services without a demo fallback", asy
   const productHeader = await readFile(new URL("components/product/ProductHeader.jsx", sourceRoot), "utf8");
   const appShell = await readFile(new URL("app/AppShell.jsx", sourceRoot), "utf8");
   const productCache = await readFile(new URL("features/products/ProductCacheProvider.jsx", sourceRoot), "utf8");
+  const liveBuilderProjection = await readFile(new URL("features/builder/liveBuilderProjection.js", sourceRoot), "utf8");
 
   assert.doesNotMatch(page, /useDemoRuntime|SPRUE-MOCK-PLANNER|assistantResponse|demoNotice/);
   assert.doesNotMatch(hook, /useDemoRuntime|runAction\("agent_plan"/);
@@ -155,10 +156,12 @@ test("keeps Agent Planner on live durable services without a demo fallback", asy
   assert.match(page, /if \(agent\.status === "loading"\)/);
   assert.doesNotMatch(page, /agent\.status === "loading" && !agent\.product/);
   assert.match(page, /const buildPath = `\/app\/products\/\$\{productRef\}\/build`/);
-  assert.match(page, /readyForCompilation === true/);
-  assert.match(page, /const canCreateManually = !isPlanning && !canReviewDag/);
+  assert.match(liveBuilderProjection, /export function isBuilderDraft\(value\)/);
+  assert.match(page, /const canPreviewPlan = latestResult\?\.kind === "proposal" && isBuilderDraft\(latestResult\.builderDraft\)/);
+  assert.match(page, /const canCreateManually = !isPlanning && !canPreviewPlan/);
   assert.equal(page.match(/canCreateManually && <Button/g)?.length, 2);
   assert.match(page, /agent\.manualCreate/);
+  assert.match(page, /canPreviewPlan && <Button[^>]*variant="primary"[^>]*>[\s\S]*?agent\.next/);
   assert.match(page, /agent\.stopAction/);
   assert.match(page, /confirmation === "cancel"/);
   assert.match(page, /placeholder=\{t\("agent\.intentPlaceholder"\)\}/);

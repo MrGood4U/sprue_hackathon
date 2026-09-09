@@ -17,6 +17,7 @@ import {AgentProgress} from "../features/agent/AgentProgress.jsx";
 import {AgentStepCards} from "../features/agent/AgentStepCards.jsx";
 import {useAgentPlan} from "../features/agent/useAgentPlan.js";
 import {useElapsedSeconds} from "../features/agent/useElapsedSeconds.js";
+import {isBuilderDraft} from "../features/builder/liveBuilderProjection.js";
 import {productRefFromPath} from "../features/products/productRoute.js";
 import "../features/agent/agent.css";
 
@@ -174,9 +175,10 @@ export function AgentPage({path, navigate}) {
     : agent.product.originalIntent
       ? [{id: `product-intent-${agent.product.id}`, role: "user", contentText: agent.product.originalIntent, contentJson: null}]
       : [];
-  const canReviewDag = agent.latestAssistant?.contentJson?.readyForCompilation === true;
+  const latestResult = agent.latestAssistant?.contentJson;
+  const canPreviewPlan = latestResult?.kind === "proposal" && isBuilderDraft(latestResult.builderDraft);
   const buildPath = `/app/products/${productRef}/build`;
-  const canCreateManually = !isPlanning && !canReviewDag;
+  const canCreateManually = !isPlanning && !canPreviewPlan;
 
   const submitPlan = (event) => {
     event.preventDefault();
@@ -260,7 +262,7 @@ export function AgentPage({path, navigate}) {
                   <>
                     {canCreateManually && <Button type="button" icon={ArrowRight} onClick={() => navigate(buildPath)}>{t("agent.manualCreate")}</Button>}
                     <Button type="button" icon={ArrowClockwise} onClick={() => setConfirmation("regenerate")}>{t("agent.regenerateAction")}</Button>
-                    {canReviewDag && <Button type="button" variant="primary" icon={ArrowRight} onClick={() => navigate(buildPath)}>{t("agent.reviewDag")}</Button>}
+                    {canPreviewPlan && <Button type="button" variant="primary" icon={ArrowRight} onClick={() => navigate(buildPath)}>{t("agent.next")}</Button>}
                   </>
                 ) : (
                   <>

@@ -23,7 +23,7 @@ function manualDraft(product, intent, originKey, resultKind) {
   };
 }
 
-function isBuilderDraft(value) {
+export function isBuilderDraft(value) {
   return value?.schemaVersion === 1
     && value.status === "requires_source_admission"
     && Array.isArray(value.sources)
