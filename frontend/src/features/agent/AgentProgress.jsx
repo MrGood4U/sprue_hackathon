@@ -9,6 +9,7 @@ const stageDefinitions = [
   ["graph_source_discovery", "agent.stage.graphDiscovery", "agent.stage.graphDiscoveryDetail"],
   ["semantic_entity_retrieval", "agent.stage.semanticRetrieval", "agent.stage.semanticRetrievalDetail"],
   ["source_entity_selection", "agent.stage.entitySelection", "agent.stage.entitySelectionDetail"],
+  ["semantic_field_retrieval", "agent.stage.semanticFieldRetrieval", "agent.stage.semanticFieldRetrievalDetail"],
   ["source_feasibility", "agent.stage.feasibility", "agent.stage.feasibilityDetail"],
   ["feasibility_validation", "agent.stage.validation", "agent.stage.validationDetail"],
 ];

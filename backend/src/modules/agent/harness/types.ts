@@ -88,8 +88,18 @@ export type AgentDebugEvent =
       errorCode?: string;
     }
   | {
-      stage: "source_feasibility";
-      phase: "field_evidence_compacted";
+      stage: "semantic_field_retrieval";
+      phase: "embedding_request_started" | "embedding_response_received" | "embedding_request_failed";
+      sourceNeedId: string;
+      entityCount: number;
+      fieldCount: number;
+      fieldRequirementCount: number;
+      durationMs?: number;
+      errorCode?: string;
+    }
+  | {
+      stage: "semantic_field_retrieval";
+      phase: "field_evidence_ranked";
       selectedEntityCount: number;
       inspectedFieldCount: number;
       presentedFieldCount: number;
@@ -401,7 +411,7 @@ export interface SourceDiscoveryPlanningModelRequest {
 
 export interface SourceFeasibilityModelRequest {
   stage: "source_feasibility";
-  promptVersion: "6";
+  promptVersion: "7";
   semanticPlan: DiscoverySemanticPlan;
   sourceNeeds: readonly DiscoverySourceNeed[];
   candidates: readonly SourceFeasibilityCandidate[];
@@ -609,6 +619,7 @@ export interface HarnessTraceEvent {
     | "source_needs"
     | "graph_source_discovery"
     | "semantic_entity_retrieval"
+    | "semantic_field_retrieval"
     | "feasibility_validation"
     | "query_compilation"
     | "spec_assembly"

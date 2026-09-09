@@ -1,6 +1,6 @@
 # Frontend Implementation Status
 
-Updated on 2026-09-10 after exposing semantic entity retrieval as a distinct live Agent trace step.
+Updated on 2026-09-10 after exposing hierarchical entity and field retrieval as distinct live Agent trace steps.
 
 ## Current Baseline
 
@@ -8,7 +8,7 @@ The existing ten route-level pages are the product frontend and will be develope
 
 The Creator Console keeps a workspace-scoped in-memory cache of resolved product identity while the authenticated application shell remains mounted. Dashboard loads, product-detail reads, creation, and renames refresh that cache; deletion removes both the ID and slug keys. Agent, Build, API, and Monetize therefore reuse the real product name synchronously when switching tabs while continuing their normal live reads. Cached Dashboard summaries remain presentation-only: Agent keeps its loading state until the complete product and conversation have arrived, and absent detail-only values cannot become uncontrolled form state. A fresh deep link with no cached identity reserves the title's dimensions with an accessible skeleton, never an internal product ID; read failure uses the localized unavailable-product label. The cache never replaces backend authorization or freshness checks. A creator-route render boundary records the route/component failure in the browser console and presents localized Retry and Back to products recovery actions instead of a blank page.
 
-The Agent trace now includes a dedicated `semantic_entity_retrieval` stage between Graph discovery and model entity selection. Its single stable conversation card is updated by real provider-batch callbacks, then by the local cosine-similarity substate, and finally by a persisted summary of embedded entities, provider batches, and compact candidates retained for the model. The progress rail uses the same backend events as an eighth step. Embedding failures map to explicit localized recovery guidance; no browser timer fabricates batch or completion progress.
+The Agent trace includes `semantic_entity_retrieval` between Graph discovery and model entity selection, followed by `semantic_field_retrieval` between entity selection and feasibility. The field stage embeds every field in the selected entities, reports provider batches and local cosine calculation, and persists the count of per-requirement alternatives retained for the model. The progress rail uses the same backend events as nine steps. Embedding failures map to explicit localized recovery guidance; no browser timer fabricates batch or completion progress.
 
 Implemented browser behavior includes route navigation, English/Simplified Chinese selection with a local preference, page composition, dialogs, Graph access-mode selection with API-key-only credential disclosure and a colocated credential action, backend-provided DAG inspection, and backend action flows. Authenticated feature hooks select live backend clients; the public route alone selects the demo runtime. Build and request flows run through feature hooks with cancellation and duplicate-submission protection; no product page imports browser fixture records.
 

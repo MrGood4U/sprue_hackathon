@@ -4,6 +4,7 @@ import type {GraphInspectedField, GraphSchemaEntityInspection} from "../../graph
 const maxResponseBytes = 2_097_152;
 const maxEmbeddingDocumentBytes = 6_000;
 const maxEntitiesPerNeed = 80;
+const maxFieldsPerSelectedEntity = 1_024;
 const requestBatchSize = 10;
 const textEncoder = new TextEncoder();
 
@@ -35,6 +36,20 @@ export interface EntityEmbeddingProgress {
   batchCount: number;
 }
 
+export interface FieldEmbeddingScore {
+  requirementId: string;
+  fieldPath: string;
+  similarity: number;
+}
+
+export interface FieldEmbeddingProgress {
+  phase: "batch_started" | "batch_completed" | "similarity_started" | "completed";
+  fieldCount: number;
+  requirementCount: number;
+  batchNumber?: number;
+  batchCount: number;
+}
+
 export interface EntityEmbeddingRankerPort {
   rank(
     need: DiscoverySourceNeed,
@@ -42,6 +57,12 @@ export interface EntityEmbeddingRankerPort {
     signal?: AbortSignal,
     onProgress?: (progress: EntityEmbeddingProgress) => void,
   ): Promise<readonly EntityEmbeddingScore[]>;
+  rankFields?(
+    need: DiscoverySourceNeed,
+    input: EntityEmbeddingInput,
+    signal?: AbortSignal,
+    onProgress?: (progress: FieldEmbeddingProgress) => void,
+  ): Promise<readonly FieldEmbeddingScore[]>;
 }
 
 export type EntityEmbeddingFailureReason =
@@ -152,6 +173,48 @@ function entityDocument(input: EntityEmbeddingInput): string {
   return boundedEmbeddingDocument(header, orderedFields.map(fieldText), "omitted_field_count");
 }
 
+function fieldRequirementQuery(
+  need: DiscoverySourceNeed,
+  requirement: DiscoverySourceNeed["fields"][number],
+): string {
+  const protocol = need.protocol
+    ? `${need.protocol.name}${need.protocol.version ? ` ${need.protocol.version}` : ""}`
+    : "unspecified protocol";
+  const assets = need.assets.length > 0
+    ? need.assets.map((asset) => asset.symbol).join(", ")
+    : "unspecified assets";
+  const header = [
+    "Find inspected GraphQL fields that can satisfy this one semantic field requirement.",
+    `Requirement ID: ${requirement.id}`,
+    `Meaning: ${requirement.description}`,
+    `Expected type: ${requirement.expectedType}`,
+    `Unit: ${requirement.unit ?? "no unit"}`,
+    `Required: ${requirement.required ? "yes" : "no"}`,
+    `Nullability allowed: ${requirement.allowNullable ? "yes" : "no"}`,
+    `Hints: ${requirement.hints.join(", ") || "none"}`,
+    `Source description: ${need.description}`,
+    `Row grain: ${need.grain}`,
+    `Network: ${need.dataNetwork}`,
+    `Protocol: ${protocol}`,
+    `Assets: ${assets}`,
+  ].join("\n");
+  return boundedEmbeddingDocument(
+    header,
+    need.constraints.map((constraint) => `Constraint | ${constraint}`),
+    "omitted_constraint_count",
+  );
+}
+
+function fieldDocument(input: EntityEmbeddingInput, field: GraphInspectedField): string {
+  return boundedEmbeddingDocument([
+    "One actual inspected GraphQL field from an already selected Subgraph entity.",
+    `Subgraph: ${input.displayName}`,
+    `Query entity: ${input.entity.queryEntity}`,
+    `Entity type: ${input.entity.entityType}`,
+    `Field: ${fieldText(field)}`,
+  ].join("\n"), [], "omitted_field_detail_count");
+}
+
 function cosineSimilarity(left: readonly number[], right: readonly number[]): number {
   if (left.length === 0 || left.length !== right.length) {
     throw new EntityEmbeddingRequestError("The embedding service returned inconsistent vector dimensions");
@@ -219,32 +282,29 @@ export class RemoteEntityEmbeddingRanker implements EntityEmbeddingRankerPort {
     private readonly fetchImpl: typeof fetch = globalThis.fetch,
   ) {}
 
-  async rank(
-    need: DiscoverySourceNeed,
-    inputs: readonly EntityEmbeddingInput[],
-    signal?: AbortSignal,
-    onProgress?: (progress: EntityEmbeddingProgress) => void,
-  ): Promise<readonly EntityEmbeddingScore[]> {
+  private assertConfigured(): void {
     if (!this.config.enabled || !this.config.apiUrl || !this.config.apiKey || !this.config.model) {
       throw new EntityEmbeddingRequestError("The embedding service is not completely configured", "configuration");
     }
-    if (inputs.length === 0) return [];
-    if (inputs.length > maxEntitiesPerNeed) {
-      throw new EntityEmbeddingRequestError("The embedding entity-retrieval limit was exceeded", "configuration");
-    }
-    const documents = [requirementQuery(need), ...inputs.map(entityDocument)];
+  }
+
+  private async embedDocuments(
+    documents: readonly string[],
+    signal: AbortSignal | undefined,
+    onBatchProgress: (phase: "batch_started" | "batch_completed", batchNumber: number, batchCount: number) => void,
+  ): Promise<readonly number[][]> {
     const vectors: number[][] = [];
     const batchCount = Math.ceil(documents.length / requestBatchSize);
     for (let offset = 0; offset < documents.length; offset += requestBatchSize) {
       const batch = documents.slice(offset, offset + requestBatchSize);
       const batchNumber = Math.floor(offset / requestBatchSize) + 1;
-      onProgress?.({phase: "batch_started", entityCount: inputs.length, batchNumber, batchCount});
+      onBatchProgress("batch_started", batchNumber, batchCount);
       const requestSignal = signal
         ? AbortSignal.any([signal, AbortSignal.timeout(this.config.timeoutMs)])
         : AbortSignal.timeout(this.config.timeoutMs);
       let response: Response;
       try {
-        response = await this.fetchImpl(this.config.apiUrl, {
+        response = await this.fetchImpl(this.config.apiUrl!, {
           method: "POST",
           redirect: "error",
           headers: {
@@ -286,8 +346,30 @@ export class RemoteEntityEmbeddingRanker implements EntityEmbeddingRankerPort {
         throw new EntityEmbeddingRequestError("The embedding service returned invalid JSON");
       }
       vectors.push(...parseVectors(envelope, batch.length));
-      onProgress?.({phase: "batch_completed", entityCount: inputs.length, batchNumber, batchCount});
+      onBatchProgress("batch_completed", batchNumber, batchCount);
     }
+    if (vectors.length !== documents.length) {
+      throw new EntityEmbeddingRequestError("The embedding service returned incomplete vectors");
+    }
+    return vectors;
+  }
+
+  async rank(
+    need: DiscoverySourceNeed,
+    inputs: readonly EntityEmbeddingInput[],
+    signal?: AbortSignal,
+    onProgress?: (progress: EntityEmbeddingProgress) => void,
+  ): Promise<readonly EntityEmbeddingScore[]> {
+    this.assertConfigured();
+    if (inputs.length === 0) return [];
+    if (inputs.length > maxEntitiesPerNeed) {
+      throw new EntityEmbeddingRequestError("The embedding entity-retrieval limit was exceeded", "configuration");
+    }
+    const documents = [requirementQuery(need), ...inputs.map(entityDocument)];
+    const batchCount = Math.ceil(documents.length / requestBatchSize);
+    const vectors = await this.embedDocuments(documents, signal, (phase, batchNumber) => {
+      onProgress?.({phase, entityCount: inputs.length, batchNumber, batchCount});
+    });
     const queryVector = vectors[0];
     if (!queryVector || vectors.length !== documents.length) {
       throw new EntityEmbeddingRequestError("The embedding service returned incomplete vectors");
@@ -301,10 +383,64 @@ export class RemoteEntityEmbeddingRanker implements EntityEmbeddingRankerPort {
     onProgress?.({phase: "completed", entityCount: inputs.length, batchCount});
     return scores;
   }
+
+  async rankFields(
+    need: DiscoverySourceNeed,
+    input: EntityEmbeddingInput,
+    signal?: AbortSignal,
+    onProgress?: (progress: FieldEmbeddingProgress) => void,
+  ): Promise<readonly FieldEmbeddingScore[]> {
+    this.assertConfigured();
+    const fields = input.entity.fields;
+    if (fields.length === 0) return [];
+    if (fields.length > maxFieldsPerSelectedEntity) {
+      throw new EntityEmbeddingRequestError("The selected entity field limit was exceeded", "configuration");
+    }
+    const requirements = need.fields;
+    if (requirements.length === 0) return [];
+    const documents = [
+      ...requirements.map((requirement) => fieldRequirementQuery(need, requirement)),
+      ...fields.map((field) => fieldDocument(input, field)),
+    ];
+    const batchCount = Math.ceil(documents.length / requestBatchSize);
+    const vectors = await this.embedDocuments(documents, signal, (phase, batchNumber) => {
+      onProgress?.({
+        phase,
+        fieldCount: fields.length,
+        requirementCount: requirements.length,
+        batchNumber,
+        batchCount,
+      });
+    });
+    const requirementVectors = vectors.slice(0, requirements.length);
+    const fieldVectors = vectors.slice(requirements.length);
+    if (requirementVectors.length !== requirements.length || fieldVectors.length !== fields.length) {
+      throw new EntityEmbeddingRequestError("The embedding service returned incomplete field vectors");
+    }
+    onProgress?.({
+      phase: "similarity_started",
+      fieldCount: fields.length,
+      requirementCount: requirements.length,
+      batchCount,
+    });
+    const scores = requirements.flatMap((requirement, requirementIndex) => fields.map((field, fieldIndex) => ({
+      requirementId: requirement.id,
+      fieldPath: field.path,
+      similarity: cosineSimilarity(requirementVectors[requirementIndex]!, fieldVectors[fieldIndex]!),
+    })));
+    onProgress?.({
+      phase: "completed",
+      fieldCount: fields.length,
+      requirementCount: requirements.length,
+      batchCount,
+    });
+    return scores;
+  }
 }
 
 export const entityEmbeddingLimits = {
   maxEntitiesPerNeed,
+  maxFieldsPerSelectedEntity,
   requestBatchSize,
   maxEmbeddingDocumentBytes,
 } as const;

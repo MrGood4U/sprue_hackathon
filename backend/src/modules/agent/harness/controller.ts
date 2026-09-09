@@ -33,6 +33,8 @@ import {
   type EntityEmbeddingInput,
   type EntityEmbeddingProgress,
   type EntityEmbeddingRankerPort,
+  type FieldEmbeddingProgress,
+  type FieldEmbeddingScore,
 } from "./entity-embedding.js";
 import {
   HarnessSchemaError,
@@ -345,6 +347,7 @@ function deriveNetworkScopedSearchKeywords(
 const maxFeasibilityEntitiesPerNeed = 16;
 const maxFeasibilityFieldsPerEntity = 96;
 const maxFeasibilityFieldBytesPerEntity = 12_000;
+const maxEmbeddedAlternativesPerRequirement = 12;
 const feasibilityTextEncoder = new TextEncoder();
 
 function feasibilityTokens(value: string): ReadonlySet<string> {
@@ -443,6 +446,80 @@ function compactFeasibilityEntity(
     suggestedBindings,
     matchedRequirements: entity.matchedRequirements.filter((requirementId) =>
       suggestedBindings.some((binding) => binding.requirementId === requirementId && binding.fieldPaths.length > 0)),
+    grainHint: entity.grainHint ?? "unknown",
+  };
+}
+
+function embeddedFeasibilityEntity(
+  entity: GraphSchemaEntityInspection,
+  need: DiscoverySourceNeed,
+  scores: readonly FieldEmbeddingScore[],
+): SourceFeasibilityCandidate["entities"][number] {
+  const fieldsByPath = new Map(entity.fields.map((field) => [field.path, field]));
+  const scoreGroups = new Map<string, FieldEmbeddingScore[]>();
+  for (const score of scores) {
+    if (!fieldsByPath.has(score.fieldPath)) continue;
+    const group = scoreGroups.get(score.requirementId) ?? [];
+    group.push(score);
+    scoreGroups.set(score.requirementId, group);
+  }
+  for (const group of scoreGroups.values()) {
+    group.sort((left, right) => right.similarity - left.similarity || left.fieldPath.localeCompare(right.fieldPath));
+  }
+
+  const existingBindings = new Map(entity.suggestedBindings.map((binding) => [binding.requirementId, binding.fieldPaths]));
+  const rankedPaths = new Map<string, readonly string[]>();
+  const suggestedBindings = need.fields.map((requirement) => {
+    const compatibleEmbedded = (scoreGroups.get(requirement.id) ?? [])
+      .filter((score) => graphTypeCompatible(requirement, fieldsByPath.get(score.fieldPath)!))
+      .slice(0, maxEmbeddedAlternativesPerRequirement)
+      .map((score) => score.fieldPath);
+    const compatibleExisting = (existingBindings.get(requirement.id) ?? [])
+      .filter((path) => {
+        const field = fieldsByPath.get(path);
+        return field ? graphTypeCompatible(requirement, field) : false;
+      });
+    const paths = [...new Set([...compatibleEmbedded, ...compatibleExisting])];
+    rankedPaths.set(requirement.id, paths);
+    return {requirementId: requirement.id, fieldPaths: paths};
+  });
+
+  const orderedPaths: string[] = [];
+  const includedPaths = new Set<string>();
+  const addPath = (path: string | undefined) => {
+    if (!path || includedPaths.has(path) || !fieldsByPath.has(path)) return;
+    includedPaths.add(path);
+    orderedPaths.push(path);
+  };
+  const semanticGroups = need.fields.map((requirement) =>
+    (scoreGroups.get(requirement.id) ?? [])
+      .slice(0, maxEmbeddedAlternativesPerRequirement)
+      .map((score) => score.fieldPath));
+  const maximumRank = Math.max(0, ...semanticGroups.map((paths) => paths.length));
+  for (let rank = 0; rank < maximumRank; rank += 1) {
+    for (const paths of semanticGroups) addPath(paths[rank]);
+  }
+  for (const requirement of need.fields) {
+    for (const path of rankedPaths.get(requirement.id) ?? []) addPath(path);
+  }
+
+  const fields = orderedPaths.map((path) => fieldsByPath.get(path)!);
+  const presented = new Set(fields.map((field) => field.path));
+  const boundedBindings = suggestedBindings.map((binding) => ({
+    requirementId: binding.requirementId,
+    fieldPaths: binding.fieldPaths.filter((path) => presented.has(path)),
+  }));
+  return {
+    queryEntity: entity.queryEntity,
+    entityType: entity.entityType,
+    fieldCount: entity.fields.length,
+    omittedFieldCount: entity.fields.length - fields.length,
+    fields,
+    suggestedBindings: boundedBindings,
+    matchedRequirements: need.fields
+      .filter((requirement) => boundedBindings.some((binding) =>
+        binding.requirementId === requirement.id && binding.fieldPaths.length > 0))
+      .map((requirement) => requirement.id),
     grainHint: entity.grainHint ?? "unknown",
   };
 }
@@ -698,6 +775,97 @@ function compactFeasibilityCandidates(
       entities: candidate.entities.map((entity) => compactFeasibilityEntity(entity, need)),
     };
   });
+}
+
+async function retrieveSelectedEntityFields(
+  candidates: readonly SourceFeasibilityCandidate[],
+  needs: readonly DiscoverySourceNeed[],
+  discovery: GraphSourceDiscoveryResult,
+  embeddingRanker: EntityEmbeddingRankerPort | undefined,
+  signal?: AbortSignal,
+  emitDebug?: (event: AgentDebugEvent) => void,
+  emitEmbeddingProgress?: (
+    progress: FieldEmbeddingProgress & {sourceNeedNumber: number; sourceNeedCount: number},
+  ) => void,
+): Promise<{
+  candidates: readonly SourceFeasibilityCandidate[];
+  embeddedFieldCount: number;
+  embeddingBatchCount: number;
+  rankingEvidence: "embedding" | "deterministic";
+}> {
+  if (!embeddingRanker?.rankFields) {
+    return {
+      candidates: compactFeasibilityCandidates(candidates, needs),
+      embeddedFieldCount: 0,
+      embeddingBatchCount: 0,
+      rankingEvidence: "deterministic",
+    };
+  }
+  const needsById = new Map(needs.map((need) => [need.id, need]));
+  const discoveredByRef = new Map(discovery.candidates.map((candidate) => [candidate.candidateRef, candidate]));
+  const output: SourceFeasibilityCandidate[] = [];
+  let embeddedFieldCount = 0;
+  let embeddingBatchCount = 0;
+  for (const [candidateIndex, candidate] of candidates.entries()) {
+    const need = needsById.get(candidate.sourceNeedId);
+    const entity = candidate.entities[0];
+    const discovered = discoveredByRef.get(candidate.candidateRef);
+    if (!need || !entity || !discovered) {
+      fail("Selected candidate does not have trusted field evidence", "ENTITY_SELECTION_EXPANSION_INVALID");
+    }
+    const fieldCount = entity.fields.length;
+    const requirementCount = need.fields.length;
+    const batchCount = Math.ceil((fieldCount + requirementCount) / entityEmbeddingLimits.requestBatchSize);
+    embeddedFieldCount += fieldCount;
+    embeddingBatchCount += batchCount;
+    const startedAt = Date.now();
+    emitDebug?.({
+      stage: "semantic_field_retrieval",
+      phase: "embedding_request_started",
+      sourceNeedId: need.id,
+      entityCount: 1,
+      fieldCount,
+      fieldRequirementCount: requirementCount,
+    });
+    let scores: readonly FieldEmbeddingScore[];
+    try {
+      scores = await embeddingRanker.rankFields(need, {
+        candidateRef: candidate.candidateRef,
+        displayName: discovered.displayName,
+        entity,
+      }, signal, (progress) => emitEmbeddingProgress?.({
+        ...progress,
+        sourceNeedNumber: candidateIndex + 1,
+        sourceNeedCount: candidates.length,
+      }));
+      emitDebug?.({
+        stage: "semantic_field_retrieval",
+        phase: "embedding_response_received",
+        sourceNeedId: need.id,
+        entityCount: 1,
+        fieldCount,
+        fieldRequirementCount: requirementCount,
+        durationMs: Math.max(0, Date.now() - startedAt),
+      });
+    } catch (error) {
+      emitDebug?.({
+        stage: "semantic_field_retrieval",
+        phase: "embedding_request_failed",
+        sourceNeedId: need.id,
+        entityCount: 1,
+        fieldCount,
+        fieldRequirementCount: requirementCount,
+        durationMs: Math.max(0, Date.now() - startedAt),
+        errorCode: diagnosticErrorCode(error),
+      });
+      throw error;
+    }
+    output.push({
+      ...candidate,
+      entities: [embeddedFeasibilityEntity(entity, need, scores)],
+    });
+  }
+  return {candidates: output, embeddedFieldCount, embeddingBatchCount, rankingEvidence: "embedding"};
 }
 
 function graphTypeCompatible(requirement: GraphFieldRequirement, field: GraphInspectedField): boolean {
@@ -1246,31 +1414,64 @@ export class AgentHarness {
       ],
     }));
     const candidateEvidence = expandSelectedEntities(discovery, entitySelectionOutput.selections);
-    const presentedCandidateEvidence = compactFeasibilityCandidates(candidateEvidence, sourceNeeds);
     const inspectedFieldCount = candidateEvidence.reduce(
       (count, candidate) => count + candidate.entities.reduce((entityCount, entity) => entityCount + entity.fields.length, 0),
       0,
     );
+    emitTrace(
+      "semantic_field_retrieval",
+      "started",
+      this.embeddingRanker?.rankFields
+        ? `Preparing all ${inspectedFieldCount} fields from the selected entities for requirement-level semantic retrieval`
+        : "Field embedding retrieval is disabled; preparing deterministic requirement-ranked field evidence",
+    );
+    const fieldRetrieval = await retrieveSelectedEntityFields(
+      candidateEvidence,
+      sourceNeeds,
+      discovery,
+      this.embeddingRanker,
+      signal,
+      (event) => this.emitDebug(event),
+      (progress) => {
+        if (progress.phase === "batch_started") {
+          emitTrace(
+            "semantic_field_retrieval",
+            "started",
+            `Generating field embedding batch ${progress.batchNumber}/${progress.batchCount} for selected entity ${progress.sourceNeedNumber}/${progress.sourceNeedCount} (${progress.fieldCount} fields, ${progress.requirementCount} requirements)`,
+          );
+        } else if (progress.phase === "similarity_started") {
+          emitTrace(
+            "semantic_field_retrieval",
+            "started",
+            `Computing field-to-requirement cosine similarity for ${progress.fieldCount} fields in selected entity ${progress.sourceNeedNumber}/${progress.sourceNeedCount}`,
+          );
+        }
+      },
+    );
+    const presentedCandidateEvidence = fieldRetrieval.candidates;
     const presentedFieldCount = presentedCandidateEvidence.reduce(
       (count, candidate) => count + candidate.entities.reduce((entityCount, entity) => entityCount + entity.fields.length, 0),
       0,
     );
     this.emitDebug({
-      stage: "source_feasibility",
-      phase: "field_evidence_compacted",
+      stage: "semantic_field_retrieval",
+      phase: "field_evidence_ranked",
       selectedEntityCount: presentedCandidateEvidence.reduce((count, candidate) => count + candidate.entities.length, 0),
       inspectedFieldCount,
       presentedFieldCount,
       omittedFieldCount: inspectedFieldCount - presentedFieldCount,
     });
     emitTrace(
-      "source_feasibility",
-      "started",
-      `Harness retained ${presentedFieldCount} requirement-ranked fields from ${inspectedFieldCount} inspected fields; the model is binding fields and composing registered operators`,
+      "semantic_field_retrieval",
+      "passed",
+      fieldRetrieval.rankingEvidence === "embedding"
+        ? `Embedded all ${fieldRetrieval.embeddedFieldCount} selected-entity fields in ${fieldRetrieval.embeddingBatchCount} ${fieldRetrieval.embeddingBatchCount === 1 ? "batch" : "batches"} and retained ${presentedFieldCount} requirement-ranked alternatives`
+        : `Ranked selected-entity fields deterministically and retained ${presentedFieldCount} alternatives`,
     );
+    emitTrace("source_feasibility", "started", "Model is binding retrieved fields and composing registered operators");
     const feasibilityRequest: SourceFeasibilityModelRequest = {
       stage: "source_feasibility",
-      promptVersion: "6",
+      promptVersion: "7",
       semanticPlan: discoveryPlanningOutput.semanticPlan,
       sourceNeeds,
       candidates: presentedCandidateEvidence,

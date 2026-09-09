@@ -284,6 +284,76 @@ test("embedding retrieval truncates every source and entity document to a safe U
   assert.match(suppliedInputs[1]!, /omitted_field_count:/);
 });
 
+test("field retrieval embeds every field in the selected entity before requirement ranking", async () => {
+  const suppliedInputs: string[] = [];
+  const progress: {phase: string; batchCount: number}[] = [];
+  const ranker = new RemoteEntityEmbeddingRanker({
+    enabled: true,
+    apiUrl: "https://dashscope.example/v1/embeddings",
+    apiKey: "server-only-embedding-key",
+    model: "text-embedding-v3",
+    dimensions: 1024,
+    timeoutMs: 5000,
+  }, async (_url, options) => {
+    const body = JSON.parse(String(options?.body)) as {input: string[]};
+    suppliedInputs.push(...body.input);
+    return Response.json({
+      data: body.input.map((text, index) => ({
+        index,
+        embedding: text.includes("volume") || text.includes("amountUSD") ? [1, 0] : [0, 1],
+      })),
+    });
+  });
+  const fields = [
+    {path: "amountUSD", graphType: "BigDecimal", valueType: "decimal" as const, nullable: false, list: false},
+    ...Array.from({length: 104}, (_, index) => ({
+      path: `providerField${index}`,
+      graphType: "String",
+      valueType: "string" as const,
+      nullable: false,
+      list: false,
+    })),
+  ];
+  const need = {
+    id: "ethereum_swaps",
+    dataNetwork: "eip155:1",
+    protocol: {name: "Uniswap", version: "V3"},
+    assets: [{symbol: "WETH", networkAssetId: null}, {symbol: "USDC", networkAssetId: null}],
+    description: "One row per WETH/USDC swap",
+    grain: "swap event",
+    fields: [{
+      id: "volume_usd",
+      description: "USD volume",
+      expectedType: "decimal" as const,
+      unit: "USD",
+      required: true,
+      allowNullable: false,
+      hints: ["amountUSD"],
+    }],
+    constraints: ["Uniswap swaps only"],
+  };
+  const scores = await ranker.rankFields(need, {
+    candidateRef: "graph:selected",
+    displayName: "Selected Subgraph",
+    entity: {
+      queryEntity: "swaps",
+      entityType: "Swap",
+      fields,
+      suggestedBindings: [],
+      matchedRequirements: [],
+      grainHint: "unknown",
+    },
+  }, undefined, (event) => progress.push(event));
+
+  assert.equal(suppliedInputs.length, fields.length + need.fields.length);
+  assert.equal(suppliedInputs.filter((input) => input.includes("One actual inspected GraphQL field")).length, fields.length);
+  assert.ok(suppliedInputs.some((input) => input.includes("providerField103")));
+  assert.equal(scores.length, fields.length * need.fields.length);
+  assert.equal(scores.find((score) => score.fieldPath === "amountUSD")?.similarity, 1);
+  assert.equal(progress.at(-1)?.phase, "completed");
+  assert.equal(progress.at(-1)?.batchCount, 11);
+});
+
 test("mock Agent harness executes the non-model cross-chain flow", async () => {
   const config = parseConfig({...baseEnvironment, AGENT_MODE: "mock", AGENT_MODEL: "sprue-mock-planner"});
   const model = createAgentModel(config.agent);

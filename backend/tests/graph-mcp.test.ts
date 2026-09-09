@@ -1387,6 +1387,122 @@ test("Agent uses embedding similarity to order compact entity evidence before mo
     < trace.findIndex((event) => event.stage === "source_entity_selection" && event.status === "started"));
 });
 
+test("Agent embeds all fields only after the model selects an entity", async () => {
+  let suppliedFieldCount = 0;
+  let feasibilityRequest: Extract<AgentModelRequest, {stage: "source_feasibility"}> | undefined;
+  const trace: HarnessTraceEvent[] = [];
+  const fields = [
+    {path: "id", graphType: "ID", valueType: "id" as const, nullable: false, list: false},
+    ...Array.from({length: 128}, (_, index) => ({
+      path: `provider.metric${index}`,
+      graphType: "String",
+      valueType: "string" as const,
+      nullable: false,
+      list: false,
+    })),
+  ];
+  const harness = new AgentHarness({
+    async complete(request: AgentModelRequest) {
+      if (request.stage === "source_feasibility") {
+        feasibilityRequest = request;
+        return {
+          provider: "mock",
+          model: "hierarchical-field-retrieval-test",
+          output: {schemaVersion: 1, kind: "clarification", questions: [{code: "confirm", question: "Confirm."}]},
+        };
+      }
+      return {provider: "mock", model: "hierarchical-field-retrieval-test", output: createMockStageOutput(request)};
+    },
+  }, undefined, {
+    async discover() {
+      return {
+        schemaVersion: 1 as const,
+        provider: "the_graph" as const,
+        gatewayEnvironment: "mainnet" as const,
+        searchedNeeds: 1,
+        searchCalls: 1,
+        inspectedSchemas: 1,
+        candidates: [{
+          candidateRef: "graph:source_1:bbbbbbbbbbbbbbbbbbbb",
+          sourceNeedId: "source_1",
+          discoveryMethod: "keyword" as const,
+          logicalSubgraphId: "sg-fields",
+          manifestIpfsCid: "QmFields",
+          displayName: "Selected schema Ethereum",
+          reportedNetwork: null,
+          networkEvidence: "display_name" as const,
+          totalQueryCount30d: 1,
+          queryActivityEvidence: "observed" as const,
+          schemaHash: "sha256:fields",
+          schemaBytes: 1,
+          entities: [{
+            queryEntity: "records",
+            entityType: "Record",
+            fields,
+            suggestedBindings: [{requirementId: "record_id", fieldPaths: ["id"]}],
+            matchedRequirements: ["record_id"],
+            grainHint: "matched" as const,
+          }],
+          status: "suitable" as const,
+          score: 1,
+          limitations: [],
+        }],
+        limits: {maxSearchCallsPerNeed: 3, maxSearchResultsPerCall: 10, maxSchemaInspectionsPerNeed: 10},
+      };
+    },
+  }, undefined, {
+    async rank(_need, inputs) {
+      return inputs.map((input) => ({
+        candidateRef: input.candidateRef,
+        queryEntity: input.entity.queryEntity,
+        similarity: 1,
+      }));
+    },
+    async rankFields(need, input, _signal, onProgress) {
+      suppliedFieldCount = input.entity.fields.length;
+      const batchCount = Math.ceil((input.entity.fields.length + need.fields.length) / 10);
+      onProgress?.({
+        phase: "batch_started",
+        fieldCount: input.entity.fields.length,
+        requirementCount: need.fields.length,
+        batchNumber: 1,
+        batchCount,
+      });
+      const scores = need.fields.flatMap((requirement) => input.entity.fields.map((field, index) => ({
+        requirementId: requirement.id,
+        fieldPath: field.path,
+        similarity: field.path === "provider.metric127" ? 1 : 0.5 - index / 1000,
+      })));
+      onProgress?.({
+        phase: "similarity_started",
+        fieldCount: input.entity.fields.length,
+        requirementCount: need.fields.length,
+        batchCount,
+      });
+      onProgress?.({
+        phase: "completed",
+        fieldCount: input.entity.fields.length,
+        requirementCount: need.fields.length,
+        batchCount,
+      });
+      return scores;
+    },
+  });
+
+  const result = await harness.explore({
+    intent: "Read records from Ethereum.",
+    availableNetworks: [{dataNetwork: "eip155:1", label: "Ethereum"}],
+  }, undefined, (event) => trace.push(event));
+
+  assert.equal(result.kind, "clarification");
+  assert.equal(suppliedFieldCount, fields.length);
+  assert.ok(feasibilityRequest?.candidates[0]?.entities[0]?.fields.some((field) => field.path === "provider.metric127"));
+  assert.ok((feasibilityRequest?.candidates[0]?.entities[0]?.fields.length ?? fields.length) < fields.length);
+  assert.ok(trace.some((event) => event.stage === "semantic_field_retrieval" && event.status === "passed"));
+  assert.ok(trace.findIndex((event) => event.stage === "source_entity_selection" && event.status === "passed")
+    < trace.findIndex((event) => event.stage === "semantic_field_retrieval" && event.status === "started"));
+});
+
 test("Agent repairs an unsupported source claim contradicted by inspected field evidence", async () => {
   const requests: AgentModelRequest[] = [];
   const graph: GraphPlanningMcpPort = {

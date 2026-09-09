@@ -53,6 +53,7 @@ export type LogEvent =
         | "source_discovery_planning"
         | "graph_source_discovery"
         | "semantic_entity_retrieval"
+        | "semantic_field_retrieval"
         | "source_entity_selection"
         | "source_feasibility"
         | "semantic_interpretation"
@@ -67,7 +68,7 @@ export type LogEvent =
         | "embedding_request_started"
         | "embedding_response_received"
         | "embedding_request_failed"
-        | "field_evidence_compacted"
+        | "field_evidence_ranked"
         | "request_started"
         | "request_failed";
       callNumber?: number;
@@ -85,6 +86,8 @@ export type LogEvent =
       sourceNeedCount?: number;
       sourceNeedId?: string;
       entityCount?: number;
+      fieldCount?: number;
+      fieldRequirementCount?: number;
       selectedEntityCount?: number;
       inspectedFieldCount?: number;
       presentedFieldCount?: number;

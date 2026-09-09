@@ -178,8 +178,10 @@ test("keeps Agent Planner on live durable services without a demo fallback", asy
   assert.match(elapsedHook, /clearInterval\(intervalId\)/);
   assert.match(progress, /CircleNotch className="agent-trace-spinner"/);
   assert.match(progress, /semantic_entity_retrieval/);
+  assert.match(progress, /semantic_field_retrieval/);
   assert.match(stepCards, /event\.summary/);
   assert.match(stepCards, /semantic_entity_retrieval/);
+  assert.match(stepCards, /semantic_field_retrieval/);
   assert.match(stepCards, /agent\.status\.\$\{state\}/);
   assert.match(stepCards, /agent-step-card-spinner/);
   assert.match(styles, /\.agent-trace-spinner \{[^}]*animation: agent-spin 900ms linear infinite;/s);

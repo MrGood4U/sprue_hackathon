@@ -9,6 +9,7 @@ const stageTitleKeys = {
   graph_source_discovery: "agent.stage.graphDiscovery",
   semantic_entity_retrieval: "agent.stage.semanticRetrieval",
   source_entity_selection: "agent.stage.entitySelection",
+  semantic_field_retrieval: "agent.stage.semanticFieldRetrieval",
   source_feasibility: "agent.stage.feasibility",
   feasibility_validation: "agent.stage.validation",
   semantic_interpretation: "agent.stage.model",

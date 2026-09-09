@@ -247,8 +247,10 @@ export const en = {
   "agent.stage.semanticRetrievalDetail": "Sprue embeds inspected entity schemas, computes similarity, and retains a compact candidate set.",
   "agent.stage.entitySelection": "Select query entities",
   "agent.stage.entitySelectionDetail": "The configured model selects one query entity per source need from compact schema evidence.",
+  "agent.stage.semanticFieldRetrieval": "Retrieve entity fields",
+  "agent.stage.semanticFieldRetrievalDetail": "Sprue embeds every field in the selected entities and ranks alternatives for each semantic requirement.",
   "agent.stage.feasibility": "Assess feasibility",
-  "agent.stage.feasibilityDetail": "Sprue expands only selected fields, then the configured model binds them and proposes registered operators.",
+  "agent.stage.feasibilityDetail": "The configured model binds retrieved fields and proposes registered operators.",
 
   "product.intent": "Report repeat-day activity by protocol over 30 complete UTC days, keeping all active wallets in the denominator.",
   "product.description": "Repeat-day activity by protocol, with all active wallets included in the denominator. Not cohort retention.",
