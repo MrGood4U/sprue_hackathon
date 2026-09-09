@@ -8,7 +8,10 @@ import {
   DisabledGraphSchemaCache,
   MemoryGraphSchemaCache,
   RestrictedGraphMcpClient,
+  graphNetworkAliases,
   graphMcpPlanningTools,
+  graphNetworksRegistryVersion,
+  graphSubgraphNetworkCatalog,
 } from "../src/modules/graph/index.js";
 import type {
   GraphMcpPlanningTool,
@@ -69,6 +72,38 @@ const swapNeedContract = {
   ],
   constraints: [],
 } as const;
+
+test("Graph network catalog is the complete pinned Subgraphs-service projection", () => {
+  assert.equal(graphNetworksRegistryVersion, "0.7.119");
+  assert.equal(graphSubgraphNetworkCatalog.length, 65);
+  assert.equal(graphSubgraphNetworkCatalog.filter((network) => network.networkType === "mainnet").length, 34);
+  assert.equal(graphSubgraphNetworkCatalog.filter((network) => network.networkType === "testnet").length, 31);
+  assert.equal(new Set(graphSubgraphNetworkCatalog.map((network) => network.dataNetwork)).size, 65);
+  assert.ok(graphSubgraphNetworkCatalog.some((network) => network.dataNetwork === "near:mainnet"));
+  assert.ok(graphSubgraphNetworkCatalog.some((network) => network.dataNetwork === "eip155:421614"));
+  assert.ok(!(graphNetworkAliases["eip155:1"] ?? []).includes("mainnet"));
+});
+
+test("Agent accepts the full network catalog without raising the source-output limit", async () => {
+  const model = {
+    async complete(request: AgentModelRequest) {
+      if (request.stage !== "source_discovery_planning") throw new Error("not expected");
+      return {
+        provider: "mock" as const,
+        model: "full-network-catalog-test",
+        output: createMockStageOutput({...request, availableNetworks: request.availableNetworks.slice(0, 1)}),
+      };
+    },
+  };
+  const harness = new AgentHarness(model, undefined, {
+    async discover() { throw new Error("full-network-catalog-accepted"); },
+  });
+
+  await assert.rejects(
+    () => harness.explore({intent: "Inspect one existing source", availableNetworks: graphSubgraphNetworkCatalog}),
+    /full-network-catalog-accepted/,
+  );
+});
 
 test("restricted Graph MCP client exposes bounded metadata methods but no arbitrary execution method", async () => {
   const wire = new FakeWire({
@@ -688,6 +723,41 @@ test("Graph source discovery does not treat another chain's mainnet label as Eth
   assert.equal(result.inspectedSchemas, 0);
   assert.equal(result.candidates[0]?.networkEvidence, "conflict");
   assert.equal(result.candidates[0]?.status, "incompatible");
+});
+
+test("Graph source discovery prefers a specific testnet label over its mainnet family alias", async () => {
+  const graph: GraphPlanningMcpPort = {
+    async searchSubgraphsByKeyword() {
+      return {
+        subgraphs: [{
+          subgraphId: "sg-arbitrum-sepolia",
+          displayName: "Uniswap V3 Arbitrum Sepolia Testnet",
+          manifestIpfsCid: "QmArbitrumSepolia",
+        }],
+        total: 1,
+        returned: 1,
+      };
+    },
+    async getDeploymentActivity() {
+      return [{manifestIpfsCid: "QmArbitrumSepolia", totalQueryCount30d: 1, dataPointsCount: 1}];
+    },
+    async getSchema() { return schema; },
+    async getTopDeploymentsForContract() { throw new Error("not expected"); },
+    async close() {},
+  };
+  const result = await new GraphSourceDiscoveryService(graph).discover({
+    needs: [{
+      id: "arbitrum-sepolia-swaps",
+      dataNetwork: "eip155:421614",
+      networkLabel: "Arbitrum Sepolia Testnet",
+      keywords: ["Uniswap"],
+      ...swapNeedContract,
+    }],
+  });
+
+  assert.equal(result.inspectedSchemas, 1);
+  assert.equal(result.candidates[0]?.networkEvidence, "display_name");
+  assert.notEqual(result.candidates[0]?.status, "incompatible");
 });
 
 test("Graph source discovery continues to a need's later search hint after a full generic result page", async () => {

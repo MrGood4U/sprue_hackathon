@@ -157,13 +157,16 @@ function validateSemanticPlan(plan: SemanticPlan): void {
   }
 }
 
-function validateExplorationRequest(request: HarnessExplorationRequest, limits: {maxSources: number; maxIntentLength: number}): string {
+function validateExplorationRequest(
+  request: HarnessExplorationRequest,
+  limits: {maxNetworkCatalogEntries: number; maxIntentLength: number},
+): string {
   const intent = request.intent.trim();
   if (intent.length === 0 || intent.length > limits.maxIntentLength) {
     fail("Intent length is outside harness limits", "INTENT_LIMIT_EXCEEDED");
   }
-  if (request.availableNetworks.length === 0 || request.availableNetworks.length > limits.maxSources) {
-    fail("Available network count is outside harness limits", "SOURCE_LIMIT_EXCEEDED");
+  if (request.availableNetworks.length === 0 || request.availableNetworks.length > limits.maxNetworkCatalogEntries) {
+    fail("Available network catalog size is outside harness limits", "NETWORK_CATALOG_LIMIT_EXCEEDED");
   }
   const networks = new Set<string>();
   for (const network of request.availableNetworks) {
@@ -546,6 +549,7 @@ export class AgentHarness {
     private readonly model: AgentModelPort,
     private readonly limits: {
       maxSources: number;
+      maxNetworkCatalogEntries: number;
       maxModelCalls: number;
       maxIntentLength: number;
       maxProposalBytes: number;
@@ -553,6 +557,7 @@ export class AgentHarness {
       maxEdges: number;
     } = {
       maxSources: 4,
+      maxNetworkCatalogEntries: 128,
       maxModelCalls: 4,
       maxIntentLength: 8000,
       maxProposalBytes: 1_048_576,

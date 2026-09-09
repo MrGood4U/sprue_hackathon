@@ -76,7 +76,7 @@ The current Privy frontend dependency tree reports 27 production advisories: 25 
 
 ### Graph Source Discovery Update
 
-Graph source exploration now targets The Graph mainnet catalog (Ethereum Mainnet, Arbitrum One, and Base Mainnet). It derives independent per-network SourceNeed records, verifies 30-day activity for every bounded candidate, and progressively inspects ranked schemas with a separate budget per need so one network cannot consume another network's inspection allowance. Candidate selection precedes multi-source operator composition inside the second structured model stage. Authorized bounded data probes and canonical source admission remain pending.
+Graph source exploration now uses a checked-in projection of every mainnet and testnet entry advertising the Subgraphs service in The Graph Networks Registry v0.7.119 (65 networks). CAIP-2 identity, official labels, Graph network IDs, aliases, and network type share one backend source of truth. It derives independent per-network SourceNeed records, verifies 30-day activity for every bounded candidate, and progressively inspects ranked schemas with a separate budget per need so one network cannot consume another network's inspection allowance. Candidate selection precedes multi-source operator composition inside the second structured model stage. Authorized bounded data probes, automated registry refresh, and canonical source admission remain pending.
 
 ### Earlier Frontend Transition
 

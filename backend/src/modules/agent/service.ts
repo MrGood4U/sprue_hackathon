@@ -5,6 +5,7 @@ import {RestrictedGraphMcpClient, SdkGraphMcpPlanningWire} from "../graph/mcp-cl
 import type {ModelProfileService} from "../model-profile/service.js";
 import type {Logger} from "../../shared/logger.js";
 import {MemoryGraphSchemaCache} from "../graph/schema-cache.js";
+import {graphPlannerNetworkCatalog} from "../graph/network-catalog.js";
 import type {GraphSchemaCachePort} from "../graph/types.js";
 import {
   AgentCommandConflictError,
@@ -26,11 +27,7 @@ import {createAgentModel} from "./harness/factory.js";
 import {AgentModelRequestError} from "./harness/remote-model.js";
 import type {AgentDebugSink, AgentTraceSink, HarnessExplorationResult, HarnessTraceEvent} from "./harness/types.js";
 
-export const agentNetworkCatalog = [
-  {dataNetwork: "eip155:1", label: "Ethereum Mainnet"},
-  {dataNetwork: "eip155:42161", label: "Arbitrum One"},
-  {dataNetwork: "eip155:8453", label: "Base Mainnet"},
-] as const;
+export const agentNetworkCatalog = graphPlannerNetworkCatalog;
 
 const productionPlannerFactory: AgentPlannerFactory = ({modelConfig, graphApiKey, graphGatewayEnvironment, graphSchemaCache, debugSink, traceSink}) => {
   const wire = new SdkGraphMcpPlanningWire({

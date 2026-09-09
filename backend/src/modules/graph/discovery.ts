@@ -25,6 +25,7 @@ import type {
   GraphSourceDiscoveryNeed,
 } from "./types.js";
 import {MemoryGraphSchemaCache} from "./schema-cache.js";
+import {graphNetworkAliases} from "./network-catalog.js";
 
 const identifier = z.string().trim().min(1).max(100).regex(/^[a-z][a-z0-9_]*$/);
 const needIdentifier = z.string().trim().min(1).max(100).regex(/^[a-z][a-z0-9_-]*$/);
@@ -85,18 +86,6 @@ interface CandidateSchemaInspection {
   error: string | null;
 }
 
-const knownNetworkAliases: Readonly<Record<string, readonly string[]>> = {
-  "eip155:1": ["ethereum"],
-  "eip155:10": ["optimism"],
-  "eip155:56": ["bsc", "bnb chain", "binance smart chain"],
-  "eip155:100": ["gnosis"],
-  "eip155:137": ["polygon", "matic"],
-  "eip155:250": ["fantom"],
-  "eip155:8453": ["base"],
-  "eip155:42161": ["arbitrum", "arbitrum one"],
-  "eip155:43114": ["avalanche", "avalanche c-chain"],
-};
-
 export class GraphSourceDiscoveryError extends Error {
   constructor(readonly code: string, message: string) {
     super(message);
@@ -120,6 +109,12 @@ function containsNormalizedPhrase(value: string, phrase: string): boolean {
   const normalizedValue = normalize(value);
   const normalizedPhrase = normalize(phrase);
   return normalizedPhrase.length > 0 && ` ${normalizedValue} `.includes(` ${normalizedPhrase} `);
+}
+
+function phraseSpecificity(value: string): number {
+  const normalized = normalize(value);
+  if (!normalized) return 0;
+  return normalized.split(" ").length * 1_000 + normalized.length;
 }
 
 function terminal(path: string): string {
@@ -377,12 +372,23 @@ function networkEvidence(
     return normalize(candidate.reportedNetwork ?? "") === normalize(need.contract?.chain ?? "") ? "contract_filter" : "conflict";
   }
   const displayName = candidate.displayName;
-  const targetAliases = new Set([normalize(need.networkLabel), ...(knownNetworkAliases[need.dataNetwork] ?? []).map(normalize)]);
-  const targetNetworkMentioned = [...targetAliases].some((alias) => containsNormalizedPhrase(displayName, alias));
-  const otherNetworkMentioned = Object.entries(knownNetworkAliases)
-    .some(([dataNetwork, aliases]) => dataNetwork !== need.dataNetwork && aliases.some((alias) => containsNormalizedPhrase(displayName, alias)));
-  if (otherNetworkMentioned) return "conflict";
-  return targetNetworkMentioned ? "display_name" : "unknown";
+  const matches = Object.entries(graphNetworkAliases).flatMap(([dataNetwork, aliases]) =>
+    aliases
+      .filter((alias) => containsNormalizedPhrase(displayName, alias))
+      .map((alias) => ({dataNetwork, specificity: phraseSpecificity(alias)})));
+  const requestedLabelSpecificity = containsNormalizedPhrase(displayName, need.networkLabel)
+    ? phraseSpecificity(need.networkLabel)
+    : 0;
+  const targetSpecificity = Math.max(
+    requestedLabelSpecificity,
+    ...matches.filter((match) => match.dataNetwork === need.dataNetwork).map((match) => match.specificity),
+  );
+  const otherSpecificity = Math.max(
+    0,
+    ...matches.filter((match) => match.dataNetwork !== need.dataNetwork).map((match) => match.specificity),
+  );
+  if (otherSpecificity >= targetSpecificity && otherSpecificity > 0) return "conflict";
+  return targetSpecificity > 0 ? "display_name" : "unknown";
 }
 
 function baseRank(need: GraphSourceDiscoveryNeed, candidate: RawCandidate, totalQueryCount30d: number | null): number {
@@ -390,7 +396,7 @@ function baseRank(need: GraphSourceDiscoveryNeed, candidate: RawCandidate, total
   const candidateTokens = semanticTokens(candidate.displayName);
   const networkTokens = semanticTokens([
     need.networkLabel,
-    ...Object.values(knownNetworkAliases).flat(),
+    ...Object.values(graphNetworkAliases).flat(),
   ].join(" "));
   const keywordRelevance = need.keywords.reduce((best, keyword) => {
     const keywordTokens = [...semanticTokens(keyword)].filter((token) => !networkTokens.has(token));
