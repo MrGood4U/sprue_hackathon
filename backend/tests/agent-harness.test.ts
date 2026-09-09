@@ -6,6 +6,7 @@ import {
   AgentModelRequestError,
   createMockStageOutput,
   createAgentModel,
+  entityEmbeddingLimits,
   HarnessCompileError,
   RemoteEntityEmbeddingRanker,
   RemoteAgentModel,
@@ -214,6 +215,73 @@ test("embedding retrieval ranks inspected entity schemas without returning field
   assert.equal(scores[0]?.similarity, 1);
   assert.equal(scores[1]?.similarity, 0);
   assert.deepEqual(progress, ["batch_started", "batch_completed", "similarity_started", "completed"]);
+});
+
+test("embedding retrieval truncates every source and entity document to a safe UTF-8 byte budget", async () => {
+  let suppliedInputs: string[] = [];
+  const ranker = new RemoteEntityEmbeddingRanker({
+    enabled: true,
+    apiUrl: "https://dashscope.example/v1/embeddings",
+    apiKey: "server-only-embedding-key",
+    model: "text-embedding-v3",
+    dimensions: 1024,
+    timeoutMs: 5000,
+  }, async (_url, options) => {
+    const body = JSON.parse(String(options?.body)) as {input: string[]};
+    suppliedInputs = body.input;
+    return Response.json({
+      data: body.input.map((_text, index) => ({index, embedding: [1, 0]})),
+    });
+  });
+  const longText = "schema requirement ".repeat(55);
+  const requirementFields = Array.from({length: 32}, (_, index) => ({
+    id: `field_${index}`,
+    description: longText,
+    expectedType: "string" as const,
+    unit: null,
+    required: index < 4,
+    allowNullable: false,
+    hints: [`field_${index}`],
+  }));
+  const entityFields = [
+    {path: "amountUSD", graphType: "BigDecimal", valueType: "decimal" as const, nullable: false, list: false},
+    ...Array.from({length: 700}, (_, index) => ({
+      path: `relationship_${index}.verboseProviderField_${index}`,
+      graphType: "BigDecimal",
+      valueType: "decimal" as const,
+      nullable: false,
+      list: false,
+    })),
+  ];
+  await ranker.rank({
+    id: "oversized_schema",
+    dataNetwork: "eip155:1",
+    protocol: {name: "Example", version: null},
+    assets: [],
+    description: longText,
+    grain: "one provider record",
+    fields: requirementFields,
+    constraints: Array.from({length: 16}, () => longText),
+  }, [{
+    candidateRef: "graph:oversized",
+    displayName: "Oversized schema",
+    entity: {
+      queryEntity: "records",
+      entityType: "Record",
+      fields: entityFields,
+      suggestedBindings: [{requirementId: "field_0", fieldPaths: ["amountUSD"]}],
+      matchedRequirements: ["field_0"],
+      grainHint: "unknown",
+    },
+  }]);
+
+  assert.equal(suppliedInputs.length, 2);
+  for (const input of suppliedInputs) {
+    assert.ok(new TextEncoder().encode(input).byteLength <= entityEmbeddingLimits.maxEmbeddingDocumentBytes);
+  }
+  assert.match(suppliedInputs[0]!, /omitted_requirement_detail_count:/);
+  assert.match(suppliedInputs[1]!, /amountUSD:BigDecimal/);
+  assert.match(suppliedInputs[1]!, /omitted_field_count:/);
 });
 
 test("mock Agent harness executes the non-model cross-chain flow", async () => {

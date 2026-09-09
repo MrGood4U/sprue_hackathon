@@ -2,9 +2,10 @@ import type {DiscoverySourceNeed} from "./types.js";
 import type {GraphInspectedField, GraphSchemaEntityInspection} from "../../graph/index.js";
 
 const maxResponseBytes = 2_097_152;
-const maxEntityDocumentCharacters = 28_000;
+const maxEmbeddingDocumentBytes = 6_000;
 const maxEntitiesPerNeed = 80;
 const requestBatchSize = 10;
+const textEncoder = new TextEncoder();
 
 export interface EntityEmbeddingConfig {
   enabled: boolean;
@@ -65,6 +66,39 @@ export class EntityEmbeddingRequestError extends Error {
   }
 }
 
+function utf8Bytes(value: string): number {
+  return textEncoder.encode(value).byteLength;
+}
+
+function truncateUtf8(value: string, maximumBytes: number): string {
+  if (utf8Bytes(value) <= maximumBytes) return value;
+  const output: string[] = [];
+  let bytes = 0;
+  for (const character of value) {
+    const characterBytes = utf8Bytes(character);
+    if (bytes + characterBytes > maximumBytes) break;
+    output.push(character);
+    bytes += characterBytes;
+  }
+  return output.join("");
+}
+
+function boundedEmbeddingDocument(header: string, lines: readonly string[], omittedLabel: string): string {
+  const markerReserve = utf8Bytes(`\n${omittedLabel}:${lines.length}`);
+  const boundedHeader = truncateUtf8(header, maxEmbeddingDocumentBytes - markerReserve);
+  const included: string[] = [];
+  let bytes = utf8Bytes(boundedHeader);
+  for (const line of lines) {
+    const lineBytes = utf8Bytes(`\n${line}`);
+    if (bytes + lineBytes + markerReserve > maxEmbeddingDocumentBytes) continue;
+    included.push(line);
+    bytes += lineBytes;
+  }
+  const omitted = lines.length - included.length;
+  const marker = omitted > 0 ? `\n${omittedLabel}:${omitted}` : "";
+  return `${boundedHeader}${included.length > 0 ? `\n${included.join("\n")}` : ""}${marker}`;
+}
+
 function requirementQuery(need: DiscoverySourceNeed): string {
   const protocol = need.protocol
     ? `${need.protocol.name}${need.protocol.version ? ` ${need.protocol.version}` : ""}`
@@ -72,24 +106,29 @@ function requirementQuery(need: DiscoverySourceNeed): string {
   const assets = need.assets.length > 0
     ? need.assets.map((asset) => `${asset.symbol}${asset.networkAssetId ? ` ${asset.networkAssetId}` : ""}`).join(", ")
     : "unspecified assets";
-  const fields = need.fields.map((field) => [
+  const fieldLine = (field: DiscoverySourceNeed["fields"][number]) => [
+    "Field",
     field.required ? "required" : "optional",
     field.id,
     field.description,
     field.expectedType,
     field.unit ?? "no unit",
     `hints ${field.hints.join(" ")}`,
-  ].join(" | ")).join("\n");
-  return [
+  ].join(" | ");
+  const header = [
     "Find the existing GraphQL query entity whose actual schema best satisfies this data-source requirement.",
     `Network: ${need.dataNetwork}`,
     `Protocol: ${protocol}`,
     `Assets: ${assets}`,
     `Description: ${need.description}`,
     `Required row grain: ${need.grain}`,
-    `Fields:\n${fields}`,
-    `Constraints:\n${need.constraints.join("\n") || "none"}`,
   ].join("\n");
+  const details = [
+    ...need.fields.filter((field) => field.required).map(fieldLine),
+    ...need.constraints.map((constraint) => `Constraint | ${constraint}`),
+    ...need.fields.filter((field) => !field.required).map(fieldLine),
+  ];
+  return boundedEmbeddingDocument(header, details, "omitted_requirement_detail_count");
 }
 
 function fieldText(field: GraphInspectedField): string {
@@ -110,18 +149,7 @@ function entityDocument(input: EntityEmbeddingInput): string {
     `Grain hint: ${input.entity.grainHint ?? "unknown"}`,
     "Actual inspected fields:",
   ].join("\n");
-  const lines: string[] = [];
-  let length = header.length;
-  for (const field of orderedFields) {
-    const line = fieldText(field);
-    if (length + line.length + 1 > maxEntityDocumentCharacters) break;
-    lines.push(line);
-    length += line.length + 1;
-  }
-  if (lines.length < orderedFields.length) {
-    lines.push(`omitted_field_count:${orderedFields.length - lines.length}`);
-  }
-  return `${header}\n${lines.join("\n")}`;
+  return boundedEmbeddingDocument(header, orderedFields.map(fieldText), "omitted_field_count");
 }
 
 function cosineSimilarity(left: readonly number[], right: readonly number[]): number {
@@ -278,5 +306,5 @@ export class RemoteEntityEmbeddingRanker implements EntityEmbeddingRankerPort {
 export const entityEmbeddingLimits = {
   maxEntitiesPerNeed,
   requestBatchSize,
-  maxEntityDocumentCharacters,
+  maxEmbeddingDocumentBytes,
 } as const;
