@@ -114,6 +114,12 @@ test("HTTP framework boundaries through real local sockets", async (t) => {
   };
   const productDelivery = {
     productId: product.id,
+    capabilities: {
+      deploy: false,
+      privateRequest: false,
+      publishX402: false,
+      publicRequest: false,
+    },
     api: {
       readiness: "no_version" as const,
       blockers: [{code: "VERSION_MISSING", message: "No durable product version exists yet."}],

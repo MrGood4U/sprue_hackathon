@@ -819,6 +819,12 @@ export function postgresProductRepository(
 
       return {
         productId,
+        capabilities: {
+          deploy: false,
+          privateRequest: false,
+          publishX402: false,
+          publicRequest: false,
+        },
         api: {
           readiness,
           blockers: apiBlockers(readiness),

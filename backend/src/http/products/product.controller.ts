@@ -169,6 +169,12 @@ const deliverySaleSchema = z.strictObject({
 });
 export const productDeliverySchema = z.strictObject({
   productId: z.uuid(),
+  capabilities: z.strictObject({
+    deploy: z.boolean(),
+    privateRequest: z.boolean(),
+    publishX402: z.boolean(),
+    publicRequest: z.boolean(),
+  }),
   api: z.strictObject({
     readiness: z.enum(["no_version", "version_not_ready", "not_deployed", "deploying", "unavailable", "available"]),
     blockers: z.array(deliveryBlockerSchema),

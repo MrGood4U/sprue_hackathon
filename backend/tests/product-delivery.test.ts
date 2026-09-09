@@ -263,6 +263,12 @@ test("product delivery projects only durable API and monetization facts", async 
     });
 
     const projected = await service.delivery(workspaceId, String(product.id));
+    assert.deepEqual(projected.capabilities, {
+      deploy: false,
+      privateRequest: false,
+      publishX402: false,
+      publicRequest: false,
+    });
     assert.equal(projected.api.readiness, "available");
     assert.equal(projected.api.contract?.endpointUrl, "http://127.0.0.1:3001/data/v1/live-delivery-product");
     assert.deepEqual(projected.api.contract?.responseSchema.outputSchema, outputSchema);

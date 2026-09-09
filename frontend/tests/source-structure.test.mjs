@@ -77,13 +77,20 @@ test("keeps the Dashboard focused on metrics and the product list", async () => 
 
 test("keeps the API page focused on request and response formats", async () => {
   const source = await readFile(new URL("pages/ApiDeploymentPage.jsx", sourceRoot), "utf8");
+  const deliveryHook = await readFile(new URL("features/delivery/useProductDelivery.js", sourceRoot), "utf8");
+  const deliveryApi = await readFile(new URL("services/api/delivery.js", sourceRoot), "utf8");
   const styles = await readFile(new URL("styles.css", sourceRoot), "utf8");
 
   assert.match(source, /api\.requestFormat/);
   assert.match(source, /api\.responseFormat/);
-  assert.match(source, /api\.requestParameters\.map/);
-  assert.match(source, /api\.responseSchema\.fields\.map/);
-  assert.doesNotMatch(source, /deploymentEvidence|api\.deployment|openLogs/);
+  assert.match(source, /contract\.parameterSchema\.map/);
+  assert.match(source, /fieldRows\(contract\.responseSchema\.outputSchema\)/);
+  assert.match(source, /contract\.exampleBody/);
+  assert.match(source, /useProductDelivery\(productRef\)/);
+  assert.doesNotMatch(source, /useDemoRuntime|useRequestTest|responseExample|mock-chip/);
+  assert.match(deliveryHook, /getProductDelivery/);
+  assert.match(deliveryApi, /meta\?\.dataSource !== "live"/);
+  assert.doesNotMatch(source, /deploymentEvidence|openLogs/);
   assert.doesNotMatch(styles, /\.deployment-table|\.evidence-grid/);
 });
 
@@ -125,7 +132,7 @@ test("keeps Agent Planner on live durable services without a demo fallback", asy
   assert.match(hook, /id: `pending-\$\{idempotencyKey\}`/);
   assert.match(hook, /Math\.min\(5000, Math\.round\(delayMs \* 1\.5\)\)/);
   assert.match(hook, /activeSubmission/);
-  assert.match(app, /path\.endsWith\("\/api"\) \|\| path\.endsWith\("\/monetize"\)/);
+  assert.doesNotMatch(app, /path\.endsWith\("\/api"\) \|\| path\.endsWith\("\/monetize"\)/);
   assert.doesNotMatch(builderPage, /useDemoRuntime|useBuildRun/);
   assert.match(builderPage, /useProductBuilder\(productRef\)/);
   assert.match(builderPage, /cacheBuilderDraft/);

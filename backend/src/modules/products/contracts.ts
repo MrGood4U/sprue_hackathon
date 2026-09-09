@@ -252,6 +252,12 @@ export interface DeliverySale {
 
 export interface ProductDeliveryView {
   productId: string;
+  capabilities: {
+    deploy: boolean;
+    privateRequest: boolean;
+    publishX402: boolean;
+    publicRequest: boolean;
+  };
   api: {
     readiness:
       | "no_version"
