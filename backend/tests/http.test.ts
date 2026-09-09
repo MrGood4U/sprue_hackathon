@@ -112,6 +112,24 @@ test("HTTP framework boundaries through real local sockets", async (t) => {
     latestRun: null,
     nextAction: "open_builder" as const,
   };
+  const productDelivery = {
+    productId: product.id,
+    api: {
+      readiness: "no_version" as const,
+      blockers: [{code: "VERSION_MISSING", message: "No durable product version exists yet."}],
+      latestVersion: null,
+      activeVersion: null,
+      deployment: null,
+      contract: null,
+    },
+    monetization: {
+      readiness: "api_not_ready" as const,
+      blockers: [{code: "API_NOT_READY", message: "A healthy API deployment with ready materialized data is required."}],
+      publication: null,
+      revenue: {grossSales: [], creatorProceeds: [], providerFees: []},
+      sales: [],
+    },
+  };
   const walletAccessProjection = () => ({
     wallets: [],
     credentials: [credential],
@@ -199,6 +217,9 @@ test("HTTP framework boundaries through real local sockets", async (t) => {
       },
       async read() {
         return product;
+      },
+      async delivery() {
+        return productDelivery;
       },
       async update() {
         return {...product, name: "Renamed", lockVersion: 1};
@@ -453,6 +474,14 @@ test("HTTP framework boundaries through real local sockets", async (t) => {
           expectedLockVersion: 0,
           idempotencyKey: "delete-product-key-0001",
         });
+        const delivery = await call(
+          `/api/v1/workspaces/${workspace}/products/${product.id}/delivery`,
+          {headers: auth},
+        );
+        assert.equal(delivery.status, 200);
+        const deliveryBody = await delivery.json();
+        assert.equal(deliveryBody.meta.dataSource, "live");
+        assert.deepEqual(deliveryBody.data, productDelivery);
         const patch = await call(
           `/api/v1/workspaces/${workspace}/products/${user}`,
           { method: "PATCH", headers: jsonHeaders, body: "{}" },

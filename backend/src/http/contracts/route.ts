@@ -27,6 +27,7 @@ export interface RouteDefinition {
     | "products-list"
     | "products-create"
     | "products-read"
+    | "product-delivery-read"
     | "products-update"
     | "products-delete"
     | "agent-sessions-create"

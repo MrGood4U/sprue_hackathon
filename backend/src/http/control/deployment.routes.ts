@@ -3,6 +3,15 @@ import type { RouteDefinition } from "../contracts/route.js";
 export const deploymentRoutes: readonly RouteDefinition[] = [
   {
     method: "GET",
+    path: "/api/v1/workspaces/{workspaceId}/products/{productId}/delivery",
+    operationId: "getApiV1WorkspacesWorkspaceIdProductsProductIdDelivery",
+    audience: "creator",
+    implementation: "product-delivery-read",
+    idempotency: false,
+    ifMatch: false,
+  },
+  {
+    method: "GET",
     path: "/api/v1/workspaces/{workspaceId}/products/{productId}/deployments",
     operationId: "getApiV1WorkspacesWorkspaceIdProductsProductIdDeployments",
     audience: "creator",

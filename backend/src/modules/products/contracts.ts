@@ -161,6 +161,130 @@ export interface WorkspaceOverview {
   }[];
 }
 
+export interface DeliveryBlocker {
+  code: string;
+  message: string;
+}
+
+export interface DeliveryVersion {
+  id: string;
+  versionNo: number;
+  status: VersionStatus;
+  outputSchema: Record<string, unknown>;
+}
+
+export interface DeliveryDeployment {
+  id: string;
+  environment: "local" | "demo" | "self_hosted";
+  provider: "railway" | "docker" | "local";
+  status: DeploymentStatus;
+  endpointSlug: string;
+  endpointUrl: string | null;
+  publicProductUrl: string | null;
+  activeVersionId: string | null;
+  activeMaterializationId: string | null;
+  lastHealthAt: string | null;
+  sourceFreshnessAt: string | null;
+  updatedAt: string;
+}
+
+export interface DeliveryContract {
+  deploymentId: string;
+  activeVersionId: string;
+  method: "GET";
+  endpointUrl: string;
+  accessMode: "private" | "api_key" | "x402";
+  serveMode: "materialized";
+  parameterSchema: readonly {
+    name: "limit";
+    location: "query";
+    type: "integer";
+    required: false;
+    default: number;
+    minimum: number;
+    maximum: number;
+  }[];
+  responseSchema: {
+    mediaType: "application/json";
+    outputSchema: Record<string, unknown>;
+  };
+  exampleBody: Record<string, unknown> | null;
+}
+
+export interface DeliveryPublication {
+  id: string;
+  revisionNo: number;
+  status: "draft" | "active" | "retired" | "invalid";
+  accessMode: "x402";
+  serveMode: "materialized" | "live";
+  price: Money | null;
+  recipient: {
+    walletAddressId: string;
+    networkAccountRef: string | null;
+    identityStatus: "unverified" | "resolved" | "mismatched";
+    accountCompletionStatus: "not_applicable" | "unverified" | "hollow" | "complete";
+    controlStatus: "unverified" | "pending" | "verified" | "rejected";
+    canReceive: boolean;
+    canSpend: boolean;
+  } | null;
+  paymentProtocolVersion: string | null;
+  paymentScheme: string | null;
+  maxTimeoutSeconds: number | null;
+  facilitator: string | null;
+  capabilityObservedAt: string | null;
+  serviceFeeEnabled: boolean;
+  createdAt: string;
+}
+
+export interface DeliverySale {
+  id: string;
+  correlationId: string;
+  status: "received" | "payment_required" | "authorized" | "served" | "failed";
+  amount: Money | null;
+  payer: string | null;
+  providerTransactionRef: string | null;
+  networkTransactionId: string | null;
+  networkTransactionHash: string | null;
+  consensusTimestamp: string | null;
+  startedAt: string;
+  completedAt: string | null;
+}
+
+export interface ProductDeliveryView {
+  productId: string;
+  api: {
+    readiness:
+      | "no_version"
+      | "version_not_ready"
+      | "not_deployed"
+      | "deploying"
+      | "unavailable"
+      | "available";
+    blockers: DeliveryBlocker[];
+    latestVersion: DeliveryVersion | null;
+    activeVersion: DeliveryVersion | null;
+    deployment: DeliveryDeployment | null;
+    contract: DeliveryContract | null;
+  };
+  monetization: {
+    readiness:
+      | "api_not_ready"
+      | "not_configured"
+      | "draft"
+      | "invalid"
+      | "retired"
+      | "active";
+    blockers: DeliveryBlocker[];
+    publication: DeliveryPublication | null;
+    revenue: {
+      grossSales: Money[];
+      creatorProceeds: Money[];
+      providerFees: Money[];
+    };
+    sales: DeliverySale[];
+  };
+}
+
 export interface ProductRepository {
   list(input: ProductListInput): Promise<{items: ProductSummary[]; hasMore: boolean}>;
   find(workspaceId: string, productId: string): Promise<ProductDetail | null>;
@@ -177,6 +301,7 @@ export interface ProductRepository {
     | {kind: "not_found" | "precondition_failed" | "command_conflict"}
   >;
   overview(workspaceId: string): Promise<WorkspaceOverview>;
+  delivery(workspaceId: string, productId: string): Promise<ProductDeliveryView | null>;
 }
 
 export class ProductInputError extends Error {

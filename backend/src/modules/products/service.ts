@@ -123,6 +123,17 @@ export class ProductService {
     }
   }
 
+  async delivery(workspaceId: string, productId: string) {
+    try {
+      const result = await this.repository.delivery(workspaceId, productId);
+      if (!result) throw new ProductNotFoundError();
+      return result;
+    } catch (error) {
+      if (error instanceof ProductNotFoundError) throw error;
+      throw new ProductStorageError();
+    }
+  }
+
   async create(input: {
     workspaceId: string;
     actorUserId: string;

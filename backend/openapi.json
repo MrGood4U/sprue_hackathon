@@ -4078,6 +4078,70 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceId}/products/{productId}/delivery": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdProductsProductIdDelivery",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Actual server configuration; unsupported capabilities remain disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/DemoEnvelope"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "implemented",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceId}/products/{productId}/deployments": {
       "get": {
         "operationId": "getApiV1WorkspacesWorkspaceIdProductsProductIdDeployments",

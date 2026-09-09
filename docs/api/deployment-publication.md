@@ -1,6 +1,16 @@
 # Deployment, Private API, and Publication APIs
 
-Draft 0.1. Read the [shared contract](../../api-contract.md) and [Builder contracts](products-builder.md). `W` expands to `/api/v1/workspaces/{workspaceId}`. All operations require the active creator owner; mutations require Idempotency-Key. M1/M3 directions are approved in model 1.5; asynchronous guarantees, explicit activation and refresh compare-and-swap still require service implementation.
+Draft 0.2. Read the [shared contract](../../api-contract.md) and [Builder contracts](products-builder.md). `W` expands to `/api/v1/workspaces/{workspaceId}`. All operations require the active creator owner; mutations require Idempotency-Key. M1/M3 directions are approved in model 1.5; asynchronous guarantees, explicit activation and refresh compare-and-swap still require service implementation.
+
+## 0. Product Delivery Read Model
+
+| Method | Path | Input | Success | Model ownership |
+|---|---|---|---|---|
+| GET | `W/products/{productId}/delivery` | None | 200 `ProductDeliveryView` | Read-only projection of version, deployment, materialization, publication, recipient capability, sales, and ledger facts |
+
+`ProductDeliveryView` is the shared backend fact source for the authenticated API and Monetize pages. It returns explicit readiness and blocker codes rather than synthesizing a healthy endpoint, example rows, publication, price, recipient, or revenue. The API contract appears only when an active version, active materialization, and configured endpoint URL exist. Its optional example body is bounded to at most three rows from the active inline materialization; absence remains null. The fixed optional `limit` parameter is the platform contract documented below, while every output field comes from the active immutable version.
+
+The monetization projection selects only a stored Hedera x402 publication revision, derives recipient readiness from the linked wallet address and HBAR capability observation, aggregates confirmed ledger entries by network and asset, and returns at most twenty persisted paid access requests. It masks payer addresses and never counts pending or uncertain values as confirmed revenue. This read does not deploy, publish, charge, retry, reconcile, or grant wallet authority.
 
 ## 1. Deployment Lifecycle
 

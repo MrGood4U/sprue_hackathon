@@ -32,6 +32,7 @@ import {
   deleteProduct,
   listProducts,
   readProduct,
+  readProductDelivery,
   readWorkspaceOverview,
   updateProduct,
 } from "./products/product.controller.js";
@@ -143,6 +144,8 @@ export function registerRoutes(app: Express, deps: RouteDependencies) {
                                         ? createProduct(deps.products)
                                         : route.implementation === "products-read"
                                           ? readProduct(deps.products)
+                                          : route.implementation === "product-delivery-read"
+                                            ? readProductDelivery(deps.products)
                                           : route.implementation === "products-update"
                                             ? updateProduct(deps.products)
                                             : route.implementation === "products-delete"

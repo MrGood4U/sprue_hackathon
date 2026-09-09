@@ -75,6 +75,59 @@ export const productDeletionSchema = z.strictObject({
   deletedAt: z.iso.datetime(),
 });
 
+const deliveryBlockerSchema = z.strictObject({code: z.string(), message: z.string()});
+const deliveryVersionSchema = z.strictObject({
+  id: z.uuid(),
+  versionNo: z.number().int().positive(),
+  status: versionSummarySchema.shape.status,
+  outputSchema: z.record(z.string(), z.unknown()),
+});
+const deliveryDeploymentSchema = z.strictObject({
+  id: z.uuid(),
+  environment: z.enum(["local", "demo", "self_hosted"]),
+  provider: z.enum(["railway", "docker", "local"]),
+  status: deploymentSummarySchema.shape.status,
+  endpointSlug: z.string(),
+  endpointUrl: z.url().nullable(),
+  publicProductUrl: z.url().nullable(),
+  activeVersionId: z.uuid().nullable(),
+  activeMaterializationId: z.uuid().nullable(),
+  lastHealthAt: z.iso.datetime().nullable(),
+  sourceFreshnessAt: z.iso.datetime().nullable(),
+  updatedAt: z.iso.datetime(),
+});
+const deliveryContractSchema = z.strictObject({
+  deploymentId: z.uuid(),
+  activeVersionId: z.uuid(),
+  method: z.literal("GET"),
+  endpointUrl: z.url(),
+  accessMode: z.enum(["private", "api_key", "x402"]),
+  serveMode: z.literal("materialized"),
+  parameterSchema: z.array(z.strictObject({
+    name: z.literal("limit"),
+    location: z.literal("query"),
+    type: z.literal("integer"),
+    required: z.literal(false),
+    default: z.number().int().positive(),
+    minimum: z.number().int().positive(),
+    maximum: z.number().int().positive(),
+  })).length(1),
+  responseSchema: z.strictObject({
+    mediaType: z.literal("application/json"),
+    outputSchema: z.record(z.string(), z.unknown()),
+  }),
+  exampleBody: z.record(z.string(), z.unknown()).nullable(),
+});
+const deliveryRecipientSchema = z.strictObject({
+  walletAddressId: z.uuid(),
+  networkAccountRef: z.string().nullable(),
+  identityStatus: z.enum(["unverified", "resolved", "mismatched"]),
+  accountCompletionStatus: z.enum(["not_applicable", "unverified", "hollow", "complete"]),
+  controlStatus: z.enum(["unverified", "pending", "verified", "rejected"]),
+  canReceive: z.boolean(),
+  canSpend: z.boolean(),
+});
+
 const moneySchema = z.strictObject({
   networkId: z.uuid(),
   network: z.string(),
@@ -83,6 +136,58 @@ const moneySchema = z.strictObject({
   symbol: z.string(),
   decimals: z.number().int().nonnegative(),
   amountAtomic: atomicSchema,
+});
+
+const deliveryPublicationSchema = z.strictObject({
+  id: z.uuid(),
+  revisionNo: z.number().int().positive(),
+  status: z.enum(["draft", "active", "retired", "invalid"]),
+  accessMode: z.literal("x402"),
+  serveMode: z.enum(["materialized", "live"]),
+  price: moneySchema.nullable(),
+  recipient: deliveryRecipientSchema.nullable(),
+  paymentProtocolVersion: z.string().nullable(),
+  paymentScheme: z.string().nullable(),
+  maxTimeoutSeconds: z.number().int().nonnegative().nullable(),
+  facilitator: z.string().nullable(),
+  capabilityObservedAt: z.iso.datetime().nullable(),
+  serviceFeeEnabled: z.boolean(),
+  createdAt: z.iso.datetime(),
+});
+const deliverySaleSchema = z.strictObject({
+  id: z.uuid(),
+  correlationId: z.string(),
+  status: z.enum(["received", "payment_required", "authorized", "served", "failed"]),
+  amount: moneySchema.nullable(),
+  payer: z.string().nullable(),
+  providerTransactionRef: z.string().nullable(),
+  networkTransactionId: z.string().nullable(),
+  networkTransactionHash: z.string().nullable(),
+  consensusTimestamp: z.string().nullable(),
+  startedAt: z.iso.datetime(),
+  completedAt: z.iso.datetime().nullable(),
+});
+export const productDeliverySchema = z.strictObject({
+  productId: z.uuid(),
+  api: z.strictObject({
+    readiness: z.enum(["no_version", "version_not_ready", "not_deployed", "deploying", "unavailable", "available"]),
+    blockers: z.array(deliveryBlockerSchema),
+    latestVersion: deliveryVersionSchema.nullable(),
+    activeVersion: deliveryVersionSchema.nullable(),
+    deployment: deliveryDeploymentSchema.nullable(),
+    contract: deliveryContractSchema.nullable(),
+  }),
+  monetization: z.strictObject({
+    readiness: z.enum(["api_not_ready", "not_configured", "draft", "invalid", "retired", "active"]),
+    blockers: z.array(deliveryBlockerSchema),
+    publication: deliveryPublicationSchema.nullable(),
+    revenue: z.strictObject({
+      grossSales: z.array(moneySchema),
+      creatorProceeds: z.array(moneySchema),
+      providerFees: z.array(moneySchema),
+    }),
+    sales: z.array(deliverySaleSchema).max(20),
+  }),
 });
 
 export const workspaceOverviewSchema = z.strictObject({
@@ -208,6 +313,25 @@ export function readProduct(service?: ProductService): RequestHandler {
         String(req.params.productId),
       ));
       res.setHeader("ETag", `"${data.lockVersion}"`);
+      res.json({data, meta: meta(res.locals.requestId)});
+    } catch (error) {
+      mapProductError(error);
+    }
+  };
+}
+
+export function readProductDelivery(service?: ProductService): RequestHandler {
+  return async (req, res) => {
+    if (!emptyObjectSchema.safeParse(req.query).success) {
+      throw new AppError("INVALID_REQUEST");
+    }
+    try {
+      const data = productDeliverySchema.parse(
+        await requireService(service).delivery(
+          workspaceId(req),
+          String(req.params.productId),
+        ),
+      );
       res.json({data, meta: meta(res.locals.requestId)});
     } catch (error) {
       mapProductError(error);

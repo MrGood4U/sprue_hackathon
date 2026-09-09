@@ -1,7 +1,13 @@
 import type {SqlClient} from "../../db/migrations.js";
 import type {
   DeploymentSummary,
+  DeliveryContract,
+  DeliveryDeployment,
+  DeliveryPublication,
+  DeliverySale,
+  DeliveryVersion,
   Money,
+  ProductDeliveryView,
   ProductDetail,
   ProductRepository,
   ProductStatus,
@@ -182,6 +188,220 @@ function money(value: unknown): Money[] {
         };
       })
     : [];
+}
+
+function record(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("INVALID_PRODUCT_DELIVERY_JSON");
+  }
+  return value as Record<string, unknown>;
+}
+
+function deliveryVersion(row: Record<string, unknown>, prefix: "latest" | "active"): DeliveryVersion | null {
+  const id = row[`${prefix}_version_id`];
+  if (!id) return null;
+  return {
+    id: String(id),
+    versionNo: Number(row[`${prefix}_version_no`]),
+    status: String(row[`${prefix}_version_status`]) as VersionStatus,
+    outputSchema: record(row[`${prefix}_output_schema`]),
+  };
+}
+
+function deliveryDeployment(row: Record<string, unknown>): DeliveryDeployment | null {
+  if (!row.deployment_id) return null;
+  const url = endpointUrl(row.public_base_url, row.endpoint_slug);
+  const base = typeof row.public_base_url === "string" && row.public_base_url
+    ? row.public_base_url.replace(/\/$/, "")
+    : null;
+  return {
+    id: String(row.deployment_id),
+    environment: String(row.deployment_environment) as DeliveryDeployment["environment"],
+    provider: String(row.deployment_provider) as DeliveryDeployment["provider"],
+    status: String(row.deployment_status) as DeliveryDeployment["status"],
+    endpointSlug: String(row.endpoint_slug),
+    endpointUrl: url,
+    publicProductUrl: base ? `${base}/p/${String(row.endpoint_slug)}` : null,
+    activeVersionId: row.active_version_id ? String(row.active_version_id) : null,
+    activeMaterializationId: row.active_materialization_id
+      ? String(row.active_materialization_id)
+      : null,
+    lastHealthAt: timestamp(row.last_health_at),
+    sourceFreshnessAt: timestamp(row.source_freshness_at),
+    updatedAt: timestamp(row.deployment_updated_at)!,
+  };
+}
+
+function apiReadiness(
+  latestVersion: DeliveryVersion | null,
+  deployment: DeliveryDeployment | null,
+): ProductDeliveryView["api"]["readiness"] {
+  if (!latestVersion) return "no_version";
+  if (!deployment?.activeVersionId && latestVersion.status !== "ready") return "version_not_ready";
+  if (!deployment) return "not_deployed";
+  if (deployment.status === "deploying") return "deploying";
+  if (
+    deployment.status !== "healthy" ||
+    !deployment.activeVersionId ||
+    !deployment.activeMaterializationId ||
+    !deployment.endpointUrl
+  ) return "unavailable";
+  return "available";
+}
+
+function apiBlockers(readiness: ProductDeliveryView["api"]["readiness"]) {
+  const details = {
+    no_version: ["VERSION_MISSING", "No durable product version exists yet."],
+    version_not_ready: ["VERSION_NOT_READY", "The latest durable product version is not ready."],
+    not_deployed: ["DEPLOYMENT_MISSING", "No deployment exists for this product."],
+    deploying: ["DEPLOYMENT_IN_PROGRESS", "The deployment has not finished."],
+    unavailable: ["DEPLOYMENT_UNAVAILABLE", "The deployment is not healthy with an active materialization and endpoint."],
+  } as const;
+  if (readiness === "available") return [];
+  const [code, message] = details[readiness];
+  return [{code, message}];
+}
+
+function deliveryContract(
+  row: Record<string, unknown>,
+  deployment: DeliveryDeployment | null,
+  activeVersion: DeliveryVersion | null,
+): DeliveryContract | null {
+  if (!deployment?.endpointUrl || !activeVersion || !deployment.activeMaterializationId) return null;
+  const sample = Array.isArray(row.sample_rows) ? row.sample_rows : null;
+  const accessMode = row.active_access_mode
+    ? String(row.active_access_mode) as DeliveryContract["accessMode"]
+    : "private";
+  return {
+    deploymentId: deployment.id,
+    activeVersionId: activeVersion.id,
+    method: "GET",
+    endpointUrl: deployment.endpointUrl,
+    accessMode,
+    serveMode: "materialized",
+    parameterSchema: [{
+      name: "limit",
+      location: "query",
+      type: "integer",
+      required: false,
+      default: 100,
+      minimum: 1,
+      maximum: 1000,
+    }],
+    responseSchema: {
+      mediaType: "application/json",
+      outputSchema: activeVersion.outputSchema,
+    },
+    exampleBody: sample ? {
+      data: sample,
+      meta: {
+        versionId: activeVersion.id,
+        materializationId: deployment.activeMaterializationId,
+        sourceFreshnessAt: deployment.sourceFreshnessAt,
+      },
+    } : null,
+  };
+}
+
+function price(row: Record<string, unknown>): Money | null {
+  if (!row.publication_network_id || !row.publication_asset_id || row.price_atomic === null) return null;
+  return {
+    networkId: String(row.publication_network_id),
+    network: `${String(row.network_namespace)}:${String(row.network_reference)}`,
+    assetId: String(row.publication_asset_id),
+    assetIdentifier: String(row.asset_identifier),
+    symbol: String(row.asset_symbol),
+    decimals: Number(row.asset_decimals),
+    amountAtomic: String(row.price_atomic),
+  };
+}
+
+function publication(row: Record<string, unknown> | undefined): DeliveryPublication | null {
+  if (!row?.publication_id) return null;
+  return {
+    id: String(row.publication_id),
+    revisionNo: Number(row.revision_no),
+    status: String(row.publication_status) as DeliveryPublication["status"],
+    accessMode: "x402",
+    serveMode: String(row.serve_mode) as DeliveryPublication["serveMode"],
+    price: price(row),
+    recipient: row.recipient_wallet_address_id ? {
+      walletAddressId: String(row.recipient_wallet_address_id),
+      networkAccountRef: row.network_account_ref ? String(row.network_account_ref) : null,
+      identityStatus: String(row.identity_status) as NonNullable<DeliveryPublication["recipient"]>["identityStatus"],
+      accountCompletionStatus: String(row.account_completion_status) as NonNullable<DeliveryPublication["recipient"]>["accountCompletionStatus"],
+      controlStatus: String(row.control_status) as NonNullable<DeliveryPublication["recipient"]>["controlStatus"],
+      canReceive: Boolean(row.recipient_can_receive) && Boolean(row.capability_can_receive),
+      canSpend: Boolean(row.recipient_can_spend) && Boolean(row.capability_can_spend),
+    } : null,
+    paymentProtocolVersion: row.payment_protocol_version ? String(row.payment_protocol_version) : null,
+    paymentScheme: row.payment_scheme ? String(row.payment_scheme) : null,
+    maxTimeoutSeconds: row.max_timeout_seconds === null ? null : Number(row.max_timeout_seconds),
+    facilitator: row.facilitator ? String(row.facilitator) : null,
+    capabilityObservedAt: timestamp(row.facilitator_capability_observed_at),
+    serviceFeeEnabled: Boolean(row.service_fee_enabled),
+    createdAt: timestamp(row.publication_created_at)!,
+  };
+}
+
+function monetizationReadiness(
+  api: ProductDeliveryView["api"]["readiness"],
+  value: DeliveryPublication | null,
+): ProductDeliveryView["monetization"]["readiness"] {
+  if (api !== "available") return "api_not_ready";
+  if (!value) return "not_configured";
+  if (value.status === "invalid") return "invalid";
+  if (value.status === "retired") return "retired";
+  if (value.status !== "active") return "draft";
+  return "active";
+}
+
+function monetizationBlockers(
+  readiness: ProductDeliveryView["monetization"]["readiness"],
+  value: DeliveryPublication | null,
+) {
+  const blockers: ProductDeliveryView["monetization"]["blockers"] = [];
+  if (readiness === "api_not_ready") blockers.push({code: "API_NOT_READY", message: "A healthy API deployment with ready materialized data is required."});
+  if (readiness === "not_configured") blockers.push({code: "PUBLICATION_NOT_CONFIGURED", message: "No Hedera x402 publication revision exists."});
+  if (readiness === "draft") blockers.push({code: "PUBLICATION_NOT_ACTIVE", message: "The latest Hedera x402 publication is not active."});
+  if (readiness === "invalid") blockers.push({code: "PUBLICATION_INVALID", message: "The latest Hedera x402 publication is invalid."});
+  if (readiness === "retired") blockers.push({code: "PUBLICATION_RETIRED", message: "The latest Hedera x402 publication is retired."});
+  if (value && (!value.recipient || value.recipient.identityStatus !== "resolved")) blockers.push({code: "RECIPIENT_UNRESOLVED", message: "The Hedera recipient account is not resolved."});
+  if (value?.recipient && value.recipient.accountCompletionStatus !== "complete") blockers.push({code: "ACCOUNT_INCOMPLETE", message: "The Hedera recipient account is not complete."});
+  if (value?.recipient && value.recipient.controlStatus !== "verified") blockers.push({code: "RECIPIENT_CONTROL_UNVERIFIED", message: "Creator control of the Hedera recipient is not verified."});
+  if (value?.recipient && (!value.recipient.canReceive || !value.recipient.canSpend)) blockers.push({code: "ASSET_CAPABILITY_UNVERIFIED", message: "HBAR receive and later-spend capability are required."});
+  if (value?.serviceFeeEnabled) blockers.push({code: "SERVICE_FEE_UNSUPPORTED", message: "The hackathon profile does not support a Sprue service fee."});
+  return blockers;
+}
+
+function maskedAddress(value: unknown): string | null {
+  if (typeof value !== "string" || !value) return null;
+  if (value.length <= 16) return value;
+  return `${value.slice(0, 8)}…${value.slice(-6)}`;
+}
+
+function sale(row: Record<string, unknown>): DeliverySale {
+  return {
+    id: String(row.request_id),
+    correlationId: String(row.correlation_id),
+    status: String(row.request_status) as DeliverySale["status"],
+    amount: row.sale_network_id ? {
+      networkId: String(row.sale_network_id),
+      network: `${String(row.sale_network_namespace)}:${String(row.sale_network_reference)}`,
+      assetId: String(row.sale_asset_id),
+      assetIdentifier: String(row.sale_asset_identifier),
+      symbol: String(row.sale_asset_symbol),
+      decimals: Number(row.sale_asset_decimals),
+      amountAtomic: String(row.sale_amount_atomic),
+    } : null,
+    payer: maskedAddress(row.payer_address),
+    providerTransactionRef: row.provider_transaction_ref ? String(row.provider_transaction_ref) : null,
+    networkTransactionId: row.network_transaction_id ? String(row.network_transaction_id) : null,
+    networkTransactionHash: row.network_transaction_hash ? String(row.network_transaction_hash) : null,
+    consensusTimestamp: row.consensus_timestamp ? String(row.consensus_timestamp) : null,
+    startedAt: timestamp(row.started_at)!,
+    completedAt: timestamp(row.completed_at),
+  };
 }
 
 async function findProduct(
@@ -442,6 +662,183 @@ export function postgresProductRepository(
       );
       if (!current.rows[0] || current.rows[0].deleted_at) return {kind: "not_found"};
       return {kind: "precondition_failed"};
+    },
+
+    async delivery(workspaceId, productId) {
+      const productResult = await client.query(
+        `SELECT p.id,
+          lv.id AS latest_version_id,lv.version_no AS latest_version_no,
+          lv.status AS latest_version_status,lv.output_schema_json AS latest_output_schema
+         FROM data_products p
+         LEFT JOIN LATERAL (
+           SELECT v.id,v.version_no,v.status,v.output_schema_json
+           FROM data_product_versions v
+           WHERE v.data_product_id=p.id
+           ORDER BY v.version_no DESC,v.id DESC LIMIT 1
+         ) lv ON true
+         WHERE p.workspace_id=$1 AND p.id=$2 AND p.deleted_at IS NULL`,
+        [workspaceId, productId],
+      );
+      const productRow = productResult.rows[0];
+      if (!productRow) return null;
+
+      const deploymentResult = await client.query(
+        `SELECT d.id AS deployment_id,d.environment AS deployment_environment,
+          d.provider AS deployment_provider,d.status AS deployment_status,
+          d.endpoint_slug,d.public_base_url,d.active_version_id,
+          d.active_materialization_id,d.active_publication_version_id,
+          d.last_health_at,d.updated_at AS deployment_updated_at,
+          av.id AS active_version_id,av.version_no AS active_version_no,
+          av.status AS active_version_status,av.output_schema_json AS active_output_schema,
+          m.source_freshness_at,ap.access_mode AS active_access_mode,
+          CASE
+            WHEN a.storage_kind='inline_json' AND jsonb_typeof(a.payload_json)='array'
+            THEN (
+              SELECT coalesce(jsonb_agg(sample.value ORDER BY sample.ordinality),'[]'::jsonb)
+              FROM jsonb_array_elements(a.payload_json) WITH ORDINALITY AS sample(value,ordinality)
+              WHERE sample.ordinality<=3
+            )
+            ELSE NULL
+          END AS sample_rows
+         FROM deployments d
+         LEFT JOIN data_product_versions av ON av.id=d.active_version_id
+         LEFT JOIN materializations m ON m.id=d.active_materialization_id
+         LEFT JOIN artifacts a ON a.id=m.artifact_id
+         LEFT JOIN publication_versions ap ON ap.id=d.active_publication_version_id
+         WHERE d.workspace_id=$1 AND d.data_product_id=$2
+         ORDER BY
+           CASE d.status WHEN 'healthy' THEN 0 WHEN 'deploying' THEN 1 ELSE 2 END,
+           d.updated_at DESC,d.id DESC
+         LIMIT 1`,
+        [workspaceId, productId],
+      );
+      const deploymentRow = deploymentResult.rows[0] ?? {};
+      const combined = {...productRow, ...deploymentRow};
+      const latestVersion = deliveryVersion(combined, "latest");
+      const activeVersion = deliveryVersion(combined, "active");
+      const selectedDeployment = deliveryDeployment(combined);
+      const readiness = apiReadiness(latestVersion, selectedDeployment);
+      const contract = deliveryContract(combined, selectedDeployment, activeVersion);
+
+      const publicationResult = selectedDeployment
+        ? await client.query(
+            `SELECT pv.id AS publication_id,pv.revision_no,
+              pv.status AS publication_status,pv.serve_mode,pv.network_id AS publication_network_id,
+              pv.asset_id AS publication_asset_id,pv.price_atomic,
+              pv.recipient_wallet_address_id,pv.payment_protocol_version,
+              pv.payment_scheme,pv.max_timeout_seconds,pv.facilitator,
+              pv.facilitator_capability_observed_at,pv.service_fee_enabled,
+              pv.created_at AS publication_created_at,
+              n.namespace AS network_namespace,n.reference AS network_reference,
+              a.asset_identifier,a.symbol AS asset_symbol,a.decimals AS asset_decimals,
+              wa.network_account_ref,wa.identity_status,wa.account_completion_status,
+              wa.control_status,wa.can_receive AS recipient_can_receive,
+              wa.can_spend AS recipient_can_spend,
+              cap.can_receive AS capability_can_receive,
+              cap.can_spend AS capability_can_spend
+             FROM publication_versions pv
+             JOIN deployments d ON d.id=pv.deployment_id
+             LEFT JOIN networks n ON n.id=pv.network_id
+             LEFT JOIN assets a ON a.id=pv.asset_id
+             LEFT JOIN wallet_addresses wa ON wa.id=pv.recipient_wallet_address_id
+             LEFT JOIN LATERAL (
+               SELECT c.can_receive,c.can_spend
+               FROM wallet_asset_capabilities c
+               WHERE c.wallet_address_id=pv.recipient_wallet_address_id
+                 AND c.asset_id=pv.asset_id AND c.status='active'
+               ORDER BY c.observed_at DESC,c.id DESC LIMIT 1
+             ) cap ON true
+             WHERE d.workspace_id=$1 AND d.data_product_id=$2
+               AND pv.deployment_id=$3 AND pv.access_mode='x402'
+             ORDER BY (pv.id=d.active_publication_version_id) DESC,
+               pv.revision_no DESC,pv.id DESC LIMIT 1`,
+            [workspaceId, productId, selectedDeployment.id],
+          )
+        : {rows: []};
+      const selectedPublication = publication(publicationResult.rows[0]);
+      const monetizationReadinessValue = monetizationReadiness(readiness, selectedPublication);
+
+      const revenueResult = await client.query(
+        `SELECT l.entry_type,l.network_id,n.namespace||':'||n.reference AS network,
+          l.asset_id,a.asset_identifier,a.symbol,a.decimals,
+          sum(l.amount_atomic)::text AS amount_atomic
+         FROM financial_ledger_entries l
+         JOIN networks n ON n.id=l.network_id
+         JOIN assets a ON a.id=l.asset_id
+         WHERE l.workspace_id=$1 AND l.data_product_id=$2
+           AND l.recognition_status='confirmed'
+           AND l.accounting_view='economic_allocation'
+           AND l.entry_type IN ('gross_sale','creator_proceeds','provider_fee')
+         GROUP BY l.entry_type,l.network_id,n.namespace,n.reference,
+           l.asset_id,a.asset_identifier,a.symbol,a.decimals
+         ORDER BY l.entry_type,n.namespace,n.reference,a.symbol`,
+        [workspaceId, productId],
+      );
+      const revenue = (entryType: string) => money(revenueResult.rows
+        .filter((row) => row.entry_type === entryType)
+        .map((row) => ({
+          networkId: row.network_id,
+          network: row.network,
+          assetId: row.asset_id,
+          assetIdentifier: row.asset_identifier,
+          symbol: row.symbol,
+          decimals: row.decimals,
+          amountAtomic: row.amount_atomic,
+        })));
+
+      const salesResult = await client.query(
+        `SELECT r.id AS request_id,r.correlation_id,r.status AS request_status,
+          r.started_at,r.completed_at,
+          pi.network_id AS sale_network_id,pi.asset_id AS sale_asset_id,
+          pi.amount_atomic AS sale_amount_atomic,
+          n.namespace AS sale_network_namespace,n.reference AS sale_network_reference,
+          a.asset_identifier AS sale_asset_identifier,a.symbol AS sale_asset_symbol,
+          a.decimals AS sale_asset_decimals,
+          coalesce(ps.payer_address,pi.payer_address) AS payer_address,
+          pa.provider_transaction_ref,ps.network_transaction_id,
+          ps.network_transaction_hash,ps.consensus_timestamp
+         FROM api_access_requests r
+         JOIN deployments d ON d.id=r.deployment_id
+         JOIN payment_intents pi ON pi.id=r.payment_intent_id AND pi.kind='api_sale'
+         JOIN networks n ON n.id=pi.network_id
+         JOIN assets a ON a.id=pi.asset_id
+         LEFT JOIN LATERAL (
+           SELECT s.* FROM payment_settlements s
+           WHERE s.payment_intent_id=pi.id
+           ORDER BY s.reported_at DESC,s.id DESC LIMIT 1
+         ) ps ON true
+         LEFT JOIN LATERAL (
+           SELECT p.provider_transaction_ref FROM payment_attempts p
+           WHERE p.payment_intent_id=pi.id
+           ORDER BY p.attempt_no DESC,p.id DESC LIMIT 1
+         ) pa ON true
+         WHERE r.workspace_id=$1 AND d.data_product_id=$2
+         ORDER BY r.started_at DESC,r.id DESC LIMIT 20`,
+        [workspaceId, productId],
+      );
+
+      return {
+        productId,
+        api: {
+          readiness,
+          blockers: apiBlockers(readiness),
+          latestVersion,
+          activeVersion,
+          deployment: selectedDeployment,
+          contract,
+        },
+        monetization: {
+          readiness: monetizationReadinessValue,
+          blockers: monetizationBlockers(monetizationReadinessValue, selectedPublication),
+          publication: selectedPublication,
+          revenue: {
+            grossSales: revenue("gross_sale"),
+            creatorProceeds: revenue("creator_proceeds"),
+            providerFees: revenue("provider_fee"),
+          },
+          sales: salesResult.rows.map(sale),
+        },
+      } satisfies ProductDeliveryView;
     },
 
     async overview(workspaceId) {
