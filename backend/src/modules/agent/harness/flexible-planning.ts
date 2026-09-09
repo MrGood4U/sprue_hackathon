@@ -15,6 +15,8 @@ interface FieldShape {
   type: GraphSemanticValueType;
   nullable: boolean;
   unit: string | null;
+  cardinality: boolean;
+  nonZero: boolean;
   origins: ReadonlySet<string>;
 }
 
@@ -121,6 +123,15 @@ function compatible(left: GraphSemanticValueType, right: GraphSemanticValueType)
   return (textual.has(left) && textual.has(right)) || (numeric.has(left) && numeric.has(right));
 }
 
+function preservesPromisedUnit(
+  actual: FieldShape,
+  promisedUnit: string | null,
+  measurementUnits: ReadonlySet<string>,
+): boolean {
+  if (promisedUnit === null || actual.unit === promisedUnit) return true;
+  return actual.cardinality && actual.type === "integer" && !measurementUnits.has(promisedUnit);
+}
+
 function field(
   shape: RowShape,
   name: unknown,
@@ -171,7 +182,14 @@ function expressionType(
     if (expression.value !== null && !["string", "number", "boolean"].includes(typeof expression.value)) {
       fail("EXPRESSION_INVALID", "Literal value must be a scalar or null");
     }
-    return {type: valueType as GraphSemanticValueType, nullable: expression.value === null, unit: null, origins: new Set()};
+    return {
+      type: valueType as GraphSemanticValueType,
+      nullable: expression.value === null,
+      unit: null,
+      cardinality: false,
+      nonZero: false,
+      origins: new Set(),
+    };
   }
 
   exactKeys(expression, ["op", "inputs"], `${op} expression`);
@@ -188,19 +206,44 @@ function expressionType(
   const inferred = inputs.map((input) => expressionType(input, shape, budget, usage, depth + 1));
   if (op === "not" || op === "and" || op === "or") {
     if (inferred.some((item) => item.type !== "boolean")) fail("EXPRESSION_TYPE_INVALID", `${op} requires Boolean inputs`);
-    return {type: "boolean", nullable: inferred.some((item) => item.nullable), unit: null, origins: mergedOrigins(inferred)};
+    return {
+      type: "boolean",
+      nullable: inferred.some((item) => item.nullable),
+      unit: null,
+      cardinality: false,
+      nonZero: false,
+      origins: mergedOrigins(inferred),
+    };
   }
   if (["eq", "ne", "lt", "lte", "gt", "gte"].includes(op)) {
     if (!compatible(inferred[0]!.type, inferred[1]!.type)) fail("EXPRESSION_TYPE_INVALID", `${op} inputs have incompatible types`);
-    return {type: "boolean", nullable: inferred.some((item) => item.nullable), unit: null, origins: mergedOrigins(inferred)};
+    return {
+      type: "boolean",
+      nullable: inferred.some((item) => item.nullable),
+      unit: null,
+      cardinality: false,
+      nonZero: false,
+      origins: mergedOrigins(inferred),
+    };
   }
   if (["add", "subtract", "multiply", "safe_divide"].includes(op)) {
     const numeric = new Set<GraphSemanticValueType>(["integer", "decimal"]);
     if (inferred.some((item) => !numeric.has(item.type))) fail("EXPRESSION_TYPE_INVALID", `${op} requires numeric inputs`);
+    const numerator = inferred[0]!;
+    const denominator = inferred[1]!;
+    const preservesCardinality = (op === "add" || op === "subtract")
+      && inferred.every((item) => item.cardinality);
     return {
       type: op === "safe_divide" || inferred.some((item) => item.type === "decimal") ? "decimal" : "integer",
-      nullable: op === "safe_divide" || inferred.some((item) => item.nullable),
-      unit: op === "add" || op === "subtract" ? inferred[0]!.unit : null,
+      nullable: inferred.some((item) => item.nullable)
+        || (op === "safe_divide" && !denominator.nonZero),
+      unit: op === "safe_divide" && denominator.cardinality
+        ? numerator.unit
+        : op === "add" || op === "subtract"
+          ? numerator.unit
+          : null,
+      cardinality: preservesCardinality,
+      nonZero: false,
       origins: mergedOrigins(inferred),
     };
   }
@@ -208,7 +251,14 @@ function expressionType(
     if (!new Set<GraphSemanticValueType>(["timestamp", "integer", "string"]).has(inferred[0]!.type)) {
       fail("EXPRESSION_TYPE_INVALID", "utc_date requires a timestamp-compatible input");
     }
-    return {type: "date", nullable: inferred[0]!.nullable, unit: null, origins: inferred[0]!.origins};
+    return {
+      type: "date",
+      nullable: inferred[0]!.nullable,
+      unit: null,
+      cardinality: false,
+      nonZero: false,
+      origins: inferred[0]!.origins,
+    };
   }
   if (inferred[0]!.type !== "boolean" || !compatible(inferred[1]!.type, inferred[2]!.type)) {
     fail("EXPRESSION_TYPE_INVALID", "if requires a Boolean condition and compatible result branches");
@@ -217,6 +267,8 @@ function expressionType(
     type: inferred[1]!.type,
     nullable: inferred[1]!.nullable || inferred[2]!.nullable,
     unit: inferred[1]!.unit === inferred[2]!.unit ? inferred[1]!.unit : null,
+    cardinality: inferred[1]!.cardinality && inferred[2]!.cardinality,
+    nonZero: inferred[1]!.nonZero && inferred[2]!.nonZero,
     origins: mergedOrigins(inferred),
   };
 }
@@ -261,7 +313,8 @@ function outputShape(
     exactKeys(config, ["groupBy", "measures"], "Aggregate config");
     const source = inputs.get("rows")!;
     const output = new Map<string, FieldShape>();
-    for (const groupValue of array(config.groupBy, "Aggregate groupBy", 16)) {
+    const groupBy = array(config.groupBy, "Aggregate groupBy", 16);
+    for (const groupValue of groupBy) {
       const name = string(groupValue, "Aggregate groupBy field");
       if (output.has(name)) fail("OPERATOR_CONFIG_INVALID", `Aggregate groupBy field ${name} is duplicated`);
       output.set(name, field(source, name, "Aggregate groupBy", {fields: usage, purpose: "group"}));
@@ -278,7 +331,14 @@ function outputShape(
       if (typeof op !== "string" || !allowed.includes(op)) fail("OPERATOR_CONFIG_INVALID", `Aggregate measure ${name} has an unknown operation`);
       if (op === "count_rows") {
         if (measure.field !== null) fail("OPERATOR_CONFIG_INVALID", "count_rows field must be null");
-        output.set(name, {type: "integer", nullable: false, unit: null, origins: new Set()});
+        output.set(name, {
+          type: "integer",
+          nullable: false,
+          unit: null,
+          cardinality: true,
+          nonZero: groupBy.length > 0,
+          origins: new Set(),
+        });
         continue;
       }
       const input = field(source, measure.field, `Aggregate measure ${name}`, {fields: usage, purpose: "derive"});
@@ -286,8 +346,22 @@ function outputShape(
         fail("AGGREGATE_TYPE_INVALID", `${op} requires a numeric field`);
       }
       output.set(name, op === "count_distinct"
-        ? {type: "integer", nullable: false, unit: null, origins: input.origins}
-        : {type: op === "average" ? "decimal" : input.type, nullable: input.nullable, unit: input.unit, origins: input.origins});
+        ? {
+            type: "integer",
+            nullable: false,
+            unit: null,
+            cardinality: true,
+            nonZero: groupBy.length > 0 && !input.nullable,
+            origins: input.origins,
+          }
+        : {
+            type: op === "average" ? "decimal" : input.type,
+            nullable: input.nullable,
+            unit: input.unit,
+            cardinality: false,
+            nonZero: false,
+            origins: input.origins,
+          });
     }
     return output;
   }
@@ -304,13 +378,23 @@ function outputShape(
       return [name, {
         ...shape,
         nullable: shape.nullable || rightShape.nullable,
+        unit: shape.unit === rightShape.unit ? shape.unit : null,
+        cardinality: shape.cardinality && rightShape.cardinality,
+        nonZero: shape.nonZero && rightShape.nonZero,
         origins: mergedOrigins([shape, rightShape]),
       }] as const;
     }));
     if (config.sourceDiscriminator !== null) {
       const discriminator = string(config.sourceDiscriminator, "Union sourceDiscriminator");
       if (output.has(discriminator)) fail("OPERATOR_CONFIG_INVALID", "Union sourceDiscriminator collides with an existing field");
-      output.set(discriminator, {type: "string", nullable: false, unit: null, origins: new Set()});
+      output.set(discriminator, {
+        type: "string",
+        nullable: false,
+        unit: null,
+        cardinality: false,
+        nonZero: false,
+        origins: new Set(),
+      });
     }
     return output;
   }
@@ -424,6 +508,8 @@ export function validateFlexibleComposition(
         type: requirement.expectedType,
         nullable: requirement.allowNullable,
         unit: requirement.unit,
+        cardinality: false,
+        nonZero: false,
         origins: new Set(),
       });
     }
@@ -432,10 +518,19 @@ export function validateFlexibleComposition(
         type: auxiliary.type,
         nullable: auxiliary.nullable,
         unit: auxiliary.unit,
+        cardinality: false,
+        nonZero: false,
         origins: new Set([auxiliaryOrigin(need.id, auxiliary.name)]),
       });
     }
-    fields.set("data_network", {type: "string", nullable: false, unit: null, origins: new Set()});
+    fields.set("data_network", {
+      type: "string",
+      nullable: false,
+      unit: null,
+      cardinality: false,
+      nonZero: false,
+      origins: new Set(),
+    });
     shapes.set(role, fields);
   }
 
@@ -464,13 +559,17 @@ export function validateFlexibleComposition(
 
   const outputNode = composition.nodes.find((node) => node.operator === "output")!;
   const finalShape = shapes.get(outputNode.role)!;
+  const measurementUnits = new Set([
+    ...plan.sourceRequirements.flatMap((requirement) => requirement.fields.map((item) => item.unit)),
+    ...[...finalShape.values()].filter((item) => !item.cardinality).map((item) => item.unit),
+  ].filter((unit): unit is string => unit !== null));
   for (const promised of plan.result.fields) {
     const actual = finalShape.get(promised.name);
     if (!actual || !compatible(actual.type, promised.type)) {
       fail("OUTPUT_SCHEMA_INVALID", `Output does not provide promised field ${promised.name} with a compatible type`);
     }
     if (!promised.nullable && actual.nullable) fail("OUTPUT_SCHEMA_INVALID", `Output field ${promised.name} may be null but the semantic contract forbids null`);
-    if (promised.unit !== null && actual.unit !== promised.unit) {
+    if (!preservesPromisedUnit(actual, promised.unit, measurementUnits)) {
       fail("OUTPUT_SCHEMA_INVALID", `Output field ${promised.name} does not preserve promised unit ${promised.unit}`);
     }
   }

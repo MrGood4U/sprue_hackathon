@@ -7,12 +7,21 @@ import {
   createMockStageOutput,
   createAgentModel,
   entityEmbeddingLimits,
+  deriveDiscoverySourceNeeds,
   HarnessCompileError,
   RemoteEntityEmbeddingRanker,
   RemoteAgentModel,
   testOpenAICompatibleModel,
+  validateFlexibleComposition,
 } from "../src/modules/agent/harness/index.js";
-import type {AgentModelPort, AgentModelRequest, HarnessRequest} from "../src/modules/agent/harness/index.js";
+import type {
+  AgentModelPort,
+  AgentModelRequest,
+  DiscoverySemanticPlan,
+  FlexibleCompositionIntent,
+  HarnessRequest,
+  SourceFeasibilitySelection,
+} from "../src/modules/agent/harness/index.js";
 import type {SourceInput} from "../src/modules/dag/runtime.js";
 import {jsonSchemaForStage} from "../src/modules/agent/harness/schemas.js";
 
@@ -352,6 +361,167 @@ test("field retrieval embeds every field in the selected entity before requireme
   assert.equal(scores.find((score) => score.fieldPath === "amountUSD")?.similarity, 1);
   assert.equal(progress.at(-1)?.phase, "completed");
   assert.equal(progress.at(-1)?.batchCount, 11);
+});
+
+test("flexible validation preserves nominal count units and numerator units for grouped averages", () => {
+  const plan: DiscoverySemanticPlan = {
+    schemaVersion: 3,
+    kind: "semantic_plan",
+    summary: "Report daily trade count, volume, and average trade size.",
+    sourceRequirements: [{
+      id: "daily_swaps",
+      dataNetwork: "eip155:1",
+      protocol: null,
+      assets: [],
+      description: "Raw swap events.",
+      grain: "one row per swap event",
+      fields: [
+        {
+          id: "block_timestamp",
+          description: "Timestamp of the swap.",
+          expectedType: "timestamp",
+          unit: null,
+          required: true,
+          allowNullable: false,
+          hints: ["timestamp"],
+        },
+        {
+          id: "swap_amount_usd",
+          description: "USD value of the swap.",
+          expectedType: "decimal",
+          unit: "USD",
+          required: true,
+          allowNullable: false,
+          hints: ["amountUSD"],
+        },
+      ],
+      constraints: [],
+    }],
+    result: {
+      description: "One result row per UTC day.",
+      grain: "one row per UTC day",
+      fields: [
+        {name: "day", description: "UTC day.", type: "date", unit: null, nullable: false},
+        {name: "trade_count", description: "Number of trades.", type: "integer", unit: "trades", nullable: false},
+        {name: "volume_usd", description: "Total volume.", type: "decimal", unit: "USD", nullable: false},
+        {name: "average_trade_size_usd", description: "Average trade size.", type: "decimal", unit: "USD", nullable: false},
+      ],
+      orderBy: [{field: "day", direction: "asc"}],
+    },
+    refresh: {mode: "manual", timezone: "UTC"},
+    assumptions: [],
+    unresolved: [],
+  };
+  const selection: SourceFeasibilitySelection = {
+    sourceNeedId: "daily_swaps",
+    candidateRef: "graph:daily-swaps:00000000000000000000",
+    queryEntity: "swaps",
+    fieldBindings: [
+      {requirementId: "block_timestamp", fieldPath: "timestamp"},
+      {requirementId: "swap_amount_usd", fieldPath: "amountUSD"},
+    ],
+    auxiliaryFieldBindings: [],
+    rationale: "The inspected entity exposes one row per swap.",
+  };
+  const composition: FlexibleCompositionIntent = {
+    schemaVersion: 2,
+    kind: "composition_intent",
+    nodes: [
+      {
+        role: "derive_day",
+        operator: "map",
+        operatorVersion: "2",
+        config: {
+          mode: "extend",
+          fields: [{
+            name: "day",
+            expression: {op: "utc_date", inputs: [{op: "field", field: "block_timestamp"}]},
+          }],
+        },
+      },
+      {
+        role: "daily_totals",
+        operator: "aggregate",
+        operatorVersion: "2",
+        config: {
+          groupBy: ["day"],
+          measures: [
+            {name: "trade_count", op: "count_rows", field: null},
+            {name: "volume_usd", op: "sum", field: "swap_amount_usd"},
+          ],
+        },
+      },
+      {
+        role: "daily_average",
+        operator: "map",
+        operatorVersion: "2",
+        config: {
+          mode: "project",
+          fields: [
+            {name: "day", expression: {op: "field", field: "day"}},
+            {name: "trade_count", expression: {op: "field", field: "trade_count"}},
+            {name: "volume_usd", expression: {op: "field", field: "volume_usd"}},
+            {
+              name: "average_trade_size_usd",
+              expression: {
+                op: "safe_divide",
+                inputs: [
+                  {op: "field", field: "volume_usd"},
+                  {op: "field", field: "trade_count"},
+                ],
+              },
+            },
+          ],
+        },
+      },
+      {
+        role: "daily_output",
+        operator: "output",
+        operatorVersion: "2",
+        config: {
+          fields: ["day", "trade_count", "volume_usd", "average_trade_size_usd"],
+          orderBy: [{field: "day", direction: "asc"}],
+        },
+      },
+    ],
+    connections: [
+      {fromRole: "source__daily_swaps", toRole: "derive_day", inputRole: "rows"},
+      {fromRole: "derive_day", toRole: "daily_totals", inputRole: "rows"},
+      {fromRole: "daily_totals", toRole: "daily_average", inputRole: "rows"},
+      {fromRole: "daily_average", toRole: "daily_output", inputRole: "rows"},
+    ],
+    templateInstances: [],
+  };
+
+  assert.doesNotThrow(() => validateFlexibleComposition(
+    plan,
+    composition,
+    deriveDiscoverySourceNeeds(plan),
+    [selection],
+    {maxNodes: 12, maxEdges: 24},
+  ));
+
+  const invalidCountUnitPlan: DiscoverySemanticPlan = {
+    ...plan,
+    result: {
+      ...plan.result,
+      fields: plan.result.fields.map((field) => field.name === "trade_count"
+        ? {...field, unit: "USD"}
+        : field),
+    },
+  };
+  assert.throws(
+    () => validateFlexibleComposition(
+      invalidCountUnitPlan,
+      composition,
+      deriveDiscoverySourceNeeds(invalidCountUnitPlan),
+      [selection],
+      {maxNodes: 12, maxEdges: 24},
+    ),
+    (error: unknown) => error instanceof HarnessCompileError
+      && error.code === "OUTPUT_SCHEMA_INVALID"
+      && error.message.includes("trade_count"),
+  );
 });
 
 test("mock Agent harness executes the non-model cross-chain flow", async () => {

@@ -61,7 +61,7 @@ Allowed AST operations initially:
 
 Field paths are arrays of inspected field segments, never executable strings or dynamic object lookups. Reject prototype-sensitive keys, excessive nesting and unbounded collections. The first expression language has no regex, arbitrary JSONPath, dynamic property generation or locale-dependent string comparison.
 
-No implicit null coercion: a nullable field must be checked or resolved through an explicit allowed branch before a non-null operation. Missing required fields, invalid timestamps, unit mismatch, overflow and invalid predicate types fail validation or execution. For safe_divide, zero denominator returns null and the inferred output is nullable. The proposed metric ratio uses six decimal places with half-even rounding, represented as a decimal string; review H1 fixes this behavior before tests and implementation.
+No implicit null coercion: a nullable field must be checked or resolved through an explicit allowed branch before a non-null operation. Missing required fields, invalid timestamps, unit mismatch, overflow and invalid predicate types fail validation or execution. For `safe_divide`, a zero denominator returns null and the inferred output is nullable unless the denominator is a grouped cardinality proven nonzero for every emitted row. Dividing a measurement by that cardinality preserves the numerator's unit; dividing by an unproved or measured denominator does not invent a unit. The proposed metric ratio uses six decimal places with half-even rounding, represented as a decimal string; review H1 fixes this behavior before tests and implementation.
 
 Example map node, a configuration excerpt rather than a complete executable spec:
 
@@ -86,7 +86,7 @@ Example map node, a configuration excerpt rather than a complete executable spec
 }
 ```
 
-Measure shapes: `{op: count_rows}` needs no field; `{op: count_distinct, field}` counts exact distinct typed values; sum/min/max require an existing compatible field. groupBy fields must be non-null, or an explicit prior mapping must define the intended missing-key population. Measures may not reference each other's outputs. Large intermediate group/distinct state fails with RESOURCE_LIMIT_EXCEEDED; approximate counts are a different, currently unsupported semantic.
+Measure shapes: `{op: count_rows}` needs no field; `{op: count_distinct, field}` counts exact distinct typed values; sum/min/max require an existing compatible field. Count outputs carry structural cardinality provenance, so a semantic contract may retain a domain count label without a hardcoded vocabulary. This does not permit a count operator to manufacture a provider measurement unit. groupBy fields must be non-null, or an explicit prior mapping must define the intended missing-key population. Measures may not reference each other's outputs. Large intermediate group/distinct state fails with RESOURCE_LIMIT_EXCEEDED; approximate counts are a different, currently unsupported semantic.
 
 ## 4. Source Query Rules
 
