@@ -4,6 +4,7 @@ import type {
   PlannerStage,
   SemanticPassOutput,
   SourceDiscoveryPlanningOutput,
+  SourceEntitySelectionOutput,
   SourceFeasibilityOutput,
   SourceSelectionOutput,
 } from "./types.js";
@@ -257,6 +258,17 @@ const sourceDiscoveryPlanSchema = z.object({
 
 const graphCandidateRef = z.string().max(160).regex(/^graph:[A-Za-z0-9._:-]{1,120}:[a-f0-9]{20}$/);
 const queryEntity = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]{0,99}$/);
+const sourceEntitySelectionSchema = z.object({
+  schemaVersion: z.literal(1),
+  kind: z.literal("source_entity_selection"),
+  selections: z.array(z.object({
+    sourceNeedId: role,
+    candidateRef: graphCandidateRef,
+    queryEntity,
+    rationale: boundedText(1000),
+  }).strict()).min(1).max(4),
+  assumptions: z.array(boundedText(1000)).max(16),
+}).strict();
 const sourceFeasibilitySchema = z.object({
   schemaVersion: z.literal(2),
   kind: z.literal("source_feasibility"),
@@ -284,6 +296,11 @@ const sourceDiscoveryPlanningOutputSchema = z.discriminatedUnion("kind", [
   clarificationSchema,
   unsupportedSchema,
 ]);
+const sourceEntitySelectionOutputSchema = z.discriminatedUnion("kind", [
+  sourceEntitySelectionSchema,
+  clarificationSchema,
+  unsupportedSchema,
+]);
 const sourceFeasibilityOutputSchema = z.discriminatedUnion("kind", [
   sourceFeasibilitySchema,
   clarificationSchema,
@@ -293,13 +310,15 @@ const sourceFeasibilityOutputSchema = z.discriminatedUnion("kind", [
 export function jsonSchemaForStage(stage: PlannerStage): Readonly<Record<string, unknown>> {
   const schema = stage === "source_discovery_planning"
     ? sourceDiscoveryPlanningOutputSchema
-    : stage === "source_feasibility"
-      ? sourceFeasibilityOutputSchema
-      : stage === "semantic_interpretation"
-        ? semanticPassOutputSchema
-        : stage === "source_selection"
-          ? sourceSelectionSchema
-          : compositionIntentSchema;
+    : stage === "source_entity_selection"
+      ? sourceEntitySelectionOutputSchema
+      : stage === "source_feasibility"
+        ? sourceFeasibilityOutputSchema
+        : stage === "semantic_interpretation"
+          ? semanticPassOutputSchema
+          : stage === "source_selection"
+            ? sourceSelectionSchema
+            : compositionIntentSchema;
   const document = z.toJSONSchema(schema, {target: "draft-7"}) as Record<string, unknown>;
   delete document.$schema;
   const normalize = (value: unknown): unknown => {
@@ -361,6 +380,10 @@ export function parseSemanticPass(output: unknown): SemanticPassOutput {
 
 export function parseSourceDiscoveryPlanning(output: unknown): SourceDiscoveryPlanningOutput {
   return parse("source_discovery_planning", sourceDiscoveryPlanningOutputSchema, output);
+}
+
+export function parseSourceEntitySelection(output: unknown): SourceEntitySelectionOutput {
+  return parse("source_entity_selection", sourceEntitySelectionOutputSchema, output);
 }
 
 export function parseSourceFeasibility(output: unknown): SourceFeasibilityOutput {

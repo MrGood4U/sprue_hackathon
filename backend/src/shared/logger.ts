@@ -51,6 +51,7 @@ export type LogEvent =
       stage:
         | "source_discovery_planning"
         | "graph_source_discovery"
+        | "source_entity_selection"
         | "source_feasibility"
         | "semantic_interpretation"
         | "source_selection"
@@ -111,7 +112,7 @@ export type LogEvent =
         score: number;
         limitations: readonly string[];
       }[];
-      outcome?: "feasibility" | "clarification" | "unsupported" | "repair";
+      outcome?: "selection" | "feasibility" | "clarification" | "unsupported" | "repair";
       code?: string;
       validationCode?: string;
       schemaPath?: string;

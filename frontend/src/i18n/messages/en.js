@@ -236,8 +236,10 @@ export const en = {
   "agent.stage.sourceNeedsDetail": "Sprue converts approved semantics into compiler-owned source requirements.",
   "agent.stage.graphDiscovery": "Discover Graph sources",
   "agent.stage.graphDiscoveryDetail": "The restricted Graph adapter searches existing Subgraphs and inspects immutable schemas.",
+  "agent.stage.entitySelection": "Select query entities",
+  "agent.stage.entitySelectionDetail": "The configured model selects one query entity per source need from compact schema evidence.",
   "agent.stage.feasibility": "Assess feasibility",
-  "agent.stage.feasibilityDetail": "The configured model compares real source evidence and proposes registered operators.",
+  "agent.stage.feasibilityDetail": "Sprue expands only selected fields, then the configured model binds them and proposes registered operators.",
 
   "product.intent": "Report repeat-day activity by protocol over 30 complete UTC days, keeping all active wallets in the denominator.",
   "product.description": "Repeat-day activity by protocol, with all active wallets included in the denominator. Not cohort retention.",

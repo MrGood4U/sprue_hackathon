@@ -779,7 +779,7 @@ test("Agent derives search keywords before Graph MCP discovery and assesses comp
   assert.equal(result.kind, "feasibility");
   if (result.kind !== "feasibility") return;
   assert.equal(result.readyForCompilation, false);
-  assert.equal(result.model.calls, 2);
+  assert.equal(result.model.calls, 3);
   assert.equal(result.feasibility.selections.length, 2);
   assert.equal(result.feasibility.composition.nodes.filter((node) => node.operator === "union").length, 1);
   assert.deepEqual(sequence, [
@@ -788,6 +788,7 @@ test("Agent derives search keywords before Graph MCP discovery and assesses comp
     "mcp:activity",
     "mcp:schema:QmEth",
     "mcp:schema:QmArb",
+    "model:source_entity_selection",
     "model:source_feasibility",
   ]);
   const serializedRequest = JSON.stringify(feasibilityRequest);
@@ -798,6 +799,7 @@ test("Agent derives search keywords before Graph MCP discovery and assesses comp
   assert.deepEqual(debugEvents.filter((event) => !("phase" in event)).map((event) => event.stage), [
     "source_discovery_planning",
     "graph_source_discovery",
+    "source_entity_selection",
     "source_feasibility",
   ]);
   const planningDebug = debugEvents.find((event) => event.stage === "source_discovery_planning" && "searches" in event);
@@ -812,6 +814,7 @@ test("Agent derives search keywords before Graph MCP discovery and assesses comp
 });
 
 test("Agent ranks relevant evidence first without hiding bounded schema fallback", async () => {
+  let entitySelectionRequest: Extract<AgentModelRequest, {stage: "source_entity_selection"}> | undefined;
   let feasibilityRequest: Extract<AgentModelRequest, {stage: "source_feasibility"}> | undefined;
   const unrelatedEntities = Array.from({length: 5}, (_, index) => ({
     queryEntity: `unrelated${index}`,
@@ -841,7 +844,11 @@ test("Agent ranks relevant evidence first without hiding bounded schema fallback
       if (request.stage === "source_discovery_planning") {
         return {provider: "mock", model: "evidence-test", output: createMockStageOutput(request)};
       }
-      if (request.stage !== "source_feasibility") throw new Error("Unexpected legacy planning stage");
+      if (request.stage === "source_entity_selection") {
+        entitySelectionRequest = request;
+        return {provider: "mock", model: "evidence-test", output: createMockStageOutput(request)};
+      }
+      if (request.stage !== "source_feasibility") throw new Error("Unexpected planning stage");
       feasibilityRequest = request;
       return {
         provider: "mock",
@@ -887,7 +894,7 @@ test("Agent ranks relevant evidence first without hiding bounded schema fallback
   });
 
   assert.equal(result.kind, "clarification");
-  assert.deepEqual(feasibilityRequest?.candidates[0]?.entities.map((entity) => entity.queryEntity), [
+  assert.deepEqual(entitySelectionRequest?.candidates[0]?.entities.map((entity) => entity.queryEntity), [
     "swaps",
     "unrelated0",
     "unrelated1",
@@ -895,6 +902,9 @@ test("Agent ranks relevant evidence first without hiding bounded schema fallback
     "unrelated3",
     "unrelated4",
   ]);
+  assert.equal(entitySelectionRequest?.candidates[0]?.entities[0]?.fieldCount, 121);
+  assert.equal(JSON.stringify(entitySelectionRequest).includes("pool.metric119"), false);
+  assert.deepEqual(feasibilityRequest?.candidates[0]?.entities.map((entity) => entity.queryEntity), ["swaps"]);
   assert.equal(feasibilityRequest?.candidates[0]?.entities[0]?.fields[0]?.path, "id");
   assert.equal(feasibilityRequest?.candidates[0]?.entities[0]?.fields.length, 121);
   assert.ok(feasibilityRequest?.candidates[0]?.entities[0]?.fields.some((field) => field.path === "pool.metric119"));
@@ -920,10 +930,10 @@ test("Agent repairs an unsupported source claim contradicted by inspected field 
   const harness = new AgentHarness({
     async complete(request: AgentModelRequest) {
       requests.push(request);
-      if (request.stage === "source_discovery_planning") {
+      if (request.stage === "source_discovery_planning" || request.stage === "source_entity_selection") {
         return {provider: "mock", model: "repair-test", output: createMockStageOutput(request)};
       }
-      if (requests.length === 2) {
+      if (request.stage === "source_feasibility" && !("repair" in request && request.repair)) {
         return {
           provider: "mock",
           model: "repair-test",
@@ -947,8 +957,8 @@ test("Agent repairs an unsupported source claim contradicted by inspected field 
 
   assert.equal(result.kind, "feasibility");
   if (result.kind !== "feasibility") return;
-  assert.equal(result.model.calls, 3);
-  const repair = requests[2] && "repair" in requests[2] ? requests[2].repair : undefined;
+  assert.equal(result.model.calls, 4);
+  const repair = requests[3] && "repair" in requests[3] ? requests[3].repair : undefined;
   assert.equal(repair?.reason, "unsupported_evidence_conflict");
   assert.equal(repair?.counterEvidence?.[0]?.sourceNeedId, "source_1");
   assert.match(repair?.counterEvidence?.[0]?.candidateRef ?? "", /^graph:source_1:[a-f0-9]{20}$/);
@@ -1027,7 +1037,24 @@ test("Agent can select inspected fields when no lexical grain or field hint matc
           },
         };
       }
-      if (request.stage !== "source_feasibility") throw new Error("Unexpected legacy planning stage");
+      if (request.stage === "source_entity_selection") {
+        return {
+          provider: "mock",
+          model: "unknown-vocabulary-test",
+          output: {
+            schemaVersion: 1,
+            kind: "source_entity_selection",
+            selections: [{
+              sourceNeedId: "unknown_observation",
+              candidateRef: request.candidates[0]!.candidateRef,
+              queryEntity: "obscuras",
+              rationale: "The entity exposes the requested provider-specific observation grain.",
+            }],
+            assumptions: [],
+          },
+        };
+      }
+      if (request.stage !== "source_feasibility") throw new Error("Unexpected planning stage");
       feasibilityRequest = request;
       return {
         provider: "mock",
@@ -1211,28 +1238,27 @@ test("Agent accepts independent per-network search hints beyond the former globa
   assert.equal(result.kind, "unsupported");
 });
 
-test("Agent rejects a post-discovery candidate reference invented by the model", async () => {
+test("Agent rejects a candidate reference invented during compact entity selection", async () => {
   const harness = new AgentHarness({
     async complete(request: AgentModelRequest) {
       const output = createMockStageOutput(request);
-      if (request.stage !== "source_feasibility") {
-        return {provider: "mock", model: "feasibility-boundary-test", output};
+      if (request.stage !== "source_entity_selection") {
+        return {provider: "mock", model: "entity-selection-boundary-test", output};
       }
-      const feasibility = output as {
-        schemaVersion: 2;
-        kind: "source_feasibility";
+      const selection = output as {
+        schemaVersion: 1;
+        kind: "source_entity_selection";
         selections: Array<Record<string, unknown>>;
-        composition: unknown;
         assumptions: string[];
       };
       return {
         provider: "mock",
-        model: "feasibility-boundary-test",
+        model: "entity-selection-boundary-test",
         output: {
-          ...feasibility,
-          selections: feasibility.selections.map((selection, index) => index === 0
-            ? {...selection, candidateRef: "graph:eip155_1_swap_events:cccccccccccccccccccc"}
-            : selection),
+          ...selection,
+          selections: selection.selections.map((value, index) => index === 0
+            ? {...value, candidateRef: "graph:eip155_1_swap_events:cccccccccccccccccccc"}
+            : value),
         },
       };
     },
@@ -1308,7 +1334,7 @@ test("Agent rejects a post-discovery candidate reference invented by the model",
         {dataNetwork: "eip155:42161", label: "Arbitrum"},
       ],
     }),
-    (error: unknown) => error instanceof HarnessValidationError && error.code === "FEASIBILITY_CANDIDATE_INVALID",
+    (error: unknown) => error instanceof HarnessValidationError && error.code === "ENTITY_SELECTION_CANDIDATE_INVALID",
   );
 });
 
@@ -1355,7 +1381,24 @@ test("Agent validates schema-driven time-series fields without a wallet-shaped s
           },
         };
       }
-      if (request.stage !== "source_feasibility") throw new Error("Unexpected legacy planning stage");
+      if (request.stage === "source_entity_selection") {
+        return {
+          provider: "mock" as const,
+          model: "generic-planner",
+          output: {
+            schemaVersion: 1,
+            kind: "source_entity_selection",
+            selections: [{
+              sourceNeedId: "metric_events",
+              candidateRef: "graph:metric_events:aaaaaaaaaaaaaaaaaaaa",
+              queryEntity: "metricEvents",
+              rationale: "The entity represents the requested event grain.",
+            }],
+            assumptions: [],
+          },
+        };
+      }
+      if (request.stage !== "source_feasibility") throw new Error("Unexpected planning stage");
       return {
         provider: "mock" as const,
         model: "generic-planner",

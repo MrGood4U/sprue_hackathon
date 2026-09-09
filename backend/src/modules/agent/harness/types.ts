@@ -68,6 +68,12 @@ export type AgentDebugEvent =
       candidates: readonly GraphDiscoveredSourceCandidate[];
     }
   | {
+      stage: "source_entity_selection";
+      outcome: "selection" | "clarification" | "unsupported";
+      code?: string;
+      selectionCount?: number;
+    }
+  | {
       stage: "source_feasibility";
       outcome: "feasibility" | "clarification" | "unsupported" | "repair";
       code?: string;
@@ -79,6 +85,7 @@ export type AgentDebugSink = (event: AgentDebugEvent) => void;
 
 export type PlannerStage =
   | "source_discovery_planning"
+  | "source_entity_selection"
   | "source_feasibility"
   | "semantic_interpretation"
   | "source_selection"
@@ -260,6 +267,42 @@ export interface SourceFeasibilityCandidate {
   }[];
 }
 
+export interface SourceEntitySelectionCandidate {
+  candidateRef: string;
+  sourceNeedId: string;
+  logicalSubgraphId: string | null;
+  manifestIpfsCid: string;
+  networkEvidence: "contract_filter" | "display_name" | "unknown" | "conflict";
+  totalQueryCount30d: number | null;
+  queryActivityEvidence: "observed" | "missing";
+  schemaHash: string | null;
+  status: "suitable" | "needs_verification" | "incompatible";
+  entities: readonly {
+    queryEntity: string;
+    entityType: string;
+    fieldCount: number;
+    suggestedBindings: readonly {requirementId: string; fieldPaths: readonly string[]}[];
+    matchedRequirements: readonly string[];
+    grainHint: "matched" | "unknown";
+  }[];
+}
+
+export interface SourceEntitySelection {
+  sourceNeedId: string;
+  candidateRef: string;
+  queryEntity: string;
+  rationale: string;
+}
+
+export interface SourceEntitySelectionPlan {
+  schemaVersion: 1;
+  kind: "source_entity_selection";
+  selections: readonly SourceEntitySelection[];
+  assumptions: readonly string[];
+}
+
+export type SourceEntitySelectionOutput = SourceEntitySelectionPlan | PlannerClarification | PlannerUnsupported;
+
 export interface SourceFieldBinding {
   requirementId: string;
   fieldPath: string;
@@ -309,7 +352,7 @@ export interface SourceDiscoveryPlanningModelRequest {
 
 export interface SourceFeasibilityModelRequest {
   stage: "source_feasibility";
-  promptVersion: "3";
+  promptVersion: "4";
   semanticPlan: DiscoverySemanticPlan;
   sourceNeeds: readonly DiscoverySourceNeed[];
   candidates: readonly SourceFeasibilityCandidate[];
@@ -320,6 +363,15 @@ export interface SourceFeasibilityModelRequest {
   }[];
   operatorRegistry: readonly OperatorSignature[];
   limits: {maxNodes: number; maxEdges: number};
+  repair?: ModelRepairDirective;
+}
+
+export interface SourceEntitySelectionModelRequest {
+  stage: "source_entity_selection";
+  promptVersion: "1";
+  semanticPlan: DiscoverySemanticPlan;
+  sourceNeeds: readonly DiscoverySourceNeed[];
+  candidates: readonly SourceEntitySelectionCandidate[];
   repair?: ModelRepairDirective;
 }
 
@@ -363,6 +415,7 @@ export interface DagCompositionModelRequest {
 
 export type AgentModelRequest =
   | SourceDiscoveryPlanningModelRequest
+  | SourceEntitySelectionModelRequest
   | SourceFeasibilityModelRequest
   | SemanticModelRequest
   | SourceSelectionModelRequest
@@ -553,6 +606,7 @@ export interface HarnessFeasibilityExploration extends HarnessExplorationBase {
   discoveryPlan: SourceDiscoveryPlan;
   sourceNeeds: readonly DiscoverySourceNeed[];
   discovery: GraphSourceDiscoveryResult;
+  entitySelection: SourceEntitySelectionPlan;
   feasibility: SourceFeasibilityPlan;
   blockers: readonly string[];
 }

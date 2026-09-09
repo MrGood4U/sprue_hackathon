@@ -18,9 +18,18 @@ Return one of:
 2. {schemaVersion:1,kind:"clarification",questions:[{code,question}]} for at most three material ambiguities that would change meaning;
 3. {schemaVersion:1,kind:"unsupported",code,reason,missingFacts:[]} only for a prohibited side effect, an unavailable requested network, arbitrary code, or a transformation that cannot be expressed by the later supplied bounded operator registry. Do not return unsupported merely because the result is not wallet-shaped, uses unfamiliar field names, or requires filtering, mapping, grouping, aggregation, joining, or arithmetic.
 `,
+  source_entity_selection: `${common}
+
+Select exactly one suitable existing Subgraph candidate and one inspected queryEntity for every source need. Compare the semantic requirement and row grain with the supplied entity summaries. matchedRequirements, suggestedBindings, and grainHint are advisory evidence only; unfamiliar names or grainHint "unknown" do not by themselves make an entity incompatible. Do not bind fields, expand fields, compose operators, or invent a candidate, queryEntity, field, URL, query, credential, or tool call. The controller will validate every reference and expand only the selected entities from its trusted inspected-schema snapshot.
+
+Return one of:
+1. {schemaVersion:1,kind:"source_entity_selection",selections:[{sourceNeedId,candidateRef,queryEntity,rationale}],assumptions:[]} with exactly one selection per source need;
+2. {schemaVersion:1,kind:"clarification",questions:[{code,question}]} for at most three material ambiguities;
+3. {schemaVersion:1,kind:"unsupported",code,reason,missingFacts:[]} only when no supplied suitable entity can represent a required source grain or when source evidence is genuinely absent.
+`,
   source_feasibility: `${common}
 
-Use only the inspected candidate entities and fields supplied by the controller. First choose exactly one suitable existing Subgraph candidate and one inspected queryEntity for every source need. Bind every required semantic field and any used optional field to an exact fieldPath copied from that entity. The controller will reject invented paths, incompatible scalar types, disallowed nullability, duplicate bindings, or references outside the selected entity. A candidate marked suitable is only admitted for semantic assessment; you must still prove the requested field bindings from its inspected fields. suggestedBindings and grainHint are advisory ranking hints, not semantic authority: grainHint "unknown" does not mean incompatible, and fields not named by a suggestion remain selectable when their inspected type and meaning fit the request.
+The controller has already selected and expanded exactly one inspected candidate entity for every source need. Use only those locked candidates and copy their sourceNeedId, candidateRef, and queryEntity exactly. Bind every required semantic field and any used optional field to an exact fieldPath copied from the corresponding expanded entity. The controller will reject changed entity selections, invented paths, incompatible scalar types, disallowed nullability, duplicate bindings, or references outside the selected entity. suggestedBindings are advisory hints, not semantic authority; fields not named by a suggestion remain selectable when their inspected type and meaning fit the request.
 
 Then create a generic composition from the supplied version-2 operator registry. Source roles already expose the logical field names from fieldBindings plus the compiler-owned data_network field. Do not add a normalization node. Every executable predicate, derivation, grouping, measure, join, union, and output projection must be represented in operator config rather than left only in prose.
 

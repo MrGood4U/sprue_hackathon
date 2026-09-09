@@ -30,6 +30,7 @@ import {
   HarnessSchemaError,
   parseCompositionIntent,
   parseSourceDiscoveryPlanning,
+  parseSourceEntitySelection,
   parseSourceFeasibility,
   parseSemanticPass,
   parseSourceSelection,
@@ -55,6 +56,9 @@ import type {
   SemanticPlan,
   SourceDiscoveryPlan,
   SourceDiscoveryPlanningModelRequest,
+  SourceEntitySelectionCandidate,
+  SourceEntitySelectionModelRequest,
+  SourceEntitySelectionPlan,
   SourceFeasibilityCandidate,
   SourceFeasibilityModelRequest,
   SourceFeasibilityPlan,
@@ -261,11 +265,11 @@ function compareRelevantEntities(
     || left.queryEntity.localeCompare(right.queryEntity);
 }
 
-function feasibilityCandidates(
+function entitySelectionCandidates(
   discovery: GraphSourceDiscoveryResult,
   needs: readonly DiscoverySourceNeed[],
-): readonly SourceFeasibilityCandidate[] {
-  const output: SourceFeasibilityCandidate[] = [];
+): readonly SourceEntitySelectionCandidate[] {
+  const output: SourceEntitySelectionCandidate[] = [];
   for (const need of needs) {
     const inspected = discovery.candidates.filter((candidate) => candidate.sourceNeedId === need.id && candidate.entities.length > 0);
     const selectable = inspected.filter((candidate) => candidate.status === "suitable");
@@ -287,11 +291,74 @@ function feasibilityCandidates(
         queryActivityEvidence: candidate.queryActivityEvidence,
         schemaHash: candidate.schemaHash,
         status: candidate.status,
-        entities: selectedEntities.map((entity) => compactFeasibilityEntity(entity)),
+        entities: selectedEntities.map((entity) => ({
+          queryEntity: entity.queryEntity,
+          entityType: entity.entityType,
+          fieldCount: entity.fields.length,
+          suggestedBindings: entity.suggestedBindings,
+          matchedRequirements: entity.matchedRequirements,
+          grainHint: entity.grainHint ?? "unknown",
+        })),
       });
     }
   }
   return output;
+}
+
+function validateSourceEntitySelection(
+  output: SourceEntitySelectionPlan,
+  needs: readonly DiscoverySourceNeed[],
+  candidates: readonly SourceEntitySelectionCandidate[],
+): void {
+  if (output.selections.length !== needs.length) {
+    fail("Entity selection must satisfy every source need exactly once", "ENTITY_SELECTION_SOURCE_NEED_UNSATISFIED");
+  }
+  const needsById = new Map(needs.map((need) => [need.id, need]));
+  const candidatesByRef = new Map(candidates.map((candidate) => [candidate.candidateRef, candidate]));
+  const seenNeeds = new Set<string>();
+  for (const selection of output.selections) {
+    const need = needsById.get(selection.sourceNeedId);
+    const candidate = candidatesByRef.get(selection.candidateRef);
+    if (!need || seenNeeds.has(need.id)) {
+      fail("Entity selection contains an unknown or duplicate source need", "ENTITY_SELECTION_SOURCE_NEED_INVALID");
+    }
+    if (!candidate || candidate.sourceNeedId !== need.id) {
+      fail("Entity selection referenced a candidate outside the bounded evidence", "ENTITY_SELECTION_CANDIDATE_INVALID");
+    }
+    if (candidate.status !== "suitable") {
+      fail("Entity selection referenced a candidate without suitable evidence", "ENTITY_SELECTION_CANDIDATE_INCOMPATIBLE");
+    }
+    if (!candidate.entities.some((entity) => entity.queryEntity === selection.queryEntity)) {
+      fail("Entity selection referenced an uninspected query entity", "ENTITY_SELECTION_QUERY_ENTITY_INVALID");
+    }
+    seenNeeds.add(need.id);
+  }
+}
+
+function expandSelectedEntities(
+  discovery: GraphSourceDiscoveryResult,
+  selections: SourceEntitySelectionPlan["selections"],
+): readonly SourceFeasibilityCandidate[] {
+  const discoveredByRef = new Map(discovery.candidates.map((candidate) => [candidate.candidateRef, candidate]));
+  return selections.map((selection) => {
+    const candidate = discoveredByRef.get(selection.candidateRef);
+    const entity = candidate?.entities.find((value) => value.queryEntity === selection.queryEntity);
+    if (!candidate || !entity || candidate.sourceNeedId !== selection.sourceNeedId) {
+      fail("Selected entity could not be expanded from trusted discovery evidence", "ENTITY_SELECTION_EXPANSION_INVALID");
+    }
+    return {
+      candidateRef: candidate.candidateRef,
+      sourceNeedId: candidate.sourceNeedId,
+      logicalSubgraphId: candidate.logicalSubgraphId,
+      manifestIpfsCid: candidate.manifestIpfsCid,
+      networkEvidence: candidate.networkEvidence,
+      totalQueryCount30d: candidate.totalQueryCount30d,
+      queryActivityEvidence: candidate.queryActivityEvidence,
+      schemaHash: candidate.schemaHash,
+      status: candidate.status,
+      entities: [compactFeasibilityEntity(entity)],
+    };
+  });
 }
 
 function graphTypeCompatible(requirement: GraphFieldRequirement, field: GraphInspectedField): boolean {
@@ -467,6 +534,7 @@ export class AgentHarness {
     emitTrace("admit", "passed", "Intent and network catalog accepted within harness limits");
 
     let modelCalls = 0;
+    let repairCalls = 0;
     let modelIdentity: {provider: AgentModelResponse["provider"]; model: string} | undefined;
     const invoke = async (modelRequest: AgentModelRequest): Promise<AgentModelResponse> => {
       if (modelCalls >= this.limits.maxModelCalls) fail("Model call limit exceeded", "MODEL_CALL_LIMIT_EXCEEDED");
@@ -518,14 +586,17 @@ export class AgentHarness {
     };
     const modelResult = () => ({...modelIdentity!, calls: modelCalls});
     const parseWithRepair = async <T>(
-      modelRequest: SourceDiscoveryPlanningModelRequest | SourceFeasibilityModelRequest,
+      modelRequest: SourceDiscoveryPlanningModelRequest | SourceEntitySelectionModelRequest | SourceFeasibilityModelRequest,
       response: AgentModelResponse,
       parser: (output: unknown) => T,
+      reservedModelCalls: number,
     ): Promise<T> => {
       try {
         return parser(response.output);
       } catch (error) {
-        const willRepair = error instanceof HarnessSchemaError && modelCalls < this.limits.maxModelCalls;
+        const willRepair = error instanceof HarnessSchemaError
+          && repairCalls === 0
+          && modelCalls + 1 + reservedModelCalls <= this.limits.maxModelCalls;
         if (error instanceof HarnessSchemaError) {
           this.emitDebug({
             stage: modelRequest.stage,
@@ -541,6 +612,7 @@ export class AgentHarness {
           });
         }
         if (!(error instanceof HarnessSchemaError) || !willRepair) throw error;
+        repairCalls += 1;
         emitTrace(modelRequest.stage, "failed", "Model output did not match the strict planning-stage contract");
         emitTrace(modelRequest.stage, "started", "Requesting one bounded schema repair from the configured model");
         const repaired = await invoke({
@@ -587,6 +659,7 @@ export class AgentHarness {
       discoveryPlanningRequest,
       discoveryPlanningResponse,
       parseSourceDiscoveryPlanning,
+      2,
     );
     if (discoveryPlanningOutput.kind === "clarification") {
       emitTrace("source_discovery_planning", "passed", "Search planning requires creator clarification");
@@ -655,7 +728,48 @@ export class AgentHarness {
       candidates: discovery.candidates,
     });
 
-    emitTrace("source_feasibility", "started", "Model is assessing inspected candidates and a bounded operator composition");
+    emitTrace("source_entity_selection", "started", "Model is selecting one inspected entity for each source need from compact evidence");
+    const selectionCandidates = entitySelectionCandidates(discovery, sourceNeeds);
+    const entitySelectionRequest: SourceEntitySelectionModelRequest = {
+      stage: "source_entity_selection",
+      promptVersion: "1",
+      semanticPlan: discoveryPlanningOutput.semanticPlan,
+      sourceNeeds,
+      candidates: selectionCandidates,
+    };
+    const entitySelectionResponse = await invoke(entitySelectionRequest);
+    const entitySelectionOutput = await parseWithRepair(
+      entitySelectionRequest,
+      entitySelectionResponse,
+      parseSourceEntitySelection,
+      1,
+    );
+    if (entitySelectionOutput.kind === "clarification") {
+      this.emitDebug({stage: "source_entity_selection", outcome: "clarification"});
+      emitTrace("source_entity_selection", "passed", "Entity selection requires creator clarification");
+      return {kind: "clarification", clarification: entitySelectionOutput, trace, model: modelResult()};
+    }
+    if (entitySelectionOutput.kind === "unsupported") {
+      this.emitDebug({stage: "source_entity_selection", outcome: "unsupported", code: entitySelectionOutput.code});
+      emitTrace("source_entity_selection", "passed", "No supplied existing Subgraph entity satisfies every source need");
+      return {kind: "unsupported", unsupported: entitySelectionOutput, discovery, trace, model: modelResult()};
+    }
+    try {
+      validateSourceEntitySelection(entitySelectionOutput, sourceNeeds, selectionCandidates);
+    } catch (error) {
+      this.emitDebug({
+        stage: "source_entity_selection",
+        phase: "semantic_validation_failed",
+        callNumber: modelCalls,
+        validationCode: diagnosticErrorCode(error),
+        ...modelOutputShape(entitySelectionOutput),
+      });
+      throw error;
+    }
+    this.emitDebug({stage: "source_entity_selection", outcome: "selection", selectionCount: entitySelectionOutput.selections.length});
+    emitTrace("source_entity_selection", "passed", `Selected ${entitySelectionOutput.selections.length} query entities from compact schema evidence`);
+
+    emitTrace("source_feasibility", "started", "Harness expanded selected entity fields; the model is binding fields and composing registered operators");
     const sourceRoles = sourceNeeds.map((need) => ({
       role: sourceRole(need.id),
       sourceNeedId: need.id,
@@ -669,10 +783,10 @@ export class AgentHarness {
         {name: "data_network", type: "string" as const, nullable: false, unit: null},
       ],
     }));
-    const candidateEvidence = feasibilityCandidates(discovery, sourceNeeds);
+    const candidateEvidence = expandSelectedEntities(discovery, entitySelectionOutput.selections);
     const feasibilityRequest: SourceFeasibilityModelRequest = {
       stage: "source_feasibility",
-      promptVersion: "3",
+      promptVersion: "4",
       semanticPlan: discoveryPlanningOutput.semanticPlan,
       sourceNeeds,
       candidates: candidateEvidence,
@@ -681,16 +795,17 @@ export class AgentHarness {
       limits: {maxNodes: this.limits.maxNodes, maxEdges: this.limits.maxEdges},
     };
     const feasibilityResponse = await invoke(feasibilityRequest);
-    let feasibilityOutput = await parseWithRepair(feasibilityRequest, feasibilityResponse, parseSourceFeasibility);
+    let feasibilityOutput = await parseWithRepair(feasibilityRequest, feasibilityResponse, parseSourceFeasibility, 0);
     if (feasibilityOutput.kind === "unsupported") {
       const counterEvidence = unsupportedSourceEvidenceConflict(feasibilityOutput, sourceNeeds, candidateEvidence);
       if (counterEvidence.length > 0) {
-        if (modelCalls >= this.limits.maxModelCalls) {
+        if (repairCalls > 0 || modelCalls >= this.limits.maxModelCalls) {
           fail("Model unsupported claim conflicts with inspected source evidence", "FEASIBILITY_UNSUPPORTED_EVIDENCE_CONFLICT");
         }
         emitTrace("source_feasibility", "failed", "Model unsupported claim conflicted with inspected source evidence");
         emitTrace("source_feasibility", "started", "Requesting one bounded feasibility repair with inspected counter-evidence");
         this.emitDebug({stage: "source_feasibility", outcome: "repair", contradictionCount: counterEvidence.length});
+        repairCalls += 1;
         const repaired = await invoke({
           ...feasibilityRequest,
           repair: {
@@ -749,6 +864,7 @@ export class AgentHarness {
       discoveryPlan: discoveryPlanningOutput,
       sourceNeeds,
       discovery,
+      entitySelection: entitySelectionOutput,
       feasibility: feasibilityOutput,
       blockers,
       trace,

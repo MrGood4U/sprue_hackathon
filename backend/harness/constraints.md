@@ -1,6 +1,6 @@
 # Harness Constraints and Enforcement
 
-Draft 0.3. These are proposed engineering controls, not sponsor rules or implemented protections. The approved DAG, wallet, privacy and deployment boundaries remain mandatory. Numerical defaults below require review H3 and load/cost testing.
+Draft 0.4. These are proposed engineering controls, not sponsor rules. The live exploration limits identified below are implemented, while the remaining numerical defaults still require review H3 and load/cost testing. The approved DAG, wallet, privacy and deployment boundaries remain mandatory.
 
 ## 1. Authority Must Be Enforced Outside the Prompt
 
@@ -37,13 +37,13 @@ Effective limits are the minimum of platform profile, authenticated workspace al
 | User message | 8,000 characters; existing API bound | INVALID_REQUEST before model dispatch |
 | Active planning | 1 command per session; 2 per workspace | OPERATION_IN_PROGRESS or RATE_LIMITED |
 | Admission | 10 planning commands per workspace per hour, plus deployment-wide capacity | Rate limit; new sessions do not bypass workspace accounting |
-| Model invocations | 6 per logical planning command, including repairs/retries | PLANNING_LIMIT_EXCEEDED; return current diagnostics |
-| Model token reservation | 32,000 total input and 8,000 total output per command | Reserve upper bounds before each call; no undisclosed auto-upgrade |
+| Model invocations | 4 per logical live-exploration command: 3 normal stages plus at most 1 shared repair | PLANNING_LIMIT_EXCEEDED; return current diagnostics |
+| Model output ceiling | 16,384 tokens per remote planning call | Reject incomplete/oversized output; no undisclosed auto-upgrade |
 | Tool dispatches | 20 total per command, including attempts | TOOL_LIMIT_EXCEEDED; controller budgets its mandatory final checks within this ceiling |
 | Source exploration | Per SourceNeed: up to 3 keyword searches, 10 results per search, and 10 full-schema inspections; activity checks cover every bounded candidate in batches of 10 | Inspect every candidate inside the independent per-need budget; expose actual entity/field/type/nullability evidence and report the bound, not exhaustive-unavailability claims |
 | Model-facing tool result | 16 KiB sanitized payload per result; summarize/reference larger artifacts | TOOL_RESULT_TOO_LARGE or bounded explicit truncation |
-| Planning wall time | 90 seconds across the command; model call <= 30 seconds, metadata call <= 10 seconds | Stop launching new work; preserve durable outcome and diagnostics |
-| Automatic semantic repairs | At most 2 within the above model/tool/time limits | Return unsupported/needs_input result with remaining failures |
+| Planning wall time | 3,600 seconds per command by default; each external model or Graph step <= 600 seconds by default | Stop launching new work; preserve durable outcome and diagnostics |
+| Automatic semantic repairs | At most 1 shared across the three live-exploration model stages | Return unsupported/needs_input result with remaining failures |
 | External read retries | At most 2 attempts total per logical metadata call, within shared budgets | Same call identity; backoff and then dependency error |
 
 Model-provider fees use a separate platform cost allowance configured for the chosen model. Token caps alone do not define a currency budget. Reserve against configured maximum input/output charges before dispatch and record observed usage when available; an uncertain provider response does not refund its reservation automatically. Data-model 1.5 defines approved H2 planning_checkpoints/planning_calls for this metering/recovery; controller enforcement remains unimplemented, and initial model choice/pricing remains a deployment configuration decision. These costs are not fabricated Graph expenses in the creator wallet ledger.

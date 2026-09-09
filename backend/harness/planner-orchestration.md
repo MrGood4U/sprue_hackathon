@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft 0.3, 2026-09-07. The first cross-chain swap slice of this controller is implemented under `backend/src/modules/agent/harness/`. The live-source exploration order is now explicit: a model first emits a strict semantic plan and bounded Subgraph search keywords, the controller invokes restricted Graph MCP metadata operations, and a second model pass evaluates whether the inspected candidates can support a registered-operator composition. Deterministic checks validate both artifacts and return a non-executable feasibility result. The earlier three-pass path remains as a fixture compilation compatibility path for already inspected sources. Durable source admission, live Graph execution, repair passes, checkpoints, and general H1/H3 coverage remain pending. The fixture-backed evaluator is not live provider evidence.
+Draft 0.4, 2026-09-09. The first cross-chain swap slice of this controller is implemented under `backend/src/modules/agent/harness/`. The live-source exploration order is now explicit: a model first emits a strict semantic plan and bounded Subgraph search keywords, the controller invokes restricted Graph MCP metadata operations, a second model pass selects query entities from compact summaries, and the harness expands only those selected entities before a third model pass binds fields and proposes a registered-operator composition. Deterministic checks validate every artifact and return a non-executable feasibility result. The earlier three-pass path remains as a fixture compilation compatibility path for already inspected sources. Durable source admission, live Graph execution, checkpoints, and general H1/H3 coverage remain pending. The fixture-backed evaluator is not live provider evidence.
 
 Read this with the [harness overview](README.md), [workflow](workflow.md), [tool catalog](tools.md), [operator contract](operators.md), [constraints](constraints.md), [canonical specification](../../data-model.md#canonical-data-product-specification), and [Builder editor contract](../../frontend/workflow-editor.md).
 
@@ -12,10 +12,11 @@ This design does not approve the open H1 executable schemas or H3 live-source an
 
 The target harness is a controller-owned compilation state machine, not an unconstrained Agent loop and not one prompt that is trusted to emit an executable workflow.
 
-The target source-exploration controller runs two narrow model decisions around deterministic services:
+The target source-exploration controller runs three narrow model decisions around deterministic services:
 
 1. Discovery planning: convert prose into explicit facts, grain, population, metrics, time, output, and a small set of search keywords per required network.
-2. Source and composition feasibility: after metadata discovery and schema inspection, choose only from the returned candidates and propose a topology from registered primitive operators or reviewed templates.
+2. Entity selection: after metadata discovery and schema inspection, choose exactly one returned candidate and query entity per source need from compact evidence without full field arrays.
+3. Field and composition feasibility: after the harness validates and expands those selections, bind exact inspected fields and propose a topology from registered primitive operators or reviewed templates.
 
 Between and after those passes, Sprue-owned code validates search scope, derives stable source needs, dispatches the fixed Graph metadata adapter, parses and scores provider results, validates candidate references and inspected facts, and checks the proposed DAG. Once the remaining source-admission gates exist, Sprue-owned code also performs exact field binding, GraphQL compilation, template expansion, node-ID allocation, schema inference, resource estimation, complete DAG validation, and proposal assembly. A model response is always untrusted input to the next deterministic gate. Search keywords are hints, not MCP commands or source authority.
 
@@ -34,7 +35,8 @@ The harness never returns a partially valid DAG as actionable. It never accepts,
 |---|---|---|
 | Planning controller | Stage transitions, call/tool budgets, trusted context, retries, checkpoints, result variant, sanitized trace | Metric meaning, operator implementation, source-provider behavior |
 | Discovery-planning model pass | Interpreting prose, identifying ambiguity, expressing required facts/output, and proposing bounded keyword hints | MCP tool names, source IDs, raw GraphQL, executable code, access authority |
-| Post-discovery feasibility model pass | Comparing inspected candidates and proposing necessary registered operators with typed configuration | Inventing candidates/fields/operators, bypassing schema checks, querying live rows, claiming its graph is valid |
+| Entity-selection model pass | Comparing compact inspected candidate/entity summaries and selecting one supplied entity per source need | Binding fields, composing operators, inventing candidates/entities, querying live rows |
+| Post-selection feasibility model pass | Binding exact fields from harness-expanded selected entities and proposing necessary registered operators with typed configuration | Changing the selected source/entity, inventing fields/operators, bypassing schema checks, querying live rows, claiming its graph is valid |
 | Graph metadata adapter | Bounded search, immutable identity resolution, schema inspection, provider evidence | Planning semantics, GraphQL generation, payment authorization |
 | Query compiler | Static GraphQL AST/document, typed variables, extraction path, pagination, consistency, query hash | Source discovery, live query execution, semantic narrowing |
 | Template compiler | Deterministic expansion of a pinned recipe into primitive nodes/edges and provenance | Runtime execution, hidden source joins, locked editor groups |
@@ -52,6 +54,7 @@ received
   -> search_plan_ready | needs_clarification
   -> source_needs_ready
   -> candidates_inspected
+  -> entities_selected
   -> source_and_composition_feasible | source_gap
   -> sources_bound
   -> queries_compiled
@@ -71,7 +74,8 @@ Any bounded stage
 | O2 Derive source needs | Valid `SourceDiscoveryPlan` | Copy validated source requirements into controller-owned needs without replacing their fields, grain, or output with a product-specific template | Ordered `SourceNeed[]` and bounded discovery request |
 | O3 Discover | Controller-owned discovery request | Dispatch the fixed metadata search operation; a keyword can never select a tool, endpoint, credential, or query action | Candidate references with evidence; no data query |
 | O4 Inspect and score | Candidate references | Check 30-day activity, inspect every schema within the per-need budget, and extract actual query entities, field paths, Graph types, list shape, and nullability | `CandidateSet[]` with inspected schema evidence and non-authoritative binding suggestions |
-| O5 Assess feasibility | Candidate sets, semantic plan, source roles, and registry | Run the second model pass; require one returned candidate/entity per need, exact semantic-field bindings, and a version-2 registered-operator composition, then revalidate all of them | Non-executable `SourceFeasibilityPlan` or source gap |
+| O5 Select entities | Compact candidate/entity summaries and semantic plan | Run the second model pass; require one returned candidate/entity per need and validate every reference without asking the model to return full fields | `SourceEntitySelection`, clarification, or source gap |
+| O5a Assess feasibility | Harness-expanded selected entities, semantic plan, source roles, and registry | Run the third model pass; require exact semantic-field bindings and a version-2 registered-operator composition while keeping the selected source/entity locked, then revalidate all of them | Non-executable `SourceFeasibilityPlan` or source gap |
 | O5b Bind sources | Validated feasibility plan plus trusted source-admission services | Resolve immutable gateway Deployment IDs, workspace snapshots, coverage, bounded query roots/pagination, and creator-selected access | `SourceBinding[]`; currently pending for discovered candidates |
 | O6 Compile queries | Bindings, inspected SDL, semantic window and fields | Build/validate static GraphQL plans through reviewed recipes | `QueryPlan[]`; no request is executed |
 | O7 Finalize composition | Validated feasibility composition, exact query output schemas, registry/templates, parent spec | Re-run deterministic type/topology checks against admitted source bindings; request a bounded repair only if a model-owned field is invalid | Final `CompositionIntent` |
@@ -80,7 +84,7 @@ Any bounded stage
 | O10 Repair | Structured validation diagnostics | Permit a bounded model repair only for model-owned fields, then rerun O8-O9 | Valid spec or final non-actionable outcome |
 | O11 Present | Valid spec or final diagnostics | Produce the API `Proposal`, visible assumptions/issues/change summary, and trace reference | Actionable proposal, clarification, unsupported, or command error |
 
-The normal source-exploration path uses two model calls: one before MCP discovery and one after inspected evidence is available. The current compatibility compiler for already inspected fixture sources still uses three calls and is not chained to exploration. Future repairs remain inside the shared limits in [constraints.md](constraints.md). A retry resumes from the latest valid checkpoint and cannot reset counters by changing IDs or wording.
+The normal source-exploration path uses three model calls: one before MCP discovery, one to select entities from compact evidence, and one after the harness expands only those selected entities. The current compatibility compiler for already inspected fixture sources also uses three calls and is not chained to exploration. At most one repair is shared across the exploration stages inside the four-call limit in [constraints.md](constraints.md). A retry resumes from the latest valid checkpoint and cannot reset counters by changing IDs or wording.
 
 ## 4. Typed Intermediate Artifacts
 
@@ -155,7 +159,7 @@ The model cannot collapse distinct required network semantics merely because a c
 - evidenced access/cost classification;
 - unknown or deferred live checks.
 
-Candidates with a known wrong network or failed operational/schema inspection cannot win through a higher popularity or cost score. Semantic field and grain fit is evaluated against the actual inspected entity fields in the post-discovery model pass and then revalidated by exact evidence references and type compatibility. Ranking is reported as a bounded comparison, never a globally optimal claim.
+Candidates with a known wrong network or failed operational/schema inspection cannot win through a higher popularity or cost score. Semantic field and grain fit first guides compact entity selection, then exact field fit is evaluated only after the harness expands the selected entities. Both decisions are revalidated by exact evidence references and type compatibility. Ranking is reported as a bounded comparison, never a globally optimal claim.
 
 `SourceBinding` then maps one source need to one inspected snapshot and explicit facts:
 
@@ -218,11 +222,12 @@ For each `SourceNeed`, use this order:
 2. Inspect a creator-provided Subgraph/Deployment/CID hint if present.
 3. Ask the first model pass to decompose the intent into independently discoverable source requirements, dynamically named field requirements, result fields, and bounded keyword hints.
 4. Validate each source requirement and its independent search/inspection budget, then inspect every deduplicated candidate admitted by that budget.
-5. Apply deterministic operational gates such as requested network, recent activity, schema availability, and bounded evidence size. Treat lexical field matches as discovery hints, not semantic truth.
+5. Apply deterministic operational gates such as requested network, schema availability, and bounded evidence size. Use recent activity for ordering rather than a nonzero eligibility requirement, and treat lexical field matches as discovery hints rather than semantic truth.
 6. Rank candidates using evidenced operational quality and schema hints without claiming semantic selection is complete.
-7. Ask the post-discovery model pass to select exact inspected entity/field paths and propose the required registered-operator topology.
-8. Revalidate every chosen candidate, query entity, required-field binding, field type/nullability, operator config, expression, port, connection, cycle, output schema, and limit deterministically.
-9. Keep immutable gateway Deployment ID resolution, workspace snapshot admission, live historical/freshness/access checks, and bounded GraphQL compilation pending until trusted source services complete them.
+7. Ask the entity-selection model pass to choose exact supplied candidate/query-entity references from compact evidence.
+8. Validate those references, expand only selected entities, and ask the feasibility pass to bind exact fields and propose the required registered-operator topology.
+9. Revalidate every chosen candidate, query entity, required-field binding, field type/nullability, operator config, expression, port, connection, cycle, output schema, and limit deterministically.
+10. Keep immutable gateway Deployment ID resolution, workspace snapshot admission, live historical/freshness/access checks, and bounded GraphQL compilation pending until trusted source services complete them.
 
 If no candidate survives, return the missing facts, inspected candidates, and search boundary. The next action is to revise the requirement or supply another existing source. The harness must not create, generate, deploy, maintain, or compose a new upstream Subgraph.
 
@@ -298,9 +303,13 @@ Input is the current creator message, an allowlisted network catalog, bounded pr
 
 The harness stores the structured plan and its sanitized rationale, not private chain-of-thought. Keywords are treated as untrusted data passed to the fixed `search_subgraphs_by_keyword` adapter method only after schema and budget validation.
 
-### Pass B: Post-discovery feasibility planner
+### Pass B: Post-discovery entity selector
 
-Input is the validated `SemanticPlan`, compiler-owned `SourceNeed[]` and source roles, bounded candidate evidence from schema inspection, registry signatures, and topology limits. Output is `source_feasibility`, `clarification`, or `unsupported`. A feasible output must select exactly one supplied `candidateRef`, exact inspected `queryEntity`, and exact inspected field path for every required field of each source need, then include a typed `CompositionIntent`. It cannot invent a source, entity, field, tool, operator, expression form, URL, access mode, credential, payment, or GraphQL document.
+Input is the validated `SemanticPlan`, compiler-owned `SourceNeed[]`, and bounded candidate/entity summaries from schema inspection. Full field arrays are omitted. Output is `source_entity_selection`, `clarification`, or `unsupported`. A selection must copy exactly one supplied `candidateRef` and inspected `queryEntity` for every source need. It cannot bind fields, compose operators, or invent a source, entity, field, tool, URL, access mode, credential, payment, or GraphQL document. The harness validates every reference and expands the selected entities from its trusted discovery snapshot.
+
+### Pass C: Post-selection feasibility planner
+
+Input is the validated `SemanticPlan`, compiler-owned `SourceNeed[]` and source roles, complete fields for only the harness-expanded selected entities, registry signatures, and topology limits. Output is `source_feasibility`, `clarification`, or `unsupported`. A feasible output must copy the locked candidate/entity references, bind every required field to an exact inspected field path, and include a typed `CompositionIntent`. It cannot change source selection or invent a field, tool, operator, expression form, URL, access mode, credential, payment, or GraphQL document.
 
 The deterministic gate rejects incompatible candidates, missing or duplicate required-field bindings, invented entity/field paths, incompatible types, unknown roles/operators/ports, invalid typed expressions/configuration, duplicate inputs, disconnected nodes, cycles, output-schema mismatches, and limit violations. Passing this gate means only that a schema-evidenced source/operator arrangement appears structurally possible. It does not prove historical coverage, freshness, source-query access, cost, gateway Deployment ID, bounded GraphQL execution, or durable execution readiness.
 
@@ -556,7 +565,7 @@ Schemas in the design folder are proposed source records until implemented and g
 3. Implement the actual registry, node-ID allocator, spec assembler, schema inference, DAG validator, and Builder projector without a model or network.
 4. Implement query recipes/compiler/validator against pinned SDL fixtures.
 5. Implement Graph metadata search/inspection and candidate scoring with verified non-paid capability boundaries.
-6. Add the two ordered exploration model passes behind the provider-neutral model port and stage-specific prompts; retain the three-pass fixture compiler only as a compatibility path until source admission converges.
+6. Add the three ordered exploration model passes behind the provider-neutral model port and stage-specific prompts, with controller-owned selected-entity expansion; retain the three-pass fixture compiler only as a compatibility path until source admission converges.
 7. Add bounded repairs, H2 checkpoints/recovery, traces, redaction, and planner evaluation.
 8. Connect Proposal `specification` to the existing Builder codec and server-side structured-edit validation.
 9. Validate H3 with one real existing Subgraph case before enabling authorized live preview/build execution.

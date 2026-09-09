@@ -8,6 +8,7 @@ import {promptForStage, promptForStructuredStage} from "./prompts.js";
 import {jsonSchemaForStage} from "./schemas.js";
 
 const responseLimitBytes = 1_048_576;
+const planningOutputTokenLimit = 16_384;
 
 type ChatMessage = {
   role: "system" | "user";
@@ -114,7 +115,7 @@ async function requestChatCompletion(
         model: config.model,
         messages,
         ...(tool ? {
-          max_tokens: 4096,
+          max_tokens: planningOutputTokenLimit,
           tools: [{
             type: "function",
             function: {
@@ -209,7 +210,7 @@ async function requestDeepSeekResponses(
         // budget for the schema-constrained result. DeepSeek counts reasoning
         // tokens against max_output_tokens.
         reasoning: {effort: "low"},
-        max_output_tokens: 8192,
+        max_output_tokens: planningOutputTokenLimit,
         text: {
           format: {
             type: "json_schema",

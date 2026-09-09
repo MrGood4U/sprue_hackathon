@@ -7,6 +7,7 @@ const stageDefinitions = [
   ["source_discovery_planning", "agent.stage.discoveryPlan", "agent.stage.discoveryPlanDetail"],
   ["source_needs", "agent.stage.sourceNeeds", "agent.stage.sourceNeedsDetail"],
   ["graph_source_discovery", "agent.stage.graphDiscovery", "agent.stage.graphDiscoveryDetail"],
+  ["source_entity_selection", "agent.stage.entitySelection", "agent.stage.entitySelectionDetail"],
   ["source_feasibility", "agent.stage.feasibility", "agent.stage.feasibilityDetail"],
   ["feasibility_validation", "agent.stage.validation", "agent.stage.validationDetail"],
 ];

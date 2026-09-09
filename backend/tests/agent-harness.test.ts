@@ -231,7 +231,7 @@ test("remote Agent model sends an OpenAI-compatible request and parses the bound
   });
   const result = await model.complete(request);
   assert.equal(observedBody?.model, config.agent.model);
-  assert.equal(observedBody?.max_tokens, 4096);
+  assert.equal(observedBody?.max_tokens, 16384);
   const observedTool = (observedBody?.tools as Array<{function: {name: string; parameters: Record<string, unknown>}}>)[0];
   assert.equal(observedTool?.function.name, "submit_sprue_plan");
   assert.equal(observedTool?.function.parameters.type, "object");
@@ -278,7 +278,7 @@ test("remote Agent model uses DeepSeek Responses Structured Outputs", async () =
   assert.equal(String(observedBody?.instructions).includes("submit_sprue_plan function"), false);
   assert.equal(typeof observedBody?.input, "string");
   assert.deepEqual(observedBody?.reasoning, {effort: "low"});
-  assert.equal(observedBody?.max_output_tokens, 8192);
+  assert.equal(observedBody?.max_output_tokens, 16384);
   assert.equal("tools" in (observedBody ?? {}), false);
   assert.equal("tool_choice" in (observedBody ?? {}), false);
   const textFormat = (observedBody?.text as {format: {type: string; name: string; schema: Record<string, unknown>}}).format;
@@ -333,6 +333,7 @@ test("remote Agent model rejects ordinary content when the forced planning tool 
 test("every planning tool schema stays inside the DeepSeek-compatible JSON Schema subset", () => {
   for (const stage of [
     "source_discovery_planning",
+    "source_entity_selection",
     "source_feasibility",
     "semantic_interpretation",
     "source_selection",

@@ -57,7 +57,7 @@ The complete golden pipeline begins with deterministic structured requirements a
 | Templates | Deterministic expansion, pinned versions, stable IDs across parameter changes, primitive equivalence, disjoint connected mappings, stale spec/provenance hashes, unavailable catalog, parameter bounds and expanded resource accounting |
 | DAG | Cycle, dead node, duplicate IDs, invalid ports, type/null/unit mismatch, invalid Union schema, invalid Join key/cardinality/collision policy, multiple outputs, excessive nodes or distinct/group state |
 | Egress | Unapproved host, redirect, loopback/private address, DNS rebinding, URL credentials and arbitrary MCP registration |
-| Cost limits | Repeated sessions, six-model-call exhaustion, retry/repair accounting, unknown metadata billing, counter reservation before dispatch, crash after external call |
+| Cost limits | Repeated sessions, four-model-call exhaustion, shared retry/repair accounting, unknown metadata billing, counter reservation before dispatch, crash after external call |
 | Replay/deduplication | Duplicate command, changed body under same key, duplicate proposal acceptance, race between accept/discard, expired evidence and mismatched registry |
 | Source data | HTTP 200 with GraphQL errors, indexing errors, block/manifest drift, repeated or non-progressing cursor, exact-boundary full page, incomplete history |
 | Payments | Key failure with no x402 fallback, policy drift, revoked grant, concurrent reservations, 402+retry accounting, uncertain submission and confirmed-payment/failed-data delivery |

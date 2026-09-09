@@ -6,6 +6,8 @@ On 2026-09-09, the user superseded the earlier 120-second planning limit after a
 
 On 2026-09-09, the user approved explicit cancellation of an in-flight Agent planning command. The authenticated cancellation route must target the exact workspace/session command, mark cancellation requested, abort the shared model/Graph run signal, and let the original handler persist a terminal cancelled command and sanitized result. A browser-side fetch abort is not cancellation. The current synchronous implementation may support only runs owned by the same API process; missing process-local execution state must fail explicitly rather than claim the command stopped.
 
+On 2026-09-09, the user approved splitting live source feasibility into a compact entity-selection model stage and a later field-binding/composition stage. The selector may return only supplied source and query-entity references plus bounded explanation metadata. The Harness must validate those references and expand only the selected entities' fields from trusted discovery evidence before the later model call. Keep one shared repair allowance inside the four-call command ceiling, and use a 16,384-token output ceiling for each remote planning call.
+
 All repository text, code comments, test names, migration notes, and commit messages must be written in English. Communication with the user may be in Chinese.
 
 Use the approved root `data-model.md` as the persistence baseline. Do not invent durable fields in endpoint code; update the reviewed model first when a missing concept is discovered.

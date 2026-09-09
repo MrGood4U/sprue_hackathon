@@ -8,6 +8,7 @@ import type {
   FlexibleCompositionIntent,
   SemanticPlan,
   SourceDiscoveryPlan,
+  SourceEntitySelectionOutput,
   SourceFeasibilityOutput,
   SourceSelectionOutput,
 } from "./types.js";
@@ -248,6 +249,42 @@ function compositionOutput(request: Extract<AgentModelRequest, {stage: "dag_comp
   return compositionFor(request.semanticPlan, request.sourceRoles);
 }
 
+function sourceEntitySelectionOutput(
+  request: Extract<AgentModelRequest, {stage: "source_entity_selection"}>,
+): SourceEntitySelectionOutput {
+  const selections = request.sourceNeeds.map((need) => {
+    const required = need.fields.filter((field) => field.required).map((field) => field.id);
+    const candidate = request.candidates
+      .filter((value) => value.sourceNeedId === need.id && value.status === "suitable" && value.entities.length > 0)
+      .sort((left, right) => (right.totalQueryCount30d ?? -1) - (left.totalQueryCount30d ?? -1))[0];
+    const entity = candidate?.entities.find((item) => required.every((id) => item.matchedRequirements.includes(id)))
+      ?? candidate?.entities[0];
+    return candidate && entity ? {
+      sourceNeedId: need.id,
+      candidateRef: candidate.candidateRef,
+      queryEntity: entity.queryEntity,
+      rationale: `The compact inspected evidence best matches the requested ${need.grain} grain.`,
+    } : null;
+  });
+  if (selections.some((selection) => selection === null)) {
+    return {
+      schemaVersion: 1,
+      kind: "unsupported",
+      code: "source_entity_unavailable",
+      reason: "No suitable inspected query entity is available for every source need.",
+      missingFacts: request.sourceNeeds
+        .filter((_need, index) => selections[index] === null)
+        .map((need) => `${need.dataNetwork}:query_entity`),
+    };
+  }
+  return {
+    schemaVersion: 1,
+    kind: "source_entity_selection",
+    selections: selections.filter((selection) => selection !== null),
+    assumptions: [],
+  };
+}
+
 function sourceFeasibilityOutput(
   request: Extract<AgentModelRequest, {stage: "source_feasibility"}>,
 ): SourceFeasibilityOutput {
@@ -329,6 +366,7 @@ function sourceFeasibilityOutput(
 
 export function createMockStageOutput(request: AgentModelRequest): unknown {
   if (request.stage === "source_discovery_planning") return sourceDiscoveryPlanningOutput(request);
+  if (request.stage === "source_entity_selection") return sourceEntitySelectionOutput(request);
   if (request.stage === "source_feasibility") return sourceFeasibilityOutput(request);
   if (request.stage === "semantic_interpretation") return semanticOutput(request);
   if (request.stage === "source_selection") return sourceSelectionOutput(request);
