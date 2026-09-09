@@ -175,7 +175,7 @@ export function AgentPage({path, navigate}) {
       : [];
   const canReviewDag = agent.latestAssistant?.contentJson?.readyForCompilation === true;
   const buildPath = `/app/products/${productRef}/build`;
-  const isBeforeFirstRun = !isPlanning && agent.messages.length === 0 && !agent.latestAssistant;
+  const canCreateManually = !isPlanning && !canReviewDag;
 
   const submitPlan = (event) => {
     event.preventDefault();
@@ -257,12 +257,13 @@ export function AgentPage({path, navigate}) {
                   </>
                 ) : agent.latestAssistant ? (
                   <>
+                    {canCreateManually && <Button type="button" icon={ArrowRight} onClick={() => navigate(buildPath)}>{t("agent.manualCreate")}</Button>}
                     <Button type="button" icon={ArrowClockwise} onClick={() => setConfirmation("regenerate")}>{t("agent.regenerateAction")}</Button>
                     {canReviewDag && <Button type="button" variant="primary" icon={ArrowRight} onClick={() => navigate(buildPath)}>{t("agent.reviewDag")}</Button>}
                   </>
                 ) : (
                   <>
-                    {isBeforeFirstRun && <Button type="button" icon={ArrowRight} onClick={() => navigate(buildPath)}>{t("agent.manualCreate")}</Button>}
+                    {canCreateManually && <Button type="button" icon={ArrowRight} onClick={() => navigate(buildPath)}>{t("agent.manualCreate")}</Button>}
                     <Button type="submit" variant="primary" icon={Sparkle} disabled={!intent.trim()}>{t("agent.generateAction")}</Button>
                   </>
                 )}

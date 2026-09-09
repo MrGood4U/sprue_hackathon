@@ -143,6 +143,8 @@ test("keeps Agent Planner on live durable services without a demo fallback", asy
   assert.match(page, /<ProductHeader product=\{agent\.product\} productRef=\{productRef\} active="agent"/);
   assert.match(page, /const buildPath = `\/app\/products\/\$\{productRef\}\/build`/);
   assert.match(page, /readyForCompilation === true/);
+  assert.match(page, /const canCreateManually = !isPlanning && !canReviewDag/);
+  assert.equal(page.match(/canCreateManually && <Button/g)?.length, 2);
   assert.match(page, /agent\.manualCreate/);
   assert.match(page, /agent\.stopAction/);
   assert.match(page, /confirmation === "cancel"/);
