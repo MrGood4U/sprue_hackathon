@@ -7,19 +7,15 @@ const defaultLocale = "en";
 const storageKey = "sprue.locale";
 const messages = { en, "zh-CN": zhCN };
 
-function normalizeLocale(locale) {
-  return locale?.toLowerCase().startsWith("zh") ? "zh-CN" : defaultLocale;
-}
-
 function getInitialLocale() {
   try {
     const savedLocale = window.localStorage.getItem(storageKey);
     if (savedLocale && messages[savedLocale]) return savedLocale;
   } catch {
-    // The browser can deny storage access; locale detection remains available.
+    // A blocked preference read falls back to the product default.
   }
 
-  return normalizeLocale(window.navigator.languages?.[0] || window.navigator.language);
+  return defaultLocale;
 }
 
 function interpolate(message, values) {

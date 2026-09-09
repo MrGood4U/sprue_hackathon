@@ -26,6 +26,8 @@ Keep each route-level page in its own file under `src/pages/`. Application files
 
 Keep user-facing copy in `src/i18n/messages/`, with English as the fallback and `zh-CN` as the initial additional locale. Use stable translation keys through `useI18n()` instead of hardcoding prose in page components. Preserve technical identifiers, hashes, addresses, provider names, API payload fields, and code samples when translation would change their meaning. Run `npm run test:i18n` after changing localized copy or message keys.
 
+On 2026-09-10, the user set English as the default language for every first-time visitor, independent of browser or operating-system locale. Honor a supported locale only after the user explicitly selects it from the header language control and it is saved as a local preference; otherwise initialize and fall back to English.
+
 Historical demo fixtures belong in `src/services/demo/fixtures/` for isolated tests only. Route-level pages use feature hooks for async workflows; hooks call the selected backend client in `src/services/index.js`. Cancel in-flight view work on unmount. Replace the documented backend demo routes with reviewed durable clients as integration proceeds; do not invent unreviewed API routes or add live payment behavior in page components.
 
 ## Product Workflow Navigation

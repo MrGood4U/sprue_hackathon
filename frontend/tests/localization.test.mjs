@@ -22,6 +22,15 @@ test("language options use each language's native name", () => {
   assert.equal(zhCN["language.zh-CN"], "\u4e2d\u6587");
 });
 
+test("new visitors default to English until they explicitly save another locale", async () => {
+  const source = await readFile(new URL("../src/i18n/I18nProvider.jsx", import.meta.url), "utf8");
+  assert.match(source, /const defaultLocale = "en";/);
+  assert.match(source, /localStorage\.getItem\(storageKey\)/);
+  assert.match(source, /if \(savedLocale && messages\[savedLocale\]\) return savedLocale;/);
+  assert.match(source, /return defaultLocale;/);
+  assert.doesNotMatch(source, /navigator\.(?:language|languages)/);
+});
+
 test("Hedera account creation labels do not duplicate an add icon", () => {
   assert.equal(en["wallet.createHederaAccount"], "Create Hedera account");
   assert.equal(zhCN["wallet.createHederaAccount"], "\u521b\u5efaHedera\u8d26\u6237");
