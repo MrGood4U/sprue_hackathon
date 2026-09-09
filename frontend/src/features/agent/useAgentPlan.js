@@ -10,6 +10,7 @@ import {
 import {getProduct, updateProduct} from "../../services/api/products.js";
 import {loadAgentMessages, resolveProduct} from "./agentData.js";
 import {latestRunMessages} from "./latestRunMessages.js";
+import {useProductCache} from "../products/ProductCacheProvider.jsx";
 
 function pollingDelay(signal, milliseconds) {
   return new Promise((resolve) => {
@@ -65,15 +66,16 @@ async function pollActiveTrace(sessionId, options, signal, onTrace) {
 export function useAgentPlan(productRef) {
   const {identity, getAccessToken} = useAuth();
   const workspaceId = identity?.defaultWorkspaceId;
+  const {readProduct, rememberProduct} = useProductCache();
   const activeLoad = useRef(null);
   const activePlanning = useRef(null);
   const activeSubmission = useRef(null);
   const activeCancellation = useRef(null);
   const requestKey = useRef(null);
   const planning = useRef(false);
-  const [state, setState] = useState({
+  const [state, setState] = useState(() => ({
     status: "loading",
-    product: null,
+    product: readProduct(productRef),
     session: null,
     messages: [],
     liveTrace: [],
@@ -82,7 +84,7 @@ export function useAgentPlan(productRef) {
     cancellationError: null,
     command: null,
     error: null,
-  });
+  }));
 
   const scope = useCallback(async () => {
     const accessToken = await getAccessToken();
@@ -91,7 +93,7 @@ export function useAgentPlan(productRef) {
   }, [getAccessToken, workspaceId]);
 
   const load = useCallback(async (signal) => {
-    setState((current) => ({...current, status: "loading", error: null}));
+    setState((current) => ({...current, status: "loading", product: readProduct(productRef), error: null}));
     try {
       const options = {...await scope(), signal};
       const product = await resolveProduct(productRef, options);
@@ -99,6 +101,7 @@ export function useAgentPlan(productRef) {
       const session = sessions.find((item) => item.status === "active") ?? sessions[0] ?? null;
       const messages = latestRunMessages(session ? await loadAgentMessages(session.id, options) : []);
       const hasActivePlanning = Boolean(session?.activeCommandId);
+      rememberProduct(product);
       setState({
         status: hasActivePlanning ? "planning" : "ready",
         product,
@@ -115,7 +118,7 @@ export function useAgentPlan(productRef) {
       if (error?.name === "AbortError") return;
       setState((current) => ({...current, status: "error", error}));
     }
-  }, [productRef, scope]);
+  }, [productRef, readProduct, rememberProduct, scope]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -320,8 +323,9 @@ export function useAgentPlan(productRef) {
       ...await scope(),
       lockVersion: state.product.lockVersion,
     });
+    rememberProduct(product);
     setState((current) => ({...current, product}));
-  }, [scope, state.product]);
+  }, [rememberProduct, scope, state.product]);
 
   const latestAssistant = [...state.messages].reverse().find((message) => message.role === "assistant") ?? null;
   const trace = latestAssistant?.contentJson?.trace ?? [];

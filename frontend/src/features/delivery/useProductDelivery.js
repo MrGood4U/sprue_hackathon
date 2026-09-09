@@ -3,17 +3,19 @@ import {resolveProduct} from "../agent/agentData.js";
 import {useAuth} from "../auth/AuthProvider.jsx";
 import {getProductDelivery} from "../../services/api/delivery.js";
 import {updateProduct} from "../../services/api/products.js";
+import {useProductCache} from "../products/ProductCacheProvider.jsx";
 
 export function useProductDelivery(productRef) {
   const {identity, getAccessToken} = useAuth();
   const workspaceId = identity?.defaultWorkspaceId;
-  const [state, setState] = useState({
+  const {readProduct, rememberProduct} = useProductCache();
+  const [state, setState] = useState(() => ({
     status: "loading",
-    product: null,
+    product: readProduct(productRef),
     delivery: null,
     observedAt: null,
     error: null,
-  });
+  }));
 
   const scope = useCallback(async () => {
     const accessToken = await getAccessToken();
@@ -22,17 +24,18 @@ export function useProductDelivery(productRef) {
   }, [getAccessToken, workspaceId]);
 
   const load = useCallback(async (signal) => {
-    setState((current) => ({...current, status: "loading", error: null}));
+    setState((current) => ({...current, status: "loading", product: readProduct(productRef), error: null}));
     try {
       const options = {...await scope(), signal};
       const product = await resolveProduct(productRef, options);
       const result = await getProductDelivery(product.id, options);
+      rememberProduct(product);
       setState({status: "ready", product, ...result, error: null});
     } catch (error) {
       if (error?.name === "AbortError") return;
       setState((current) => ({...current, status: "error", error}));
     }
-  }, [productRef, scope]);
+  }, [productRef, readProduct, rememberProduct, scope]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -48,8 +51,9 @@ export function useProductDelivery(productRef) {
       ...await scope(),
       lockVersion: state.product.lockVersion,
     });
+    rememberProduct(product);
     setState((current) => ({...current, product}));
-  }, [scope, state.product]);
+  }, [rememberProduct, scope, state.product]);
 
   return {...state, workspaceId, refresh, rename};
 }

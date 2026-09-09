@@ -123,6 +123,7 @@ export const en = {
   "productHeader.api": "API",
   "productHeader.monetize": "Monetize",
   "productHeader.backToProducts": "Back to products",
+  "productHeader.loadingName": "Loading product name",
   "productName.edit": "Edit product name",
   "productName.inputLabel": "Product name",
   "productName.open": "Open product",

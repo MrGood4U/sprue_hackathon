@@ -7,6 +7,7 @@ import {
   readCachedBuilderDraft,
 } from "../src/features/builder/liveBuilderProjection.js";
 import {productRefFromPath} from "../src/features/products/productRoute.js";
+import {createProductCache} from "../src/features/products/productCache.js";
 
 const product = {id: "product-1", slug: "live-product", originalIntent: "Stored intent"};
 
@@ -78,4 +79,22 @@ test("preserves the same product reference across all four product tabs", () => 
   for (const section of ["agent", "build", "api", "monetize"]) {
     assert.equal(productRefFromPath(`/app/products/live-product/${section}`), "live-product");
   }
+});
+
+test("preserves the resolved product name across tabs without exposing another workspace", () => {
+  const cache = createProductCache();
+  const workspaceId = "workspace-1";
+  const product = {id: "product-1", slug: "live-product", name: "Live product"};
+
+  cache.remember(workspaceId, product);
+  assert.equal(cache.read(workspaceId, product.id)?.name, "Live product");
+  assert.equal(cache.read(workspaceId, product.slug)?.name, "Live product");
+  assert.equal(cache.read("workspace-2", product.slug), null);
+
+  const renamed = {...product, name: "Renamed product"};
+  cache.remember(workspaceId, renamed);
+  assert.equal(cache.read(workspaceId, product.slug)?.name, "Renamed product");
+
+  cache.forget(workspaceId, renamed);
+  assert.equal(cache.read(workspaceId, product.slug), null);
 });

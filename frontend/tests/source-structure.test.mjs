@@ -118,6 +118,7 @@ test("keeps Agent Planner on live durable services without a demo fallback", asy
   const builderPage = await readFile(new URL("pages/ProductBuilderPage.jsx", sourceRoot), "utf8");
   const productHeader = await readFile(new URL("components/product/ProductHeader.jsx", sourceRoot), "utf8");
   const appShell = await readFile(new URL("app/AppShell.jsx", sourceRoot), "utf8");
+  const productCache = await readFile(new URL("features/products/ProductCacheProvider.jsx", sourceRoot), "utf8");
 
   assert.doesNotMatch(page, /useDemoRuntime|SPRUE-MOCK-PLANNER|assistantResponse|demoNotice/);
   assert.doesNotMatch(hook, /useDemoRuntime|runAction\("agent_plan"/);
@@ -136,9 +137,13 @@ test("keeps Agent Planner on live durable services without a demo fallback", asy
   assert.doesNotMatch(builderPage, /useDemoRuntime|useBuildRun/);
   assert.match(builderPage, /useProductBuilder\(productRef\)/);
   assert.match(builderPage, /cacheBuilderDraft/);
-  assert.match(productHeader, /productRef = product\.slug/);
+  assert.match(productHeader, /productRef = product\?\.slug/);
   assert.match(productHeader, /`\/app\/products\/\$\{productRef\}\/agent`/);
   assert.match(appShell, /<ProductBuilderPage path=\{path\}/);
+  assert.match(appShell, /<ProductCacheProvider>/);
+  assert.match(productCache, /identity\?\.defaultWorkspaceId/);
+  assert.match(productHeader, /className="product-name-skeleton"/);
+  assert.doesNotMatch(page, /name: productRef/);
   assert.match(page, /<ProductHeader product=\{routeProduct\} productRef=\{productRef\} active="agent"/);
   assert.match(page, /<ProductHeader product=\{agent\.product\} productRef=\{productRef\} active="agent"/);
   assert.match(page, /const buildPath = `\/app\/products\/\$\{productRef\}\/build`/);

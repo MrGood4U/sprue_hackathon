@@ -126,6 +126,7 @@ export const zhCN = {
   "productHeader.api": "API",
   "productHeader.monetize": "\u53d8\u73b0",
   "productHeader.backToProducts": "\u8fd4\u56de\u6240\u6709\u4ea7\u54c1",
+  "productHeader.loadingName": "\u6b63\u5728\u52a0\u8f7d\u4ea7\u54c1\u540d\u79f0",
   "productName.edit": "\u7f16\u8f91\u4ea7\u54c1\u540d\u79f0",
   "productName.inputLabel": "\u4ea7\u54c1\u540d\u79f0",
   "productName.open": "\u6253\u5f00\u4ea7\u54c1",

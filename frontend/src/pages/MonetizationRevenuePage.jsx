@@ -23,7 +23,7 @@ function formatAtomic(money) {
 
 function MonetizeRouteState({delivery, productRef, navigate}) {
   const {t} = useI18n();
-  const product = delivery.product ?? {name: productRef || t("monetize.unknownProduct"), slug: productRef};
+  const product = delivery.product ?? (delivery.status === "error" ? {name: t("monetize.unknownProduct"), slug: productRef} : null);
   return <><ProductHeader product={product} productRef={productRef} active="monetize" navigate={navigate} /><main className="runtime-gate builder-route-state"><div className="panel"><span className="section-label">{t("monetize.liveData")}</span><h1>{t(delivery.status === "loading" ? "monetize.loading" : "monetize.loadError")}</h1><p>{t(delivery.status === "loading" ? "monetize.loadingDetail" : "monetize.loadErrorDetail")}</p>{delivery.status === "error" && <Button variant="primary" onClick={() => delivery.refresh()}>{t("common.retry")}</Button>}</div></main></>;
 }
 

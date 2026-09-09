@@ -28,7 +28,7 @@ function fieldRows(outputSchema) {
 
 function ApiRouteState({delivery, productRef, navigate}) {
   const {t} = useI18n();
-  const product = delivery.product ?? {name: productRef || t("api.unknownProduct"), slug: productRef};
+  const product = delivery.product ?? (delivery.status === "error" ? {name: t("api.unknownProduct"), slug: productRef} : null);
   return <><ProductHeader product={product} productRef={productRef} active="api" navigate={navigate} /><main className="runtime-gate builder-route-state"><div className="panel"><span className="section-label">{t("api.liveData")}</span><h1>{t(delivery.status === "loading" ? "api.loading" : "api.loadError")}</h1><p>{t(delivery.status === "loading" ? "api.loadingDetail" : "api.loadErrorDetail")}</p>{delivery.status === "error" && <Button variant="primary" onClick={() => delivery.refresh()}>{t("common.retry")}</Button>}</div></main></>;
 }
 

@@ -56,11 +56,11 @@ export function ProductBuilderPage({ path, navigate }) {
   const { t } = useI18n();
   const productRef = productRefFromPath(path);
   const builder = useProductBuilder(productRef);
-  const product = builder.product ?? {name: productRef || t("builder.unknownProduct"), slug: productRef};
+  const product = builder.product ?? (builder.status === "error" ? {name: t("builder.unknownProduct"), slug: productRef} : null);
 
   return (
     <div className="product-page">
-      <ProductHeader product={product} productRef={productRef} active="build" navigate={navigate} onRename={builder.product ? builder.rename : null} />
+      <ProductHeader product={product} productRef={productRef} active="build" navigate={navigate} onRename={builder.status === "ready" ? builder.rename : null} />
       {builder.status === "loading" && (
         <main className="runtime-gate builder-route-state"><div className="panel"><span className="section-label">{t("builder.liveDraftLabel")}</span><h1>{t("builder.loadingDraft")}</h1><p>{t("builder.loadingDraftDetail")}</p></div></main>
       )}

@@ -9,10 +9,12 @@ import {
   listProducts,
   updateProduct,
 } from "../../services/api/products.js";
+import {useProductCache} from "./ProductCacheProvider.jsx";
 
 export function useProductDashboard() {
   const {identity, getAccessToken} = useAuth();
   const workspaceId = identity?.defaultWorkspaceId;
+  const {rememberProduct, forgetProduct} = useProductCache();
   const [state, setState] = useState({
     status: "loading",
     products: [],
@@ -35,6 +37,7 @@ export function useProductDashboard() {
         listProducts(options),
         getWorkspaceOverview(options),
       ]);
+      products.products.forEach(rememberProduct);
       setState({
         status: "ready",
         products: products.products,
@@ -46,7 +49,7 @@ export function useProductDashboard() {
       if (error?.name === "AbortError") return;
       setState((current) => ({...current, status: "error", error}));
     }
-  }, [scope]);
+  }, [rememberProduct, scope]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -67,8 +70,9 @@ export function useProductDashboard() {
       originalIntent: "",
       accountWalletId: wallet.id,
     }, options);
+    rememberProduct(product);
     return product;
-  }, [scope]);
+  }, [rememberProduct, scope]);
 
   const rename = useCallback(async (productId, name) => {
     const options = await scope();
@@ -77,12 +81,13 @@ export function useProductDashboard() {
       ...options,
       lockVersion: current.lockVersion,
     });
+    rememberProduct(updated);
     setState((value) => ({
       ...value,
       products: value.products.map((item) => item.id === productId ? updated : item),
     }));
     return updated;
-  }, [scope]);
+  }, [rememberProduct, scope]);
 
   const remove = useCallback(async (productId) => {
     const options = await scope();
@@ -91,6 +96,7 @@ export function useProductDashboard() {
       ...options,
       lockVersion: current.lockVersion,
     });
+    forgetProduct(current);
     setState((value) => ({
       ...value,
       products: value.products.filter((item) => item.id !== productId),
@@ -107,7 +113,7 @@ export function useProductDashboard() {
       // refresh aggregate metrics on the next normal Dashboard load.
     }
     return deletion;
-  }, [scope]);
+  }, [forgetProduct, scope]);
 
   return {
     ...state,

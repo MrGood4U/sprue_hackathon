@@ -5,11 +5,13 @@ import {latestRunMessages} from "../agent/latestRunMessages.js";
 import {listAgentSessions} from "../../services/api/agent.js";
 import {updateProduct} from "../../services/api/products.js";
 import {browserSessionStorage, projectAgentBuilderDraft, readCachedBuilderDraft} from "./liveBuilderProjection.js";
+import {useProductCache} from "../products/ProductCacheProvider.jsx";
 
 export function useProductBuilder(productRef) {
   const {identity, getAccessToken} = useAuth();
   const workspaceId = identity?.defaultWorkspaceId;
-  const [state, setState] = useState({status: "loading", product: null, draft: null, error: null});
+  const {readProduct, rememberProduct} = useProductCache();
+  const [state, setState] = useState(() => ({status: "loading", product: readProduct(productRef), draft: null, error: null}));
 
   const scope = useCallback(async () => {
     const accessToken = await getAccessToken();
@@ -18,7 +20,7 @@ export function useProductBuilder(productRef) {
   }, [getAccessToken, workspaceId]);
 
   const load = useCallback(async (signal) => {
-    setState((current) => ({...current, status: "loading", error: null}));
+    setState((current) => ({...current, status: "loading", product: readProduct(productRef), error: null}));
     try {
       const options = {...await scope(), signal};
       const product = await resolveProduct(productRef, options);
@@ -27,12 +29,13 @@ export function useProductBuilder(productRef) {
       const messages = latestRunMessages(session ? await loadAgentMessages(session.id, options) : []);
       const projected = projectAgentBuilderDraft(product, messages);
       const cached = readCachedBuilderDraft(browserSessionStorage(), workspaceId, product.id, projected.origin.originKey);
+      rememberProduct(product);
       setState({status: "ready", product, draft: cached ?? projected, error: null});
     } catch (error) {
       if (error?.name === "AbortError") return;
       setState((current) => ({...current, status: "error", error}));
     }
-  }, [productRef, scope, workspaceId]);
+  }, [productRef, readProduct, rememberProduct, scope, workspaceId]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -51,8 +54,9 @@ export function useProductBuilder(productRef) {
       ...await scope(),
       lockVersion: state.product.lockVersion,
     });
+    rememberProduct(product);
     setState((current) => ({...current, product}));
-  }, [scope, state.product]);
+  }, [rememberProduct, scope, state.product]);
 
   return {...state, workspaceId, refresh, rename};
 }

@@ -149,7 +149,7 @@ export function AgentPage({path, navigate}) {
   const initializedProduct = useRef(null);
   const isPlanning = agent.status === "planning";
   const elapsedSeconds = useElapsedSeconds(isPlanning);
-  const routeProduct = agent.product ?? {name: productRef || t("builder.unknownProduct"), slug: productRef};
+  const routeProduct = agent.product ?? (agent.status === "error" ? {name: t("builder.unknownProduct"), slug: productRef} : null);
 
   useEffect(() => {
     if (agent.product && initializedProduct.current !== agent.product.id) {

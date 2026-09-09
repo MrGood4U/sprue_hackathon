@@ -6,6 +6,7 @@ import { MonetizationRevenuePage } from "../pages/MonetizationRevenuePage.jsx";
 import { ModelServicePage } from "../pages/ModelServicePage.jsx";
 import { ProductBuilderPage } from "../pages/ProductBuilderPage.jsx";
 import { WalletAccessPage } from "../pages/WalletAccessPage.jsx";
+import { ProductCacheProvider } from "../features/products/ProductCacheProvider.jsx";
 
 function resolveCreatorPage(path, navigate) {
   if (path === "/app/wallet") return <WalletAccessPage navigate={navigate} />;
@@ -21,7 +22,9 @@ export function AppShell({ path, navigate }) {
   return (
     <div className="app-shell">
       <Sidebar path={path} navigate={navigate} />
-      <div className="app-main">{resolveCreatorPage(path, navigate)}</div>
+      <ProductCacheProvider>
+        <div className="app-main">{resolveCreatorPage(path, navigate)}</div>
+      </ProductCacheProvider>
     </div>
   );
 }

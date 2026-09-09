@@ -4,7 +4,7 @@ import { useI18n } from "../../i18n/I18nProvider.jsx";
 import { LanguageSwitcher } from "../navigation/LanguageSwitcher.jsx";
 import { EditableProductName } from "./EditableProductName.jsx";
 
-export function ProductHeader({ product, productRef = product.slug, active, navigate, onRename }) {
+export function ProductHeader({ product, productRef = product?.slug, active, navigate, onRename }) {
   const { t } = useI18n();
   const tabs = [
     ["agent", "productHeader.agent", `/app/products/${productRef}/agent`],
@@ -16,17 +16,24 @@ export function ProductHeader({ product, productRef = product.slug, active, navi
   return (
     <header className="product-header">
       <div className="product-title-row">
-        <div className="product-title-group">
+        <div className="product-title-group" aria-busy={!product}>
           <button className="back-link" aria-label={t("productHeader.backToProducts")} onClick={() => navigate("/app")}>
             <ArrowLeft size={21} />
           </button>
-          {onRename ? (
+          {product && onRename ? (
             <EditableProductName
               name={product.name}
               titleActivatesEdit
               onCommit={onRename}
             />
-          ) : <h1 className="product-static-name">{product.name}</h1>}
+          ) : product ? (
+            <h1 className="product-static-name">{product.name}</h1>
+          ) : (
+            <>
+              <span className="product-name-skeleton" aria-hidden="true" />
+              <span className="sr-only">{t("productHeader.loadingName")}</span>
+            </>
+          )}
         </div>
         <div className="product-head-actions">
           <LanguageSwitcher />
