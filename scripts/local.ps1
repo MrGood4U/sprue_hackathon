@@ -137,7 +137,11 @@ function Test-LocalStack {
     if ($LASTEXITCODE -ne 0) {
         throw 'The served frontend image is stale and does not include the live Agent client. Run scripts/local.ps1 up to rebuild it.'
     }
-    Write-Output "Local framework ready: $consoleUrl (Dashboard, Wallet, Model Service, Agent Planner, and Builder planning drafts use live authenticated data; API and Monetize retain the identified demo runtime)."
+    & docker @composeBase exec -T frontend sh -c "grep -R -q -- '/delivery' /usr/share/nginx/html/assets"
+    if ($LASTEXITCODE -ne 0) {
+        throw 'The served frontend image is stale and does not include the live API and Monetize delivery client. Run scripts/local.ps1 up to rebuild it.'
+    }
+    Write-Output "Local framework ready: $consoleUrl (Dashboard, Wallet, Model Service, Agent Planner, Builder, API, and Monetize use live authenticated data; only the public evaluator retains the identified demo runtime)."
 }
 
 # Prevent inherited shell values from silently overriding the reviewed local file.
