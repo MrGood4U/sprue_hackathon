@@ -29,6 +29,11 @@ import {
 } from "./flexible-planning.js";
 import {operatorRegistry} from "./registry.js";
 import {
+  entityEmbeddingLimits,
+  type EntityEmbeddingInput,
+  type EntityEmbeddingRankerPort,
+} from "./entity-embedding.js";
+import {
   HarnessSchemaError,
   parseCompositionIntent,
   parseSourceDiscoveryPlanning,
@@ -354,19 +359,97 @@ function compareRelevantEntities(
     || left.queryEntity.localeCompare(right.queryEntity);
 }
 
-function entitySelectionCandidates(
+function fairEmbeddingInputs(
+  candidates: readonly {
+    candidateRef: string;
+    displayName: string;
+    entities: readonly GraphSchemaEntityInspection[];
+  }[],
+): readonly EntityEmbeddingInput[] {
+  const inputs: EntityEmbeddingInput[] = [];
+  for (let entityRank = 0; inputs.length < entityEmbeddingLimits.maxEntitiesPerNeed; entityRank += 1) {
+    let addedAtThisRank = false;
+    for (const candidate of candidates) {
+      if (inputs.length === entityEmbeddingLimits.maxEntitiesPerNeed) break;
+      const entity = candidate.entities[entityRank];
+      if (!entity) continue;
+      inputs.push({candidateRef: candidate.candidateRef, displayName: candidate.displayName, entity});
+      addedAtThisRank = true;
+    }
+    if (!addedAtThisRank) break;
+  }
+  return inputs;
+}
+
+function entityScoreKey(candidateRef: string, queryEntity: string): string {
+  return `${candidateRef}\u0000${queryEntity}`;
+}
+
+async function entitySelectionCandidates(
   discovery: GraphSourceDiscoveryResult,
   needs: readonly DiscoverySourceNeed[],
-): readonly SourceEntitySelectionCandidate[] {
+  embeddingRanker?: EntityEmbeddingRankerPort,
+  signal?: AbortSignal,
+  emitDebug?: (event: AgentDebugEvent) => void,
+): Promise<readonly SourceEntitySelectionCandidate[]> {
   const output: SourceEntitySelectionCandidate[] = [];
   for (const need of needs) {
     const inspected = discovery.candidates.filter((candidate) => candidate.sourceNeedId === need.id && candidate.entities.length > 0);
     const selectable = inspected.filter((candidate) => candidate.status === "suitable");
     const candidatePool = selectable.length > 0 ? selectable : inspected;
-    const rankedByCandidate = candidatePool.map((candidate) => ({
+    const deterministicCandidates = candidatePool.map((candidate) => ({
       candidate,
       entities: candidate.entities.slice().sort((left, right) => compareRelevantEntities(need, left, right)),
       selected: [] as GraphSchemaEntityInspection[],
+    }));
+    const embeddingInputs = embeddingRanker
+      ? fairEmbeddingInputs(deterministicCandidates.map(({candidate, entities}) => ({
+          candidateRef: candidate.candidateRef,
+          displayName: candidate.displayName,
+          entities,
+        })))
+      : [];
+    const semanticScores = new Map<string, number>();
+    if (embeddingRanker && embeddingInputs.length > 0) {
+      const startedAt = Date.now();
+      emitDebug?.({
+        stage: "source_entity_selection",
+        phase: "embedding_request_started",
+        sourceNeedId: need.id,
+        entityCount: embeddingInputs.length,
+      });
+      try {
+        for (const score of await embeddingRanker.rank(need, embeddingInputs, signal)) {
+          semanticScores.set(entityScoreKey(score.candidateRef, score.queryEntity), score.similarity);
+        }
+        emitDebug?.({
+          stage: "source_entity_selection",
+          phase: "embedding_response_received",
+          sourceNeedId: need.id,
+          entityCount: semanticScores.size,
+          durationMs: Math.max(0, Date.now() - startedAt),
+        });
+      } catch (error) {
+        emitDebug?.({
+          stage: "source_entity_selection",
+          phase: "embedding_request_failed",
+          sourceNeedId: need.id,
+          entityCount: embeddingInputs.length,
+          durationMs: Math.max(0, Date.now() - startedAt),
+          errorCode: diagnosticErrorCode(error),
+        });
+        throw error;
+      }
+    }
+    const rankedByCandidate = deterministicCandidates.map((item) => ({
+      ...item,
+      entities: item.entities.slice().sort((left, right) => {
+        const leftScore = semanticScores.get(entityScoreKey(item.candidate.candidateRef, left.queryEntity));
+        const rightScore = semanticScores.get(entityScoreKey(item.candidate.candidateRef, right.queryEntity));
+        return Number(rightScore !== undefined) - Number(leftScore !== undefined)
+          || (rightScore ?? 0) - (leftScore ?? 0)
+          || compareRelevantEntities(need, left, right);
+      }),
     }));
     let remainingEntities = maxFeasibilityEntitiesPerNeed;
     for (let entityRank = 0; remainingEntities > 0; entityRank += 1) {
@@ -388,6 +471,7 @@ function entitySelectionCandidates(
         sourceNeedId: candidate.sourceNeedId,
         logicalSubgraphId: candidate.logicalSubgraphId,
         manifestIpfsCid: candidate.manifestIpfsCid,
+        displayName: candidate.displayName,
         networkEvidence: candidate.networkEvidence,
         totalQueryCount30d: candidate.totalQueryCount30d,
         queryActivityEvidence: candidate.queryActivityEvidence,
@@ -397,6 +481,12 @@ function entitySelectionCandidates(
           queryEntity: entity.queryEntity,
           entityType: entity.entityType,
           fieldCount: entity.fields.length,
+          semanticSimilarity: semanticScores.has(entityScoreKey(candidate.candidateRef, entity.queryEntity))
+            ? Number(semanticScores.get(entityScoreKey(candidate.candidateRef, entity.queryEntity))!.toFixed(6))
+            : null,
+          rankingEvidence: semanticScores.has(entityScoreKey(candidate.candidateRef, entity.queryEntity))
+            ? "embedding" as const
+            : "deterministic" as const,
           suggestedBindings: entity.suggestedBindings,
           matchedRequirements: entity.matchedRequirements,
           grainHint: entity.grainHint ?? "unknown",
@@ -625,6 +715,7 @@ export class AgentHarness {
     },
     private readonly sourceDiscovery?: GraphSourceDiscoveryPort,
     private readonly debugSink?: AgentDebugSink,
+    private readonly embeddingRanker?: EntityEmbeddingRankerPort,
   ) {}
 
   private emitDebug(event: AgentDebugEvent): void {
@@ -880,11 +971,23 @@ export class AgentHarness {
       candidates: discovery.candidates,
     });
 
-    emitTrace("source_entity_selection", "started", "Model is selecting one inspected entity for each source need from compact evidence");
-    const selectionCandidates = entitySelectionCandidates(discovery, sourceNeeds);
+    emitTrace(
+      "source_entity_selection",
+      "started",
+      this.embeddingRanker
+        ? "Embedding retrieval is ranking inspected schema entities before bounded model selection"
+        : "Model is selecting one inspected entity for each source need from compact evidence",
+    );
+    const selectionCandidates = await entitySelectionCandidates(
+      discovery,
+      sourceNeeds,
+      this.embeddingRanker,
+      signal,
+      (event) => this.emitDebug(event),
+    );
     const entitySelectionRequest: SourceEntitySelectionModelRequest = {
       stage: "source_entity_selection",
-      promptVersion: "1",
+      promptVersion: "2",
       semanticPlan: discoveryPlanningOutput.semanticPlan,
       sourceNeeds,
       candidates: selectionCandidates,

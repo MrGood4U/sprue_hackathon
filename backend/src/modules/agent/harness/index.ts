@@ -1,4 +1,5 @@
 export * from "./controller.js";
+export * from "./entity-embedding.js";
 export * from "./compiler.js";
 export * from "./factory.js";
 export * from "./flexible-planning.js";

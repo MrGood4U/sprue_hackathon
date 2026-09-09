@@ -5,6 +5,8 @@ import { databaseConfig } from "../db/client.js";
 
 const integer = (fallback: number) =>
   z.coerce.number().int().min(1).max(65535).default(fallback);
+const emptyStringAsUndefined = (value: unknown) =>
+  typeof value === "string" && value.trim() === "" ? undefined : value;
 const schema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
@@ -60,6 +62,18 @@ const schema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((value) => value === "true"),
+  EMBEDDING_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  EMBEDDING_API_URL: z.preprocess(emptyStringAsUndefined, z.url().optional()),
+  EMBEDDING_API_KEY: z.preprocess(emptyStringAsUndefined, z.string().min(1).max(4096).optional()),
+  EMBEDDING_MODEL: z.preprocess(emptyStringAsUndefined, z.string().trim().min(1).max(200).optional()),
+  EMBEDDING_DIMENSIONS: z.preprocess(
+    emptyStringAsUndefined,
+    z.coerce.number().int().min(1).max(8192).optional(),
+  ),
+  EMBEDDING_TIMEOUT_MS: z.coerce.number().int().min(250).max(1_800_000).default(600_000),
 });
 export type AppConfig = ReturnType<typeof parseConfig>;
 export class ConfigError extends Error {
@@ -183,12 +197,21 @@ export function parseConfig(environment: NodeJS.ProcessEnv) {
     throw new ConfigError(["AGENT_API_KEY"]);
   if (values.AGENT_RUN_TIMEOUT_MS < values.AGENT_TIMEOUT_MS)
     throw new ConfigError(["AGENT_TIMEOUT_MS", "AGENT_RUN_TIMEOUT_MS"]);
+  if (
+    values.EMBEDDING_ENABLED &&
+    (!values.EMBEDDING_API_URL || !values.EMBEDDING_API_KEY || !values.EMBEDDING_MODEL)
+  ) {
+    throw new ConfigError(["EMBEDDING_API_URL", "EMBEDDING_API_KEY", "EMBEDDING_MODEL"]);
+  }
   const privyAppId = values.PRIVY_APP_ID?.trim() || null;
   const privyAppSecret = values.PRIVY_APP_SECRET?.trim() || null;
   if (Boolean(privyAppId) !== Boolean(privyAppSecret))
     throw new ConfigError(["PRIVY_APP_ID", "PRIVY_APP_SECRET"]);
   const agentApiUrl = values.AGENT_API_URL
     ? publicUrl("AGENT_API_URL", values.AGENT_API_URL)
+    : null;
+  const embeddingApiUrl = values.EMBEDDING_API_URL
+    ? publicUrl("EMBEDDING_API_URL", values.EMBEDDING_API_URL)
     : null;
   const modelCredentialEncryption = modelCredentialKeyring(
     values.MODEL_CREDENTIAL_KEYRING,
@@ -246,6 +269,23 @@ export function parseConfig(environment: NodeJS.ProcessEnv) {
       runTimeoutMs: values.AGENT_RUN_TIMEOUT_MS,
       debug: values.AGENT_DEBUG,
     },
+    embedding: values.EMBEDDING_ENABLED
+      ? {
+          enabled: true as const,
+          apiUrl: embeddingApiUrl!,
+          apiKey: values.EMBEDDING_API_KEY!,
+          model: values.EMBEDDING_MODEL!.trim(),
+          dimensions: values.EMBEDDING_DIMENSIONS ?? null,
+          timeoutMs: values.EMBEDDING_TIMEOUT_MS,
+        }
+      : {
+          enabled: false as const,
+          apiUrl: null,
+          apiKey: null,
+          model: null,
+          dimensions: null,
+          timeoutMs: values.EMBEDDING_TIMEOUT_MS,
+        },
   };
 }
 export function loadConfig() {

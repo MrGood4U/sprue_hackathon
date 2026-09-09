@@ -24,12 +24,17 @@ import {
 import {AgentHarness} from "./harness/controller.js";
 import {sourceRole} from "./harness/compiler.js";
 import {createAgentModel} from "./harness/factory.js";
+import {
+  RemoteEntityEmbeddingRanker,
+  type EntityEmbeddingConfig,
+  EntityEmbeddingRequestError,
+} from "./harness/entity-embedding.js";
 import {AgentModelRequestError} from "./harness/remote-model.js";
 import type {AgentDebugSink, AgentTraceSink, HarnessExplorationResult, HarnessTraceEvent} from "./harness/types.js";
 
 export const agentNetworkCatalog = graphPlannerNetworkCatalog;
 
-const productionPlannerFactory: AgentPlannerFactory = ({modelConfig, graphApiKey, graphGatewayEnvironment, graphSchemaCache, debugSink, traceSink}) => {
+const productionPlannerFactory: AgentPlannerFactory = ({modelConfig, embeddingConfig, graphApiKey, graphGatewayEnvironment, graphSchemaCache, debugSink, traceSink}) => {
   const wire = new SdkGraphMcpPlanningWire({
     gatewayApiKey: graphApiKey,
     gatewayEnvironment: graphGatewayEnvironment,
@@ -41,6 +46,7 @@ const productionPlannerFactory: AgentPlannerFactory = ({modelConfig, graphApiKey
     undefined,
     new GraphSourceDiscoveryService(graph, undefined, graphSchemaCache, graph),
     debugSink,
+    embeddingConfig.enabled ? new RemoteEntityEmbeddingRanker(embeddingConfig) : undefined,
   );
   return {
     explore: (input, signal) => harness.explore(input, signal, traceSink),
@@ -81,6 +87,10 @@ function safePlanningError(error: unknown): {code: string; message: string; retr
     },
     AGENT_MODEL_REQUEST_FAILED: {
       message: "The configured model could not complete the bounded planning request.",
+      retryable: true,
+    },
+    EMBEDDING_REQUEST_FAILED: {
+      message: "The configured embedding service could not rank the inspected Graph schema evidence.",
       retryable: true,
     },
     AGENT_RUN_TIMEOUT: {
@@ -320,6 +330,14 @@ export class AgentService {
     private readonly graphGatewayEnvironment: "mainnet" = "mainnet",
     private readonly graphSchemaCache: GraphSchemaCachePort = new MemoryGraphSchemaCache(),
     private readonly runTimeoutMs = 3_600_000,
+    private readonly embeddingConfig: EntityEmbeddingConfig = {
+      enabled: false,
+      apiUrl: null,
+      apiKey: null,
+      model: null,
+      dimensions: null,
+      timeoutMs: 600_000,
+    },
   ) {}
 
   private fingerprint(operation: string, values: unknown[]): string {
@@ -535,6 +553,7 @@ export class AgentService {
         : undefined;
       planner = this.plannerFactory({
         modelConfig,
+        embeddingConfig: this.embeddingConfig,
         graphApiKey,
         graphGatewayEnvironment: this.graphGatewayEnvironment,
         graphSchemaCache: this.graphSchemaCache,
@@ -567,12 +586,15 @@ export class AgentService {
         : error;
       const safe = safePlanningError(planningError);
       const modelError = error instanceof AgentModelRequestError ? error : null;
+      const embeddingError = error instanceof EntityEmbeddingRequestError ? error : null;
       const durationMs = Math.max(0, Date.now() - planningStartedAt);
       this.logger?.write({
         event: "agent_planning_failed",
         code: safe.code,
-        reason: safe.code === "AGENT_RUN_CANCELLED" ? "cancelled" : modelError?.reason ?? "non_model_error",
-        status: modelError?.status ?? null,
+        reason: safe.code === "AGENT_RUN_CANCELLED"
+          ? "cancelled"
+          : modelError?.reason ?? embeddingError?.reason ?? "non_model_error",
+        status: modelError?.status ?? embeddingError?.status ?? null,
         providerCode: modelError?.providerCode ?? null,
         providerParam: modelError?.providerParam ?? null,
         durationMs,

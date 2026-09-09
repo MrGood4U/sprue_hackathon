@@ -251,6 +251,7 @@ export interface AgentPlanner {
 
 export type AgentPlannerFactory = (input: {
   modelConfig: import("./harness/types.js").AgentModelConfig;
+  embeddingConfig: import("./harness/entity-embedding.js").EntityEmbeddingConfig;
   graphApiKey: string;
   graphGatewayEnvironment: "mainnet";
   graphSchemaCache: import("../graph/types.js").GraphSchemaCachePort;

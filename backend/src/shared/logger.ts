@@ -34,6 +34,7 @@ export type LogEvent =
         | "missing_content"
         | "missing_tool_call"
         | "invalid_json"
+        | "invalid_response"
         | "unexpected"
         | "non_model_error";
       status: number | null;
@@ -62,6 +63,9 @@ export type LogEvent =
         | "model_request_failed"
         | "schema_validation_failed"
         | "semantic_validation_failed"
+        | "embedding_request_started"
+        | "embedding_response_received"
+        | "embedding_request_failed"
         | "request_started"
         | "request_failed";
       callNumber?: number;
@@ -77,6 +81,8 @@ export type LogEvent =
       unresolvedCount?: number;
       sourceRequirementCount?: number;
       sourceNeedCount?: number;
+      sourceNeedId?: string;
+      entityCount?: number;
       searchCount?: number;
       networks?: readonly string[];
       searches?: readonly {sourceNeedId: string; keywords: readonly string[]}[];

@@ -79,6 +79,14 @@ export type AgentDebugEvent =
       selectionCount?: number;
     }
   | {
+      stage: "source_entity_selection";
+      phase: "embedding_request_started" | "embedding_response_received" | "embedding_request_failed";
+      sourceNeedId: string;
+      entityCount: number;
+      durationMs?: number;
+      errorCode?: string;
+    }
+  | {
       stage: "source_feasibility";
       outcome: "feasibility" | "clarification" | "unsupported" | "repair";
       code?: string;
@@ -290,6 +298,7 @@ export interface SourceEntitySelectionCandidate {
   sourceNeedId: string;
   logicalSubgraphId: string | null;
   manifestIpfsCid: string;
+  displayName: string;
   networkEvidence: "contract_filter" | "display_name" | "unknown" | "conflict";
   totalQueryCount30d: number | null;
   queryActivityEvidence: "observed" | "missing";
@@ -299,6 +308,8 @@ export interface SourceEntitySelectionCandidate {
     queryEntity: string;
     entityType: string;
     fieldCount: number;
+    semanticSimilarity: number | null;
+    rankingEvidence: "embedding" | "deterministic";
     suggestedBindings: readonly {requirementId: string; fieldPaths: readonly string[]}[];
     matchedRequirements: readonly string[];
     grainHint: "matched" | "unknown";
@@ -395,7 +406,7 @@ export interface SourceFeasibilityModelRequest {
 
 export interface SourceEntitySelectionModelRequest {
   stage: "source_entity_selection";
-  promptVersion: "1";
+  promptVersion: "2";
   semanticPlan: DiscoverySemanticPlan;
   sourceNeeds: readonly DiscoverySourceNeed[];
   candidates: readonly SourceEntitySelectionCandidate[];

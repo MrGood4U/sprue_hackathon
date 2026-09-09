@@ -18,7 +18,7 @@ From the repository root:
 .\scripts\local.ps1 check
 ```
 
-`init` creates an ignored `.env.local` with a random local PostgreSQL password, four host ports, and `GRAPH_SCHEMA_CACHE_ENABLED=true`. It never overwrites an existing file. `up` builds the API/frontend images, starts PostgreSQL and Redis, applies pending migrations and the idempotent public network/asset reference seed through separate one-off containers, then starts and checks API, worker and frontend. Re-running it upgrades images, applies only pending migrations, and safely reconciles the same public reference metadata; it does not seed users, wallets, funds, credentials or products. Initial image downloads require internet access.
+`init` creates an ignored `.env.local` with a random local PostgreSQL password, four host ports, `GRAPH_SCHEMA_CACHE_ENABLED=true`, and the optional embedding retriever disabled. It never overwrites an existing file. `up` builds the API/frontend images, starts PostgreSQL and Redis, applies pending migrations and the idempotent public network/asset reference seed through separate one-off containers, then starts and checks API, worker and frontend. Re-running it upgrades images, applies only pending migrations, and safely reconciles the same public reference metadata; it does not seed users, wallets, funds, credentials or products. Initial image downloads require internet access.
 
 | Service | Default local address | Exposure |
 |---|---|---|
@@ -28,7 +28,7 @@ From the repository root:
 | Redis | `127.0.0.1:16379` | Loopback only; shared immutable Graph schema projection cache |
 | Worker | Port 3002 inside its container | No host/public port; probes only, currently standby |
 
-Use `127.0.0.1` consistently: `localhost` is a different browser origin. Edit the four distinct port values in `.env.local` if another application occupies one, then run `up` again. Set `GRAPH_SCHEMA_CACHE_ENABLED=false` to make the API bypass Redis and fetch/verify Graph schema evidence on every planning request; Compose still runs the packaged Redis service so the cache can be re-enabled without changing topology. The helper accepts local Docker endpoints only and does not print resolved secrets. The project is explicitly named `sprue-local`; its PostgreSQL and Redis volumes are separate from the older backend-only `sprue-database` profile. Do not run both profiles on the same host ports or assume their databases share data.
+Use `127.0.0.1` consistently: `localhost` is a different browser origin. Edit the four distinct port values in `.env.local` if another application occupies one, then run `up` again. Set `GRAPH_SCHEMA_CACHE_ENABLED=false` to make the API bypass Redis and fetch/verify Graph schema evidence on every planning request; Compose still runs the packaged Redis service so the cache can be re-enabled without changing topology. Set `EMBEDDING_ENABLED=true` together with the API-only embedding endpoint, key, and model to rank inspected schema entities; embedding vectors and responses are never cached. The helper accepts local Docker endpoints only and does not print resolved secrets. The project is explicitly named `sprue-local`; its PostgreSQL and Redis volumes are separate from the older backend-only `sprue-database` profile. Do not run both profiles on the same host ports or assume their databases share data.
 
 ```powershell
 .\scripts\local.ps1 logs
@@ -118,6 +118,12 @@ The Dockerfile path is `Dockerfile` within the backend build root. Set the share
 | `DEMO_RUNTIME_ENABLED` | `true` for the temporary evaluator-facing backend projection; otherwise `false` |
 | `AGENT_MODE` | `mock` for the default evaluator projection; `remote` enables the configured OpenAI-compatible Chat Completions endpoint after all Agent variables are supplied |
 | `AGENT_DEBUG` | `true` enables structured diagnostics for model-call lifecycle, duration, output shape/size, schema and semantic validation failures, repair decisions, search keywords, Graph discovery lifecycle, candidate evidence and stage outcomes; prompts, user text, provider bodies, URLs, credentials and tenant/user identifiers remain excluded; keep `false` outside local debugging |
+| `EMBEDDING_ENABLED` | `true` enables bounded no-cache entity-schema retrieval before the entity-selector model pass; default `false` |
+| `EMBEDDING_API_URL` | API-only OpenAI-compatible Embeddings endpoint; required when embedding retrieval is enabled |
+| `EMBEDDING_API_KEY` | API-only embedding credential; never configure it on Vercel, the worker, or PostgreSQL |
+| `EMBEDDING_MODEL` | Embedding model identifier, for example `text-embedding-v3` |
+| `EMBEDDING_DIMENSIONS` | Optional requested vector size supported by the configured model; local example `1024` |
+| `EMBEDDING_TIMEOUT_MS` | Per-request embedding timeout from 250 through 1,800,000 milliseconds; default 600,000 |
 | `GRAPH_GATEWAY_ENVIRONMENT` | `mainnet`; the current Graph MCP discovery and data-network catalog reject testnet configuration |
 | `PRIVY_APP_ID` | Privy application's public identifier; API reads it and exposes it through public app config only when the matching secret is configured |
 | `PRIVY_APP_SECRET` | API-only Railway secret used by the Privy server SDK to verify access tokens; never configure it on Vercel or the worker |

@@ -1208,6 +1208,79 @@ test("Agent gives compact entity selection evidence a fair share across candidat
   assert.deepEqual(entitySelectionRequest?.candidates.map((item) => item.entities.length), [6, 5, 5]);
 });
 
+test("Agent uses embedding similarity to order compact entity evidence before model selection", async () => {
+  let entitySelectionRequest: Extract<AgentModelRequest, {stage: "source_entity_selection"}> | undefined;
+  const entity = (queryEntity: string) => ({
+    queryEntity,
+    entityType: queryEntity === "opaqueRows" ? "OpaqueRow" : "GenericRow",
+    fields: [{path: "id", graphType: "ID", valueType: "id" as const, nullable: false, list: false}],
+    suggestedBindings: [],
+    matchedRequirements: [],
+    grainHint: "unknown" as const,
+  });
+  const harness = new AgentHarness({
+    async complete(request: AgentModelRequest) {
+      if (request.stage === "source_entity_selection") {
+        entitySelectionRequest = request;
+        return {
+          provider: "mock",
+          model: "embedding-order-test",
+          output: {schemaVersion: 1, kind: "clarification", questions: [{code: "confirm", question: "Confirm."}]},
+        };
+      }
+      return {provider: "mock", model: "embedding-order-test", output: createMockStageOutput(request)};
+    },
+  }, undefined, {
+    async discover() {
+      return {
+        schemaVersion: 1 as const,
+        provider: "the_graph" as const,
+        gatewayEnvironment: "mainnet" as const,
+        searchedNeeds: 1,
+        searchCalls: 1,
+        inspectedSchemas: 1,
+        candidates: [{
+          candidateRef: "graph:source_1:aaaaaaaaaaaaaaaaaaaa",
+          sourceNeedId: "source_1",
+          discoveryMethod: "keyword" as const,
+          logicalSubgraphId: "sg-embedding",
+          manifestIpfsCid: "QmEmbedding",
+          displayName: "Opaque Protocol Ethereum",
+          reportedNetwork: null,
+          networkEvidence: "display_name" as const,
+          totalQueryCount30d: 0,
+          queryActivityEvidence: "observed" as const,
+          schemaHash: "sha256:embedding",
+          schemaBytes: 1,
+          entities: [entity("genericRows"), entity("opaqueRows")],
+          status: "suitable" as const,
+          score: 1,
+          limitations: [],
+        }],
+        limits: {maxSearchCallsPerNeed: 3, maxSearchResultsPerCall: 10, maxSchemaInspectionsPerNeed: 10},
+      };
+    },
+  }, undefined, {
+    async rank(_need, inputs) {
+      return inputs.map((input) => ({
+        candidateRef: input.candidateRef,
+        queryEntity: input.entity.queryEntity,
+        similarity: input.entity.queryEntity === "opaqueRows" ? 0.91 : 0.12,
+      }));
+    },
+  });
+
+  await harness.explore({
+    intent: "Read records from Ethereum.",
+    availableNetworks: [{dataNetwork: "eip155:1", label: "Ethereum"}],
+  });
+
+  assert.equal(entitySelectionRequest?.candidates[0]?.displayName, "Opaque Protocol Ethereum");
+  assert.equal(entitySelectionRequest?.candidates[0]?.entities[0]?.queryEntity, "opaqueRows");
+  assert.equal(entitySelectionRequest?.candidates[0]?.entities[0]?.rankingEvidence, "embedding");
+  assert.equal(entitySelectionRequest?.candidates[0]?.entities[0]?.semanticSimilarity, 0.91);
+});
+
 test("Agent repairs an unsupported source claim contradicted by inspected field evidence", async () => {
   const requests: AgentModelRequest[] = [];
   const graph: GraphPlanningMcpPort = {

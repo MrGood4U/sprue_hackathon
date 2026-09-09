@@ -7,6 +7,7 @@ import {
   createMockStageOutput,
   createAgentModel,
   HarnessCompileError,
+  RemoteEntityEmbeddingRanker,
   RemoteAgentModel,
   testOpenAICompatibleModel,
 } from "../src/modules/agent/harness/index.js";
@@ -108,6 +109,42 @@ test("agent configuration supports mock and remote credentials without exposing 
   assert.throws(() => parseConfig({...baseEnvironment, GRAPH_GATEWAY_ENVIRONMENT: "testnet"}), ConfigError);
   assert.equal(parseConfig({...baseEnvironment, AGENT_DEBUG: "true"}).agent.debug, true);
   assert.throws(() => parseConfig({...baseEnvironment, AGENT_DEBUG: "yes"}), ConfigError);
+  assert.deepEqual(mock.embedding, {
+    enabled: false,
+    apiUrl: null,
+    apiKey: null,
+    model: null,
+    dimensions: null,
+    timeoutMs: 600000,
+  });
+  const embedding = parseConfig({
+    ...baseEnvironment,
+    EMBEDDING_ENABLED: "true",
+    EMBEDDING_API_URL: "https://dashscope.example/v1/embeddings",
+    EMBEDDING_API_KEY: "embedding-key",
+    EMBEDDING_MODEL: "text-embedding-v3",
+    EMBEDDING_DIMENSIONS: "1024",
+    EMBEDDING_TIMEOUT_MS: "5000",
+  }).embedding;
+  assert.deepEqual(embedding, {
+    enabled: true,
+    apiUrl: "https://dashscope.example/v1/embeddings",
+    apiKey: "embedding-key",
+    model: "text-embedding-v3",
+    dimensions: 1024,
+    timeoutMs: 5000,
+  });
+  assert.throws(
+    () => parseConfig({...baseEnvironment, EMBEDDING_ENABLED: "true"}),
+    (error: unknown) => error instanceof ConfigError && error.fields.includes("EMBEDDING_API_URL"),
+  );
+  assert.equal(parseConfig({
+    ...baseEnvironment,
+    EMBEDDING_ENABLED: "false",
+    EMBEDDING_API_URL: "",
+    EMBEDDING_API_KEY: "",
+    EMBEDDING_MODEL: "",
+  }).embedding.enabled, false);
 
   const remote = parseConfig({...baseEnvironment, AGENT_MODE: "remote", AGENT_API_URL: "https://agent.example/v1", AGENT_API_KEY: "server-only-key", AGENT_MODEL: "test-model", AGENT_TIMEOUT_MS: "5000"});
   assert.equal(remote.agent.apiUrl, "https://agent.example/v1");
@@ -117,6 +154,64 @@ test("agent configuration supports mock and remote credentials without exposing 
   assert.throws(() => parseConfig({...baseEnvironment, AGENT_TIMEOUT_MS: "1800001"}), ConfigError);
   assert.throws(() => parseConfig({...baseEnvironment, AGENT_TIMEOUT_MS: "600000", AGENT_RUN_TIMEOUT_MS: "599999"}), ConfigError);
   assert.throws(() => parseConfig({...baseEnvironment, AGENT_MODE: "remote", AGENT_API_URL: "https://agent.example/v1"}), (error: unknown) => error instanceof ConfigError && error.fields.includes("AGENT_API_KEY"));
+});
+
+test("embedding retrieval ranks inspected entity schemas without returning field arrays to the selector", async () => {
+  const bodies: unknown[] = [];
+  const ranker = new RemoteEntityEmbeddingRanker({
+    enabled: true,
+    apiUrl: "https://dashscope.example/v1/embeddings",
+    apiKey: "server-only-embedding-key",
+    model: "text-embedding-v3",
+    dimensions: 1024,
+    timeoutMs: 5000,
+  }, async (_url, options) => {
+    const body = JSON.parse(String(options?.body)) as {input: string[]};
+    bodies.push(body);
+    return Response.json({
+      data: body.input.map((text, index) => ({
+        index,
+        embedding: text.includes("Swap") || text.includes("amountUSD") || text.startsWith("Find the existing")
+          ? [1, 0]
+          : [0, 1],
+      })),
+    });
+  });
+  const need = {
+    id: "ethereum_swaps",
+    dataNetwork: "eip155:1",
+    protocol: {name: "Uniswap", version: "V3"},
+    assets: [{symbol: "WETH", networkAssetId: null}, {symbol: "USDC", networkAssetId: null}],
+    description: "One row per WETH/USDC swap",
+    grain: "swap event",
+    fields: [{
+      id: "volume_usd",
+      description: "USD value of this swap",
+      expectedType: "decimal" as const,
+      unit: "USD",
+      required: true,
+      allowNullable: false,
+      hints: ["amountUSD"],
+    }],
+    constraints: ["Uniswap swaps only"],
+  };
+  const entity = (queryEntity: string, entityType: string, path: string) => ({
+    queryEntity,
+    entityType,
+    fields: [{path, graphType: "BigDecimal", valueType: "decimal" as const, nullable: false, list: false}],
+    suggestedBindings: [],
+    matchedRequirements: [],
+    grainHint: "unknown" as const,
+  });
+  const scores = await ranker.rank(need, [
+    {candidateRef: "graph:one", displayName: "Uniswap", entity: entity("swaps", "Swap", "amountUSD")},
+    {candidateRef: "graph:two", displayName: "Unrelated", entity: entity("positions", "Position", "liquidity")},
+  ]);
+  assert.equal(bodies.length, 1);
+  assert.equal((bodies[0] as {input: string[]}).input.length, 3);
+  assert.match((bodies[0] as {input: string[]}).input[1]!, /amountUSD:BigDecimal/);
+  assert.equal(scores[0]?.similarity, 1);
+  assert.equal(scores[1]?.similarity, 0);
 });
 
 test("mock Agent harness executes the non-model cross-chain flow", async () => {

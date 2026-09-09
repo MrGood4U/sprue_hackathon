@@ -130,6 +130,7 @@ export async function startRuntime(
           config.graph.gatewayEnvironment,
           graphSchemaCache ?? undefined,
           config.agent.runTimeoutMs,
+          config.embedding,
         )
       : undefined;
     const auth = new AuthService(authRepository, wallets, logger);

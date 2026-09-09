@@ -8,6 +8,8 @@ On 2026-09-09, the user approved explicit cancellation of an in-flight Agent pla
 
 On 2026-09-09, the user approved splitting live source feasibility into a compact entity-selection model stage and a later field-binding/composition stage. The selector may return only supplied source and query-entity references plus bounded explanation metadata. The Harness must validate those references and expand only the selected entities' fields from trusted discovery evidence before the later model call. Keep one shared repair allowance inside the four-call command ceiling, and use a 16,384-token output ceiling for each remote planning call.
 
+On 2026-09-10, the user approved an optional no-cache embedding retrieval step before compact entity selection. When enabled through API-only environment configuration, embed bounded source-need text and actual inspected entity/field documents, compute similarity in the Harness, retain fair candidate coverage, and give the selector only compact references and advisory scores. Do not cache vectors or responses, let embeddings choose a source, expose full field arrays to the selector, or weaken deterministic network, candidate, schema, operator, and resource validation. If configured retrieval fails, report it explicitly; when disabled, retain the deterministic compatibility ranking.
+
 All repository text, code comments, test names, migration notes, and commit messages must be written in English. Communication with the user may be in Chinese.
 
 Use the approved root `data-model.md` as the persistence baseline. Do not invent durable fields in endpoint code; update the reviewed model first when a missing concept is discovered.

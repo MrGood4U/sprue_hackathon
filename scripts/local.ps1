@@ -22,7 +22,7 @@ if ($Action -eq 'init') {
     $modelSource = [Security.Cryptography.RandomNumberGenerator]::Create()
     try { $modelSource.GetBytes($modelBytes) } finally { $modelSource.Dispose() }
     $modelKey = [Convert]::ToBase64String($modelBytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
-    $contents = "# Local-only settings. Never commit this file.`nPOSTGRES_PASSWORD=$localPassword`nPOSTGRES_PORT=15432`nGRAPH_SCHEMA_CACHE_ENABLED=true`nREDIS_PORT=16379`nAPI_PORT=3001`nFRONTEND_PORT=4173`nAGENT_TIMEOUT_MS=600000`nAGENT_RUN_TIMEOUT_MS=3600000`nAGENT_DEBUG=false`n# Set both values to enable creator login.`nPRIVY_APP_ID=`nPRIVY_APP_SECRET=`n# Server-only keyring for durable Model Service credentials.`nMODEL_CREDENTIAL_KEYRING={`"local-v1`":`"$modelKey`"}`nMODEL_CREDENTIAL_ACTIVE_KEY_ID=local-v1`n# The Graph source discovery and data gateway environment.`nGRAPH_GATEWAY_ENVIRONMENT=mainnet`n# Hedera testnet settlement profile.`nHEDERA_NETWORK=hedera:testnet`nHEDERA_MIRROR_NODE_URL=https://testnet.mirrornode.hedera.com`nHEDERA_PORTAL_PAT=`nHEDERA_FAUCET_URL=https://portal.hedera.com/api/disbursement/cli`nHEDERA_FAUCET_AMOUNT_HBAR=1`nBLOCKY402_FACILITATOR_URL=https://api.testnet.blocky402.com`n"
+    $contents = "# Local-only settings. Never commit this file.`nPOSTGRES_PASSWORD=$localPassword`nPOSTGRES_PORT=15432`nGRAPH_SCHEMA_CACHE_ENABLED=true`nREDIS_PORT=16379`nAPI_PORT=3001`nFRONTEND_PORT=4173`nAGENT_TIMEOUT_MS=600000`nAGENT_RUN_TIMEOUT_MS=3600000`nAGENT_DEBUG=false`n# Optional API-only semantic retrieval over inspected Subgraph entities.`nEMBEDDING_ENABLED=false`nEMBEDDING_API_URL=`nEMBEDDING_API_KEY=`nEMBEDDING_MODEL=text-embedding-v3`nEMBEDDING_DIMENSIONS=1024`nEMBEDDING_TIMEOUT_MS=600000`n# Set both values to enable creator login.`nPRIVY_APP_ID=`nPRIVY_APP_SECRET=`n# Server-only keyring for durable Model Service credentials.`nMODEL_CREDENTIAL_KEYRING={`"local-v1`":`"$modelKey`"}`nMODEL_CREDENTIAL_ACTIVE_KEY_ID=local-v1`n# The Graph source discovery and data gateway environment.`nGRAPH_GATEWAY_ENVIRONMENT=mainnet`n# Hedera testnet settlement profile.`nHEDERA_NETWORK=hedera:testnet`nHEDERA_MIRROR_NODE_URL=https://testnet.mirrornode.hedera.com`nHEDERA_PORTAL_PAT=`nHEDERA_FAUCET_URL=https://portal.hedera.com/api/disbursement/cli`nHEDERA_FAUCET_AMOUNT_HBAR=1`nBLOCKY402_FACILITATOR_URL=https://api.testnet.blocky402.com`n"
     # CreateNew prevents an initialization race from overwriting existing credentials.
     $stream = [IO.File]::Open($localEnvPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write)
     $writer = New-Object IO.StreamWriter($stream, (New-Object Text.UTF8Encoding($false)))
@@ -33,7 +33,7 @@ if ($Action -eq 'init') {
 
 if (-not (Test-Path -LiteralPath $localEnvPath)) { throw 'Run scripts/local.ps1 init first.' }
 $settings = @{}
-$allowedKeys = @('POSTGRES_PASSWORD', 'POSTGRES_PORT', 'GRAPH_SCHEMA_CACHE_ENABLED', 'REDIS_PORT', 'API_PORT', 'FRONTEND_PORT', 'PRIVY_APP_ID', 'PRIVY_APP_SECRET', 'MODEL_CREDENTIAL_KEYRING', 'MODEL_CREDENTIAL_ACTIVE_KEY_ID', 'AGENT_TIMEOUT_MS', 'AGENT_RUN_TIMEOUT_MS', 'AGENT_DEBUG', 'GRAPH_GATEWAY_ENVIRONMENT', 'HEDERA_NETWORK', 'HEDERA_MIRROR_NODE_URL', 'HEDERA_PORTAL_PAT', 'HEDERA_FAUCET_URL', 'HEDERA_FAUCET_AMOUNT_HBAR', 'BLOCKY402_FACILITATOR_URL')
+$allowedKeys = @('POSTGRES_PASSWORD', 'POSTGRES_PORT', 'GRAPH_SCHEMA_CACHE_ENABLED', 'REDIS_PORT', 'API_PORT', 'FRONTEND_PORT', 'PRIVY_APP_ID', 'PRIVY_APP_SECRET', 'MODEL_CREDENTIAL_KEYRING', 'MODEL_CREDENTIAL_ACTIVE_KEY_ID', 'AGENT_TIMEOUT_MS', 'AGENT_RUN_TIMEOUT_MS', 'AGENT_DEBUG', 'EMBEDDING_ENABLED', 'EMBEDDING_API_URL', 'EMBEDDING_API_KEY', 'EMBEDDING_MODEL', 'EMBEDDING_DIMENSIONS', 'EMBEDDING_TIMEOUT_MS', 'GRAPH_GATEWAY_ENVIRONMENT', 'HEDERA_NETWORK', 'HEDERA_MIRROR_NODE_URL', 'HEDERA_PORTAL_PAT', 'HEDERA_FAUCET_URL', 'HEDERA_FAUCET_AMOUNT_HBAR', 'BLOCKY402_FACILITATOR_URL')
 foreach ($line in [IO.File]::ReadAllLines($localEnvPath)) {
     if ($line.Trim() -eq '' -or $line.Trim().StartsWith('#')) { continue }
     if ($line -notmatch '^([A-Z_]+)=([^\s]*)$' -or $allowedKeys -notcontains $Matches[1]) {
@@ -44,6 +44,7 @@ foreach ($line in [IO.File]::ReadAllLines($localEnvPath)) {
 }
 $settings['REDIS_PORT'] = if ($settings.ContainsKey('REDIS_PORT')) { $settings['REDIS_PORT'] } else { '16379' }
 $settings['GRAPH_SCHEMA_CACHE_ENABLED'] = if ($settings.ContainsKey('GRAPH_SCHEMA_CACHE_ENABLED')) { $settings['GRAPH_SCHEMA_CACHE_ENABLED'] } else { 'true' }
+$settings['EMBEDDING_ENABLED'] = if ($settings.ContainsKey('EMBEDDING_ENABLED')) { $settings['EMBEDDING_ENABLED'] } else { 'false' }
 $requiredKeys = @('POSTGRES_PASSWORD', 'POSTGRES_PORT', 'REDIS_PORT', 'API_PORT', 'FRONTEND_PORT')
 if (@($requiredKeys | Where-Object { -not $settings.ContainsKey($_) }).Count -ne 0 -or $settings['POSTGRES_PASSWORD'] -notmatch '^[a-fA-F0-9]{64}$') {
     throw 'Local configuration needs the required service settings and a 64-character hex database password.'
@@ -59,6 +60,22 @@ if ($settings.ContainsKey('AGENT_TIMEOUT_MS') -and $settings.ContainsKey('AGENT_
 }
 if ($settings.ContainsKey('AGENT_DEBUG') -and $settings['AGENT_DEBUG'] -notmatch '^(true|false)$') {
     throw 'AGENT_DEBUG must be true or false.'
+}
+if ($settings['EMBEDDING_ENABLED'] -notmatch '^(true|false)$') {
+    throw 'EMBEDDING_ENABLED must be true or false.'
+}
+if ($settings.ContainsKey('EMBEDDING_TIMEOUT_MS') -and ($settings['EMBEDDING_TIMEOUT_MS'] -notmatch '^\d+$' -or [int]$settings['EMBEDDING_TIMEOUT_MS'] -lt 250 -or [int]$settings['EMBEDDING_TIMEOUT_MS'] -gt 1800000)) {
+    throw 'EMBEDDING_TIMEOUT_MS must be an integer from 250 through 1800000.'
+}
+if ($settings.ContainsKey('EMBEDDING_DIMENSIONS') -and ($settings['EMBEDDING_DIMENSIONS'] -notmatch '^\d+$' -or [int]$settings['EMBEDDING_DIMENSIONS'] -lt 1 -or [int]$settings['EMBEDDING_DIMENSIONS'] -gt 8192)) {
+    throw 'EMBEDDING_DIMENSIONS must be an integer from 1 through 8192.'
+}
+if ($settings['EMBEDDING_ENABLED'] -eq 'true') {
+    foreach ($key in @('EMBEDDING_API_URL', 'EMBEDDING_API_KEY', 'EMBEDDING_MODEL')) {
+        if (-not $settings.ContainsKey($key) -or [string]::IsNullOrEmpty($settings[$key])) {
+            throw 'EMBEDDING_API_URL, EMBEDDING_API_KEY, and EMBEDDING_MODEL are required when EMBEDDING_ENABLED=true.'
+        }
+    }
 }
 $privyAppId = if ($settings.ContainsKey('PRIVY_APP_ID')) { $settings['PRIVY_APP_ID'] } else { '' }
 $privyAppSecret = if ($settings.ContainsKey('PRIVY_APP_SECRET')) { $settings['PRIVY_APP_SECRET'] } else { '' }
