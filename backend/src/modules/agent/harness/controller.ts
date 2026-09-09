@@ -202,6 +202,10 @@ function validateSourceDiscoveryPlan(
     if (!need.fields.some((field) => field.required)) {
       fail(`Source requirement ${need.id} must identify at least one required field`, "SEMANTIC_FIELDS_INVALID");
     }
+    const assetKeys = need.assets.map((asset) => `${asset.symbol.toLowerCase()}\u0000${asset.networkAssetId?.toLowerCase() ?? ""}`);
+    if (new Set(assetKeys).size !== assetKeys.length) {
+      fail(`Source requirement ${need.id} contains duplicate network-scoped assets`, "SEMANTIC_ASSETS_INVALID");
+    }
   }
   const resultFields = new Set(plan.result.fields.map((field) => field.name));
   if (resultFields.size !== plan.result.fields.length || plan.result.orderBy.some((item) => !resultFields.has(item.field))) {
@@ -225,6 +229,56 @@ function validateSourceDiscoveryPlan(
     }
     searchesByNeed.set(search.sourceNeedId, search);
   }
+}
+
+const maximumSearchKeywordLength = 80;
+
+function networkQualifiedKeyword(parts: readonly string[], networkLabel: string, dataNetwork: string): string | null {
+  const base = parts.map((part) => part.trim()).filter(Boolean).join(" ").replace(/\s+/g, " ");
+  if (!base) return null;
+  for (const qualifier of [networkLabel.trim(), dataNetwork]) {
+    const candidate = `${base} ${qualifier}`.replace(/\s+/g, " ").trim();
+    if (candidate.length <= maximumSearchKeywordLength) return candidate;
+  }
+  const suffix = ` ${dataNetwork}`;
+  const available = maximumSearchKeywordLength - suffix.length;
+  if (available < 2) return null;
+  const shortened = base.slice(0, available).trimEnd();
+  return shortened.length >= 2 ? `${shortened}${suffix}` : null;
+}
+
+/**
+ * Convert model-proposed semantic hints into an independently searchable set
+ * for one network-scoped source requirement. Network labels come from the
+ * server-owned catalog; asset symbols remain hints until source admission
+ * binds them to inspected network-specific identities.
+ */
+function deriveNetworkScopedSearchKeywords(
+  need: DiscoverySourceNeed,
+  networkLabel: string,
+  modelKeywords: readonly string[],
+  limit = 3,
+): readonly string[] {
+  const protocol = need.protocol
+    ? [need.protocol.name, need.protocol.version ?? ""].filter(Boolean).join(" ")
+    : "";
+  const assets = need.assets
+    .map((asset) => asset.symbol)
+    .sort((left, right) => left.localeCompare(right, "en", {sensitivity: "base"}))
+    .join(" ");
+  const phrases: (string | null)[] = [];
+  if (protocol) phrases.push(networkQualifiedKeyword([protocol], networkLabel, need.dataNetwork));
+  if (assets) phrases.push(networkQualifiedKeyword([assets], networkLabel, need.dataNetwork));
+  if (protocol && assets) phrases.push(networkQualifiedKeyword([protocol, assets], networkLabel, need.dataNetwork));
+  phrases.push(...modelKeywords.map((keyword) => networkQualifiedKeyword([keyword], networkLabel, need.dataNetwork)));
+
+  const unique = new Map<string, string>();
+  for (const phrase of phrases) {
+    if (!phrase) continue;
+    const key = phrase.toLowerCase();
+    if (!unique.has(key)) unique.set(key, phrase);
+  }
+  return [...unique.values()].slice(0, limit);
 }
 
 const maxFeasibilityEntitiesPerNeed = 16;
@@ -673,7 +727,7 @@ export class AgentHarness {
     emitTrace("source_discovery_planning", "started", "Model is deriving bounded semantic requirements and Subgraph search keywords");
     const discoveryPlanningRequest: SourceDiscoveryPlanningModelRequest = {
       stage: "source_discovery_planning",
-      promptVersion: "3",
+      promptVersion: "4",
       intent,
       availableNetworks: request.availableNetworks,
       limits: {maxNetworks: this.limits.maxSources, maxUniqueKeywordsPerNetwork: 3, maxKeywordsPerNetwork: 3},
@@ -716,10 +770,19 @@ export class AgentHarness {
     const sourceNeeds = deriveDiscoverySourceNeeds(discoveryPlanningOutput.semanticPlan);
     emitTrace("source_needs", "passed", `Derived ${sourceNeeds.length} compiler-owned source needs`);
     const labels = new Map(request.availableNetworks.map((network) => [network.dataNetwork, network.label]));
-    const searches = new Map(discoveryPlanningOutput.searches.map((search) => [search.sourceNeedId, search.keywords]));
+    const modelSearches = new Map(discoveryPlanningOutput.searches.map((search) => [search.sourceNeedId, search.keywords]));
+    const searches = new Map(sourceNeeds.map((need) => [
+      need.id,
+      deriveNetworkScopedSearchKeywords(need, labels.get(need.dataNetwork)!, modelSearches.get(need.id)!, 3),
+    ]));
     emitTrace("graph_source_discovery", "started", "Controller is invoking the restricted Graph metadata adapter with validated keywords");
     const discoveryStartedAt = Date.now();
-    this.emitDebug({stage: "graph_source_discovery", phase: "request_started", sourceNeedCount: sourceNeeds.length});
+    this.emitDebug({
+      stage: "graph_source_discovery",
+      phase: "request_started",
+      sourceNeedCount: sourceNeeds.length,
+      searches: sourceNeeds.map((need) => ({sourceNeedId: need.id, keywords: searches.get(need.id)!})),
+    });
     let discovery: GraphSourceDiscoveryResult;
     try {
       discovery = await this.sourceDiscovery.discover({

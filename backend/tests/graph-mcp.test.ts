@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {AgentHarness, createMockStageOutput, HarnessValidationError} from "../src/modules/agent/harness/index.js";
-import type {AgentDebugEvent, AgentModelRequest} from "../src/modules/agent/harness/index.js";
+import type {AgentDebugEvent, AgentModelRequest, SourceDiscoveryPlan} from "../src/modules/agent/harness/index.js";
 import {
   GraphMcpError,
   GraphSourceDiscoveryService,
@@ -15,6 +15,7 @@ import type {
   GraphMcpPlanningWire,
   GraphMcpTool,
   GraphPlanningMcpPort,
+  GraphSourceDiscoveryRequest,
 } from "../src/modules/graph/index.js";
 
 class FakeWire implements GraphMcpPlanningWire {
@@ -883,7 +884,8 @@ test("Agent derives search keywords before Graph MCP discovery and assesses comp
   assert.equal(result.feasibility.composition.nodes.filter((node) => node.operator === "union").length, 1);
   assert.deepEqual(sequence, [
     "model:source_discovery_planning",
-    "mcp:search:Uniswap V3",
+    "mcp:search:Uniswap V3 Ethereum",
+    "mcp:search:Uniswap V3 Arbitrum",
     "mcp:activity",
     "mcp:schema:QmEth",
     "mcp:schema:QmArb",
@@ -910,6 +912,68 @@ test("Agent derives search keywords before Graph MCP discovery and assesses comp
   const discoveryDebug = debugEvents.find((event) => event.stage === "graph_source_discovery" && "candidateCount" in event);
   assert.ok(discoveryDebug && "candidateCount" in discoveryDebug);
   assert.equal(discoveryDebug.candidateCount, 4);
+});
+
+test("Agent scopes protocol and asset-pair searches independently by network", async () => {
+  let observedRequest: GraphSourceDiscoveryRequest | undefined;
+  const harness = new AgentHarness({
+    async complete(request: AgentModelRequest) {
+      const output = createMockStageOutput(request);
+      if (request.stage !== "source_discovery_planning") {
+        return {provider: "mock", model: "network-asset-search-test", output};
+      }
+      const plan = output as SourceDiscoveryPlan;
+      return {
+        provider: "mock",
+        model: "network-asset-search-test",
+        output: {
+          ...plan,
+          semanticPlan: {
+            ...plan.semanticPlan,
+            sourceRequirements: plan.semanticPlan.sourceRequirements.map((need) => ({
+              ...need,
+              protocol: {name: "Uniswap", version: "V3"},
+              assets: [
+                {symbol: "WETH", networkAssetId: null},
+                {symbol: "USDC", networkAssetId: null},
+              ],
+            })),
+          },
+          searches: plan.searches.map((search) => ({...search, keywords: ["Uniswap V3"]})),
+        },
+      };
+    },
+  }, undefined, {
+    async discover(request) {
+      observedRequest = request;
+      throw new Error("stop-after-network-scoped-search-derivation");
+    },
+  });
+
+  await assert.rejects(
+    () => harness.explore({
+      intent: "Compare WETH/USDC activity on Uniswap V3 across Ethereum and Arbitrum.",
+      availableNetworks: [
+        {dataNetwork: "eip155:1", label: "Ethereum Mainnet"},
+        {dataNetwork: "eip155:42161", label: "Arbitrum One"},
+      ],
+    }),
+    /stop-after-network-scoped-search-derivation/,
+  );
+
+  assert.ok(observedRequest);
+  assert.deepEqual(observedRequest.needs.map((need) => [need.dataNetwork, need.keywords]), [
+    ["eip155:1", [
+      "Uniswap V3 Ethereum Mainnet",
+      "USDC WETH Ethereum Mainnet",
+      "Uniswap V3 USDC WETH Ethereum Mainnet",
+    ]],
+    ["eip155:42161", [
+      "Uniswap V3 Arbitrum One",
+      "USDC WETH Arbitrum One",
+      "Uniswap V3 USDC WETH Arbitrum One",
+    ]],
+  ]);
 });
 
 test("Agent ranks relevant evidence first without hiding bounded schema fallback", async () => {
@@ -1162,15 +1226,17 @@ test("Agent can select inspected fields when no lexical grain or field hint matc
           provider: "mock",
           model: "unknown-vocabulary-test",
           output: {
-            schemaVersion: 2,
+            schemaVersion: 3,
             kind: "source_discovery_plan",
             semanticPlan: {
-              schemaVersion: 2,
+              schemaVersion: 3,
               kind: "semantic_plan",
               summary: "Return the requested observation.",
               sourceRequirements: [{
                 id: "unknown_observation",
                 dataNetwork: "eip155:1",
+                protocol: null,
+                assets: [],
                 description: "Read the requested provider-specific observation.",
                 grain: "quux_frobnitz",
                 fields: [{
@@ -1514,15 +1580,17 @@ test("Agent validates schema-driven time-series fields without a wallet-shaped s
           provider: "mock" as const,
           model: "generic-planner",
           output: {
-            schemaVersion: 2,
+            schemaVersion: 3,
             kind: "source_discovery_plan",
             semanticPlan: {
-              schemaVersion: 2,
+              schemaVersion: 3,
               kind: "semantic_plan",
               summary: "Produce daily value statistics.",
               sourceRequirements: [{
                 id: "metric_events",
                 dataNetwork: "eip155:1",
+                protocol: {name: "Protocol", version: null},
+                assets: [],
                 description: "Raw metric events.",
                 grain: "event",
                 fields: [

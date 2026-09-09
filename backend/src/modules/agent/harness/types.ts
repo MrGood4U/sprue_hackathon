@@ -61,6 +61,7 @@ export type AgentDebugEvent =
       stage: "graph_source_discovery";
       phase: "request_started" | "request_failed";
       sourceNeedCount: number;
+      searches?: readonly SourceDiscoverySearch[];
       durationMs?: number;
       errorCode?: string;
     }
@@ -131,6 +132,19 @@ export interface SemanticPlan {
 export interface DiscoverySourceRequirement {
   id: string;
   dataNetwork: string;
+  protocol: {
+    name: string;
+    version: string | null;
+  } | null;
+  /**
+   * Semantic asset identities scoped by dataNetwork. A null networkAssetId
+   * means the creator supplied only a symbol/name and source admission must
+   * later bind it to an inspected network-specific identity.
+   */
+  assets: readonly {
+    symbol: string;
+    networkAssetId: string | null;
+  }[];
   description: string;
   grain: string;
   fields: readonly GraphFieldRequirement[];
@@ -146,7 +160,7 @@ export interface DiscoveryOutputField {
 }
 
 export interface DiscoverySemanticPlan {
-  schemaVersion: 2;
+  schemaVersion: 3;
   kind: "semantic_plan";
   summary: string;
   sourceRequirements: readonly DiscoverySourceRequirement[];
@@ -183,7 +197,7 @@ export interface SourceDiscoverySearch {
 }
 
 export interface SourceDiscoveryPlan {
-  schemaVersion: 2;
+  schemaVersion: 3;
   kind: "source_discovery_plan";
   semanticPlan: DiscoverySemanticPlan;
   searches: readonly SourceDiscoverySearch[];
@@ -347,7 +361,7 @@ export type SourceFeasibilityOutput = SourceFeasibilityPlan | PlannerClarificati
 
 export interface SourceDiscoveryPlanningModelRequest {
   stage: "source_discovery_planning";
-  promptVersion: "3";
+  promptVersion: "4";
   intent: string;
   availableNetworks: readonly {dataNetwork: string; label: string}[];
   limits: {maxNetworks: number; maxUniqueKeywordsPerNetwork: number; maxKeywordsPerNetwork: number};

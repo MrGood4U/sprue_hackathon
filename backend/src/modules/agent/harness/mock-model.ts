@@ -66,12 +66,23 @@ function searchKeywords(intent: string): readonly string[] {
   return ["DEX swaps"];
 }
 
+function mockProtocol(intent: string): {name: string; version: string | null} | null {
+  const normalized = intent.toLowerCase();
+  if (normalized.includes("uniswap v3")) return {name: "Uniswap", version: "V3"};
+  for (const protocol of ["Uniswap", "SushiSwap", "PancakeSwap", "Curve", "Aave"]) {
+    if (normalized.includes(protocol.toLowerCase())) return {name: protocol, version: null};
+  }
+  return null;
+}
+
 function sourceDiscoveryPlanningOutput(
   request: Extract<AgentModelRequest, {stage: "source_discovery_planning"}>,
 ): SourceDiscoveryPlan {
   const sourceRequirements = request.availableNetworks.map((network, index) => ({
     id: `source_${index + 1}`,
     dataNetwork: network.dataNetwork,
+    protocol: mockProtocol(request.intent),
+    assets: [],
     description: `Existing indexed records relevant to the stated intent on ${network.label}.`,
     grain: "provider_defined_record",
     fields: [{
@@ -86,7 +97,7 @@ function sourceDiscoveryPlanningOutput(
     constraints: [],
   }));
   const plan: DiscoverySemanticPlan = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     kind: "semantic_plan",
     summary: request.intent.trim(),
     sourceRequirements,
@@ -105,7 +116,7 @@ function sourceDiscoveryPlanningOutput(
   };
   const keywords = searchKeywords(request.intent).slice(0, request.limits.maxKeywordsPerNetwork);
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     kind: "source_discovery_plan",
     semanticPlan: plan,
     searches: plan.sourceRequirements.map((need) => ({sourceNeedId: need.id, keywords})),

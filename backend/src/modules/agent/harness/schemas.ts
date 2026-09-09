@@ -14,6 +14,8 @@ const role = z.string().regex(/^[a-z][a-z0-9_]{0,99}$/);
 const dataNetwork = z.string().regex(/^[a-z0-9]+:[A-Za-z0-9._-]+$/).max(100);
 const fieldPath = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$/).max(200);
 const searchKeyword = z.string().trim().min(2).max(80).regex(/^[^\u0000-\u001f\u007f]+$/);
+const assetSymbol = z.string().trim().min(1).max(40).regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/);
+const networkAssetId = z.string().trim().min(1).max(200).regex(/^[^\u0000-\u0020\u007f]+$/);
 const semanticValueType = z.enum([
   "boolean",
   "string",
@@ -121,12 +123,20 @@ const discoveryFieldRequirementSchema = z.object({
 }).strict();
 
 const discoverySemanticPlanSchema = z.object({
-  schemaVersion: z.literal(2),
+  schemaVersion: z.literal(3),
   kind: z.literal("semantic_plan"),
   summary: boundedText(8000),
   sourceRequirements: z.array(z.object({
     id: role,
     dataNetwork,
+    protocol: z.object({
+      name: boundedText(80),
+      version: z.string().trim().min(1).max(40).nullable(),
+    }).strict().nullable(),
+    assets: z.array(z.object({
+      symbol: assetSymbol,
+      networkAssetId: networkAssetId.nullable(),
+    }).strict()).max(4),
     description: boundedText(1000),
     grain: boundedText(200),
     fields: z.array(discoveryFieldRequirementSchema).min(1).max(32),
@@ -247,7 +257,7 @@ const flexibleCompositionIntentSchema = z.object({
 }).strict();
 
 const sourceDiscoveryPlanSchema = z.object({
-  schemaVersion: z.literal(2),
+  schemaVersion: z.literal(3),
   kind: z.literal("source_discovery_plan"),
   semanticPlan: discoverySemanticPlanSchema,
   searches: z.array(z.object({
