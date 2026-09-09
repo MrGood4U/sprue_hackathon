@@ -6,7 +6,6 @@ import {
   Database,
   Sparkle,
   StopCircle,
-  WarningCircle,
 } from "@phosphor-icons/react";
 import {ProductHeader} from "../components/product/ProductHeader.jsx";
 import {Button} from "../components/ui/Button.jsx";
@@ -94,7 +93,6 @@ function AssistantMessage({message, navigate, t}) {
           <div className="agent-plan-facts">
             <div><span>{t("agent.fact.sources")}</span><strong>{proposal.composition?.sourceCount ?? proposal.sourceEvidence.length}</strong></div>
             <div><span>{t("agent.fact.operators")}</span><strong>{proposal.composition?.operatorCount ?? 0}</strong></div>
-            <div><span>{t("agent.fact.issues")}</span><strong>{proposal.issues?.length ?? 0}</strong></div>
           </div>
           <div className="agent-evidence-list">
             {proposal.sourceEvidence.map((source) => (
@@ -110,20 +108,10 @@ function AssistantMessage({message, navigate, t}) {
                   <div><dt>{t("agent.evidence.queryCount")}</dt><dd>{source.totalQueryCount30d ?? t("agent.unknown")}</dd></div>
                 </dl>
                 <p>{source.rationale}</p>
-                {source.limitations?.length > 0 && (
-                  <ul>{source.limitations.map((item) => <li key={item}>{item}</li>)}</ul>
-                )}
               </section>
             ))}
           </div>
         </>
-      )}
-
-      {proposal?.issues?.length > 0 && (
-        <div className="agent-issues" role="note">
-          <strong><WarningCircle size={17} />{t("agent.issuesTitle")}</strong>
-          <ul>{proposal.issues.map((issue) => <li key={`${issue.code}-${issue.message}`}>{issue.message}</li>)}</ul>
-        </div>
       )}
 
       {clarification?.questions?.length > 0 && (

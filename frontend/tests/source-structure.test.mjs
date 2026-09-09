@@ -162,6 +162,8 @@ test("keeps Agent Planner on live durable services without a demo fallback", asy
   assert.equal(page.match(/canCreateManually && <Button/g)?.length, 2);
   assert.match(page, /agent\.manualCreate/);
   assert.match(page, /canPreviewPlan && <Button[^>]*variant="primary"[^>]*>[\s\S]*?agent\.next/);
+  assert.doesNotMatch(page, /proposal\??\.issues|source\.limitations|agent\.fact\.issues|agent\.issuesTitle/);
+  assert.doesNotMatch(styles, /\.agent-issues/);
   assert.match(page, /agent\.stopAction/);
   assert.match(page, /confirmation === "cancel"/);
   assert.match(page, /placeholder=\{t\("agent\.intentPlaceholder"\)\}/);
