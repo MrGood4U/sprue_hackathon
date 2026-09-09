@@ -338,7 +338,6 @@ export const en = {
   "dashboard.createFirst": "Create first product",
   "dashboard.noSearchResults": "No matching products",
   "dashboard.noSearchResultsDetail": "Try another name or description.",
-  "dashboard.createAnother": "Create another product",
   "dashboard.walletRequired": "No active workspace wallet is available for this product.",
   "dashboard.createError": "The product could not be created. Try again.",
   "dashboard.deleteProductLabel": "Delete {{name}}",

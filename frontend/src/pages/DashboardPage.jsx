@@ -296,18 +296,6 @@ export function DashboardPage({ navigate }) {
             </div>
           )}
 
-          {dashboard.status === "ready" && visibleProducts.length > 0 && (
-            <button
-              type="button"
-              className="table-empty-row dashboard-create-another"
-              disabled={isCreating}
-              aria-busy={isCreating}
-              onClick={() => void createNewProduct()}
-            >
-              {isCreating ? <CircleNotch size={16} className="dashboard-create-spinner" /> : <Plus size={16} />}
-              {t(isCreating ? "dashboard.creatingProduct" : "dashboard.createAnother")}
-            </button>
-          )}
         </div>
       </section>
 

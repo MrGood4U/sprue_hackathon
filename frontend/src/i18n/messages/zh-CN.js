@@ -341,7 +341,6 @@ export const zhCN = {
   "dashboard.createFirst": "\u521b\u5efa\u7b2c\u4e00\u4e2a\u4ea7\u54c1",
   "dashboard.noSearchResults": "\u6ca1\u6709\u5339\u914d\u7684\u4ea7\u54c1",
   "dashboard.noSearchResultsDetail": "\u8bf7\u5c1d\u8bd5\u5176\u4ed6\u540d\u79f0\u6216\u63cf\u8ff0\u3002",
-  "dashboard.createAnother": "\u521b\u5efa\u53e6\u4e00\u4e2a\u4ea7\u54c1",
   "dashboard.walletRequired": "\u5f53\u524d\u5de5\u4f5c\u533a\u6ca1\u6709\u53ef\u7528\u7684\u6d3b\u8dc3\u94b1\u5305\u3002",
   "dashboard.createError": "\u65e0\u6cd5\u521b\u5efa\u4ea7\u54c1\uff0c\u8bf7\u91cd\u8bd5\u3002",
   "dashboard.deleteProductLabel": "\u5220\u9664 {{name}}",

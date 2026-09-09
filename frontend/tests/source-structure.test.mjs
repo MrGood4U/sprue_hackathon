@@ -51,6 +51,7 @@ test("keeps the Dashboard focused on metrics and the product list", async () => 
   assert.doesNotMatch(source, /dashboard-lower|dashboard\.activities\.map|dashboard\.sponsorProof\.map/);
   assert.doesNotMatch(styles, /\.dashboard-lower|\.activity-list|\.proof-grid/);
   assert.match(source, /<div className="toolbar-cluster">[\s\S]*dashboard\.newProduct[\s\S]*search-control/);
+  assert.doesNotMatch(source, /dashboard\.createAnother|dashboard-create-another/);
   assert.doesNotMatch(source, /<AppHeader[\s\S]*?actions=\{/);
   assert.match(styles, /\.app-header \{[^}]*align-items: flex-start/);
   assert.match(source, /<EditableProductName[\s\S]*variant="table"/);
