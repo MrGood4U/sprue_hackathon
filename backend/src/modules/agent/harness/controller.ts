@@ -1,12 +1,13 @@
 import {executeCrossChainTraderFootprint} from "../../dag/runtime.js";
-import type {
-  GraphFieldRequirement,
-  GraphInspectedField,
-  GraphSchemaEntityInspection,
-  GraphSemanticValueType,
-  GraphSourceDiscoveryPort,
-  GraphSourceDiscoveryRequest,
-  GraphSourceDiscoveryResult,
+import {
+  graphNetworkAliases,
+  type GraphFieldRequirement,
+  type GraphInspectedField,
+  type GraphSchemaEntityInspection,
+  type GraphSemanticValueType,
+  type GraphSourceDiscoveryPort,
+  type GraphSourceDiscoveryRequest,
+  type GraphSourceDiscoveryResult,
 } from "../../graph/index.js";
 import {
   assembleSpecification,
@@ -236,25 +237,46 @@ function validateSourceDiscoveryPlan(
 
 const maximumSearchKeywordLength = 80;
 
-function networkQualifiedKeyword(parts: readonly string[], networkLabel: string, dataNetwork: string): string | null {
-  const base = parts.map((part) => part.trim()).filter(Boolean).join(" ").replace(/\s+/g, " ");
-  if (!base) return null;
-  for (const qualifier of [networkLabel.trim(), dataNetwork]) {
-    const candidate = `${base} ${qualifier}`.replace(/\s+/g, " ").trim();
-    if (candidate.length <= maximumSearchKeywordLength) return candidate;
+function boundedSearchKeyword(parts: readonly string[]): string | null {
+  const phrase = parts.map((part) => part.trim()).filter(Boolean).join(" ").replace(/\s+/g, " ");
+  if (phrase.length < 2) return null;
+  return phrase.length <= maximumSearchKeywordLength
+    ? phrase
+    : phrase.slice(0, maximumSearchKeywordLength).trimEnd();
+}
+
+function humanSearchAlias(value: string): string | null {
+  const alias = value
+    .replace(/[-_]+/g, " ")
+    .replace(/\b(?:mainnet|testnet)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (
+    alias.length < 2
+    || /^(?:eip155|evm)\s+\d+$/i.test(alias)
+    || /^(?:mainnet|testnet)$/i.test(alias)
+  ) return null;
+  return alias;
+}
+
+function networkSearchAliases(networkLabel: string, dataNetwork: string): readonly string[] {
+  const aliases = [networkLabel, ...(graphNetworkAliases[dataNetwork] ?? [])];
+  const unique = new Map<string, string>();
+  for (const value of aliases) {
+    const alias = humanSearchAlias(value);
+    if (!alias) continue;
+    const key = alias.toLowerCase();
+    if (!unique.has(key)) unique.set(key, alias);
   }
-  const suffix = ` ${dataNetwork}`;
-  const available = maximumSearchKeywordLength - suffix.length;
-  if (available < 2) return null;
-  const shortened = base.slice(0, available).trimEnd();
-  return shortened.length >= 2 ? `${shortened}${suffix}` : null;
+  return [...unique.values()];
 }
 
 /**
- * Convert model-proposed semantic hints into an independently searchable set
- * for one network-scoped source requirement. Network labels come from the
- * server-owned catalog; asset symbols remain hints until source admission
- * binds them to inspected network-specific identities.
+ * Build a broad-recall search ladder for one network-scoped requirement.
+ * The provider keyword search indexes Subgraph metadata, where protocol-wide
+ * sources rarely enumerate every asset pair and network names often omit
+ * environment suffixes such as "Mainnet". Keep the semantic topic broad here,
+ * then let inspected schema and deterministic network evidence decide fit.
  */
 function deriveNetworkScopedSearchKeywords(
   need: DiscoverySourceNeed,
@@ -265,15 +287,19 @@ function deriveNetworkScopedSearchKeywords(
   const protocol = need.protocol
     ? [need.protocol.name, need.protocol.version ?? ""].filter(Boolean).join(" ")
     : "";
-  const assets = need.assets
-    .map((asset) => asset.symbol)
-    .sort((left, right) => left.localeCompare(right, "en", {sensitivity: "base"}))
-    .join(" ");
+  const semanticSeeds = [protocol, ...modelKeywords]
+    .map((value) => boundedSearchKeyword([value]))
+    .filter((value): value is string => value !== null);
+  const primarySeed = semanticSeeds[0] ?? null;
   const phrases: (string | null)[] = [];
-  if (protocol) phrases.push(networkQualifiedKeyword([protocol], networkLabel, need.dataNetwork));
-  if (assets) phrases.push(networkQualifiedKeyword([assets], networkLabel, need.dataNetwork));
-  if (protocol && assets) phrases.push(networkQualifiedKeyword([protocol, assets], networkLabel, need.dataNetwork));
-  phrases.push(...modelKeywords.map((keyword) => networkQualifiedKeyword([keyword], networkLabel, need.dataNetwork)));
+  if (primarySeed) {
+    phrases.push(primarySeed);
+    phrases.push(...networkSearchAliases(networkLabel, need.dataNetwork)
+      .map((alias) => boundedSearchKeyword([primarySeed, alias])));
+  } else {
+    phrases.push(...networkSearchAliases(networkLabel, need.dataNetwork));
+  }
+  phrases.push(...semanticSeeds.slice(1));
 
   const unique = new Map<string, string>();
   for (const phrase of phrases) {

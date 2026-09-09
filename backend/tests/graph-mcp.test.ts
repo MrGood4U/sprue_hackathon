@@ -954,8 +954,11 @@ test("Agent derives search keywords before Graph MCP discovery and assesses comp
   assert.equal(result.feasibility.composition.nodes.filter((node) => node.operator === "union").length, 1);
   assert.deepEqual(sequence, [
     "model:source_discovery_planning",
+    "mcp:search:Uniswap V3",
     "mcp:search:Uniswap V3 Ethereum",
+    "mcp:search:Uniswap V3 eth",
     "mcp:search:Uniswap V3 Arbitrum",
+    "mcp:search:Uniswap V3 arbitrum one",
     "mcp:activity",
     "mcp:schema:QmEth",
     "mcp:schema:QmArb",
@@ -984,7 +987,7 @@ test("Agent derives search keywords before Graph MCP discovery and assesses comp
   assert.equal(discoveryDebug.candidateCount, 4);
 });
 
-test("Agent scopes protocol and asset-pair searches independently by network", async () => {
+test("Agent uses broad protocol recall plus catalog network aliases without asset-pair overconstraint", async () => {
   let observedRequest: GraphSourceDiscoveryRequest | undefined;
   const harness = new AgentHarness({
     async complete(request: AgentModelRequest) {
@@ -1034,14 +1037,14 @@ test("Agent scopes protocol and asset-pair searches independently by network", a
   assert.ok(observedRequest);
   assert.deepEqual(observedRequest.needs.map((need) => [need.dataNetwork, need.keywords]), [
     ["eip155:1", [
-      "Uniswap V3 Ethereum Mainnet",
-      "USDC WETH Ethereum Mainnet",
-      "Uniswap V3 USDC WETH Ethereum Mainnet",
+      "Uniswap V3",
+      "Uniswap V3 Ethereum",
+      "Uniswap V3 eth",
     ]],
     ["eip155:42161", [
+      "Uniswap V3",
       "Uniswap V3 Arbitrum One",
-      "USDC WETH Arbitrum One",
-      "Uniswap V3 USDC WETH Arbitrum One",
+      "Uniswap V3 arbitrum",
     ]],
   ]);
 });
