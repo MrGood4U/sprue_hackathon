@@ -31,9 +31,14 @@ test("keeps one route-level page implementation per page file", async () => {
 test("keeps page implementations out of application composition", async () => {
   const appSource = await readFile(new URL("app/App.jsx", sourceRoot), "utf8");
   const shellSource = await readFile(new URL("app/AppShell.jsx", sourceRoot), "utf8");
+  const routeBoundary = await readFile(new URL("app/CreatorRouteErrorBoundary.jsx", sourceRoot), "utf8");
 
   assert.doesNotMatch(appSource, /export function \w+Page\b/);
   assert.doesNotMatch(shellSource, /export function \w+Page\b/);
+  assert.match(appSource, /<CreatorRouteErrorBoundary path=\{path\} navigate=\{navigate\}>/);
+  assert.match(routeBoundary, /getDerivedStateFromError/);
+  assert.match(routeBoundary, /componentDidCatch/);
+  assert.match(routeBoundary, /productHeader\.backToProducts/);
   await assert.rejects(access(new URL("App.jsx", sourceRoot)));
 });
 

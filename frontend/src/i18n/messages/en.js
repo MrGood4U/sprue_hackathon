@@ -58,6 +58,10 @@ export const en = {
   "runtime.errorDetail": "Start the backend with the evaluator demo runtime enabled, then try again.",
   "runtime.retry": "Retry connection",
 
+  "creatorRoute.errorLabel": "Page recovery",
+  "creatorRoute.errorTitle": "This product page could not be displayed",
+  "creatorRoute.errorDetail": "Sprue preserved your product data. Retry this page or return to the product list.",
+
   "desktopGate.title": "Open Sprue in a wider browser window",
   "desktopGate.detail": "Sprue is designed for web browsers at 1024 px or wider.",
 

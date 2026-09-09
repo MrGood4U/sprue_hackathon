@@ -11,6 +11,7 @@ import {
 } from "../features/runtime/DemoRuntimeProvider.jsx";
 import { useAuth } from "../features/auth/AuthProvider.jsx";
 import { Button } from "../components/ui/Button.jsx";
+import { CreatorRouteErrorBoundary } from "./CreatorRouteErrorBoundary.jsx";
 
 function DesktopGate() {
   const { t } = useI18n();
@@ -82,7 +83,11 @@ function CreatorRoute({ path, navigate }) {
         </div>
       </main>
     );
-  return <AppShell path={path} navigate={navigate} />;
+  return (
+    <CreatorRouteErrorBoundary path={path} navigate={navigate}>
+      <AppShell path={path} navigate={navigate} />
+    </CreatorRouteErrorBoundary>
+  );
 }
 
 export function App() {
