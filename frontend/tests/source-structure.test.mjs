@@ -146,6 +146,9 @@ test("keeps Agent Planner on live durable services without a demo fallback", asy
   assert.doesNotMatch(page, /name: productRef/);
   assert.match(page, /<ProductHeader product=\{routeProduct\} productRef=\{productRef\} active="agent"/);
   assert.match(page, /<ProductHeader product=\{agent\.product\} productRef=\{productRef\} active="agent"/);
+  assert.match(page, /setIntent\(latestIntent \|\| agent\.product\.originalIntent \|\| ""\)/);
+  assert.match(page, /if \(agent\.status === "loading"\)/);
+  assert.doesNotMatch(page, /agent\.status === "loading" && !agent\.product/);
   assert.match(page, /const buildPath = `\/app\/products\/\$\{productRef\}\/build`/);
   assert.match(page, /readyForCompilation === true/);
   assert.match(page, /const canCreateManually = !isPlanning && !canReviewDag/);

@@ -155,11 +155,11 @@ export function AgentPage({path, navigate}) {
     if (agent.product && initializedProduct.current !== agent.product.id) {
       initializedProduct.current = agent.product.id;
       const latestIntent = [...agent.messages].reverse().find((message) => message.role === "user")?.contentText;
-      setIntent(latestIntent || agent.product.originalIntent);
+      setIntent(latestIntent || agent.product.originalIntent || "");
     }
   }, [agent.messages, agent.product]);
 
-  if (agent.status === "loading" && !agent.product) {
+  if (agent.status === "loading") {
     return <div className="product-page agent-page"><ProductHeader product={routeProduct} productRef={productRef} active="agent" navigate={navigate} /><main className="runtime-gate"><div className="panel"><span className="section-label">{t("agent.loadingLabel")}</span><h1>{t("agent.loadingTitle")}</h1><p>{t("agent.loadingDetail")}</p></div></main></div>;
   }
 
