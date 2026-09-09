@@ -137,6 +137,8 @@ export function AgentPage({path, navigate}) {
   const [intent, setIntent] = useState("");
   const [confirmation, setConfirmation] = useState(null);
   const initializedProduct = useRef(null);
+  const chatViewportRef = useRef(null);
+  const hasPositionedChat = useRef(false);
   const isPlanning = agent.status === "planning";
   const elapsedSeconds = useElapsedSeconds(isPlanning);
   const routeProduct = agent.product ?? (agent.status === "error" ? {name: t("builder.unknownProduct"), slug: productRef} : null);
@@ -149,6 +151,31 @@ export function AgentPage({path, navigate}) {
     }
   }, [agent.messages, agent.product]);
 
+  const persistedMessages = agent.messages.length > 0
+    ? agent.messages
+    : agent.product?.originalIntent
+      ? [{id: `product-intent-${agent.product.id}`, role: "user", contentText: agent.product.originalIntent, contentJson: null}]
+      : [];
+  const messageCardKey = persistedMessages.map((message) => message.id).join("|");
+  const liveStageCardKey = isPlanning
+    ? [...new Set(agent.liveTrace.map((event) => event.stage))].join("|") || "connecting"
+    : "idle";
+  const newestCardKey = `${agent.product?.id ?? productRef}:${messageCardKey}:${liveStageCardKey}`;
+
+  useEffect(() => {
+    const frameId = globalThis.requestAnimationFrame(() => {
+      const chatViewport = chatViewportRef.current;
+      if (!chatViewport) return;
+      const reduceMotion = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+      chatViewport.scrollTo({
+        top: chatViewport.scrollHeight,
+        behavior: hasPositionedChat.current && !reduceMotion ? "smooth" : "auto",
+      });
+      hasPositionedChat.current = true;
+    });
+    return () => globalThis.cancelAnimationFrame(frameId);
+  }, [newestCardKey]);
+
   if (agent.status === "loading") {
     return <div className="product-page agent-page"><ProductHeader product={routeProduct} productRef={productRef} active="agent" navigate={navigate} /><main className="runtime-gate"><div className="panel"><span className="section-label">{t("agent.loadingLabel")}</span><h1>{t("agent.loadingTitle")}</h1><p>{t("agent.loadingDetail")}</p></div></main></div>;
   }
@@ -158,11 +185,6 @@ export function AgentPage({path, navigate}) {
   }
 
   if (!agent.product) return null;
-  const persistedMessages = agent.messages.length > 0
-    ? agent.messages
-    : agent.product.originalIntent
-      ? [{id: `product-intent-${agent.product.id}`, role: "user", contentText: agent.product.originalIntent, contentJson: null}]
-      : [];
   const latestResult = agent.latestAssistant?.contentJson;
   const canPreviewPlan = latestResult?.kind === "proposal" && isBuilderDraft(latestResult.builderDraft);
   const buildPath = `/app/products/${productRef}/build`;
@@ -197,7 +219,7 @@ export function AgentPage({path, navigate}) {
             </div>
           </div>
 
-          <div className="agent-chat" role="log" aria-live="polite" aria-atomic="false" aria-relevant="additions text" aria-label={t("agent.conversationLabel")}>
+          <div ref={chatViewportRef} className="agent-chat" role="log" tabIndex={0} aria-live="polite" aria-atomic="false" aria-relevant="additions text" aria-label={t("agent.conversationLabel")}>
             {persistedMessages.map((message) => message.role === "assistant" ? (
               <Fragment key={message.id}>
                 <AgentStepCards trace={message.contentJson?.trace} />

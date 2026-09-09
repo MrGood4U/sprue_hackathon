@@ -180,6 +180,15 @@ test("keeps Agent Planner on live durable services without a demo fallback", asy
   assert.match(page, /<AgentStepCards trace=\{agent\.liveTrace\} running elapsedSeconds=\{elapsedSeconds\}/);
   assert.match(page, /trace=\{isPlanning \? agent\.liveTrace : agent\.trace\}/);
   assert.match(page, /<AgentStepCards trace=\{message\.contentJson\?\.trace\}/);
+  assert.match(page, /const chatViewportRef = useRef\(null\)/);
+  assert.match(page, /ref=\{chatViewportRef\} className="agent-chat" role="log" tabIndex=\{0\}/);
+  assert.match(page, /chatViewport\.scrollTo\(\{[\s\S]*top: chatViewport\.scrollHeight,[\s\S]*behavior:/);
+  assert.match(page, /\}, \[newestCardKey\]\);/);
+  assert.match(styles, /\.agent-page \{[^}]*height: 100dvh;[^}]*overflow: hidden;/s);
+  assert.match(styles, /\.agent-layout \{[^}]*height: calc\(100dvh - var\(--product-header-height\)\);[^}]*min-height: 0;[^}]*overflow: hidden;/s);
+  assert.match(styles, /\.agent-conversation \{[^}]*grid-template-rows: auto minmax\(0, 1fr\) auto;/s);
+  assert.match(styles, /\.agent-chat \{[^}]*overflow-y: auto;[^}]*overscroll-behavior: contain;/s);
+  assert.match(styles, /\.agent-progress-panel \{[^}]*height: 100%;[^}]*overflow-y: auto;/s);
   assert.match(elapsedHook, /clearInterval\(intervalId\)/);
   assert.match(progress, /CircleNotch className="agent-trace-spinner"/);
   assert.match(progress, /semantic_entity_retrieval/);

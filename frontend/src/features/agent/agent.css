@@ -1,10 +1,12 @@
-.agent-layout { min-height: calc(100vh - var(--product-header-height)); display: grid; grid-template-columns: minmax(0, 1fr) 380px; }
-.agent-conversation { min-width: 0; display: flex; flex-direction: column; align-items: center; padding: 30px 34px 32px; }
+.agent-page { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; }
+.agent-layout { height: calc(100vh - var(--product-header-height)); height: calc(100dvh - var(--product-header-height)); min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 380px; overflow: hidden; }
+.agent-conversation { min-width: 0; min-height: 0; height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; justify-items: center; padding: 30px 34px 0; }
 .agent-heading { width: min(1100px, 100%); align-items: flex-start; margin-bottom: 20px; }
 .agent-heading h1 { font-size: 25px; }
 .agent-heading p { max-width: 680px; line-height: 1.55; }
 .agent-heading > .status { margin-top: 4px; }
-.agent-chat { width: min(1100px, 100%); display: grid; align-content: start; gap: 15px; }
+.agent-chat { width: min(1100px, 100%); min-height: 0; height: 100%; display: grid; align-content: start; gap: 15px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 4px 8px 20px 0; }
+.agent-chat:focus-visible { outline: var(--focus-width) solid var(--focus-color); outline-offset: var(--focus-offset); }
 .agent-message { border: 1px solid var(--line); border-radius: var(--panel-radius); padding: 18px 20px; background: var(--color-background-panel); }
 .agent-message-user { border-color: var(--color-border-agent); background: var(--color-background-agent-subtle); }
 .agent-message-assistant { background: var(--color-background-panel-subtle); }
@@ -48,7 +50,7 @@
 .agent-evidence p { color: var(--muted); font-size: var(--typography-size-caption); }
 .agent-questions { display: grid; gap: 6px; margin: 13px 0 0; padding-left: 19px; color: var(--muted); font-size: var(--typography-size-caption); line-height: 1.55; }
 .agent-recovery-actions { display: flex; gap: 9px; margin-top: 13px; }
-.agent-composer { width: min(1100px, 100%); display: grid; gap: 9px; margin-top: auto; padding-top: 24px; }
+.agent-composer { width: min(1100px, 100%); display: grid; gap: 9px; margin-top: 0; padding: 18px 0 24px; background: var(--bg); }
 .agent-composer label { color: var(--color-foreground-secondary-strong); font-size: var(--typography-size-label); font-weight: 500; }
 .agent-composer textarea { min-height: 92px; width: 100%; resize: vertical; border: 1px solid var(--line-strong); border-radius: var(--panel-radius); background: var(--color-background-input); color: var(--text); padding: 13px; line-height: 1.55; }
 .agent-composer textarea:disabled { opacity: var(--button-disabled-opacity); }
@@ -65,7 +67,7 @@
 .agent-page .modal-copy { color: var(--muted); font-size: 13px; line-height: 1.65; }
 .agent-request-error { color: var(--color-accent-warning); font-size: var(--typography-size-caption); }
 @keyframes agent-spin { to { transform: rotate(360deg); } }
-.agent-progress-panel { min-width: 0; border-left: 1px solid var(--line); background: var(--builder-rail-background); padding: 30px 22px 28px; }
+.agent-progress-panel { min-width: 0; min-height: 0; height: 100%; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; border-left: 1px solid var(--line); background: var(--builder-rail-background); padding: 30px 22px 28px; }
 .agent-progress-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; }
 .agent-progress-heading h2 { font-size: 18px; margin-top: 7px; }
 .agent-progress-summary { display: grid; gap: 9px; margin-top: 27px; color: var(--muted); font: var(--typography-size-caption) var(--mono); }
@@ -100,8 +102,11 @@
 }
 
 @media (max-width: 900px) {
-  .agent-layout { display: block; }
-  .agent-progress-panel { border-top: 1px solid var(--line); border-left: 0; }
+  .agent-page { height: auto; min-height: 100vh; overflow: visible; }
+  .agent-layout { display: block; height: auto; min-height: calc(100vh - var(--product-header-height)); overflow: visible; }
+  .agent-conversation { height: auto; min-height: calc(100vh - var(--product-header-height)); display: flex; flex-direction: column; align-items: center; padding-bottom: 32px; }
+  .agent-chat { height: auto; overflow: visible; padding: 0; }
+  .agent-progress-panel { height: auto; overflow: visible; border-top: 1px solid var(--line); border-left: 0; }
   .agent-composer { margin-top: 26px; }
   .agent-composer-footer { align-items: flex-start; flex-direction: column; }
   .agent-composer-actions { width: 100%; justify-content: flex-start; }
