@@ -597,6 +597,7 @@ export interface HarnessTraceEvent {
     | PlannerStage
     | "source_needs"
     | "graph_source_discovery"
+    | "semantic_entity_retrieval"
     | "feasibility_validation"
     | "query_compilation"
     | "spec_assembly"

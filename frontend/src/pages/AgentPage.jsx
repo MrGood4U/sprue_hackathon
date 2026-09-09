@@ -29,6 +29,7 @@ function errorTranslationKey(code) {
     GRAPH_MCP_CONNECTION_FAILED: "agent.error.graphConnection",
     GRAPH_MCP_TOOL_CALL_FAILED: "agent.error.graphRequest",
     GRAPH_MCP_TOOL_UNAVAILABLE: "agent.error.graphUnavailable",
+    EMBEDDING_REQUEST_FAILED: "agent.error.embeddingRequest",
     AGENT_RUN_TIMEOUT: "agent.error.runTimeout",
     AGENT_RUN_CANCELLED: "agent.error.runCancelled",
   };

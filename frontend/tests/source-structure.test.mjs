@@ -168,6 +168,7 @@ test("keeps Agent Planner on live durable services without a demo fallback", asy
   assert.match(agentApi, /planningRequestTimeoutMs = 7_260_000/);
   assert.match(agentApi, /planning\/\$\{commandId\}\/cancel/);
   assert.match(page, /AGENT_RUN_TIMEOUT: "agent\.error\.runTimeout"/);
+  assert.match(page, /EMBEDDING_REQUEST_FAILED: "agent\.error\.embeddingRequest"/);
   assert.match(page, /Number\.isFinite\(content\?\.durationMs\)/);
   assert.match(page, /agent\.elapsed\.completedSeconds/);
   assert.match(page, /agent\.elapsed\.completedUnderSecond/);
@@ -176,7 +177,9 @@ test("keeps Agent Planner on live durable services without a demo fallback", asy
   assert.match(page, /<AgentStepCards trace=\{message\.contentJson\?\.trace\}/);
   assert.match(elapsedHook, /clearInterval\(intervalId\)/);
   assert.match(progress, /CircleNotch className="agent-trace-spinner"/);
+  assert.match(progress, /semantic_entity_retrieval/);
   assert.match(stepCards, /event\.summary/);
+  assert.match(stepCards, /semantic_entity_retrieval/);
   assert.match(stepCards, /agent\.status\.\$\{state\}/);
   assert.match(stepCards, /agent-step-card-spinner/);
   assert.match(styles, /\.agent-trace-spinner \{[^}]*animation: agent-spin 900ms linear infinite;/s);

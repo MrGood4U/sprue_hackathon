@@ -158,6 +158,7 @@ test("agent configuration supports mock and remote credentials without exposing 
 
 test("embedding retrieval ranks inspected entity schemas without returning field arrays to the selector", async () => {
   const bodies: unknown[] = [];
+  const progress: string[] = [];
   const ranker = new RemoteEntityEmbeddingRanker({
     enabled: true,
     apiUrl: "https://dashscope.example/v1/embeddings",
@@ -206,12 +207,13 @@ test("embedding retrieval ranks inspected entity schemas without returning field
   const scores = await ranker.rank(need, [
     {candidateRef: "graph:one", displayName: "Uniswap", entity: entity("swaps", "Swap", "amountUSD")},
     {candidateRef: "graph:two", displayName: "Unrelated", entity: entity("positions", "Position", "liquidity")},
-  ]);
+  ], undefined, (event) => progress.push(event.phase));
   assert.equal(bodies.length, 1);
   assert.equal((bodies[0] as {input: string[]}).input.length, 3);
   assert.match((bodies[0] as {input: string[]}).input[1]!, /amountUSD:BigDecimal/);
   assert.equal(scores[0]?.similarity, 1);
   assert.equal(scores[1]?.similarity, 0);
+  assert.deepEqual(progress, ["batch_started", "batch_completed", "similarity_started", "completed"]);
 });
 
 test("mock Agent harness executes the non-model cross-chain flow", async () => {

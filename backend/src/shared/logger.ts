@@ -52,6 +52,7 @@ export type LogEvent =
       stage:
         | "source_discovery_planning"
         | "graph_source_discovery"
+        | "semantic_entity_retrieval"
         | "source_entity_selection"
         | "source_feasibility"
         | "semantic_interpretation"

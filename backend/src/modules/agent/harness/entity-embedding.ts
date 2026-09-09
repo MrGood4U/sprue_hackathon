@@ -27,11 +27,19 @@ export interface EntityEmbeddingScore {
   similarity: number;
 }
 
+export interface EntityEmbeddingProgress {
+  phase: "batch_started" | "batch_completed" | "similarity_started" | "completed";
+  entityCount: number;
+  batchNumber?: number;
+  batchCount: number;
+}
+
 export interface EntityEmbeddingRankerPort {
   rank(
     need: DiscoverySourceNeed,
     entities: readonly EntityEmbeddingInput[],
     signal?: AbortSignal,
+    onProgress?: (progress: EntityEmbeddingProgress) => void,
   ): Promise<readonly EntityEmbeddingScore[]>;
 }
 
@@ -187,6 +195,7 @@ export class RemoteEntityEmbeddingRanker implements EntityEmbeddingRankerPort {
     need: DiscoverySourceNeed,
     inputs: readonly EntityEmbeddingInput[],
     signal?: AbortSignal,
+    onProgress?: (progress: EntityEmbeddingProgress) => void,
   ): Promise<readonly EntityEmbeddingScore[]> {
     if (!this.config.enabled || !this.config.apiUrl || !this.config.apiKey || !this.config.model) {
       throw new EntityEmbeddingRequestError("The embedding service is not completely configured", "configuration");
@@ -197,8 +206,11 @@ export class RemoteEntityEmbeddingRanker implements EntityEmbeddingRankerPort {
     }
     const documents = [requirementQuery(need), ...inputs.map(entityDocument)];
     const vectors: number[][] = [];
+    const batchCount = Math.ceil(documents.length / requestBatchSize);
     for (let offset = 0; offset < documents.length; offset += requestBatchSize) {
       const batch = documents.slice(offset, offset + requestBatchSize);
+      const batchNumber = Math.floor(offset / requestBatchSize) + 1;
+      onProgress?.({phase: "batch_started", entityCount: inputs.length, batchNumber, batchCount});
       const requestSignal = signal
         ? AbortSignal.any([signal, AbortSignal.timeout(this.config.timeoutMs)])
         : AbortSignal.timeout(this.config.timeoutMs);
@@ -246,16 +258,20 @@ export class RemoteEntityEmbeddingRanker implements EntityEmbeddingRankerPort {
         throw new EntityEmbeddingRequestError("The embedding service returned invalid JSON");
       }
       vectors.push(...parseVectors(envelope, batch.length));
+      onProgress?.({phase: "batch_completed", entityCount: inputs.length, batchNumber, batchCount});
     }
     const queryVector = vectors[0];
     if (!queryVector || vectors.length !== documents.length) {
       throw new EntityEmbeddingRequestError("The embedding service returned incomplete vectors");
     }
-    return inputs.map((input, index) => ({
+    onProgress?.({phase: "similarity_started", entityCount: inputs.length, batchCount});
+    const scores = inputs.map((input, index) => ({
       candidateRef: input.candidateRef,
       queryEntity: input.entity.queryEntity,
       similarity: cosineSimilarity(queryVector, vectors[index + 1]!),
     }));
+    onProgress?.({phase: "completed", entityCount: inputs.length, batchCount});
+    return scores;
   }
 }
 

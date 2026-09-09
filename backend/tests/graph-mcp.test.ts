@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {AgentHarness, createMockStageOutput, HarnessValidationError} from "../src/modules/agent/harness/index.js";
-import type {AgentDebugEvent, AgentModelRequest, SourceDiscoveryPlan} from "../src/modules/agent/harness/index.js";
+import type {AgentDebugEvent, AgentModelRequest, HarnessTraceEvent, SourceDiscoveryPlan} from "../src/modules/agent/harness/index.js";
 import {
   GraphMcpError,
   GraphSourceDiscoveryService,
@@ -1210,6 +1210,7 @@ test("Agent gives compact entity selection evidence a fair share across candidat
 
 test("Agent uses embedding similarity to order compact entity evidence before model selection", async () => {
   let entitySelectionRequest: Extract<AgentModelRequest, {stage: "source_entity_selection"}> | undefined;
+  const trace: HarnessTraceEvent[] = [];
   const entity = (queryEntity: string) => ({
     queryEntity,
     entityType: queryEntity === "opaqueRows" ? "OpaqueRow" : "GenericRow",
@@ -1261,24 +1262,36 @@ test("Agent uses embedding similarity to order compact entity evidence before mo
       };
     },
   }, undefined, {
-    async rank(_need, inputs) {
-      return inputs.map((input) => ({
+    async rank(_need, inputs, _signal, onProgress) {
+      onProgress?.({phase: "batch_started", entityCount: inputs.length, batchNumber: 1, batchCount: 1});
+      onProgress?.({phase: "batch_completed", entityCount: inputs.length, batchNumber: 1, batchCount: 1});
+      onProgress?.({phase: "similarity_started", entityCount: inputs.length, batchCount: 1});
+      const scores = inputs.map((input) => ({
         candidateRef: input.candidateRef,
         queryEntity: input.entity.queryEntity,
         similarity: input.entity.queryEntity === "opaqueRows" ? 0.91 : 0.12,
       }));
+      onProgress?.({phase: "completed", entityCount: inputs.length, batchCount: 1});
+      return scores;
     },
   });
 
   await harness.explore({
     intent: "Read records from Ethereum.",
     availableNetworks: [{dataNetwork: "eip155:1", label: "Ethereum"}],
-  });
+  }, undefined, (event) => trace.push(event));
 
   assert.equal(entitySelectionRequest?.candidates[0]?.displayName, "Opaque Protocol Ethereum");
   assert.equal(entitySelectionRequest?.candidates[0]?.entities[0]?.queryEntity, "opaqueRows");
   assert.equal(entitySelectionRequest?.candidates[0]?.entities[0]?.rankingEvidence, "embedding");
   assert.equal(entitySelectionRequest?.candidates[0]?.entities[0]?.semanticSimilarity, 0.91);
+  const retrievalTrace = trace.filter((event) => event.stage === "semantic_entity_retrieval");
+  assert.deepEqual(retrievalTrace.map((event) => event.status), ["started", "started", "started", "passed"]);
+  assert.match(retrievalTrace[1]?.summary ?? "", /embedding batch 1\/1/);
+  assert.match(retrievalTrace[2]?.summary ?? "", /Computing cosine similarity for 2 entities/);
+  assert.match(retrievalTrace[3]?.summary ?? "", /Embedded 2 inspected entities in 1 batch and retained 2 compact candidates/);
+  assert.ok(trace.findIndex((event) => event.stage === "semantic_entity_retrieval" && event.status === "passed")
+    < trace.findIndex((event) => event.stage === "source_entity_selection" && event.status === "started"));
 });
 
 test("Agent repairs an unsupported source claim contradicted by inspected field evidence", async () => {

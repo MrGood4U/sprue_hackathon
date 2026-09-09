@@ -104,6 +104,8 @@ The Model Service profile is stored durably per authenticated, owner-authorized 
 
 When `EMBEDDING_ENABLED=true`, the API uses the server-only `EMBEDDING_API_URL`, `EMBEDDING_API_KEY`, and `EMBEDDING_MODEL` to rank inspected query entities before the entity-selector model call. The retriever embeds one semantic source-need description and bounded schema documents containing actual entity and field names, calculates cosine similarity inside Sprue, and supplies only compact scores plus entity references to the planner. It keeps candidate diversity, does not relax network or schema validation, performs no Graph data query, and does not cache vectors or embedding responses. An enabled but unavailable or malformed embedding service fails explicitly rather than silently changing selection behavior. With the switch disabled, the existing deterministic ranking remains available.
 
+The user-visible trace exposes embedding retrieval as its own `semantic_entity_retrieval` stage between Graph discovery and model entity selection. Real provider-batch callbacks update one stable in-progress event, local cosine calculation is reported as a short substate, and the terminal event records embedded entity, provider batch, and retained candidate counts. These summaries contain no vectors, provider response bodies, credentials, or hidden model reasoning. An embedding failure terminates this stage explicitly.
+
 The harness accepts source inputs from its caller and does not read test fixtures, the database, or the environment during execution. The real worker will later replace those inputs with trusted source requests and durable run context.
 
 ## Proposed File Ownership

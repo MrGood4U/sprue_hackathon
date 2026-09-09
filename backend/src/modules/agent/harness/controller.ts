@@ -31,6 +31,7 @@ import {operatorRegistry} from "./registry.js";
 import {
   entityEmbeddingLimits,
   type EntityEmbeddingInput,
+  type EntityEmbeddingProgress,
   type EntityEmbeddingRankerPort,
 } from "./entity-embedding.js";
 import {
@@ -391,9 +392,18 @@ async function entitySelectionCandidates(
   embeddingRanker?: EntityEmbeddingRankerPort,
   signal?: AbortSignal,
   emitDebug?: (event: AgentDebugEvent) => void,
-): Promise<readonly SourceEntitySelectionCandidate[]> {
+  emitEmbeddingProgress?: (
+    progress: EntityEmbeddingProgress & {sourceNeedNumber: number; sourceNeedCount: number},
+  ) => void,
+): Promise<{
+  candidates: readonly SourceEntitySelectionCandidate[];
+  embeddedEntityCount: number;
+  embeddingBatchCount: number;
+}> {
   const output: SourceEntitySelectionCandidate[] = [];
-  for (const need of needs) {
+  let embeddedEntityCount = 0;
+  let embeddingBatchCount = 0;
+  for (const [needIndex, need] of needs.entries()) {
     const inspected = discovery.candidates.filter((candidate) => candidate.sourceNeedId === need.id && candidate.entities.length > 0);
     const selectable = inspected.filter((candidate) => candidate.status === "suitable");
     const candidatePool = selectable.length > 0 ? selectable : inspected;
@@ -412,6 +422,8 @@ async function entitySelectionCandidates(
     const semanticScores = new Map<string, number>();
     if (embeddingRanker && embeddingInputs.length > 0) {
       const startedAt = Date.now();
+      embeddedEntityCount += embeddingInputs.length;
+      embeddingBatchCount += Math.ceil((embeddingInputs.length + 1) / entityEmbeddingLimits.requestBatchSize);
       emitDebug?.({
         stage: "source_entity_selection",
         phase: "embedding_request_started",
@@ -419,7 +431,13 @@ async function entitySelectionCandidates(
         entityCount: embeddingInputs.length,
       });
       try {
-        for (const score of await embeddingRanker.rank(need, embeddingInputs, signal)) {
+        for (const score of await embeddingRanker.rank(need, embeddingInputs, signal, (progress) => {
+          emitEmbeddingProgress?.({
+            ...progress,
+            sourceNeedNumber: needIndex + 1,
+            sourceNeedCount: needs.length,
+          });
+        })) {
           semanticScores.set(entityScoreKey(score.candidateRef, score.queryEntity), score.similarity);
         }
         emitDebug?.({
@@ -494,7 +512,7 @@ async function entitySelectionCandidates(
       });
     }
   }
-  return output;
+  return {candidates: output, embeddedEntityCount, embeddingBatchCount};
 }
 
 function validateSourceEntitySelection(
@@ -972,18 +990,47 @@ export class AgentHarness {
     });
 
     emitTrace(
-      "source_entity_selection",
+      "semantic_entity_retrieval",
       "started",
       this.embeddingRanker
-        ? "Embedding retrieval is ranking inspected schema entities before bounded model selection"
-        : "Model is selecting one inspected entity for each source need from compact evidence",
+        ? "Preparing inspected schema entities for semantic retrieval"
+        : "Embedding retrieval is disabled; preparing deterministic schema relevance ranking",
     );
-    const selectionCandidates = await entitySelectionCandidates(
+    const entityRetrieval = await entitySelectionCandidates(
       discovery,
       sourceNeeds,
       this.embeddingRanker,
       signal,
       (event) => this.emitDebug(event),
+      (progress) => {
+        if (progress.phase === "batch_started") {
+          emitTrace(
+            "semantic_entity_retrieval",
+            "started",
+            `Generating embedding batch ${progress.batchNumber}/${progress.batchCount} for source need ${progress.sourceNeedNumber}/${progress.sourceNeedCount} (${progress.entityCount} inspected entities)`,
+          );
+        } else if (progress.phase === "similarity_started") {
+          emitTrace(
+            "semantic_entity_retrieval",
+            "started",
+            `Computing cosine similarity for ${progress.entityCount} entities in source need ${progress.sourceNeedNumber}/${progress.sourceNeedCount}`,
+          );
+        }
+      },
+    );
+    const selectionCandidates = entityRetrieval.candidates;
+    const retainedEntityCount = selectionCandidates.reduce((count, candidate) => count + candidate.entities.length, 0);
+    emitTrace(
+      "semantic_entity_retrieval",
+      "passed",
+      this.embeddingRanker
+        ? `Embedded ${entityRetrieval.embeddedEntityCount} inspected entities in ${entityRetrieval.embeddingBatchCount} ${entityRetrieval.embeddingBatchCount === 1 ? "batch" : "batches"} and retained ${retainedEntityCount} compact candidates`
+        : `Ranked inspected entities deterministically and retained ${retainedEntityCount} compact candidates`,
+    );
+    emitTrace(
+      "source_entity_selection",
+      "started",
+      "Model is selecting one inspected entity for each source need from the retrieved compact evidence",
     );
     const entitySelectionRequest: SourceEntitySelectionModelRequest = {
       stage: "source_entity_selection",
