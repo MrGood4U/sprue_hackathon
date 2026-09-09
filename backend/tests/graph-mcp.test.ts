@@ -508,6 +508,105 @@ test("Graph source discovery respects row grain and rejects nested cumulative me
   assert.deepEqual(legacy?.suggestedBindings.find((binding) => binding.requirementId === "volume_usd")?.fieldPaths, ["pool.volumeUSD"]);
 });
 
+test("Graph source discovery recognizes directional per-event fields without preferring cumulative aggregates", async () => {
+  const directionalSchema = `
+    scalar BigInt
+    scalar BigDecimal
+    type Pool { cumulativeVolumeUSD: BigDecimal! }
+    type Token { symbol: String! }
+    type Swap {
+      id: ID!
+      timestamp: BigInt!
+      amountInUSD: BigDecimal!
+      amountOutUSD: BigDecimal!
+      tokenIn: Token!
+      tokenOut: Token!
+      pool: Pool!
+    }
+    type Query { swaps(first: Int): [Swap!]! }
+  `;
+  const graph: GraphPlanningMcpPort = {
+    async searchSubgraphsByKeyword() {
+      return {
+        subgraphs: [{subgraphId: "sg-directional", displayName: "Uniswap V3 Ethereum", manifestIpfsCid: "QmDirectional"}],
+        total: 1,
+        returned: 1,
+      };
+    },
+    async getDeploymentActivity() {
+      return [{manifestIpfsCid: "QmDirectional", totalQueryCount30d: 1, dataPointsCount: 1}];
+    },
+    async getSchema() { return directionalSchema; },
+    async getTopDeploymentsForContract() { throw new Error("not expected"); },
+    async close() {},
+  };
+
+  const result = await new GraphSourceDiscoveryService(graph).discover({
+    needs: [{
+      id: "ethereum-swap-events",
+      dataNetwork: "eip155:1",
+      networkLabel: "Ethereum Mainnet",
+      keywords: ["Uniswap V3"],
+      description: "Individual swap events and their USD amount.",
+      grain: "swap_event",
+      fields: [swapNeedContract.fields[2], swapNeedContract.fields[3]],
+      constraints: [],
+    }],
+  });
+
+  const swaps = result.candidates[0]?.entities.find((entity) => entity.queryEntity === "swaps");
+  assert.deepEqual(swaps?.matchedRequirements, ["timestamp", "volume_usd"]);
+  assert.deepEqual(
+    swaps?.suggestedBindings.find((binding) => binding.requirementId === "volume_usd")?.fieldPaths.slice(0, 2),
+    ["amountInUSD", "amountOutUSD"],
+  );
+  assert.ok((swaps?.suggestedBindings.find((binding) => binding.requirementId === "volume_usd")?.fieldPaths.indexOf("pool.cumulativeVolumeUSD") ?? -1) >= 2);
+});
+
+test("Graph source discovery ranks protocol and grain fit ahead of unrelated high-activity schemas", async () => {
+  const schemas = new Map([
+    ["QmLending", `scalar BigInt scalar BigDecimal type Market { id: ID!, timestamp: BigInt!, amountUSD: BigDecimal! } type Query { markets(first: Int): [Market!]! }`],
+    ["QmUniswap", `scalar BigInt scalar BigDecimal type Swap { id: ID!, timestamp: BigInt!, amountInUSD: BigDecimal! } type Query { swaps(first: Int): [Swap!]! }`],
+  ]);
+  const graph: GraphPlanningMcpPort = {
+    async searchSubgraphsByKeyword() {
+      return {
+        subgraphs: [
+          {subgraphId: "sg-lending", displayName: "Lending Protocol Ethereum", manifestIpfsCid: "QmLending"},
+          {subgraphId: "sg-uniswap", displayName: "Uniswap V3 Ethereum", manifestIpfsCid: "QmUniswap"},
+        ],
+        total: 2,
+        returned: 2,
+      };
+    },
+    async getDeploymentActivity() {
+      return [
+        {manifestIpfsCid: "QmLending", totalQueryCount30d: 1_000_000, dataPointsCount: 30},
+        {manifestIpfsCid: "QmUniswap", totalQueryCount30d: 0, dataPointsCount: 30},
+      ];
+    },
+    async getSchema(input) { return schemas.get(input.id) ?? ""; },
+    async getTopDeploymentsForContract() { throw new Error("not expected"); },
+    async close() {},
+  };
+
+  const result = await new GraphSourceDiscoveryService(graph).discover({
+    needs: [{
+      id: "ethereum-swap-events",
+      dataNetwork: "eip155:1",
+      networkLabel: "Ethereum Mainnet",
+      keywords: ["Uniswap V3"],
+      description: "Individual Uniswap swap events.",
+      grain: "swap_event",
+      fields: [swapNeedContract.fields[2], swapNeedContract.fields[3]],
+      constraints: [],
+    }],
+  });
+
+  assert.equal(result.candidates[0]?.manifestIpfsCid, "QmUniswap");
+  assert.ok((result.candidates[0]?.score ?? 0) > (result.candidates[1]?.score ?? 0));
+});
+
 test("Graph source discovery fails closed before runtime introspection when the shared cache is unavailable", async () => {
   const entityOnlySchema = `type Swap @entity { id: ID! }`;
   let runtimeCalls = 0;
@@ -908,6 +1007,68 @@ test("Agent ranks relevant evidence first without hiding bounded schema fallback
   assert.equal(feasibilityRequest?.candidates[0]?.entities[0]?.fields[0]?.path, "id");
   assert.equal(feasibilityRequest?.candidates[0]?.entities[0]?.fields.length, 121);
   assert.ok(feasibilityRequest?.candidates[0]?.entities[0]?.fields.some((field) => field.path === "pool.metric119"));
+});
+
+test("Agent gives compact entity selection evidence a fair share across candidates", async () => {
+  let entitySelectionRequest: Extract<AgentModelRequest, {stage: "source_entity_selection"}> | undefined;
+  const candidate = (index: number) => ({
+    candidateRef: `graph:source_1:${String(index).padStart(20, "a")}`,
+    sourceNeedId: "source_1",
+    discoveryMethod: "keyword" as const,
+    logicalSubgraphId: `sg-${index}`,
+    manifestIpfsCid: `QmFair${index}`,
+    displayName: `Candidate ${index} Ethereum`,
+    reportedNetwork: null,
+    networkEvidence: "display_name" as const,
+    totalQueryCount30d: 1,
+    queryActivityEvidence: "observed" as const,
+    schemaHash: `sha256:fair-${index}`,
+    schemaBytes: 1,
+    entities: Array.from({length: 8}, (_, entityIndex) => ({
+      queryEntity: `records${index}_${entityIndex}`,
+      entityType: `Record${index}_${entityIndex}`,
+      fields: [{path: "id", graphType: "ID", valueType: "id" as const, nullable: false, list: false}],
+      suggestedBindings: [{requirementId: "record_id", fieldPaths: ["id"]}],
+      matchedRequirements: ["record_id"],
+      grainHint: "matched" as const,
+    })),
+    status: "suitable" as const,
+    score: 100 - index,
+    limitations: [],
+  });
+  const harness = new AgentHarness({
+    async complete(request: AgentModelRequest) {
+      if (request.stage === "source_entity_selection") entitySelectionRequest = request;
+      if (request.stage === "source_feasibility") {
+        return {
+          provider: "mock",
+          model: "fair-evidence-test",
+          output: {schemaVersion: 1, kind: "clarification", questions: [{code: "confirm", question: "Confirm the source."}]},
+        };
+      }
+      return {provider: "mock", model: "fair-evidence-test", output: createMockStageOutput(request)};
+    },
+  }, undefined, {
+    async discover() {
+      return {
+        schemaVersion: 1 as const,
+        provider: "the_graph" as const,
+        gatewayEnvironment: "mainnet" as const,
+        searchedNeeds: 1,
+        searchCalls: 1,
+        inspectedSchemas: 3,
+        candidates: [candidate(0), candidate(1), candidate(2)],
+        limits: {maxSearchCallsPerNeed: 3, maxSearchResultsPerCall: 10, maxSchemaInspectionsPerNeed: 10},
+      };
+    },
+  });
+
+  await harness.explore({
+    intent: "Read records from Ethereum.",
+    availableNetworks: [{dataNetwork: "eip155:1", label: "Ethereum"}],
+  });
+
+  assert.deepEqual(entitySelectionRequest?.candidates.map((item) => item.entities.length), [6, 5, 5]);
 });
 
 test("Agent repairs an unsupported source claim contradicted by inspected field evidence", async () => {

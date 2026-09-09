@@ -126,6 +126,24 @@ function terminal(path: string): string {
   return normalize(path.split(".").at(-1) ?? path).replace(/\s/g, "");
 }
 
+function identifierTokens(value: string): readonly string[] {
+  return value
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+}
+
+function isOrderedSubsequence(needle: readonly string[], haystack: readonly string[]): boolean {
+  if (needle.length === 0 || needle.length > haystack.length) return false;
+  let needleIndex = 0;
+  for (const token of haystack) {
+    if (token === needle[needleIndex]) needleIndex += 1;
+    if (needleIndex === needle.length) return true;
+  }
+  return false;
+}
+
 function semanticTokens(value: string): ReadonlySet<string> {
   const expanded = value.replace(/([a-z0-9])([A-Z])/g, "$1 $2");
   const ignored = new Set(["a", "an", "the", "one", "per", "row", "rows", "record", "records", "entity", "entities", "event", "events", "data", "indexed", "existing", "provider", "defined", "source", "raw"]);
@@ -223,16 +241,21 @@ function typeCompatible(requirement: GraphFieldRequirement, field: GraphInspecte
 function requirementPathScore(requirement: GraphFieldRequirement, field: GraphInspectedField, grain: string): number {
   if (!typeCompatible(requirement, field)) return 0;
   const leaf = terminal(field.path);
+  const leafTokens = identifierTokens(field.path.split(".").at(-1) ?? field.path);
   const full = normalize(field.path).replace(/[.\s]/g, "");
   const hints = [...requirement.hints, requirement.id]
-    .map((hint) => normalize(hint).replace(/[.\s]/g, ""))
-    .filter(Boolean);
+    .map((hint) => ({
+      compact: normalize(hint).replace(/[.\s]/g, ""),
+      tokens: identifierTokens(hint),
+    }))
+    .filter((hint) => hint.compact.length > 0);
   let score = 0;
   for (const hint of hints) {
-    if (leaf === hint) score = Math.max(score, 100);
-    else if (full === hint) score = Math.max(score, 95);
-    else if (full.endsWith(hint) || hint.endsWith(full)) score = Math.max(score, 80);
-    else if (full.includes(hint) || hint.includes(leaf)) score = Math.max(score, 55);
+    if (leaf === hint.compact) score = Math.max(score, 100);
+    else if (full === hint.compact) score = Math.max(score, 95);
+    else if (hint.tokens.length >= 2 && isOrderedSubsequence(hint.tokens, leafTokens)) score = Math.max(score, 88);
+    else if (full.endsWith(hint.compact) || hint.compact.endsWith(full)) score = Math.max(score, 80);
+    else if (full.includes(hint.compact) || hint.compact.includes(leaf)) score = Math.max(score, 55);
   }
   if (score === 0) return 0;
   const depth = field.path.split(".").length - 1;
@@ -241,8 +264,11 @@ function requirementPathScore(requirement: GraphFieldRequirement, field: GraphIn
   const eventGrain = /swap|trade|transaction|event/.test(normalize(grain));
   const perRowMetric = requirement.expectedType === "decimal" || requirement.expectedType === "integer";
   const metricRequirement = /amount|value|volume|price|quantity|fee|count/.test(semanticRequirement);
-  const aggregateField = /cumulative|total|volume|count|liquidity|tvl|daily|hourly/.test(leaf);
-  if (depth > 0 && eventGrain && perRowMetric && metricRequirement && aggregateField) score -= 60;
+  const intrinsicallyAggregateField = /cumulative|total|count|liquidity|tvl|daily|hourly/.test(leaf);
+  const nestedAggregateField = intrinsicallyAggregateField || /volume/.test(leaf);
+  if (eventGrain && perRowMetric && metricRequirement && (intrinsicallyAggregateField || (depth > 0 && nestedAggregateField))) {
+    score -= 60;
+  }
   return Math.max(0, score);
 }
 
@@ -361,11 +387,23 @@ function networkEvidence(
 
 function baseRank(need: GraphSourceDiscoveryNeed, candidate: RawCandidate, totalQueryCount30d: number | null): number {
   const evidence = networkEvidence(need, candidate);
-  const normalizedName = normalize(candidate.displayName);
-  const keywordMatch = need.keywords.some((value) => normalizedName.includes(normalize(value)));
+  const candidateTokens = semanticTokens(candidate.displayName);
+  const networkTokens = semanticTokens([
+    need.networkLabel,
+    ...Object.values(knownNetworkAliases).flat(),
+  ].join(" "));
+  const keywordRelevance = need.keywords.reduce((best, keyword) => {
+    const keywordTokens = [...semanticTokens(keyword)].filter((token) => !networkTokens.has(token));
+    if (keywordTokens.length === 0) return best;
+    const matches = keywordTokens.filter((token) => candidateTokens.has(token)).length;
+    const score = matches === keywordTokens.length
+      ? 30 + Math.min(10, matches * 5)
+      : Math.floor(20 * matches / keywordTokens.length);
+    return Math.max(best, score);
+  }, 0);
   const activityScore = totalQueryCount30d === null ? 0 : Math.min(20, Math.floor(Math.log10(totalQueryCount30d + 1) * 5));
   return (evidence === "contract_filter" ? 30 : evidence === "display_name" ? 25 : evidence === "conflict" ? -100 : 0)
-    + (keywordMatch ? 20 : 0)
+    + keywordRelevance
     + activityScore;
 }
 
@@ -620,8 +658,10 @@ export class GraphSourceDiscoveryService implements GraphSourceDiscoveryPort {
             ? "needs_verification"
             : "suitable";
         const bestMatchedRequirements = entities[0]?.matchedRequirements.length ?? 0;
+        const grainMatchScore = entities.some((entity) => entity.grainHint === "matched") ? 20 : 0;
         const score = baseRank(need, raw, activityEvidence?.totalQueryCount30d ?? null)
-          + bestMatchedRequirements * 15;
+          + bestMatchedRequirements * 15
+          + grainMatchScore;
         candidates.push({
           candidateRef: candidateRef(need.id, raw.manifestIpfsCid),
           sourceNeedId: need.id,

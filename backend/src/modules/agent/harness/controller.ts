@@ -279,13 +279,26 @@ function entitySelectionCandidates(
     const inspected = discovery.candidates.filter((candidate) => candidate.sourceNeedId === need.id && candidate.entities.length > 0);
     const selectable = inspected.filter((candidate) => candidate.status === "suitable");
     const candidatePool = selectable.length > 0 ? selectable : inspected;
+    const rankedByCandidate = candidatePool.map((candidate) => ({
+      candidate,
+      entities: candidate.entities.slice().sort((left, right) => compareRelevantEntities(need, left, right)),
+      selected: [] as GraphSchemaEntityInspection[],
+    }));
     let remainingEntities = maxFeasibilityEntitiesPerNeed;
-    for (const candidate of candidatePool) {
-      if (remainingEntities === 0) break;
-      const ranked = candidate.entities.slice().sort((left, right) => compareRelevantEntities(need, left, right));
-      const selectedEntities = ranked.slice(0, remainingEntities);
+    for (let entityRank = 0; remainingEntities > 0; entityRank += 1) {
+      let addedAtThisRank = false;
+      for (const item of rankedByCandidate) {
+        if (remainingEntities === 0) break;
+        const entity = item.entities[entityRank];
+        if (!entity) continue;
+        item.selected.push(entity);
+        remainingEntities -= 1;
+        addedAtThisRank = true;
+      }
+      if (!addedAtThisRank) break;
+    }
+    for (const {candidate, selected: selectedEntities} of rankedByCandidate) {
       if (selectedEntities.length === 0) continue;
-      remainingEntities -= selectedEntities.length;
       output.push({
         candidateRef: candidate.candidateRef,
         sourceNeedId: candidate.sourceNeedId,
