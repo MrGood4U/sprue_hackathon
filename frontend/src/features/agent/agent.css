@@ -7,6 +7,25 @@
 .agent-heading > .status { margin-top: 4px; }
 .agent-chat { width: min(1100px, 100%); min-height: 0; height: 100%; display: grid; align-content: start; gap: 15px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 4px 8px 20px 0; }
 .agent-chat:focus-visible { outline: var(--focus-width) solid var(--focus-color); outline-offset: var(--focus-offset); }
+.agent-chat, .agent-progress-panel {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-accent-agent) 42%, var(--color-foreground-tertiary)) transparent;
+}
+.agent-chat::-webkit-scrollbar, .agent-progress-panel::-webkit-scrollbar { width: 10px; height: 10px; }
+.agent-chat::-webkit-scrollbar-track, .agent-progress-panel::-webkit-scrollbar-track { background: transparent; }
+.agent-chat::-webkit-scrollbar-thumb, .agent-progress-panel::-webkit-scrollbar-thumb {
+  min-height: 44px;
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-color: color-mix(in srgb, var(--color-accent-agent) 42%, var(--color-foreground-tertiary));
+  background-clip: padding-box;
+}
+.agent-chat::-webkit-scrollbar-thumb:hover, .agent-progress-panel::-webkit-scrollbar-thumb:hover {
+  border-width: 2px;
+  background-color: color-mix(in srgb, var(--color-accent-agent) 72%, var(--color-foreground-tertiary));
+}
+.agent-chat::-webkit-scrollbar-button, .agent-progress-panel::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+.agent-chat::-webkit-scrollbar-corner, .agent-progress-panel::-webkit-scrollbar-corner { background: transparent; }
 .agent-message { border: 1px solid var(--line); border-radius: var(--panel-radius); padding: 18px 20px; background: var(--color-background-panel); }
 .agent-message-user { border-color: var(--color-border-agent); background: var(--color-background-agent-subtle); }
 .agent-message-assistant { background: var(--color-background-panel-subtle); }

@@ -189,6 +189,9 @@ test("keeps Agent Planner on live durable services without a demo fallback", asy
   assert.match(styles, /\.agent-conversation \{[^}]*grid-template-rows: auto minmax\(0, 1fr\) auto;/s);
   assert.match(styles, /\.agent-chat \{[^}]*overflow-y: auto;[^}]*overscroll-behavior: contain;/s);
   assert.match(styles, /\.agent-progress-panel \{[^}]*height: 100%;[^}]*overflow-y: auto;/s);
+  assert.match(styles, /\.agent-chat, \.agent-progress-panel \{[^}]*scrollbar-width: thin;[^}]*scrollbar-color:/s);
+  assert.match(styles, /\.agent-chat::\-webkit-scrollbar-thumb, \.agent-progress-panel::\-webkit-scrollbar-thumb \{[^}]*border-radius: 999px;[^}]*background-clip: padding-box;/s);
+  assert.match(styles, /\.agent-chat::\-webkit-scrollbar-button, \.agent-progress-panel::\-webkit-scrollbar-button \{[^}]*display: none;/s);
   assert.match(elapsedHook, /clearInterval\(intervalId\)/);
   assert.match(progress, /CircleNotch className="agent-trace-spinner"/);
   assert.match(progress, /semantic_entity_retrieval/);
