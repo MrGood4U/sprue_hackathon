@@ -70,6 +70,8 @@ test("keeps the Dashboard focused on metrics and the product list", async () => 
   assert.match(source, /dashboard\.status === "error"/);
   assert.match(source, /dashboard\.emptyTitle/);
   assert.match(source, /<Trash size=\{17\} \/>/);
+  assert.match(styles, /\.product-row > span:not\(\.product-cell\):not\(\.product-row-actions\)/);
+  assert.match(styles, /\.product-row > \.product-row-actions \{[^}]*display: flex;[^}]*flex-direction: row;/s);
   assert.match(source, /dashboard\.deleteProductTitle/);
   assert.match(source, /await dashboard\.remove\(product\.id\)/);
   assert.match(source, /<Button autoFocus[\s\S]*common\.cancel/);
