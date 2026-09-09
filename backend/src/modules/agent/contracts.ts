@@ -36,6 +36,34 @@ export interface AgentSourceEvidence {
   limitations: readonly string[];
 }
 
+export interface AgentBuilderDraft {
+  schemaVersion: 1;
+  status: "requires_source_admission";
+  sources: readonly {
+    id: string;
+    sourceNeedId: string;
+    candidateRef: string;
+    dataNetwork: string;
+    displayName: string;
+    logicalSubgraphId: string | null;
+    manifestIpfsCid: string;
+    queryEntity: string;
+    fieldBindings: readonly {requirementId: string; fieldPath: string}[];
+    evidenceStatus: "suitable" | "needs_verification";
+  }[];
+  nodes: readonly {
+    id: string;
+    type: "source" | "filter" | "map" | "aggregate" | "union" | "join" | "output";
+    operatorVersion: "1" | "2";
+    config: Readonly<Record<string, unknown>>;
+  }[];
+  edges: readonly {fromNode: string; fromPort: "rows"; toNode: string; toPort: "rows" | "left" | "right"}[];
+  outputSchema: {
+    fields: readonly {name: string; type: string; nullable: boolean; unit: string | null}[];
+  };
+  refreshPolicy: {mode: "manual" | "scheduled"; timezone: "UTC"};
+}
+
 export interface AgentProposalContent {
   schemaVersion: 1;
   kind: "proposal";
@@ -46,6 +74,7 @@ export interface AgentProposalContent {
   assumptions: readonly string[];
   issues: readonly {code: string; message: string}[];
   sourceEvidence: readonly AgentSourceEvidence[];
+  builderDraft: AgentBuilderDraft | null;
   composition: {
     sourceCount: number;
     operatorCount: number;

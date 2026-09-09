@@ -15,19 +15,22 @@ import { Field } from "../components/ui/Field.jsx";
 import { Status } from "../components/ui/Status.jsx";
 import { useI18n } from "../i18n/I18nProvider.jsx";
 import { useDemoRuntime } from "../features/runtime/DemoRuntimeProvider.jsx";
+import { productRefFromPath } from "../features/products/productRoute.js";
 
-export function MonetizationRevenuePage({ navigate }) {
+export function MonetizationRevenuePage({ path, navigate }) {
   const { t } = useI18n();
   const { state, runAction } = useDemoRuntime();
   const { product, monetization } = state;
   const [published, setPublished] = useState(monetization.published);
   const [price, setPrice] = useState(monetization.price);
   const numericPrice = Number(price) || 0;
+  const productRef = productRefFromPath(path);
 
   return (
     <div className="product-page">
       <ProductHeader
         product={product}
+        productRef={productRef}
         active="monetize"
         navigate={navigate}
         onRename={(name) => runAction("rename_product", {name})}

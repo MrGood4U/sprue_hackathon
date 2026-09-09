@@ -4,13 +4,13 @@ import { useI18n } from "../../i18n/I18nProvider.jsx";
 import { LanguageSwitcher } from "../navigation/LanguageSwitcher.jsx";
 import { EditableProductName } from "./EditableProductName.jsx";
 
-export function ProductHeader({ product, active, navigate, onRename }) {
+export function ProductHeader({ product, productRef = product.slug, active, navigate, onRename }) {
   const { t } = useI18n();
   const tabs = [
-    ["agent", "productHeader.agent", `/app/products/${product.slug}/agent`],
-    ["build", "productHeader.build", `/app/products/${product.slug}/build`],
-    ["api", "productHeader.api", `/app/products/${product.slug}/api`],
-    ["monetize", "productHeader.monetize", `/app/products/${product.slug}/monetize`],
+    ["agent", "productHeader.agent", `/app/products/${productRef}/agent`],
+    ["build", "productHeader.build", `/app/products/${productRef}/build`],
+    ["api", "productHeader.api", `/app/products/${productRef}/api`],
+    ["monetize", "productHeader.monetize", `/app/products/${productRef}/monetize`],
   ];
 
   return (
@@ -20,11 +20,13 @@ export function ProductHeader({ product, active, navigate, onRename }) {
           <button className="back-link" aria-label={t("productHeader.backToProducts")} onClick={() => navigate("/app")}>
             <ArrowLeft size={21} />
           </button>
-          <EditableProductName
-            name={product.name}
-            titleActivatesEdit
-            onCommit={onRename}
-          />
+          {onRename ? (
+            <EditableProductName
+              name={product.name}
+              titleActivatesEdit
+              onCommit={onRename}
+            />
+          ) : <h1 className="product-static-name">{product.name}</h1>}
         </div>
         <div className="product-head-actions">
           <LanguageSwitcher />

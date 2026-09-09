@@ -101,18 +101,22 @@ test("keeps Model Service credentials concealed and connection testing explicit"
 test("keeps Agent Planner on live durable services without a demo fallback", async () => {
   const page = await readFile(new URL("pages/AgentPage.jsx", sourceRoot), "utf8");
   const hook = await readFile(new URL("features/agent/useAgentPlan.js", sourceRoot), "utf8");
+  const agentData = await readFile(new URL("features/agent/agentData.js", sourceRoot), "utf8");
   const elapsedHook = await readFile(new URL("features/agent/useElapsedSeconds.js", sourceRoot), "utf8");
   const progress = await readFile(new URL("features/agent/AgentProgress.jsx", sourceRoot), "utf8");
   const stepCards = await readFile(new URL("features/agent/AgentStepCards.jsx", sourceRoot), "utf8");
   const agentApi = await readFile(new URL("services/api/agent.js", sourceRoot), "utf8");
   const styles = await readFile(new URL("features/agent/agent.css", sourceRoot), "utf8");
   const app = await readFile(new URL("app/App.jsx", sourceRoot), "utf8");
+  const builderPage = await readFile(new URL("pages/ProductBuilderPage.jsx", sourceRoot), "utf8");
+  const productHeader = await readFile(new URL("components/product/ProductHeader.jsx", sourceRoot), "utf8");
+  const appShell = await readFile(new URL("app/AppShell.jsx", sourceRoot), "utf8");
 
   assert.doesNotMatch(page, /useDemoRuntime|SPRUE-MOCK-PLANNER|assistantResponse|demoNotice/);
   assert.doesNotMatch(hook, /useDemoRuntime|runAction\("agent_plan"/);
   assert.match(hook, /createAgentSession/);
   assert.match(hook, /submitAgentMessage/);
-  assert.match(hook, /listAgentMessages/);
+  assert.match(agentData, /listAgentMessages/);
   assert.match(hook, /listAgentTraceEvents/);
   assert.match(hook, /cancelAgentPlanning/);
   assert.match(hook, /pollActiveTrace/);
@@ -121,7 +125,16 @@ test("keeps Agent Planner on live durable services without a demo fallback", asy
   assert.match(hook, /id: `pending-\$\{idempotencyKey\}`/);
   assert.match(hook, /Math\.min\(5000, Math\.round\(delayMs \* 1\.5\)\)/);
   assert.match(hook, /activeSubmission/);
-  assert.match(app, /!path\.endsWith\("\/agent"\)/);
+  assert.match(app, /path\.endsWith\("\/api"\) \|\| path\.endsWith\("\/monetize"\)/);
+  assert.doesNotMatch(builderPage, /useDemoRuntime|useBuildRun/);
+  assert.match(builderPage, /useProductBuilder\(productRef\)/);
+  assert.match(builderPage, /cacheBuilderDraft/);
+  assert.match(productHeader, /productRef = product\.slug/);
+  assert.match(productHeader, /`\/app\/products\/\$\{productRef\}\/agent`/);
+  assert.match(appShell, /<ProductBuilderPage path=\{path\}/);
+  assert.match(page, /<ProductHeader product=\{routeProduct\} productRef=\{productRef\} active="agent"/);
+  assert.match(page, /<ProductHeader product=\{agent\.product\} productRef=\{productRef\} active="agent"/);
+  assert.match(page, /const buildPath = `\/app\/products\/\$\{productRef\}\/build`/);
   assert.match(page, /readyForCompilation === true/);
   assert.match(page, /agent\.manualCreate/);
   assert.match(page, /agent\.stopAction/);

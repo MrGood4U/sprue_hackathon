@@ -17,12 +17,8 @@ import {AgentProgress} from "../features/agent/AgentProgress.jsx";
 import {AgentStepCards} from "../features/agent/AgentStepCards.jsx";
 import {useAgentPlan} from "../features/agent/useAgentPlan.js";
 import {useElapsedSeconds} from "../features/agent/useElapsedSeconds.js";
+import {productRefFromPath} from "../features/products/productRoute.js";
 import "../features/agent/agent.css";
-
-function productRefFromPath(path) {
-  const match = path.match(/^\/app\/products\/([^/]+)\/agent$/);
-  return match ? decodeURIComponent(match[1]) : null;
-}
 
 function errorTranslationKey(code) {
   const keys = {
@@ -153,6 +149,7 @@ export function AgentPage({path, navigate}) {
   const initializedProduct = useRef(null);
   const isPlanning = agent.status === "planning";
   const elapsedSeconds = useElapsedSeconds(isPlanning);
+  const routeProduct = agent.product ?? {name: productRef || t("builder.unknownProduct"), slug: productRef};
 
   useEffect(() => {
     if (agent.product && initializedProduct.current !== agent.product.id) {
@@ -163,11 +160,11 @@ export function AgentPage({path, navigate}) {
   }, [agent.messages, agent.product]);
 
   if (agent.status === "loading" && !agent.product) {
-    return <main className="runtime-gate"><div className="panel"><span className="section-label">{t("agent.loadingLabel")}</span><h1>{t("agent.loadingTitle")}</h1><p>{t("agent.loadingDetail")}</p></div></main>;
+    return <div className="product-page agent-page"><ProductHeader product={routeProduct} productRef={productRef} active="agent" navigate={navigate} /><main className="runtime-gate"><div className="panel"><span className="section-label">{t("agent.loadingLabel")}</span><h1>{t("agent.loadingTitle")}</h1><p>{t("agent.loadingDetail")}</p></div></main></div>;
   }
 
   if (agent.status === "error" && !agent.product) {
-    return <main className="runtime-gate"><div className="panel"><span className="section-label">{t("agent.loadErrorLabel")}</span><h1>{t("agent.loadErrorTitle")}</h1><p>{t("agent.loadErrorDetail")}</p><Button variant="primary" onClick={() => agent.refresh()}>{t("agent.retry")}</Button></div></main>;
+    return <div className="product-page agent-page"><ProductHeader product={routeProduct} productRef={productRef} active="agent" navigate={navigate} /><main className="runtime-gate"><div className="panel"><span className="section-label">{t("agent.loadErrorLabel")}</span><h1>{t("agent.loadErrorTitle")}</h1><p>{t("agent.loadErrorDetail")}</p><Button variant="primary" onClick={() => agent.refresh()}>{t("agent.retry")}</Button></div></main></div>;
   }
 
   if (!agent.product) return null;
@@ -177,7 +174,7 @@ export function AgentPage({path, navigate}) {
       ? [{id: `product-intent-${agent.product.id}`, role: "user", contentText: agent.product.originalIntent, contentJson: null}]
       : [];
   const canReviewDag = agent.latestAssistant?.contentJson?.readyForCompilation === true;
-  const buildPath = `/app/products/${agent.product.slug}/build`;
+  const buildPath = `/app/products/${productRef}/build`;
   const isBeforeFirstRun = !isPlanning && agent.messages.length === 0 && !agent.latestAssistant;
 
   const submitPlan = (event) => {
@@ -198,7 +195,7 @@ export function AgentPage({path, navigate}) {
 
   return (
     <div className="product-page agent-page">
-      <ProductHeader product={agent.product} active="agent" navigate={navigate} onRename={agent.rename} />
+      <ProductHeader product={agent.product} productRef={productRef} active="agent" navigate={navigate} onRename={agent.rename} />
       <main className="agent-layout">
         <section className="agent-conversation">
           <div className="content-heading agent-heading">

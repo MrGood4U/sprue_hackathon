@@ -14,8 +14,9 @@ import { Status } from "../components/ui/Status.jsx";
 import { useI18n } from "../i18n/I18nProvider.jsx";
 import { useRequestTest } from "../features/deployment/useRequestTest.js";
 import { useDemoRuntime } from "../features/runtime/DemoRuntimeProvider.jsx";
+import { productRefFromPath } from "../features/products/productRoute.js";
 
-export function ApiDeploymentPage({ navigate }) {
+export function ApiDeploymentPage({ path, navigate }) {
   const { t } = useI18n();
   const { state, runAction } = useDemoRuntime();
   const { product, api } = state;
@@ -29,6 +30,7 @@ export function ApiDeploymentPage({ navigate }) {
   const requestUrl = `${api.endpoint}?limit=${requestLimit}`;
   const { response, result, runTest } = useRequestTest(requestLimit);
   const [copied, setCopied] = useState(false);
+  const productRef = productRefFromPath(path);
 
   const copyEndpoint = async () => {
     await navigator.clipboard?.writeText(api.endpoint);
@@ -38,7 +40,7 @@ export function ApiDeploymentPage({ navigate }) {
 
   return (
     <div className="product-page">
-      <ProductHeader product={product} active="api" navigate={navigate} onRename={(name) => runAction("rename_product", {name})} />
+      <ProductHeader product={product} productRef={productRef} active="api" navigate={navigate} onRename={(name) => runAction("rename_product", {name})} />
       <main className="product-content">
         <div className="content-heading">
           <div>

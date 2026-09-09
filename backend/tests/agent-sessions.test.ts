@@ -69,7 +69,14 @@ test("Agent sessions persist real planner input, evidence summary, trace, and re
         return {
           kind: "feasibility",
           readyForCompilation: false,
-          discoveryPlan: {semanticPlan: {summary: "Find wallets active across Ethereum and Arbitrum."}},
+          discoveryPlan: {semanticPlan: {
+            summary: "Find wallets active across Ethereum and Arbitrum.",
+            result: {fields: [
+              {name: "wallet", type: "address", nullable: false, unit: null},
+              {name: "trade_count", type: "integer", nullable: false, unit: null},
+            ]},
+            refresh: {mode: "manual", timezone: "UTC"},
+          }},
           sourceNeeds: [
             {id: "need-ethereum", dataNetwork: "eip155:1"},
             {id: "need-arbitrum", dataNetwork: "eip155:42161"},
@@ -119,8 +126,15 @@ test("Agent sessions persist real planner input, evidence summary, trace, and re
               ], rationale: "Field fit"},
             ],
             composition: {
-              nodes: [{role: "join", operator: "join"}],
-              connections: [{fromRole: "left", toRole: "join", inputRole: "left"}],
+              nodes: [
+                {role: "join", operator: "join", operatorVersion: "2", config: {type: "inner", keys: [{left: "wallet", right: "wallet"}], cardinality: "one_to_one", rightPrefix: "right_"}},
+                {role: "result", operator: "output", operatorVersion: "2", config: {fields: ["wallet", "trade_count"], orderBy: [{field: "wallet", direction: "asc"}]}},
+              ],
+              connections: [
+                {fromRole: "source__need_ethereum", toRole: "join", inputRole: "left"},
+                {fromRole: "source__need_arbitrum", toRole: "join", inputRole: "right"},
+                {fromRole: "join", toRole: "result", inputRole: "rows"},
+              ],
             },
           },
           blockers: ["Coverage remains unverified."],
@@ -200,6 +214,9 @@ test("Agent sessions persist real planner input, evidence summary, trace, and re
     if (messages.items[1]?.contentJson?.kind === "proposal") {
       assert.equal(messages.items[1].contentJson.sourceEvidence.length, 2);
       assert.equal(messages.items[1].contentJson.readyForCompilation, false);
+      assert.equal(messages.items[1].contentJson.builderDraft?.status, "requires_source_admission");
+      assert.equal(messages.items[1].contentJson.builderDraft?.nodes.length, 4);
+      assert.deepEqual(messages.items[1].contentJson.builderDraft?.outputSchema.fields.map((field) => field.name), ["wallet", "trade_count"]);
       assert.equal(Number.isInteger(messages.items[1].contentJson.durationMs), true);
       assert.equal(messages.items[1].contentJson.durationMs >= 0, true);
     }

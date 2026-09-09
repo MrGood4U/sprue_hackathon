@@ -20,6 +20,7 @@ export function useWorkflowEditor(sourceDraft) {
   const deleteSelection = useCallback(() => dispatch({ type: "delete_selection" }), []);
   const undo = useCallback(() => dispatch({ type: "undo" }), []);
   const redo = useCallback(() => dispatch({ type: "redo" }), []);
+  const markClean = useCallback(() => dispatch({ type: "mark_clean" }), []);
 
   return {
     ...state,
@@ -35,6 +36,7 @@ export function useWorkflowEditor(sourceDraft) {
     deleteSelection,
     undo,
     redo,
+    markClean,
     canUndo: state.history.length > 0,
     canRedo: state.future.length > 0,
   };

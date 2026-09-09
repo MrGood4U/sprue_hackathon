@@ -21,6 +21,7 @@ import {
   type AgentSessionView,
 } from "./contracts.js";
 import {AgentHarness} from "./harness/controller.js";
+import {sourceRole} from "./harness/compiler.js";
 import {createAgentModel} from "./harness/factory.js";
 import {AgentModelRequestError} from "./harness/remote-model.js";
 import type {AgentDebugSink, AgentTraceSink, HarnessExplorationResult, HarnessTraceEvent} from "./harness/types.js";
@@ -136,6 +137,7 @@ function proposalContent(
       assumptions: [],
       issues: [{code: result.unsupported.code, message: result.unsupported.reason}],
       sourceEvidence: [],
+      builderDraft: null,
       composition: null,
       discovery: result.discovery ? {
         gatewayEnvironment: result.discovery.gatewayEnvironment,
@@ -180,6 +182,62 @@ function proposalContent(
     "Immutable Deployment ID, historical coverage, access binding, bounded GraphQL compilation, and source snapshot admission are required before execution.",
     ...result.blockers,
   ])].map((message) => ({code: "SOURCE_ADMISSION_REQUIRED", message}));
+  const builderSources = result.feasibility.selections.flatMap((selection) => {
+    const candidate = candidates.get(selection.candidateRef);
+    const need = needs.get(selection.sourceNeedId);
+    const entity = candidate?.entities.find((value) => value.queryEntity === selection.queryEntity);
+    if (!candidate || !need || candidate.status === "incompatible" || !entity) return [];
+    return [{
+      id: selection.candidateRef,
+      sourceNeedId: selection.sourceNeedId,
+      candidateRef: selection.candidateRef,
+      dataNetwork: need.dataNetwork,
+      displayName: candidate.displayName,
+      logicalSubgraphId: candidate.logicalSubgraphId,
+      manifestIpfsCid: candidate.manifestIpfsCid,
+      queryEntity: selection.queryEntity,
+      fieldBindings: selection.fieldBindings,
+      evidenceStatus: candidate.status,
+    }];
+  });
+  const builderDraft = {
+    schemaVersion: 1 as const,
+    status: "requires_source_admission" as const,
+    sources: builderSources,
+    nodes: [
+      ...builderSources.map((source) => ({
+        id: sourceRole(source.sourceNeedId),
+        type: "source" as const,
+        operatorVersion: "1" as const,
+        config: {
+          sourceId: source.id,
+          queryEntity: source.queryEntity,
+          fieldBindings: source.fieldBindings,
+        },
+      })),
+      ...result.feasibility.composition.nodes.map((node) => ({
+        id: node.role,
+        type: node.operator,
+        operatorVersion: node.operatorVersion,
+        config: node.config,
+      })),
+    ],
+    edges: result.feasibility.composition.connections.map((connection) => ({
+      fromNode: connection.fromRole,
+      fromPort: "rows" as const,
+      toNode: connection.toRole,
+      toPort: connection.inputRole,
+    })),
+    outputSchema: {
+      fields: result.discoveryPlan.semanticPlan.result.fields.map((field) => ({
+        name: field.name,
+        type: field.type,
+        nullable: field.nullable,
+        unit: field.unit,
+      })),
+    },
+    refreshPolicy: result.discoveryPlan.semanticPlan.refresh,
+  };
   const withoutHash = {
     schemaVersion: 1 as const,
     kind: "proposal" as const,
@@ -189,6 +247,7 @@ function proposalContent(
     assumptions: result.feasibility.assumptions,
     issues,
     sourceEvidence,
+    builderDraft,
     composition: {
       sourceCount: sourceEvidence.length,
       operatorCount: result.feasibility.composition.nodes.length,

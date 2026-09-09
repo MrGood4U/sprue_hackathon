@@ -137,7 +137,7 @@ function Test-LocalStack {
     if ($LASTEXITCODE -ne 0) {
         throw 'The served frontend image is stale and does not include the live Agent client. Run scripts/local.ps1 up to rebuild it.'
     }
-    Write-Output "Local framework ready: $consoleUrl (Dashboard, Wallet, Model Service, and Agent Planner use live authenticated data; Build, API, and Monetize remain on the identified demo runtime)."
+    Write-Output "Local framework ready: $consoleUrl (Dashboard, Wallet, Model Service, Agent Planner, and Builder planning drafts use live authenticated data; API and Monetize retain the identified demo runtime)."
 }
 
 # Prevent inherited shell values from silently overriding the reviewed local file.

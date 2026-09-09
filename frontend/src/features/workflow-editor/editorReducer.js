@@ -52,6 +52,7 @@ function applyEdgeChanges(edges, changes) {
 export function editorReducer(state, action) {
   switch (action.type) {
     case "reset": return createEditorState(action.draft);
+    case "mark_clean": return {...state, dirty: false};
     case "set_tool": return { ...state, tool: action.tool };
     case "select_node": return {
       ...state,

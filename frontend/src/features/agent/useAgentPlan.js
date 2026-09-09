@@ -3,37 +3,13 @@ import {useAuth} from "../auth/AuthProvider.jsx";
 import {
   cancelAgentPlanning,
   createAgentSession,
-  listAgentMessages,
   listAgentSessions,
   listAgentTraceEvents,
   submitAgentMessage,
 } from "../../services/api/agent.js";
-import {getProduct, listProducts, updateProduct} from "../../services/api/products.js";
+import {getProduct, updateProduct} from "../../services/api/products.js";
+import {loadAgentMessages, resolveProduct} from "./agentData.js";
 import {latestRunMessages} from "./latestRunMessages.js";
-
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-async function resolveProduct(productRef, options) {
-  if (uuidPattern.test(productRef ?? "")) return getProduct(productRef, options);
-  const {products} = await listProducts({...options, limit: 100});
-  const summary = products.find((item) => item.slug === productRef);
-  if (!summary) throw new Error("PRODUCT_NOT_FOUND");
-  return getProduct(summary.id, options);
-}
-
-async function loadMessages(sessionId, options) {
-  const messages = [];
-  let afterSequence = 0;
-  for (let page = 0; page < 10; page += 1) {
-    const result = await listAgentMessages(sessionId, {...options, afterSequence, limit: 100});
-    messages.push(...result.messages);
-    if (!result.hasMore) return messages;
-    const next = Number(result.nextAfterSequence);
-    if (!Number.isSafeInteger(next) || next <= afterSequence) throw new Error("INVALID_AGENT_API_RESPONSE");
-    afterSequence = next;
-  }
-  throw new Error("AGENT_MESSAGE_LIMIT_EXCEEDED");
-}
 
 function pollingDelay(signal, milliseconds) {
   return new Promise((resolve) => {
@@ -121,7 +97,7 @@ export function useAgentPlan(productRef) {
       const product = await resolveProduct(productRef, options);
       const sessions = await listAgentSessions({...options, productId: product.id});
       const session = sessions.find((item) => item.status === "active") ?? sessions[0] ?? null;
-      const messages = latestRunMessages(session ? await loadMessages(session.id, options) : []);
+      const messages = latestRunMessages(session ? await loadAgentMessages(session.id, options) : []);
       const hasActivePlanning = Boolean(session?.activeCommandId);
       setState({
         status: hasActivePlanning ? "planning" : "ready",
@@ -178,7 +154,7 @@ export function useAgentPlan(productRef) {
       );
       if (controller.signal.aborted) return;
       const [allMessages, product, sessions] = await Promise.all([
-        loadMessages(session.id, options),
+        loadAgentMessages(session.id, options),
         getProduct(state.product.id, options),
         listAgentSessions({...options, productId: state.product.id}),
       ]);
@@ -270,7 +246,7 @@ export function useAgentPlan(productRef) {
         if (activeSubmission.current === submissionController) activeSubmission.current = null;
       }
       const [allMessages, product] = await Promise.all([
-        loadMessages(session.id, options),
+        loadAgentMessages(session.id, options),
         getProduct(state.product.id, options),
       ]);
       requestKey.current = null;

@@ -6,6 +6,7 @@ export function BuildReadiness({ draft, validation = [], onInspect, collapsed, o
   const { t } = useI18n();
   const sourceNode = draft.specification.dag.nodes.find((node) => node.type === "source");
   const outputFields = draft.specification.outputSchema.fields ?? [];
+  const isAgentDraft = draft.origin?.kind === "agent";
   if (collapsed) {
     return (
       <aside className="readiness-panel readiness-panel-collapsed">
@@ -24,8 +25,9 @@ export function BuildReadiness({ draft, validation = [], onInspect, collapsed, o
         </IconButton>
       </div>
       <div className="readiness-block">
-        <div className="readiness-title"><Database size={22} className="violet-text" /><strong>{t("dag.sampleLabel")}</strong></div>
-        <p>{t("builder.sampleNotice")}</p>
+        <div className="readiness-title"><Database size={22} className="violet-text" /><strong>{t(isAgentDraft ? "builder.agentDraftTitle" : "builder.manualDraftTitle")}</strong></div>
+        <p>{t(isAgentDraft ? "builder.agentDraftNotice" : "builder.manualDraftNotice")}</p>
+        <p className="builder-intent-summary"><strong>{t("builder.intent")}:</strong> {draft.specification.intent.summary || t("builder.noIntent")}</p>
         {sourceNode && <button className="text-link" onClick={() => onInspect(sourceNode.id)}>{t("dag.inspectSource")}</button>}
       </div>
       <div className="readiness-block">
@@ -34,9 +36,8 @@ export function BuildReadiness({ draft, validation = [], onInspect, collapsed, o
         <button className="text-link" onClick={() => onInspect("schema")}>{t("readiness.viewFullSchema")}</button>
       </div>
       <div className="readiness-block">
-        <strong>{t("builder.expectedResult")}</strong>
-        <pre className="schema-preview">{JSON.stringify(draft.referenceResult, null, 2)}</pre>
-        <p>{t("builder.oracleNotice")}</p>
+        <strong>{t("builder.runtimePreview")}</strong>
+        <p>{t("builder.runtimePreviewUnavailable")}</p>
       </div>
       {validation.length > 0 && <div className="readiness-validation" role="status">{t("readiness.validationError", { count: validation.length })}</div>}
     </aside>

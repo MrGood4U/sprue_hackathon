@@ -83,7 +83,7 @@ function CreatorRoute({ path, navigate }) {
       </main>
     );
   const shell = <AppShell path={path} navigate={navigate} />;
-  return path.includes("/products/") && !path.endsWith("/agent")
+  return path.includes("/products/") && (path.endsWith("/api") || path.endsWith("/monetize"))
     ? <RuntimeBoundary scope="creator">{shell}</RuntimeBoundary>
     : shell;
 }

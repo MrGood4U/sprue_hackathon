@@ -2,7 +2,7 @@ import { ArrowRight, ArrowsClockwise, FloppyDisk, Graph } from "@phosphor-icons/
 import { Button } from "../../components/ui/Button.jsx";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
 
-export function ExecutionTrace({ buildState, onBuild, onOpenDag, onSaveDraft, canSaveDraft, saveState }) {
+export function ExecutionTrace({ buildState, onBuild, onOpenDag, onSaveDraft, canSaveDraft, saveState, buildDisabled = false, buildDisabledReason = null }) {
   const { t } = useI18n();
   const buildLabel = buildState === "building"
     ? t("trace.building")
@@ -18,12 +18,13 @@ export function ExecutionTrace({ buildState, onBuild, onOpenDag, onSaveDraft, ca
         <Button
           variant="primary"
           icon={buildState === "building" ? ArrowsClockwise : ArrowRight}
-          disabled={buildState === "building"}
+          disabled={buildState === "building" || buildDisabled}
           onClick={onBuild}
         >
           {buildLabel}
         </Button>
-        {saveState === "demo" && <span className="draft-save-feedback" role="status">{t("trace.saveDraftDemo")}</span>}
+        {saveState === "session" && <span className="draft-save-feedback" role="status">{t("trace.saveDraftSession")}</span>}
+        {buildDisabledReason && <span className="draft-save-feedback" role="status">{buildDisabledReason}</span>}
       </div>
     </div>
   );
