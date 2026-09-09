@@ -71,6 +71,7 @@ export type LogEvent =
       provider?: "mock" | "remote";
       model?: string;
       outputBytes?: number;
+      modelOutput?: unknown;
       outputKind?: string | null;
       schemaVersion?: number | null;
       unresolvedCount?: number;
@@ -115,8 +116,10 @@ export type LogEvent =
       outcome?: "selection" | "feasibility" | "clarification" | "unsupported" | "repair";
       code?: string;
       validationCode?: string;
+      validationMessage?: string;
       schemaPath?: string;
       schemaIssueCode?: string;
+      schemaIssueMessage?: string;
       willRepair?: boolean;
       selectionCount?: number;
       compositionNodeCount?: number;

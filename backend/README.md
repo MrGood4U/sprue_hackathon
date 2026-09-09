@@ -59,7 +59,7 @@ backend/
 - Domain modules must not import Railway, Vercel, or Docker APIs.
 - Provider SDKs stay behind adapters; domain services depend on explicit ports or interfaces.
 - The API and worker share domain logic and persistence contracts but have separate bootstraps and commands.
-- Set the API-only `AGENT_DEBUG=true` environment variable for bounded Agent diagnostics while investigating source discovery. It logs validated search keywords, candidate metadata and stage outcomes, but never logs model prompts, provider response bodies, API keys, or authorization headers. Keep it disabled outside local debugging.
+- Set the API-only `AGENT_DEBUG=true` environment variable for bounded Agent diagnostics while investigating source discovery. It logs validated search keywords, candidate metadata, complete parsed planning-stage outputs, and exact schema/semantic validation failures. It never logs model prompts, raw provider envelopes or hidden reasoning, API keys, or authorization headers. Parsed planning output can contain user-authored or model-derived text, so keep it disabled outside controlled local debugging.
 - Set `GRAPH_GATEWAY_ENVIRONMENT=mainnet`; the current Graph MCP adapter and Agent data-network catalog intentionally reject a testnet value. This does not change the separately pinned Hedera testnet settlement profile.
 - The Agent may emit only a structured Data Product Spec and allowlisted DAG. Never execute arbitrary generated JavaScript or Python.
 - PostgreSQL is the durable source of truth. Do not make local files or process memory authoritative for jobs, versions, budgets, or payments.

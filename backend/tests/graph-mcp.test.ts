@@ -1101,6 +1101,7 @@ test("Agent can select inspected fields when no lexical grain or field hint matc
 
 test("Agent performs one bounded repair when source-planning tool arguments fail schema validation", async () => {
   const requests: AgentModelRequest[] = [];
+  const debugEvents: AgentDebugEvent[] = [];
   let discoveryCalled = false;
   const harness = new AgentHarness({
     async complete(request: AgentModelRequest) {
@@ -1122,7 +1123,7 @@ test("Agent performs one bounded repair when source-planning tool arguments fail
       discoveryCalled = true;
       throw new Error("must not run after clarification");
     },
-  });
+  }, (event) => debugEvents.push(event));
 
   const result = await harness.explore({
     intent: "Find cross-chain swap wallets on Ethereum and Arbitrum.",
@@ -1142,9 +1143,13 @@ test("Agent performs one bounded repair when source-planning tool arguments fail
     path: "schemaVersion",
     issueCode: "invalid_value",
   });
+  const schemaFailure = debugEvents.find((event) => "phase" in event && event.phase === "schema_validation_failed");
+  assert.ok(schemaFailure && "schemaIssueMessage" in schemaFailure);
+  assert.match(schemaFailure.validationMessage ?? "", /schemaVersion/);
+  assert.match(schemaFailure.schemaIssueMessage ?? "", /Invalid input/);
 });
 
-test("Agent debug logs expose safe model and semantic validation diagnostics before source discovery", async () => {
+test("Agent debug logs expose full structured output and exact semantic validation diagnostics before source discovery", async () => {
   const debugEvents: AgentDebugEvent[] = [];
   let discoveryCalled = false;
   const sensitiveUnresolvedText = "private user-derived ambiguity";
@@ -1180,12 +1185,14 @@ test("Agent debug logs expose safe model and semantic validation diagnostics bef
   assert.equal(received.unresolvedCount, 1);
   assert.equal(received.sourceRequirementCount, 2);
   assert.equal(received.searchCount, 2);
+  assert.equal((received.modelOutput as {semanticPlan: {unresolved: string[]}}).semanticPlan.unresolved[0], sensitiveUnresolvedText);
 
   const rejected = debugEvents.find((event) => "phase" in event && event.phase === "semantic_validation_failed");
   assert.ok(rejected && "validationCode" in rejected);
   assert.equal(rejected.validationCode, "SEMANTIC_PLAN_UNRESOLVED");
+  assert.equal(rejected.validationMessage, "Discovery plan cannot retain unresolved semantics");
   assert.equal(rejected.unresolvedCount, 1);
-  assert.equal(JSON.stringify(debugEvents).includes(sensitiveUnresolvedText), false);
+  assert.equal(JSON.stringify(debugEvents).includes(sensitiveUnresolvedText), true);
 });
 
 test("Agent accepts independent per-network search hints beyond the former global keyword limit", async () => {

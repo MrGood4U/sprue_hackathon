@@ -17,8 +17,9 @@ export interface AgentModelConfig {
 
 /**
  * Local diagnostics emitted only when the server-side Agent debug switch is
- * enabled. This deliberately contains planning metadata, never prompts,
- * provider response bodies, credentials, or user/workspace identifiers.
+ * enabled. Parsed planning-stage output and exact validation failures are
+ * included so a failed run can be reproduced. Prompts, provider envelopes,
+ * credentials, and user/workspace identifiers remain excluded.
  */
 export type AgentDebugEvent =
   | {
@@ -36,6 +37,7 @@ export type AgentDebugEvent =
       provider?: AgentModelResponse["provider"];
       model?: string;
       outputBytes?: number;
+      modelOutput?: unknown;
       outputKind?: string | null;
       schemaVersion?: number | null;
       unresolvedCount?: number;
@@ -44,8 +46,10 @@ export type AgentDebugEvent =
       selectionCount?: number;
       compositionNodeCount?: number;
       validationCode?: string;
+      validationMessage?: string;
       schemaPath?: string;
       schemaIssueCode?: string;
+      schemaIssueMessage?: string;
       willRepair?: boolean;
     }
   | {

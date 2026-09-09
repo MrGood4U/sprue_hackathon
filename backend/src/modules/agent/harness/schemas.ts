@@ -358,8 +358,9 @@ export class HarnessSchemaError extends Error {
     readonly stage: string,
     readonly path: string,
     readonly issueCode: string,
+    readonly issueMessage: string,
   ) {
-    super(`${stage} response failed schema validation at ${path}`);
+    super(`${stage} response failed schema validation at ${path}: ${issueMessage}`);
     this.name = "HarnessSchemaError";
   }
 }
@@ -369,7 +370,12 @@ function parse<T>(stage: string, schema: z.ZodType, output: unknown): T {
   if (!result.success) {
     const issue = result.error.issues[0];
     const path = issue?.path.length ? issue.path.map(String).join(".") : "$";
-    throw new HarnessSchemaError(stage, path, issue?.code ?? "invalid_output");
+    throw new HarnessSchemaError(
+      stage,
+      path,
+      issue?.code ?? "invalid_output",
+      issue?.message ?? "Invalid planning-stage output",
+    );
   }
   return result.data as T;
 }

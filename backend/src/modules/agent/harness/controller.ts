@@ -92,6 +92,11 @@ function diagnosticErrorCode(error: unknown): string {
   return safeDiagnosticToken(candidate.code, safeDiagnosticToken(candidate.name, "unexpected"));
 }
 
+function diagnosticErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) return error.message;
+  return typeof error === "string" && error.trim() ? error : "Unknown planning error";
+}
+
 function modelOutputShape(output: unknown): {
   outputKind: string | null;
   schemaVersion: number | null;
@@ -560,6 +565,7 @@ export class AgentHarness {
           repairAttempt: repair?.attempt ?? 0,
           repairReason: repair?.reason ?? null,
           validationCode: diagnosticErrorCode(error),
+          validationMessage: diagnosticErrorMessage(error),
         });
         throw error;
       }
@@ -574,6 +580,7 @@ export class AgentHarness {
         provider: response.provider,
         model: response.model,
         outputBytes: responseBytes,
+        modelOutput: response.output,
         ...modelOutputShape(response.output),
       });
       if (responseBytes > this.limits.maxProposalBytes) fail("Model stage output exceeds harness size limit", "MODEL_OUTPUT_LIMIT_EXCEEDED");
@@ -605,8 +612,10 @@ export class AgentHarness {
             repairAttempt: "repair" in modelRequest ? modelRequest.repair?.attempt ?? 0 : 0,
             repairReason: "repair" in modelRequest ? modelRequest.repair?.reason ?? null : null,
             validationCode: "AGENT_HARNESS_SCHEMA_ERROR",
+            validationMessage: error.message,
             schemaPath: error.path,
             schemaIssueCode: error.issueCode,
+            schemaIssueMessage: error.issueMessage,
             willRepair,
             ...modelOutputShape(response.output),
           });
@@ -635,8 +644,10 @@ export class AgentHarness {
               repairAttempt: 1,
               repairReason: "schema_validation_failed",
               validationCode: "AGENT_HARNESS_SCHEMA_ERROR",
+              validationMessage: repairError.message,
               schemaPath: repairError.path,
               schemaIssueCode: repairError.issueCode,
+              schemaIssueMessage: repairError.issueMessage,
               willRepair: false,
               ...modelOutputShape(repaired.output),
             });
@@ -677,6 +688,7 @@ export class AgentHarness {
         phase: "semantic_validation_failed",
         callNumber: modelCalls,
         validationCode: diagnosticErrorCode(error),
+        validationMessage: diagnosticErrorMessage(error),
         ...modelOutputShape(discoveryPlanningOutput),
       });
       throw error;
@@ -762,6 +774,7 @@ export class AgentHarness {
         phase: "semantic_validation_failed",
         callNumber: modelCalls,
         validationCode: diagnosticErrorCode(error),
+        validationMessage: diagnosticErrorMessage(error),
         ...modelOutputShape(entitySelectionOutput),
       });
       throw error;
@@ -852,6 +865,7 @@ export class AgentHarness {
         phase: "semantic_validation_failed",
         callNumber: modelCalls,
         validationCode: diagnosticErrorCode(error),
+        validationMessage: diagnosticErrorMessage(error),
         ...modelOutputShape(feasibilityOutput),
       });
       if (error instanceof HarnessCompileError) throw new HarnessValidationError(error.message, error.code);
