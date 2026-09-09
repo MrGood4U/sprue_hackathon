@@ -238,6 +238,7 @@ The demonstration must show creator funding, a real Graph purchase authorized th
 
 ### P2: Future Work Unless the Core Flow Is Stable
 
+- Wide-schema planning for requests with hundreds of semantic fields: embed each selected entity field once, reuse vectors for local requirement comparisons, derive explicit output/filter/group/sort/join/derivation dependencies, adapt the number of alternatives to confidence, bind requirements in bounded batches, merge and validate the batches against the complete inspected schema, and represent intentional all-field output as a deterministic projection rather than hundreds of model-authored bindings. The MVP retains its current maximum of 32 semantic field requirements per source need and 12 embedding-ranked alternatives per requirement.
 - Separate per-product wallets and general-purpose autonomous treasury management.
 - Marketplace discovery.
 - Automatic pricing optimization.
