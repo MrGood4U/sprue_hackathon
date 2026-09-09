@@ -326,11 +326,20 @@ export interface SourceFieldBinding {
   fieldPath: string;
 }
 
+export type SourceAuxiliaryFieldPurpose = "filter" | "join" | "group" | "sort" | "derive" | "output";
+
+export interface SourceAuxiliaryFieldBinding {
+  name: string;
+  fieldPath: string;
+  purpose: SourceAuxiliaryFieldPurpose;
+}
+
 export interface SourceFeasibilitySelection {
   sourceNeedId: string;
   candidateRef: string;
   queryEntity: string;
   fieldBindings: readonly SourceFieldBinding[];
+  auxiliaryFieldBindings: readonly SourceAuxiliaryFieldBinding[];
   rationale: string;
 }
 
@@ -370,7 +379,7 @@ export interface SourceDiscoveryPlanningModelRequest {
 
 export interface SourceFeasibilityModelRequest {
   stage: "source_feasibility";
-  promptVersion: "4";
+  promptVersion: "5";
   semanticPlan: DiscoverySemanticPlan;
   sourceNeeds: readonly DiscoverySourceNeed[];
   candidates: readonly SourceFeasibilityCandidate[];

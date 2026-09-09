@@ -290,6 +290,11 @@ const sourceFeasibilitySchema = z.object({
       requirementId: role,
       fieldPath,
     }).strict()).min(1).max(32),
+    auxiliaryFieldBindings: z.array(z.object({
+      name: role,
+      fieldPath,
+      purpose: z.enum(["filter", "join", "group", "sort", "derive", "output"]),
+    }).strict()).max(16),
     rationale: boundedText(1000),
   }).strict()).min(1).max(4),
   composition: flexibleCompositionIntentSchema,

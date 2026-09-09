@@ -5,6 +5,7 @@ import type {
   DiscoverySourceNeed,
   FlexibleCompositionIntent,
   OperatorSignature,
+  SourceAuxiliaryFieldPurpose,
   SourceFeasibilitySelection,
 } from "./types.js";
 
@@ -14,9 +15,26 @@ interface FieldShape {
   type: GraphSemanticValueType;
   nullable: boolean;
   unit: string | null;
+  origins: ReadonlySet<string>;
 }
 
 type RowShape = ReadonlyMap<string, FieldShape>;
+type FieldUsage = Map<string, Set<SourceAuxiliaryFieldPurpose>>;
+
+export interface SourceRoleAuxiliaryFieldShape {
+  name: string;
+  type: GraphSemanticValueType;
+  nullable: boolean;
+  unit: string | null;
+}
+
+function auxiliaryOrigin(sourceNeedId: string, name: string): string {
+  return `${sourceNeedId}:${name}`;
+}
+
+function mergedOrigins(fields: readonly FieldShape[]): ReadonlySet<string> {
+  return new Set(fields.flatMap((field) => [...field.origins]));
+}
 
 export const flexibleOperatorRegistry: readonly OperatorSignature[] = [
   {
@@ -103,10 +121,22 @@ function compatible(left: GraphSemanticValueType, right: GraphSemanticValueType)
   return (textual.has(left) && textual.has(right)) || (numeric.has(left) && numeric.has(right));
 }
 
-function field(shape: RowShape, name: unknown, label: string): FieldShape {
+function field(
+  shape: RowShape,
+  name: unknown,
+  label: string,
+  usage?: {fields: FieldUsage; purpose: SourceAuxiliaryFieldPurpose},
+): FieldShape {
   const fieldName = string(name, label);
   const found = shape.get(fieldName);
   if (!found) fail("EXPRESSION_FIELD_UNKNOWN", `${label} references unavailable field ${fieldName}`);
+  if (usage) {
+    for (const origin of found.origins) {
+      const purposes = usage.fields.get(origin) ?? new Set<SourceAuxiliaryFieldPurpose>();
+      purposes.add(usage.purpose);
+      usage.fields.set(origin, purposes);
+    }
+  }
   return found;
 }
 
@@ -114,14 +144,20 @@ interface ExpressionBudget {
   nodes: number;
 }
 
-function expressionType(value: unknown, shape: RowShape, budget: ExpressionBudget, depth = 0): FieldShape {
+function expressionType(
+  value: unknown,
+  shape: RowShape,
+  budget: ExpressionBudget,
+  usage: {fields: FieldUsage; purpose: SourceAuxiliaryFieldPurpose},
+  depth = 0,
+): FieldShape {
   if (depth > 8 || ++budget.nodes > 128) fail("EXPRESSION_LIMIT_EXCEEDED", "Expression exceeds the configured depth or node limit");
   const expression = record(value, "expression");
   const op = expression.op;
   if (typeof op !== "string") fail("EXPRESSION_INVALID", "Expression op is required");
   if (op === "field") {
     exactKeys(expression, ["op", "field"], "field expression");
-    return field(shape, expression.field, "expression.field");
+    return field(shape, expression.field, "expression.field", usage);
   }
   if (op === "literal") {
     exactKeys(expression, ["op", "valueType", "value"], "literal expression");
@@ -135,7 +171,7 @@ function expressionType(value: unknown, shape: RowShape, budget: ExpressionBudge
     if (expression.value !== null && !["string", "number", "boolean"].includes(typeof expression.value)) {
       fail("EXPRESSION_INVALID", "Literal value must be a scalar or null");
     }
-    return {type: valueType as GraphSemanticValueType, nullable: expression.value === null, unit: null};
+    return {type: valueType as GraphSemanticValueType, nullable: expression.value === null, unit: null, origins: new Set()};
   }
 
   exactKeys(expression, ["op", "inputs"], `${op} expression`);
@@ -149,14 +185,14 @@ function expressionType(value: unknown, shape: RowShape, budget: ExpressionBudge
   if (!unary.has(op) && !binary.has(op) && op !== "and" && op !== "or" && op !== "if") {
     fail("EXPRESSION_OPERATOR_UNKNOWN", `Expression operator ${op} is not registered`);
   }
-  const inferred = inputs.map((input) => expressionType(input, shape, budget, depth + 1));
+  const inferred = inputs.map((input) => expressionType(input, shape, budget, usage, depth + 1));
   if (op === "not" || op === "and" || op === "or") {
     if (inferred.some((item) => item.type !== "boolean")) fail("EXPRESSION_TYPE_INVALID", `${op} requires Boolean inputs`);
-    return {type: "boolean", nullable: inferred.some((item) => item.nullable), unit: null};
+    return {type: "boolean", nullable: inferred.some((item) => item.nullable), unit: null, origins: mergedOrigins(inferred)};
   }
   if (["eq", "ne", "lt", "lte", "gt", "gte"].includes(op)) {
     if (!compatible(inferred[0]!.type, inferred[1]!.type)) fail("EXPRESSION_TYPE_INVALID", `${op} inputs have incompatible types`);
-    return {type: "boolean", nullable: inferred.some((item) => item.nullable), unit: null};
+    return {type: "boolean", nullable: inferred.some((item) => item.nullable), unit: null, origins: mergedOrigins(inferred)};
   }
   if (["add", "subtract", "multiply", "safe_divide"].includes(op)) {
     const numeric = new Set<GraphSemanticValueType>(["integer", "decimal"]);
@@ -165,13 +201,14 @@ function expressionType(value: unknown, shape: RowShape, budget: ExpressionBudge
       type: op === "safe_divide" || inferred.some((item) => item.type === "decimal") ? "decimal" : "integer",
       nullable: op === "safe_divide" || inferred.some((item) => item.nullable),
       unit: op === "add" || op === "subtract" ? inferred[0]!.unit : null,
+      origins: mergedOrigins(inferred),
     };
   }
   if (op === "utc_date") {
     if (!new Set<GraphSemanticValueType>(["timestamp", "integer", "string"]).has(inferred[0]!.type)) {
       fail("EXPRESSION_TYPE_INVALID", "utc_date requires a timestamp-compatible input");
     }
-    return {type: "date", nullable: inferred[0]!.nullable, unit: null};
+    return {type: "date", nullable: inferred[0]!.nullable, unit: null, origins: inferred[0]!.origins};
   }
   if (inferred[0]!.type !== "boolean" || !compatible(inferred[1]!.type, inferred[2]!.type)) {
     fail("EXPRESSION_TYPE_INVALID", "if requires a Boolean condition and compatible result branches");
@@ -180,6 +217,7 @@ function expressionType(value: unknown, shape: RowShape, budget: ExpressionBudge
     type: inferred[1]!.type,
     nullable: inferred[1]!.nullable || inferred[2]!.nullable,
     unit: inferred[1]!.unit === inferred[2]!.unit ? inferred[1]!.unit : null,
+    origins: mergedOrigins(inferred),
   };
 }
 
@@ -187,12 +225,17 @@ function inputPorts(operator: FlexibleCompositionIntent["nodes"][number]["operat
   return operator === "union" || operator === "join" ? ["left", "right"] : ["rows"];
 }
 
-function outputShape(operator: string, configValue: Readonly<Record<string, unknown>>, inputs: ReadonlyMap<string, RowShape>): RowShape {
+function outputShape(
+  operator: string,
+  configValue: Readonly<Record<string, unknown>>,
+  inputs: ReadonlyMap<string, RowShape>,
+  usage: FieldUsage,
+): RowShape {
   const config = record(configValue, `${operator} config`);
   if (operator === "filter") {
     exactKeys(config, ["expression"], "Filter config");
     const source = inputs.get("rows")!;
-    const result = expressionType(config.expression, source, {nodes: 0});
+    const result = expressionType(config.expression, source, {nodes: 0}, {fields: usage, purpose: "filter"});
     if (result.type !== "boolean") fail("FILTER_EXPRESSION_INVALID", "Filter expression must return Boolean");
     return source;
   }
@@ -210,7 +253,7 @@ function outputShape(operator: string, configValue: Readonly<Record<string, unkn
       const name = string(definition.name, "Map field name");
       if (seen.has(name)) fail("OPERATOR_CONFIG_INVALID", `Map field ${name} is duplicated`);
       seen.add(name);
-      output.set(name, expressionType(definition.expression, source, {nodes: 0}));
+      output.set(name, expressionType(definition.expression, source, {nodes: 0}, {fields: usage, purpose: "derive"}));
     }
     return output;
   }
@@ -221,7 +264,7 @@ function outputShape(operator: string, configValue: Readonly<Record<string, unkn
     for (const groupValue of array(config.groupBy, "Aggregate groupBy", 16)) {
       const name = string(groupValue, "Aggregate groupBy field");
       if (output.has(name)) fail("OPERATOR_CONFIG_INVALID", `Aggregate groupBy field ${name} is duplicated`);
-      output.set(name, field(source, name, "Aggregate groupBy"));
+      output.set(name, field(source, name, "Aggregate groupBy", {fields: usage, purpose: "group"}));
     }
     const measures = array(config.measures, "Aggregate measures", 32);
     if (measures.length === 0) fail("OPERATOR_CONFIG_INVALID", "Aggregate requires at least one measure");
@@ -235,16 +278,16 @@ function outputShape(operator: string, configValue: Readonly<Record<string, unkn
       if (typeof op !== "string" || !allowed.includes(op)) fail("OPERATOR_CONFIG_INVALID", `Aggregate measure ${name} has an unknown operation`);
       if (op === "count_rows") {
         if (measure.field !== null) fail("OPERATOR_CONFIG_INVALID", "count_rows field must be null");
-        output.set(name, {type: "integer", nullable: false, unit: null});
+        output.set(name, {type: "integer", nullable: false, unit: null, origins: new Set()});
         continue;
       }
-      const input = field(source, measure.field, `Aggregate measure ${name}`);
+      const input = field(source, measure.field, `Aggregate measure ${name}`, {fields: usage, purpose: "derive"});
       if ((op === "sum" || op === "average") && input.type !== "integer" && input.type !== "decimal") {
         fail("AGGREGATE_TYPE_INVALID", `${op} requires a numeric field`);
       }
       output.set(name, op === "count_distinct"
-        ? {type: "integer", nullable: false, unit: null}
-        : {type: op === "average" ? "decimal" : input.type, nullable: input.nullable, unit: input.unit});
+        ? {type: "integer", nullable: false, unit: null, origins: input.origins}
+        : {type: op === "average" ? "decimal" : input.type, nullable: input.nullable, unit: input.unit, origins: input.origins});
     }
     return output;
   }
@@ -256,11 +299,18 @@ function outputShape(operator: string, configValue: Readonly<Record<string, unkn
     if (left.size !== right.size || [...left].some(([name, type]) => !right.has(name) || !compatible(type.type, right.get(name)!.type))) {
       fail("UNION_SCHEMA_INCOMPATIBLE", "Union inputs must have compatible field names and types");
     }
-    const output = new Map(left);
+    const output = new Map([...left].map(([name, shape]) => {
+      const rightShape = right.get(name)!;
+      return [name, {
+        ...shape,
+        nullable: shape.nullable || rightShape.nullable,
+        origins: mergedOrigins([shape, rightShape]),
+      }] as const;
+    }));
     if (config.sourceDiscriminator !== null) {
       const discriminator = string(config.sourceDiscriminator, "Union sourceDiscriminator");
       if (output.has(discriminator)) fail("OPERATOR_CONFIG_INVALID", "Union sourceDiscriminator collides with an existing field");
-      output.set(discriminator, {type: "string", nullable: false, unit: null});
+      output.set(discriminator, {type: "string", nullable: false, unit: null, origins: new Set()});
     }
     return output;
   }
@@ -281,8 +331,8 @@ function outputShape(operator: string, configValue: Readonly<Record<string, unkn
       exactKeys(key, ["left", "right"], "Join key");
       const leftName = string(key.left, "Join left key");
       const rightName = string(key.right, "Join right key");
-      const leftType = field(left, leftName, "Join left key");
-      const rightType = field(right, rightName, "Join right key");
+      const leftType = field(left, leftName, "Join left key", {fields: usage, purpose: "join"});
+      const rightType = field(right, rightName, "Join right key", {fields: usage, purpose: "join"});
       if (!compatible(leftType.type, rightType.type)) fail("JOIN_KEY_TYPE_INVALID", "Join keys have incompatible types");
       rightKeyNames.add(rightName);
     }
@@ -304,7 +354,7 @@ function outputShape(operator: string, configValue: Readonly<Record<string, unkn
     for (const fieldValue of fields) {
       const name = string(fieldValue, "Output field");
       if (output.has(name)) fail("OPERATOR_CONFIG_INVALID", `Output field ${name} is duplicated`);
-      output.set(name, field(source, name, "Output"));
+      output.set(name, field(source, name, "Output", {fields: usage, purpose: "output"}));
     }
     for (const orderingValue of array(config.orderBy, "Output orderBy", 8)) {
       const ordering = record(orderingValue, "Output orderBy entry");
@@ -313,6 +363,7 @@ function outputShape(operator: string, configValue: Readonly<Record<string, unkn
       if (!output.has(name) || (ordering.direction !== "asc" && ordering.direction !== "desc")) {
         fail("OPERATOR_CONFIG_INVALID", "Output orderBy references an unavailable field or direction");
       }
+      field(source, name, "Output orderBy", {fields: usage, purpose: "sort"});
     }
     return output;
   }
@@ -329,6 +380,7 @@ export function validateFlexibleComposition(
   needs: readonly DiscoverySourceNeed[],
   selections: readonly SourceFeasibilitySelection[],
   limits: {maxNodes: number; maxEdges: number},
+  auxiliaryFieldsByNeed: ReadonlyMap<string, readonly SourceRoleAuxiliaryFieldShape[]> = new Map(),
 ): void {
   const sourceNodes = needs.map((need) => ({role: sourceRole(need.id), need}));
   const sourceRoles = new Set(sourceNodes.map((source) => source.role));
@@ -362,6 +414,7 @@ export function validateFlexibleComposition(
   }
 
   const shapes = new Map<string, RowShape>();
+  const fieldUsage: FieldUsage = new Map();
   for (const {role, need} of sourceNodes) {
     const selection = selections.find((item) => item.sourceNeedId === need.id)!;
     const bound = new Set(selection.fieldBindings.map((binding) => binding.requirementId));
@@ -371,9 +424,18 @@ export function validateFlexibleComposition(
         type: requirement.expectedType,
         nullable: requirement.allowNullable,
         unit: requirement.unit,
+        origins: new Set(),
       });
     }
-    fields.set("data_network", {type: "string", nullable: false, unit: null});
+    for (const auxiliary of auxiliaryFieldsByNeed.get(need.id) ?? []) {
+      fields.set(auxiliary.name, {
+        type: auxiliary.type,
+        nullable: auxiliary.nullable,
+        unit: auxiliary.unit,
+        origins: new Set([auxiliaryOrigin(need.id, auxiliary.name)]),
+      });
+    }
+    fields.set("data_network", {type: "string", nullable: false, unit: null, origins: new Set()});
     shapes.set(role, fields);
   }
 
@@ -393,7 +455,7 @@ export function validateFlexibleComposition(
         const node = nodes.get(next)!;
         const inputs = new Map<string, RowShape>();
         for (const [port, previous] of incoming.get(next)!) inputs.set(port, shapes.get(previous)!);
-        shapes.set(next, outputShape(node.operator, node.config, inputs));
+        shapes.set(next, outputShape(node.operator, node.config, inputs, fieldUsage));
         queue.push(next);
       }
     }
@@ -414,6 +476,18 @@ export function validateFlexibleComposition(
   }
   for (const ordering of plan.result.orderBy) {
     if (!finalShape.has(ordering.field)) fail("OUTPUT_SCHEMA_INVALID", `Semantic ordering references unavailable field ${ordering.field}`);
+  }
+
+  for (const selection of selections) {
+    for (const binding of selection.auxiliaryFieldBindings) {
+      const purposes = fieldUsage.get(auxiliaryOrigin(selection.sourceNeedId, binding.name));
+      if (!purposes?.has(binding.purpose)) {
+        fail(
+          "FEASIBILITY_AUXILIARY_FIELD_UNUSED",
+          `Auxiliary field ${binding.name} is not consumed for its declared ${binding.purpose} purpose`,
+        );
+      }
+    }
   }
 
   const reachesOutput = new Set<string>([outputNode.role]);

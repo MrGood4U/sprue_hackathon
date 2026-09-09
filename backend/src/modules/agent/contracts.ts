@@ -49,6 +49,11 @@ export interface AgentBuilderDraft {
     manifestIpfsCid: string;
     queryEntity: string;
     fieldBindings: readonly {requirementId: string; fieldPath: string}[];
+    auxiliaryFieldBindings: readonly {
+      name: string;
+      fieldPath: string;
+      purpose: "filter" | "join" | "group" | "sort" | "derive" | "output";
+    }[];
     evidenceStatus: "suitable" | "needs_verification";
   }[];
   nodes: readonly {

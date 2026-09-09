@@ -1266,6 +1266,7 @@ test("Agent repairs an unsupported source claim contradicted by inspected field 
 
 test("Agent can select inspected fields when no lexical grain or field hint matches", async () => {
   let feasibilityRequest: Extract<AgentModelRequest, {stage: "source_feasibility"}> | undefined;
+  let auxiliaryPurpose: "filter" | "join" = "filter";
   const graph: GraphPlanningMcpPort = {
     async searchSubgraphsByKeyword() {
       return {
@@ -1280,7 +1281,7 @@ test("Agent can select inspected fields when no lexical grain or field hint matc
     async getSchema() {
       return `
         scalar BigDecimal
-        type Payload { zorb: BigDecimal! }
+        type Payload { zorb: BigDecimal!, flarn: String! }
         type Obscura { payload: Payload! }
         type QuuxFrobnitz { mysteryMetric: BigDecimal! }
         type Query {
@@ -1321,7 +1322,7 @@ test("Agent can select inspected fields when no lexical grain or field hint matc
                   allowNullable: false,
                   hints: ["mysteryMetric"],
                 }],
-                constraints: [],
+                constraints: ["Include only observations whose provider kind is eligible."],
               }],
               result: {
                 description: "Provider-specific observations.",
@@ -1367,18 +1368,38 @@ test("Agent can select inspected fields when no lexical grain or field hint matc
             candidateRef: request.candidates[0]!.candidateRef,
             queryEntity: "obscuras",
             fieldBindings: [{requirementId: "observation_value", fieldPath: "payload.zorb"}],
+            auxiliaryFieldBindings: [{name: "observation_kind", fieldPath: "payload.flarn", purpose: auxiliaryPurpose}],
             rationale: "The inspected provider field has the required scalar type and requested meaning.",
           }],
           composition: {
             schemaVersion: 2,
             kind: "composition_intent",
-            nodes: [{
-              role: "output_observations",
-              operator: "output",
-              operatorVersion: "2",
-              config: {fields: ["observation_value"], orderBy: []},
-            }],
-            connections: [{fromRole: "source__unknown_observation", toRole: "output_observations", inputRole: "rows"}],
+            nodes: [
+              {
+                role: "filter_observations",
+                operator: "filter",
+                operatorVersion: "2",
+                config: {
+                  expression: {
+                    op: "eq",
+                    inputs: [
+                      {op: "field", field: "observation_kind"},
+                      {op: "literal", valueType: "string", value: "eligible"},
+                    ],
+                  },
+                },
+              },
+              {
+                role: "output_observations",
+                operator: "output",
+                operatorVersion: "2",
+                config: {fields: ["observation_value"], orderBy: []},
+              },
+            ],
+            connections: [
+              {fromRole: "source__unknown_observation", toRole: "filter_observations", inputRole: "rows"},
+              {fromRole: "filter_observations", toRole: "output_observations", inputRole: "rows"},
+            ],
             templateInstances: [],
           },
           assumptions: [],
@@ -1396,7 +1417,22 @@ test("Agent can select inspected fields when no lexical grain or field hint matc
   const obscureEntity = feasibilityRequest?.candidates[0]?.entities.find((entity) => entity.queryEntity === "obscuras");
   assert.deepEqual(obscureEntity?.matchedRequirements, []);
   assert.equal(obscureEntity?.grainHint, "unknown");
-  assert.deepEqual(obscureEntity?.fields.map((field) => field.path), ["payload.zorb"]);
+  assert.deepEqual(obscureEntity?.fields.map((field) => field.path), ["payload.flarn", "payload.zorb"]);
+  if (result.kind === "feasibility") {
+    assert.deepEqual(result.feasibility.selections[0]?.auxiliaryFieldBindings, [
+      {name: "observation_kind", fieldPath: "payload.flarn", purpose: "filter"},
+    ]);
+  }
+
+  auxiliaryPurpose = "join";
+  await assert.rejects(
+    () => harness.explore({
+      intent: "Return the eligible Obscura observation.",
+      availableNetworks: [{dataNetwork: "eip155:1", label: "Ethereum"}],
+    }),
+    (error: unknown) => error instanceof HarnessValidationError
+      && error.code === "FEASIBILITY_AUXILIARY_FIELD_UNUSED",
+  );
 });
 
 test("Agent performs one bounded repair when source-planning tool arguments fail schema validation", async () => {
@@ -1722,6 +1758,7 @@ test("Agent validates schema-driven time-series fields without a wallet-shaped s
               {requirementId: "event_time", fieldPath: "blockTimestamp"},
               {requirementId: "raw_value", fieldPath: "amountUSD"},
             ],
+            auxiliaryFieldBindings: [],
             rationale: "Both semantic fields are present on the inspected entity.",
           }],
           composition: {

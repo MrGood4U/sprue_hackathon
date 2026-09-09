@@ -320,6 +320,7 @@ function sourceFeasibilityOutput(
       candidateRef: candidate.candidateRef,
       queryEntity: entity.queryEntity,
       fieldBindings,
+      auxiliaryFieldBindings: [],
       rationale: `The inspected entity binds every required semantic field for ${need.dataNetwork}.`,
     };
   });

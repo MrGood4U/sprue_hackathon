@@ -117,13 +117,13 @@ test("Agent sessions persist real planner input, evidence summary, trace, and re
                 {requirementId: "trade_id", fieldPath: "id"},
                 {requirementId: "timestamp", fieldPath: "timestamp"},
                 {requirementId: "volume_usd", fieldPath: "amountUSD"},
-              ], rationale: "Field fit"},
+              ], auxiliaryFieldBindings: [], rationale: "Field fit"},
               {sourceNeedId: "need-arbitrum", candidateRef: "graph:arb:one", queryEntity: "swaps", fieldBindings: [
                 {requirementId: "wallet", fieldPath: "account.id"},
                 {requirementId: "trade_id", fieldPath: "id"},
                 {requirementId: "timestamp", fieldPath: "timestamp"},
                 {requirementId: "volume_usd", fieldPath: "amountUSD"},
-              ], rationale: "Field fit"},
+              ], auxiliaryFieldBindings: [], rationale: "Field fit"},
             ],
             composition: {
               nodes: [

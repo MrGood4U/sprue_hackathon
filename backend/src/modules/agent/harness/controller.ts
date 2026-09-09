@@ -24,6 +24,7 @@ import {
 import {
   deriveDiscoverySourceNeeds,
   flexibleOperatorRegistry,
+  type SourceRoleAuxiliaryFieldShape,
   validateFlexibleComposition,
 } from "./flexible-planning.js";
 import {operatorRegistry} from "./registry.js";
@@ -512,6 +513,7 @@ function validateSourceFeasibility(
   const candidates = new Map(evidenceCandidates.map((candidate) => [candidate.candidateRef, candidate]));
   const discoveredCandidates = new Map(discovery.candidates.map((candidate) => [candidate.candidateRef, candidate]));
   const seenNeeds = new Set<string>();
+  const auxiliaryFieldsByNeed = new Map<string, readonly SourceRoleAuxiliaryFieldShape[]>();
   const selected = output.selections.map((selection) => {
     const need = needs.find((candidate) => candidate.id === selection.sourceNeedId);
     const candidate = candidates.get(selection.candidateRef);
@@ -530,6 +532,7 @@ function validateSourceFeasibility(
     const requirements = new Map(need.fields.map((requirement) => [requirement.id, requirement]));
     const fields = new Map(entity.fields.map((field) => [field.path, field]));
     const bound = new Set<string>();
+    const boundPaths = new Set<string>();
     for (const binding of selection.fieldBindings) {
       const requirement = requirements.get(binding.requirementId);
       const inspectedField = fields.get(binding.fieldPath);
@@ -537,15 +540,45 @@ function validateSourceFeasibility(
         fail("Feasibility field binding is not supported by inspected schema evidence", "FEASIBILITY_FIELD_BINDING_INVALID");
       }
       bound.add(requirement.id);
+      boundPaths.add(binding.fieldPath);
     }
     const missing = need.fields.filter((requirement) => requirement.required && !bound.has(requirement.id));
     if (missing.length > 0) {
       fail(`Feasibility output omitted required fields for ${need.id}`, "FEASIBILITY_FIELD_BINDING_MISSING");
     }
+    const auxiliaryNames = new Set<string>();
+    const auxiliaryPaths = new Set<string>();
+    const reservedNames = new Set([...requirements.keys(), "data_network"]);
+    const auxiliaryFields: SourceRoleAuxiliaryFieldShape[] = [];
+    for (const binding of selection.auxiliaryFieldBindings) {
+      const inspectedField = fields.get(binding.fieldPath);
+      if (
+        reservedNames.has(binding.name)
+        || auxiliaryNames.has(binding.name)
+        || auxiliaryPaths.has(binding.fieldPath)
+        || boundPaths.has(binding.fieldPath)
+        || !inspectedField
+        || inspectedField.list
+      ) {
+        fail(
+          "Feasibility auxiliary field binding is not supported by inspected scalar schema evidence",
+          "FEASIBILITY_AUXILIARY_FIELD_BINDING_INVALID",
+        );
+      }
+      auxiliaryNames.add(binding.name);
+      auxiliaryPaths.add(binding.fieldPath);
+      auxiliaryFields.push({
+        name: binding.name,
+        type: inspectedField.valueType,
+        nullable: inspectedField.nullable,
+        unit: null,
+      });
+    }
+    auxiliaryFieldsByNeed.set(need.id, auxiliaryFields);
     seenNeeds.add(need.id);
     return discoveredCandidate;
   });
-  validateFlexibleComposition(plan, output.composition, needs, output.selections, limits);
+  validateFlexibleComposition(plan, output.composition, needs, output.selections, limits, auxiliaryFieldsByNeed);
   return [...new Set(selected.flatMap((candidate) => candidate.limitations))];
 }
 
@@ -906,7 +939,7 @@ export class AgentHarness {
     const candidateEvidence = expandSelectedEntities(discovery, entitySelectionOutput.selections);
     const feasibilityRequest: SourceFeasibilityModelRequest = {
       stage: "source_feasibility",
-      promptVersion: "4",
+      promptVersion: "5",
       semanticPlan: discoveryPlanningOutput.semanticPlan,
       sourceNeeds,
       candidates: candidateEvidence,

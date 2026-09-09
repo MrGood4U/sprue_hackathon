@@ -194,6 +194,7 @@ function proposalContent(
       manifestIpfsCid: candidate.manifestIpfsCid,
       queryEntity: selection.queryEntity,
       fieldBindings: selection.fieldBindings,
+      auxiliaryFieldBindings: selection.auxiliaryFieldBindings,
       evidenceStatus: candidate.status,
     }];
   });
@@ -210,6 +211,7 @@ function proposalContent(
           sourceId: source.id,
           queryEntity: source.queryEntity,
           fieldBindings: source.fieldBindings,
+          auxiliaryFieldBindings: source.auxiliaryFieldBindings,
         },
       })),
       ...result.feasibility.composition.nodes.map((node) => ({

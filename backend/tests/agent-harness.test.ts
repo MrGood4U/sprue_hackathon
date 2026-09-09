@@ -350,6 +350,8 @@ test("every planning tool schema stays inside the DeepSeek-compatible JSON Schem
   }
   const feasibilitySchema = JSON.stringify(jsonSchemaForStage("source_feasibility"));
   assert.equal(feasibilitySchema.includes('"propertyNames"'), false);
+  assert.equal(feasibilitySchema.includes('"auxiliaryFieldBindings"'), true);
+  assert.equal(feasibilitySchema.includes('"purpose"'), true);
   for (const operator of ["filter", "map", "aggregate", "union", "join", "output"]) {
     assert.equal(feasibilitySchema.includes(`\"${operator}\"`), true, `source feasibility omits ${operator}`);
   }
