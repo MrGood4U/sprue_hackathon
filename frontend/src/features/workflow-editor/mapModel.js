@@ -75,19 +75,32 @@ function literalIsValid(type, value) {
   return typeof value === "string";
 }
 
-function expressionResult(expression, inputByName, depth = 0) {
-  if (!expression || typeof expression !== "object" || depth > 8) return {error: "MAP_EXPRESSION_INVALID"};
+function hasExactKeys(value, expectedKeys) {
+  const actualKeys = Object.keys(value).sort();
+  return actualKeys.length === expectedKeys.length
+    && expectedKeys.slice().sort().every((key, index) => key === actualKeys[index]);
+}
+
+function expressionResult(expression, inputByName, budget = {nodes: 0}, depth = 0) {
+  if (!expression || Array.isArray(expression) || typeof expression !== "object" || depth > 8 || ++budget.nodes > 128) {
+    return {error: "MAP_EXPRESSION_INVALID"};
+  }
   if (expression.op === "field") {
+    if (!hasExactKeys(expression, ["op", "field"]) || typeof expression.field !== "string" || expression.field.length === 0) {
+      return {error: "MAP_EXPRESSION_INVALID"};
+    }
     const field = inputByName.get(expression.field);
     return field ? {field} : {error: "MAP_SOURCE_FIELD_UNKNOWN"};
   }
   if (expression.op === "literal") {
+    if (!hasExactKeys(expression, ["op", "valueType", "value"])) return {error: "MAP_EXPRESSION_INVALID"};
     const type = normalizeType(expression.valueType);
     if (!type || !literalIsValid(type, expression.value)) {
       return {error: "MAP_EXPRESSION_INVALID"};
     }
     return {field: {name: "expression", type, nullable: expression.value === null, unit: null}};
   }
+  if (!hasExactKeys(expression, ["op", "inputs"])) return {error: "MAP_EXPRESSION_INVALID"};
   const inputs = Array.isArray(expression.inputs) ? expression.inputs : [];
   if ((unaryOperations.has(expression.op) && inputs.length !== 1)
     || (binaryOperations.has(expression.op) && inputs.length !== 2)
@@ -96,7 +109,7 @@ function expressionResult(expression, inputByName, depth = 0) {
     || (!unaryOperations.has(expression.op) && !binaryOperations.has(expression.op) && !variadicOperations.has(expression.op) && expression.op !== "if")) {
     return {error: "MAP_EXPRESSION_INVALID"};
   }
-  const inferred = inputs.map((input) => expressionResult(input, inputByName, depth + 1));
+  const inferred = inputs.map((input) => expressionResult(input, inputByName, budget, depth + 1));
   const failure = inferred.find((item) => item.error);
   if (failure) return failure;
   const fields = inferred.map((item) => item.field);
@@ -184,7 +197,56 @@ function expressionResult(expression, inputByName, depth = 0) {
 }
 
 export function inferMapExpressionField(expression, inputFields) {
-  return expressionResult(expression, new Map(inputFields.map((field) => [field.name, field]))).field ?? null;
+  return inspectMapExpression(expression, inputFields).field ?? null;
+}
+
+export function inspectMapExpression(expression, inputFields) {
+  return expressionResult(expression, new Map(inputFields.map((field) => [field.name, {...field, type: normalizeType(field.type)}])));
+}
+
+export function mapExpressionFieldNames(expression) {
+  const names = [];
+  const seen = new Set();
+  const budget = {nodes: 0};
+  const visit = (candidate, depth = 0) => {
+    if (!candidate || Array.isArray(candidate) || typeof candidate !== "object" || depth > 8 || ++budget.nodes > 128) return;
+    if (candidate.op === "field" && typeof candidate.field === "string" && !seen.has(candidate.field)) {
+      seen.add(candidate.field);
+      names.push(candidate.field);
+      return;
+    }
+    if (Array.isArray(candidate.inputs)) candidate.inputs.forEach((input) => visit(input, depth + 1));
+  };
+  visit(expression);
+  return names;
+}
+
+export function formatMapExpression(expression) {
+  const binarySymbols = {
+    eq: "=",
+    ne: "!=",
+    lt: "<",
+    lte: "<=",
+    gt: ">",
+    gte: ">=",
+    add: "+",
+    subtract: "-",
+    multiply: "*",
+    safe_divide: "/",
+  };
+  const budget = {nodes: 0};
+  const format = (candidate, depth = 0) => {
+    if (!candidate || Array.isArray(candidate) || typeof candidate !== "object" || depth > 8 || ++budget.nodes > 128) return "...";
+    if (candidate.op === "field") return candidate.field ?? "?";
+    if (candidate.op === "literal") return candidate.value === null ? "null" : JSON.stringify(candidate.value);
+    const inputs = Array.isArray(candidate.inputs) ? candidate.inputs.map((input) => format(input, depth + 1)) : [];
+    if (candidate.op === "not") return `NOT (${inputs[0] ?? "?"})`;
+    if (candidate.op === "and" || candidate.op === "or") return `(${inputs.join(` ${candidate.op.toUpperCase()} `)})`;
+    if (binarySymbols[candidate.op]) return `(${inputs[0] ?? "?"} ${binarySymbols[candidate.op]} ${inputs[1] ?? "?"})`;
+    if (candidate.op === "if") return `IF(${inputs.join(", ")})`;
+    return `${candidate.op ?? "?"}(${inputs.join(", ")})`;
+  };
+  return format(expression);
 }
 
 export function editableMapConfig(config) {

@@ -16,7 +16,10 @@ import {
   createMapDefinition,
   defaultMapFallbackValue,
   editableMapConfig,
+  formatMapExpression,
+  inspectMapExpression,
   mapExpressionEditor,
+  mapExpressionFieldNames,
   mapExpressionForEditor,
   mapTransformsForField,
   validateMapConfig,
@@ -760,9 +763,31 @@ function SortConfig({node, update, fields, errors}) {
   );
 }
 
-function MapConfig({node, update, fields, errors}) {
+function parseAdvancedMapExpression(text, fields) {
+  try {
+    const expression = JSON.parse(text);
+    const inspection = inspectMapExpression(expression, fields);
+    return inspection.error ? {expression, error: inspection.error} : {expression, field: inspection.field, error: null};
+  } catch {
+    return {expression: null, field: null, error: "MAP_EXPRESSION_JSON_INVALID"};
+  }
+}
+
+function MapConfig({node, update, fields, errors, onPendingChange}) {
   const { t } = useI18n();
   const transformGroups = ["basic", "type", "time", "text", "null", "numeric"];
+  const [advancedEditor, setAdvancedEditor] = useState(null);
+  const isEditingAdvanced = advancedEditor !== null;
+
+  useEffect(() => {
+    onPendingChange?.(isEditingAdvanced);
+    return () => onPendingChange?.(false);
+  }, [isEditingAdvanced, onPendingChange]);
+
+  useEffect(() => {
+    setAdvancedEditor(null);
+  }, [node.id]);
+
   if (node.config?.recipe) {
     return (
       <Field id={`map-recipe-${node.id}`} label={t("workflowEditor.inspector.recipe")}>
@@ -780,6 +805,7 @@ function MapConfig({node, update, fields, errors}) {
     update({...config, fields: definitions.map((item, candidateIndex) => candidateIndex === index ? definition : item)});
   };
   const removeDefinition = (index) => {
+    if (advancedEditor?.index === index) setAdvancedEditor(null);
     update({...config, fields: definitions.filter((_, candidateIndex) => candidateIndex !== index)});
   };
   return (
@@ -809,6 +835,11 @@ function MapConfig({node, update, fields, errors}) {
           const availableTransforms = mapTransformsForField(selectedField ?? fields[0]);
           const textualFields = fields.filter((field) => ["string", "id", "address", "bytes"].includes(field.type));
           const error = errors.find((candidate) => candidate.fieldIndex === index);
+          const expressionInspection = inspectMapExpression(definition.expression, fields);
+          const expressionFields = mapExpressionFieldNames(definition.expression);
+          const advancedDraft = advancedEditor?.index === index
+            ? parseAdvancedMapExpression(advancedEditor.text, fields)
+            : null;
           const expressionOptions = (kind, sourceField, overrides = {}) => {
             const source = fields.find((field) => field.name === sourceField);
             const preferredSecondary = overrides.secondaryField ?? editorExpression.secondaryField;
@@ -826,7 +857,7 @@ function MapConfig({node, update, fields, errors}) {
           return (
             <fieldset className={`workflow-map-definition${error ? " is-invalid" : ""}`} key={index}>
               <legend>{t("workflowEditor.inspector.mapDefinition", {number: index + 1})}</legend>
-              <div className="workflow-map-definition-grid">
+              <div className={`workflow-map-definition-grid${editorExpression.kind === "advanced" ? " is-advanced" : ""}`}>
                 <Field id={`map-${node.id}-name-${index}`} label={t("workflowEditor.inspector.mapOutputField")}>
                   <input
                     id={`map-${node.id}-name-${index}`}
@@ -835,7 +866,15 @@ function MapConfig({node, update, fields, errors}) {
                     onChange={(event) => updateDefinition(index, {...definition, name: event.target.value})}
                   />
                 </Field>
-                <Field id={`map-${node.id}-transform-${index}`} label={t("workflowEditor.inspector.mapTransform")}>
+                <Field
+                  id={`map-${node.id}-transform-${index}`}
+                  label={editorExpression.kind === "advanced"
+                    ? t("workflowEditor.inspector.mapAdvancedReplace")
+                    : t("workflowEditor.inspector.mapTransform")}
+                  hint={editorExpression.kind === "advanced"
+                    ? t("workflowEditor.inspector.mapAdvancedReplaceHint")
+                    : null}
+                >
                   <select
                     id={`map-${node.id}-transform-${index}`}
                     value={editorExpression.kind}
@@ -867,7 +906,7 @@ function MapConfig({node, update, fields, errors}) {
                     {editorExpression.kind === "advanced" && <option value="advanced" disabled>{t("workflowEditor.inspector.mapTransformAdvanced")}</option>}
                   </select>
                 </Field>
-                <Field id={`map-${node.id}-source-${index}`} label={t("workflowEditor.inspector.mapSourceField")}>
+                {editorExpression.kind !== "advanced" && <Field id={`map-${node.id}-source-${index}`} label={t("workflowEditor.inspector.mapSourceField")}>
                   <select
                     id={`map-${node.id}-source-${index}`}
                     value={editorExpression.sourceField ?? ""}
@@ -887,7 +926,7 @@ function MapConfig({node, update, fields, errors}) {
                     )}
                     {fields.map((field) => <option value={field.name} key={field.name}>{field.name} · {field.type}</option>)}
                   </select>
-                </Field>
+                </Field>}
                 <IconButton type="button" label={t("workflowEditor.inspector.mapRemove")} onClick={() => removeDefinition(index)}>
                   <Trash size={17} aria-hidden="true" />
                 </IconButton>
@@ -946,7 +985,94 @@ function MapConfig({node, update, fields, errors}) {
                   )}
                 </Field>
               )}
-              {editorExpression.kind === "advanced" && <p className="workflow-map-advanced">{t("workflowEditor.inspector.mapAdvancedHint")}</p>}
+              {editorExpression.kind === "advanced" && (
+                <section className="workflow-map-advanced" aria-label={t("workflowEditor.inspector.mapAdvancedTitle")}>
+                  <div className="workflow-map-advanced-header">
+                    <div>
+                      <strong>{t("workflowEditor.inspector.mapAdvancedTitle")}</strong>
+                      <p>{t("workflowEditor.inspector.mapAdvancedHint")}</p>
+                    </div>
+                    {advancedEditor?.index !== index && (
+                      <Button
+                        type="button"
+                        onClick={() => setAdvancedEditor({index, text: JSON.stringify(definition.expression, null, 2) ?? ""})}
+                      >
+                        {t("workflowEditor.inspector.mapAdvancedEdit")}
+                      </Button>
+                    )}
+                  </div>
+                  <div className="workflow-map-expression-preview">
+                    <span>{t("workflowEditor.inspector.mapAdvancedFormula")}</span>
+                    <code>{formatMapExpression(definition.expression)}</code>
+                  </div>
+                  <dl className="workflow-map-expression-meta">
+                    <div>
+                      <dt>{t("workflowEditor.inspector.mapAdvancedFields")}</dt>
+                      <dd>
+                        {expressionFields.length > 0
+                          ? expressionFields.map((fieldName) => <code key={fieldName}>{fieldName}</code>)
+                          : t("workflowEditor.inspector.mapAdvancedNoFields")}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>{t("workflowEditor.inspector.mapAdvancedOutputType")}</dt>
+                      <dd>
+                        <code>{expressionInspection.field?.type ?? t("workflowEditor.inspector.mapAdvancedUnknownType")}</code>
+                        {expressionInspection.field?.nullable && <span>{t("workflowEditor.inspector.mapAdvancedNullable")}</span>}
+                      </dd>
+                    </div>
+                  </dl>
+                  {advancedEditor?.index === index && (
+                    <div className="workflow-map-expression-editor">
+                      <Field
+                        id={`map-${node.id}-expression-${index}`}
+                        label={t("workflowEditor.inspector.mapAdvancedEditorLabel")}
+                        hint={t("workflowEditor.inspector.mapAdvancedEditorHint")}
+                      >
+                        <textarea
+                          id={`map-${node.id}-expression-${index}`}
+                          value={advancedEditor.text}
+                          rows="12"
+                          spellCheck="false"
+                          aria-invalid={Boolean(advancedDraft?.error) || undefined}
+                          aria-describedby={`map-${node.id}-expression-${index}-hint`}
+                          onChange={(event) => setAdvancedEditor({index, text: event.target.value})}
+                        />
+                      </Field>
+                      {advancedDraft?.error && (
+                        <p className="workflow-map-error" role="alert">
+                          {advancedDraft.error === "MAP_EXPRESSION_JSON_INVALID"
+                            ? t("workflowEditor.inspector.mapAdvancedJsonError")
+                            : t(`workflowEditor.inspector.mapError.${advancedDraft.error}`)}
+                        </p>
+                      )}
+                      {!advancedDraft?.error && advancedDraft?.field && (
+                        <p className="workflow-map-expression-valid" role="status">
+                          <CheckCircle size={16} weight="fill" aria-hidden="true" />
+                          {t("workflowEditor.inspector.mapAdvancedValid", {type: advancedDraft.field.type})}
+                        </p>
+                      )}
+                      <div className="workflow-map-expression-actions">
+                        <Button type="button" onClick={() => setAdvancedEditor(null)}>
+                          {t("common.cancel")}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="primary"
+                          disabled={Boolean(advancedDraft?.error) || !advancedDraft?.expression}
+                          onClick={() => {
+                            if (advancedDraft?.error || !advancedDraft?.expression) return;
+                            updateDefinition(index, {...definition, expression: advancedDraft.expression});
+                            setAdvancedEditor(null);
+                          }}
+                        >
+                          {t("workflowEditor.inspector.mapAdvancedApply")}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </section>
+              )}
               {error && <p className="workflow-map-error" role="alert">{t(`workflowEditor.inspector.mapError.${error.code}`)}</p>}
             </fieldset>
           );
@@ -1195,6 +1321,7 @@ export function NodeInspector({ editor, nodeId, onClose, sourceDiscovery }) {
   const [sourceMode, setSourceMode] = useState("discovered");
   const [pendingSource, setPendingSource] = useState(null);
   const [legacyFilterExpression, setLegacyFilterExpression] = useState(false);
+  const [mapExpressionEditing, setMapExpressionEditing] = useState(false);
 
   useEffect(() => {
     if (nodeId) {
@@ -1212,6 +1339,7 @@ export function NodeInspector({ editor, nodeId, onClose, sourceDiscovery }) {
       setLegacyFilterExpression(editable.legacyExpression);
       setSourceMode("discovered");
       setPendingSource(null);
+      setMapExpressionEditing(false);
     }
   }, [nodeId]);
 
@@ -1263,7 +1391,7 @@ export function NodeInspector({ editor, nodeId, onClose, sourceDiscovery }) {
       || (sourceMode === "add" && Boolean(pendingSource)))
     && (node.type !== "filter" || (!legacyFilterExpression && filterErrors.length === 0))
     && (node.type !== "sort" || sortErrors.length === 0)
-    && (node.type !== "map" || mapErrors.length === 0)
+    && (node.type !== "map" || (mapErrors.length === 0 && !mapExpressionEditing))
     && (node.type !== "aggregate" || aggregateErrors.length === 0);
   const confirm = () => {
     if (!canConfirm) return;
@@ -1332,7 +1460,15 @@ export function NodeInspector({ editor, nodeId, onClose, sourceDiscovery }) {
             />
           )}
           {node.type === "sort" && <SortConfig node={draftNode} update={update} fields={sortFields} errors={sortErrors} />}
-          {node.type === "map" && <MapConfig node={draftNode} update={update} fields={mapFields} errors={mapErrors} />}
+          {node.type === "map" && (
+            <MapConfig
+              node={draftNode}
+              update={update}
+              fields={mapFields}
+              errors={mapErrors}
+              onPendingChange={setMapExpressionEditing}
+            />
+          )}
           {node.type === "aggregate" && <AggregateConfig node={draftNode} update={update} fields={aggregateFields} errors={aggregateErrors} />}
           {node.type === "union" && <UnionConfig node={draftNode} update={update} />}
           {node.type === "join" && <JoinConfig node={draftNode} update={update} />}

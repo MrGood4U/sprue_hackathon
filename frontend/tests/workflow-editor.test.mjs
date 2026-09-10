@@ -12,7 +12,10 @@ import {
 import {
   defaultMapFallbackValue,
   editableMapConfig,
+  formatMapExpression,
+  inspectMapExpression,
   mapExpressionEditor,
+  mapExpressionFieldNames,
   mapExpressionForEditor,
   mapTransformsForField,
   validateMapConfig,
@@ -374,6 +377,48 @@ test("Map exposes type-aware conversions and round-trips progressively disclosed
   assert.deepEqual(validateMapConfig(config, fields), []);
 });
 
+test("Map combined expressions are inspectable and enforce the backend expression boundary", () => {
+  const fields = [
+    {name: "token0_symbol", type: "string", nullable: false, unit: null},
+    {name: "token1_symbol", type: "string", nullable: false, unit: null},
+    {name: "enabled", type: "boolean", nullable: true, unit: null},
+  ];
+  const expression = {
+    op: "and",
+    inputs: [
+      {op: "eq", inputs: [{op: "field", field: "token0_symbol"}, {op: "literal", valueType: "string", value: "WETH"}]},
+      {op: "eq", inputs: [{op: "field", field: "token1_symbol"}, {op: "literal", valueType: "string", value: "USDC"}]},
+      {op: "coalesce", inputs: [{op: "field", field: "enabled"}, {op: "literal", valueType: "boolean", value: false}]},
+    ],
+  };
+
+  assert.deepEqual(mapExpressionFieldNames(expression), ["token0_symbol", "token1_symbol", "enabled"]);
+  assert.equal(
+    formatMapExpression(expression),
+    '((token0_symbol = "WETH") AND (token1_symbol = "USDC") AND coalesce(enabled, false))',
+  );
+  assert.deepEqual(inspectMapExpression(expression, fields).field, {
+    name: "expression",
+    type: "boolean",
+    nullable: false,
+    unit: null,
+  });
+  assert.equal(inspectMapExpression({...expression, unexpected: true}, fields).error, "MAP_EXPRESSION_INVALID");
+  assert.equal(
+    inspectMapExpression({op: "field", field: "missing"}, fields).error,
+    "MAP_SOURCE_FIELD_UNKNOWN",
+  );
+
+  let level = Array.from({length: 128}, () => ({op: "field", field: "enabled"}));
+  while (level.length > 1) {
+    level = Array.from({length: level.length / 2}, (_, index) => ({
+      op: "and",
+      inputs: [level[index * 2], level[index * 2 + 1]],
+    }));
+  }
+  assert.equal(inspectMapExpression(level[0], fields).error, "MAP_EXPRESSION_INVALID");
+});
+
 test("Map exposes exact camel-case and nested Graph field paths from a Source boundary", () => {
   const draft = draftFixture();
   draft.specification.dag.nodes = [
@@ -580,4 +625,15 @@ test("operator inspectors use the shared token-colored scrollbar", async () => {
   assert.match(styles, /\.workflow-node-inspector::\-webkit-scrollbar-thumb \{[\s\S]*?border-radius: 999px;/);
   assert.match(styles, /\.workflow-node-inspector::\-webkit-scrollbar-thumb:hover/);
   assert.match(styles, /\.workflow-node-inspector::\-webkit-scrollbar-button \{[\s\S]*?display: none;/);
+});
+
+test("combined Map expressions reveal a bounded editable JSON surface with inline validation", async () => {
+  const inspector = await readFile(new URL("../src/features/workflow-editor/NodeInspector.jsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../src/features/workflow-editor/workflow-editor.css", import.meta.url), "utf8");
+
+  assert.match(inspector, /formatMapExpression\(definition\.expression\)/);
+  assert.match(inspector, /mapExpressionFieldNames\(definition\.expression\)/);
+  assert.match(inspector, /function parseAdvancedMapExpression[\s\S]*?<textarea/);
+  assert.match(inspector, /disabled=\{Boolean\(advancedDraft\?\.error\) \|\| !advancedDraft\?\.expression\}/);
+  assert.match(styles, /\.workflow-map-expression-editor textarea \{[\s\S]*?max-height: 360px;[\s\S]*?scrollbar-width: thin;/);
 });
