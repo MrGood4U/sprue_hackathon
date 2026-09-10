@@ -6,7 +6,7 @@ import { WorkflowCanvas } from "./WorkflowCanvas.jsx";
 import "@xyflow/react/dist/style.css";
 import "./workflow-editor.css";
 
-export function WorkflowEditor({ editor, onSelectNode }) {
+export function WorkflowEditor({ editor, onSelectNode, sourceDiscovery }) {
   const { t } = useI18n();
   const [editingNodeId, setEditingNodeId] = useState(null);
   const closeNodeEditor = useCallback(() => setEditingNodeId(null), []);
@@ -18,7 +18,7 @@ export function WorkflowEditor({ editor, onSelectNode }) {
           <div className="workflow-editor-viewport">
             <WorkflowCanvas editor={editor} onSelectNode={onSelectNode} onEditNode={setEditingNodeId} />
           </div>
-          <NodeInspector editor={editor} nodeId={editingNodeId} onClose={closeNodeEditor} />
+          <NodeInspector editor={editor} nodeId={editingNodeId} onClose={closeNodeEditor} sourceDiscovery={sourceDiscovery} />
         </div>
       </section>
     </ReactFlowProvider>

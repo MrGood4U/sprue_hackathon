@@ -2,6 +2,24 @@ import type { RouteDefinition } from "../contracts/route.js";
 // Implemented product metadata routes and reserved Builder operations mirror docs/api/products-builder.md.
 export const builderRoutes: readonly RouteDefinition[] = [
   {
+    method: "POST",
+    path: "/api/v1/workspaces/{workspaceId}/graph-sources/search",
+    operationId: "postApiV1WorkspacesWorkspaceIdGraphSourcesSearch",
+    audience: "creator",
+    implementation: "graph-sources-search",
+    idempotency: false,
+    ifMatch: false,
+  },
+  {
+    method: "POST",
+    path: "/api/v1/workspaces/{workspaceId}/graph-sources/validate",
+    operationId: "postApiV1WorkspacesWorkspaceIdGraphSourcesValidate",
+    audience: "creator",
+    implementation: "graph-sources-validate",
+    idempotency: false,
+    ifMatch: false,
+  },
+  {
     method: "GET",
     path: "/api/v1/workspaces/{workspaceId}/products",
     operationId: "getApiV1WorkspacesWorkspaceIdProducts",

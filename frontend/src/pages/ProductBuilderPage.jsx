@@ -34,7 +34,10 @@ function LoadedBuilder({ builder }) {
   return (
     <>
       <div className={`builder-layout ${readinessCollapsed ? "readiness-collapsed" : ""}`}>
-        <WorkflowEditor editor={editor} />
+        <WorkflowEditor
+          editor={editor}
+          sourceDiscovery={{search: builder.searchSources, validate: builder.validateSource}}
+        />
         <BuildReadiness draft={workingDraft} validation={editor.validation} onInspect={setModal} collapsed={readinessCollapsed} onToggle={() => setReadinessCollapsed((value) => !value)} />
       </div>
       <ExecutionTrace

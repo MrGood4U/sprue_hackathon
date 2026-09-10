@@ -92,6 +92,7 @@ test("HTTP framework boundaries through real local sockets", async (t) => {
   };
   let graphCredentialInput: unknown;
   const graphCredentialMutations: unknown[] = [];
+  const builderSourceInputs: unknown[] = [];
   let hederaActivationInput: unknown;
   let productCreateInput: unknown;
   let productDeleteInput: unknown;
@@ -199,6 +200,48 @@ test("HTTP framework boundaries through real local sockets", async (t) => {
       async revoke(writeWorkspaceId: string, credentialId: string, lockVersion: number) {
         graphCredentialMutations.push({operation: "revoke", writeWorkspaceId, credentialId, lockVersion});
         return {...credential, status: "revoked", revokedAt: "2026-09-08T00:00:00.000Z", lockVersion: 3};
+      },
+    } as never,
+    builderSources: {
+      async search(input: unknown) {
+        builderSourceInputs.push({operation: "search", input});
+        return {
+          query: "Uniswap",
+          network: {dataNetwork: "eip155:42161", graphNetworkId: "arbitrum-one", label: "Arbitrum One"},
+          total: 1,
+          candidates: [{
+            displayName: "Uniswap Arbitrum One",
+            logicalSubgraphId: "logical-arbitrum",
+            manifestIpfsCid: "QmArbitrum",
+            reportedNetwork: null,
+            networkEvidence: "matched",
+            totalQueryCount30d: 42,
+            reference: {type: "ipfs_hash", id: "QmArbitrum"},
+          }],
+        };
+      },
+      async validate(input: unknown) {
+        builderSourceInputs.push({operation: "validate", input});
+        return {
+          sourceId: "graph:manual:01234567890123456789",
+          provider: "the_graph",
+          displayName: "IPFS deployment QmArbitrum",
+          reference: {type: "ipfs_hash", id: "QmArbitrum"},
+          dataNetwork: "eip155:42161",
+          networkLabel: "Arbitrum One",
+          schemaHash: `sha256:${"a".repeat(64)}`,
+          schemaBytes: 300,
+          queryEntitySource: "source_sdl",
+          entities: [{
+            queryEntity: "swaps",
+            entityType: "Swap",
+            fields: [{path: "amountUSD", graphType: "BigDecimal", valueType: "decimal", nullable: false, list: false}],
+          }],
+          activity: {totalQueryCount30d: 42, dataPointsCount: 30},
+          access: {mode: "api_key", credentialId: credential.id, verified: true},
+          observedAt: "2026-09-11T00:00:00.000Z",
+          admissionStatus: "planning_verified",
+        };
       },
     } as never,
     products: {
@@ -508,6 +551,27 @@ test("HTTP framework boundaries through real local sockets", async (t) => {
         );
       },
     );
+    await t.test("Builder Graph source lookup is authenticated and workspace scoped", async () => {
+      const searched = await call(`/api/v1/workspaces/${workspace}/graph-sources/search`, {
+        method: "POST",
+        headers: {...auth, "Content-Type": "application/json"},
+        body: JSON.stringify({query: "Uniswap", network: "arbitrum-one"}),
+      });
+      assert.equal(searched.status, 200);
+      assert.equal((await searched.json()).data.candidates[0].manifestIpfsCid, "QmArbitrum");
+
+      const verified = await call(`/api/v1/workspaces/${workspace}/graph-sources/validate`, {
+        method: "POST",
+        headers: {...auth, "Content-Type": "application/json"},
+        body: JSON.stringify({reference: {type: "ipfs_hash", id: "QmArbitrum"}, network: "arbitrum-one"}),
+      });
+      assert.equal(verified.status, 200);
+      assert.equal((await verified.json()).data.entities[0].fields[0].path, "amountUSD");
+      assert.deepEqual(builderSourceInputs, [
+        {operation: "search", input: {workspaceId: workspace, query: "Uniswap", network: "arbitrum-one"}},
+        {operation: "validate", input: {workspaceId: workspace, reference: {type: "ipfs_hash", id: "QmArbitrum"}, network: "arbitrum-one"}},
+      ]);
+    });
     await t.test(
       "wallet and Graph credential routes use the authorized workspace without returning secrets",
       async () => {

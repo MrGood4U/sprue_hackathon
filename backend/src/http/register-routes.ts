@@ -9,6 +9,7 @@ import type {GraphCredentialService} from "../modules/graph-credential/service.j
 import type {WalletService} from "../modules/wallet/service.js";
 import type {ProductService} from "../modules/products/service.js";
 import type {AgentService} from "../modules/agent/service.js";
+import type {BuilderGraphSourceService} from "../modules/graph/builder-source-service.js";
 import { AppError } from "../shared/errors.js";
 import { routeCatalog } from "./contracts/catalog.js";
 import { idSchema } from "./contracts/common.js";
@@ -45,6 +46,7 @@ import {
   readAgentSession,
   submitAgentMessage,
 } from "./agent/agent.controller.js";
+import {searchBuilderSources, validateBuilderSource} from "./graph/builder-source.controller.js";
 export interface RouteDependencies {
   config: AppConfig;
   verifier: IdentityVerifier;
@@ -56,6 +58,7 @@ export interface RouteDependencies {
   wallets?: WalletService;
   products?: ProductService;
   agents?: AgentService;
+  builderSources?: BuilderGraphSourceService;
 }
 export function registerRoutes(app: Express, deps: RouteDependencies) {
   const auth = requireIdentity(deps.verifier);
@@ -162,8 +165,12 @@ export function registerRoutes(app: Express, deps: RouteDependencies) {
                                                     ? listAgentTraceEvents(deps.agents)
                                                   : route.implementation === "agent-messages-submit"
                                                     ? submitAgentMessage(deps.agents)
-                                                    : route.implementation === "agent-planning-cancel"
+                                          : route.implementation === "agent-planning-cancel"
                                                       ? cancelAgentPlanning(deps.agents)
+                                                    : route.implementation === "graph-sources-search"
+                                                      ? searchBuilderSources(deps.builderSources)
+                                                      : route.implementation === "graph-sources-validate"
+                                                        ? validateBuilderSource(deps.builderSources)
               : () => {
                   throw new AppError("CAPABILITY_NOT_IMPLEMENTED");
                 };

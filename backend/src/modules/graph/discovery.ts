@@ -277,7 +277,7 @@ interface ParsedSchemaInspection {
   requiresRuntimeIntrospection: boolean;
 }
 
-function inspectSchema(
+export function inspectGraphSchema(
   sdl: string,
   runtimeQueryFields?: readonly GraphRuntimeQueryField[],
 ): ParsedSchemaInspection {
@@ -547,7 +547,7 @@ export class GraphSourceDiscoveryService implements GraphSourceDiscoveryPort {
           }, signal);
           let projection = cachedProjection;
           if (!projection) {
-            let parsed = inspectSchema(schema.sdl);
+            let parsed = inspectGraphSchema(schema.sdl);
             if (parsed.requiresRuntimeIntrospection) {
               if (!this.runtimeSchema) {
                 throw new GraphSourceDiscoveryError(
@@ -556,7 +556,7 @@ export class GraphSourceDiscoveryService implements GraphSourceDiscoveryPort {
                 );
               }
               const runtimeQueryFields = await this.runtimeSchema.getRuntimeQueryFields(candidate.manifestIpfsCid, signal);
-              parsed = inspectSchema(schema.sdl, runtimeQueryFields);
+              parsed = inspectGraphSchema(schema.sdl, runtimeQueryFields);
             }
             projection = {
               schemaVersion: 1,

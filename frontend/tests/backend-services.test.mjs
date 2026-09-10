@@ -22,6 +22,7 @@ import {
   listAgentTraceEvents,
   submitAgentMessage,
 } from "../src/services/api/agent.js";
+import {searchGraphSources, validateGraphSource} from "../src/services/api/graph-sources.js";
 
 const state = {
   dataSource: "backend_demo",
@@ -285,6 +286,66 @@ test("product dashboard client uses only authenticated live workspace records", 
     ...creatorScope,
   });
   assert.equal(deleted.productId, product.id);
+});
+
+test("Builder source client performs authenticated live Graph search and schema verification", async () => {
+  const candidate = {
+    displayName: "Uniswap Arbitrum One",
+    logicalSubgraphId: "logical-arbitrum",
+    manifestIpfsCid: "QmArbitrum",
+    reportedNetwork: null,
+    networkEvidence: "matched",
+    totalQueryCount30d: 42,
+    reference: {type: "ipfs_hash", id: "QmArbitrum"},
+  };
+  const searched = await searchGraphSources({query: "Uniswap", network: "arbitrum-one"}, {
+    apiBaseUrl: "https://api.example.test",
+    ...creatorScope,
+    fetchImpl: async (url, options) => {
+      assert.equal(url, `https://api.example.test/api/v1/workspaces/${workspaceId}/graph-sources/search`);
+      assert.equal(options.method, "POST");
+      assert.equal(options.headers.Authorization, "Bearer creator-token");
+      assert.deepEqual(JSON.parse(options.body), {query: "Uniswap", network: "arbitrum-one"});
+      return liveResponse({
+        query: "Uniswap",
+        network: {dataNetwork: "eip155:42161", graphNetworkId: "arbitrum-one", label: "Arbitrum One"},
+        total: 1,
+        candidates: [candidate],
+      });
+    },
+  });
+  assert.equal(searched.candidates[0].manifestIpfsCid, "QmArbitrum");
+
+  const verified = await validateGraphSource({reference: candidate.reference, network: "arbitrum-one"}, {
+    apiBaseUrl: "https://api.example.test",
+    ...creatorScope,
+    fetchImpl: async (url, options) => {
+      assert.equal(url, `https://api.example.test/api/v1/workspaces/${workspaceId}/graph-sources/validate`);
+      assert.deepEqual(JSON.parse(options.body), {reference: candidate.reference, network: "arbitrum-one"});
+      return liveResponse({
+        sourceId: "graph:manual:01234567890123456789",
+        provider: "the_graph",
+        displayName: candidate.displayName,
+        reference: candidate.reference,
+        dataNetwork: "eip155:42161",
+        networkLabel: "Arbitrum One",
+        schemaHash: `sha256:${"a".repeat(64)}`,
+        schemaBytes: 300,
+        queryEntitySource: "source_sdl",
+        entities: [{
+          queryEntity: "swaps",
+          entityType: "Swap",
+          fields: [{path: "amountUSD", graphType: "BigDecimal", valueType: "decimal", nullable: false, list: false}],
+        }],
+        activity: {totalQueryCount30d: 42, dataPointsCount: 30},
+        access: {mode: "api_key", credentialId: "10000000-0000-4000-8000-000000000006", verified: true},
+        observedAt: "2026-09-11T00:00:00.000Z",
+        admissionStatus: "planning_verified",
+      });
+    },
+  });
+  assert.equal(verified.entities[0].fields[0].path, "amountUSD");
+  assert.equal(verified.admissionStatus, "planning_verified");
 });
 
 test("Agent client uses live durable sessions and messages", async () => {

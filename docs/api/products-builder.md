@@ -82,6 +82,8 @@ Discarding an unaccepted local edit is client-only. The discard endpoint appends
 
 | Method | Path | Input | Success | Model ownership |
 |---|---|---|---|---|
+| POST | `W/graph-sources/search` | `{query, network?}` | 200 `BuilderSourceSearchResult` | Live bounded Graph MCP catalog and 30-day activity reads using the selected workspace credential; no source persistence |
+| POST | `W/graph-sources/validate` | `{reference:{type,id}, network?}` | 200 `BuilderSourceValidation` | Live identifier-specific Graph schema inspection for the editable Builder draft; no source admission or runtime query |
 | GET | `/api/v1/operator-registry` | None; authenticated | 200 `OperatorRegistry` | Deployed runtime allowlist, not arbitrary plugin discovery |
 | GET | `W/source-snapshots/{snapshotId}` | None | 200 `SourceSnapshot` | source_snapshots with sanitized provider identity |
 | GET | `W/source-snapshots/{snapshotId}/schema` | None | 200 `{snapshotId, format: graphql_sdl, document, schemaHash}` | Bounded stored schema; never a new Graph query |
@@ -92,6 +94,8 @@ Discarding an unaccepted local edit is client-only. The discard endpoint appends
 | PUT | `W/products/{productId}/versions/{versionId}/layout` | `{layoutSchemaVersion: 1, layout}` + If-Match | 200 `VersionLayout` | Layout only; creates first stored row transactionally if absent |
 
 `OperatorRegistry = {runtimeVersion, registryHash, specSchemaVersion: 2, operators: [{type, operatorVersion, labelKey, inputPorts, outputPorts, configSchema}], platformLimits}`. Each port has `{name, schema, multiple}`. configSchema and port schemas are versioned validation schemas; do not invent an operator from a display title. Registry content determines the exact supported subset. No arbitrary JavaScript/Python or remote-code field is allowed. platformLimits bounds the spec resourcePolicy; the proposed artifact ceiling remains 5242880 bytes.
+
+Builder source search and validation require the workspace's selected active Graph credential and keep the credential server-side. Search accepts either a 2-80 character catalog keyword or an exact EVM contract address; contract lookup also requires a supported Graph network slug. It returns at most ten immutable manifest-CID candidates ordered by explicit network evidence and observed 30-day activity. Validation accepts only an opaque Subgraph ID, Deployment ID, or manifest IPFS CID, reads its bounded SDL through the restricted Graph adapter, and returns exact query entities and field paths. A manifest CID may use Sprue's fixed runtime-introspection document only when the stored SDL omits `Query`; arbitrary browser GraphQL remains unavailable. The result is `planning_verified`, not a durable source snapshot: historical coverage, freshness, execution access selection, bounded GraphQL compilation, and source admission remain later gates.
 
 `SourceSnapshot = {id, provider, sourceKind, logicalSourceId: string | null, gatewayTargetType, gatewayTargetId, providerDeploymentId: string | null, manifestIpfsCid: string | null, dataNetworkRef, schemaHash, status, discoveryMethod, observedAt, validatedAt: Timestamp | null, standardSchema: object | null, evidenceLinks: EvidenceLink[]}`. standardSchema is the validated compatibility metadata from standard_schema_json. All IDs remain distinct. Source data network is not the Graph payment network. Published versions must pin a validated deployment_id snapshot.
 

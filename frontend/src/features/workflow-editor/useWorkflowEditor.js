@@ -17,6 +17,7 @@ export function useWorkflowEditor(sourceDraft) {
   const addOperator = useCallback((operatorType, position) => dispatch({ type: "add_operator", operatorType, position }), []);
   const addTemplate = useCallback((templateId, position) => dispatch({ type: "add_template", templateId, position }), []);
   const updateConfig = useCallback((id, config) => dispatch({ type: "update_config", id, config }), []);
+  const configureSource = useCallback((id, config, source) => dispatch({type: "configure_source", id, config, source}), []);
   const deleteSelection = useCallback(() => dispatch({ type: "delete_selection" }), []);
   const undo = useCallback(() => dispatch({ type: "undo" }), []);
   const redo = useCallback(() => dispatch({ type: "redo" }), []);
@@ -33,6 +34,7 @@ export function useWorkflowEditor(sourceDraft) {
     addOperator,
     addTemplate,
     updateConfig,
+    configureSource,
     deleteSelection,
     undo,
     redo,

@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Plus, Trash, X } from "@phosphor-icons/react";
+import { ArrowDown, ArrowUp, CheckCircle, Plus, Trash, X } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import { Button, IconButton } from "../../components/ui/Button.jsx";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
@@ -49,13 +49,70 @@ function Field({ id, label, hint, children }) {
   );
 }
 
-function SourceConfig({ node, draft, update, mode, onModeChange }) {
+const sourceScalarTypes = new Set(["boolean", "string", "id", "address", "bytes", "integer", "decimal", "timestamp", "date"]);
+
+function sourceRecord(validation, entity, candidate) {
+  const fields = entity.fields
+    .filter((field) => !field.list && sourceScalarTypes.has(field.valueType))
+    .map((field) => ({
+      name: field.path,
+      type: field.valueType,
+      nullable: field.nullable,
+      unit: null,
+    }));
+  const targetType = validation.reference.type === "subgraph_id"
+    ? "logical_subgraph_id"
+    : validation.reference.type === "deployment_id"
+      ? "deployment_id"
+      : "manifest_ipfs_cid";
+  return {
+    id: validation.sourceId,
+    provider: "the_graph",
+    kind: "subgraph",
+    adapterVersion: "planning",
+    dataNetwork: validation.dataNetwork,
+    queryEntity: entity.queryEntity,
+    fieldBindings: [],
+    auxiliaryFieldBindings: [],
+    outputSchema: {type: "array", items: {type: "object"}, fields},
+    evidenceStatus: validation.admissionStatus,
+    displayName: candidate?.displayName ?? validation.displayName,
+    target: {
+      type: targetType,
+      id: validation.reference.id,
+      logicalSubgraphId: candidate?.logicalSubgraphId
+        ?? (validation.reference.type === "subgraph_id" ? validation.reference.id : null),
+      manifestIpfsCid: candidate?.manifestIpfsCid
+        ?? (validation.reference.type === "ipfs_hash" ? validation.reference.id : null),
+    },
+    accessSelection: {
+      mode: "customer_api_key",
+      providerCredentialId: validation.access.credentialId,
+    },
+    schemaEvidence: {
+      schemaHash: validation.schemaHash,
+      schemaBytes: validation.schemaBytes,
+      queryEntitySource: validation.queryEntitySource,
+      observedAt: validation.observedAt,
+      activity: validation.activity,
+    },
+  };
+}
+
+function SourceConfig({ node, draft, update, mode, onModeChange, sourceDiscovery, onVerifiedSource }) {
   const { t } = useI18n();
   const [lookupMode, setLookupMode] = useState("search");
   const [searchQuery, setSearchQuery] = useState("");
   const [networkSlug, setNetworkSlug] = useState("");
   const [identifierType, setIdentifierType] = useState("subgraph");
   const [identifier, setIdentifier] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchState, setSearchState] = useState("idle");
+  const [validation, setValidation] = useState(null);
+  const [validatedCandidate, setValidatedCandidate] = useState(null);
+  const [queryEntity, setQueryEntity] = useState("");
+  const [errorCode, setErrorCode] = useState(null);
+  const requestRef = useRef(null);
   const sources = draft.specification.sources ?? [];
   const sourceId = node.config?.sourceId ?? node.config?.sourceKey ?? "";
   const selected = sources.find((source) => source.id === sourceId);
@@ -64,6 +121,105 @@ function SourceConfig({ node, draft, update, mode, onModeChange }) {
     const { sourceKey: _legacySourceKey, ...config } = node.config ?? {};
     update({ ...config, sourceId: value, queryPlan: value === sourceId ? config.queryPlan : null });
   };
+
+  useEffect(() => () => requestRef.current?.abort(), []);
+
+  const resetLookup = () => {
+    requestRef.current?.abort();
+    setSearchState("idle");
+    setSearchResults([]);
+    setValidation(null);
+    setValidatedCandidate(null);
+    setQueryEntity("");
+    setErrorCode(null);
+    onVerifiedSource(null);
+  };
+
+  const selectValidatedEntity = (result, entityName, candidate) => {
+    const entity = result.entities.find((item) => item.queryEntity === entityName);
+    if (!entity) {
+      onVerifiedSource(null);
+      return;
+    }
+    const source = sourceRecord(result, entity, candidate);
+    if (source.outputSchema.fields.length === 0) {
+      onVerifiedSource(null);
+      return;
+    }
+    onVerifiedSource(source);
+    update({
+      sourceId: source.id,
+      queryEntity: entity.queryEntity,
+      fieldBindings: [],
+      auxiliaryFieldBindings: [],
+      accessSelection: source.accessSelection,
+      queryPlan: null,
+    });
+  };
+
+  const verify = async (reference, candidate = null) => {
+    if (!sourceDiscovery?.validate || !reference?.id?.trim() || searchState === "validating") return;
+    requestRef.current?.abort();
+    const controller = new AbortController();
+    requestRef.current = controller;
+    setSearchState("validating");
+    setErrorCode(null);
+    setValidation(null);
+    setValidatedCandidate(candidate);
+    onVerifiedSource(null);
+    try {
+      const result = await sourceDiscovery.validate({
+        reference,
+        network: networkSlug.trim() || null,
+      }, controller.signal);
+      if (controller.signal.aborted) return;
+      const firstEntity = result.entities.find((entity) => entity.fields.some((field) => !field.list && sourceScalarTypes.has(field.valueType)));
+      if (!firstEntity) throw new Error("GRAPH_SOURCE_NO_SCALAR_FIELDS");
+      setValidation(result);
+      setValidatedCandidate(candidate);
+      setQueryEntity(firstEntity.queryEntity);
+      setSearchState("verified");
+      selectValidatedEntity(result, firstEntity.queryEntity, candidate);
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+      setSearchState("error");
+      setErrorCode(error?.message ?? "GRAPH_SOURCE_API_UNAVAILABLE");
+    }
+  };
+
+  const search = async () => {
+    if (!sourceDiscovery?.search || searchState === "searching" || searchQuery.trim().length < 2) return;
+    requestRef.current?.abort();
+    const controller = new AbortController();
+    requestRef.current = controller;
+    setSearchState("searching");
+    setErrorCode(null);
+    setValidation(null);
+    setValidatedCandidate(null);
+    onVerifiedSource(null);
+    try {
+      const result = await sourceDiscovery.search({
+        query: searchQuery.trim(),
+        network: networkSlug.trim() || null,
+      }, controller.signal);
+      if (controller.signal.aborted) return;
+      setSearchResults(result.candidates);
+      setSearchState("results");
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+      setSearchResults([]);
+      setSearchState("error");
+      setErrorCode(error?.message ?? "GRAPH_SOURCE_API_UNAVAILABLE");
+    }
+  };
+
+  const errorMessage = errorCode === "GRAPH_CREDENTIAL_REQUIRED"
+    ? t("workflowEditor.inspector.sourceErrorCredential")
+    : errorCode === "GRAPH_SOURCE_VERIFICATION_FAILED" || errorCode === "GRAPH_SOURCE_NO_SCALAR_FIELDS"
+      ? t("workflowEditor.inspector.sourceErrorVerification")
+      : errorCode === "INVALID_REQUEST"
+        ? t("workflowEditor.inspector.sourceErrorInput")
+        : t("workflowEditor.inspector.sourceErrorUnavailable");
 
   return (
     <div className="workflow-source-config">
@@ -115,7 +271,10 @@ function SourceConfig({ node, draft, update, mode, onModeChange }) {
               aria-selected={lookupMode === "search"}
               aria-controls={`source-search-${node.id}`}
               className={lookupMode === "search" ? "is-active" : ""}
-              onClick={() => setLookupMode("search")}
+              onClick={() => {
+                resetLookup();
+                setLookupMode("search");
+              }}
             >
               {t("workflowEditor.inspector.searchSource")}
             </button>
@@ -125,20 +284,34 @@ function SourceConfig({ node, draft, update, mode, onModeChange }) {
               aria-selected={lookupMode === "id"}
               aria-controls={`source-id-${node.id}`}
               className={lookupMode === "id" ? "is-active" : ""}
-              onClick={() => setLookupMode("id")}
+              onClick={() => {
+                resetLookup();
+                setLookupMode("id");
+              }}
             >
               {t("workflowEditor.inspector.addById")}
             </button>
           </div>
 
           {lookupMode === "search" ? (
-            <div id={`source-search-${node.id}`} className="workflow-source-lookup-panel" role="tabpanel">
+            <form
+              id={`source-search-${node.id}`}
+              className="workflow-source-lookup-panel"
+              role="tabpanel"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void search();
+              }}
+            >
               <Field id={`source-query-${node.id}`} label={t("workflowEditor.inspector.searchQuery")}>
                 <input
                   id={`source-query-${node.id}`}
                   value={searchQuery}
                   placeholder={t("workflowEditor.inspector.searchQueryPlaceholder")}
-                  onChange={(event) => setSearchQuery(event.target.value)}
+                  onChange={(event) => {
+                    resetLookup();
+                    setSearchQuery(event.target.value);
+                  }}
                 />
               </Field>
               <Field id={`source-network-${node.id}`} label={t("workflowEditor.inspector.networkSlug")}>
@@ -146,15 +319,68 @@ function SourceConfig({ node, draft, update, mode, onModeChange }) {
                   id={`source-network-${node.id}`}
                   value={networkSlug}
                   placeholder={t("workflowEditor.inspector.networkSlugPlaceholder")}
-                  onChange={(event) => setNetworkSlug(event.target.value)}
+                  onChange={(event) => {
+                    resetLookup();
+                    setNetworkSlug(event.target.value);
+                  }}
                 />
               </Field>
-              <Button type="button" disabled>{t("workflowEditor.inspector.searchGraph")}</Button>
-            </div>
+              <Button
+                type="submit"
+                disabled={!sourceDiscovery?.search || searchQuery.trim().length < 2 || ["searching", "validating"].includes(searchState)}
+              >
+                {searchState === "searching" ? t("workflowEditor.inspector.searchingGraph") : t("workflowEditor.inspector.searchGraph")}
+              </Button>
+              {searchState === "results" && searchResults.length === 0 && (
+                <div className="workflow-source-feedback" role="status">{t("workflowEditor.inspector.sourceNoResults")}</div>
+              )}
+              {searchResults.length > 0 && (
+                <div className="workflow-source-results" aria-label={t("workflowEditor.inspector.sourceResults")}>
+                  {searchResults.map((candidate) => (
+                    <div className="workflow-source-result" key={candidate.manifestIpfsCid}>
+                      <div>
+                        <strong>{candidate.displayName}</strong>
+                        <span>{candidate.logicalSubgraphId ?? candidate.manifestIpfsCid}</span>
+                        <small>{candidate.totalQueryCount30d === null
+                          ? t("workflowEditor.inspector.sourceActivityUnknown")
+                          : t("workflowEditor.inspector.sourceActivity", {count: candidate.totalQueryCount30d})}</small>
+                      </div>
+                      <Button
+                        type="button"
+                        disabled={searchState === "validating"}
+                        onClick={() => verify(candidate.reference, candidate)}
+                      >
+                        {searchState === "validating" && validatedCandidate?.manifestIpfsCid === candidate.manifestIpfsCid
+                          ? t("workflowEditor.inspector.verifyingSource")
+                          : t("workflowEditor.inspector.verifySource")}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </form>
           ) : (
-            <div id={`source-id-${node.id}`} className="workflow-source-lookup-panel" role="tabpanel">
+            <form
+              id={`source-id-${node.id}`}
+              className="workflow-source-lookup-panel"
+              role="tabpanel"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void verify({
+                  type: identifierType === "subgraph" ? "subgraph_id" : identifierType === "deployment" ? "deployment_id" : "ipfs_hash",
+                  id: identifier.trim(),
+                });
+              }}
+            >
               <Field id={`source-id-type-${node.id}`} label={t("workflowEditor.inspector.identifierType")}>
-                <select id={`source-id-type-${node.id}`} value={identifierType} onChange={(event) => setIdentifierType(event.target.value)}>
+                <select
+                  id={`source-id-type-${node.id}`}
+                  value={identifierType}
+                  onChange={(event) => {
+                    resetLookup();
+                    setIdentifierType(event.target.value);
+                  }}
+                >
                   <option value="subgraph">{t("workflowEditor.inspector.subgraphId")}</option>
                   <option value="deployment">{t("workflowEditor.inspector.deploymentId")}</option>
                   <option value="ipfs">{t("workflowEditor.inspector.ipfsCid")}</option>
@@ -165,16 +391,57 @@ function SourceConfig({ node, draft, update, mode, onModeChange }) {
                   id={`source-identifier-${node.id}`}
                   value={identifier}
                   placeholder={t("workflowEditor.inspector.identifierPlaceholder")}
-                  onChange={(event) => setIdentifier(event.target.value)}
+                  onChange={(event) => {
+                    resetLookup();
+                    setIdentifier(event.target.value);
+                  }}
                 />
               </Field>
-              <Button type="button" disabled>{t("workflowEditor.inspector.verifySource")}</Button>
-            </div>
+              <Button
+                type="submit"
+                disabled={!sourceDiscovery?.validate || !identifier.trim() || ["searching", "validating"].includes(searchState)}
+              >
+                {searchState === "validating" ? t("workflowEditor.inspector.verifyingSource") : t("workflowEditor.inspector.verifySource")}
+              </Button>
+            </form>
           )}
 
-          <div className="workflow-source-unavailable" role="status">
-            {t("workflowEditor.inspector.discoveryUnavailable")}
-          </div>
+          {!sourceDiscovery && (
+            <div className="workflow-source-unavailable" role="status">{t("workflowEditor.inspector.discoveryUnavailable")}</div>
+          )}
+          {searchState === "error" && (
+            <div className="workflow-source-feedback is-error" role="alert">{errorMessage}</div>
+          )}
+          {validation && (
+            <div className="workflow-source-verification" role="status">
+              <div className="workflow-source-verification-title">
+                <CheckCircle size={18} weight="fill" aria-hidden="true" />
+                <strong>{t("workflowEditor.inspector.sourceVerified")}</strong>
+              </div>
+              <span>{validatedCandidate?.displayName ?? validation.displayName}</span>
+              <small>{validation.networkLabel ?? t("workflowEditor.inspector.sourceNetworkUnspecified")} · {validation.schemaHash.slice(0, 19)}…</small>
+              <Field id={`source-entity-${node.id}`} label={t("workflowEditor.inspector.queryEntity")} hint={t("workflowEditor.inspector.queryEntityHint")}>
+                <select
+                  id={`source-entity-${node.id}`}
+                  value={queryEntity}
+                  onChange={(event) => {
+                    setQueryEntity(event.target.value);
+                    selectValidatedEntity(validation, event.target.value, validatedCandidate);
+                  }}
+                >
+                  {validation.entities.map((entity) => (
+                    <option key={entity.queryEntity} value={entity.queryEntity}>
+                      {entity.queryEntity} · {entity.fields.filter((field) => !field.list && sourceScalarTypes.has(field.valueType)).length} {t("workflowEditor.inspector.fields")}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <p>{validation.activity
+                ? t("workflowEditor.inspector.sourceVerifiedActivity", {count: validation.activity.totalQueryCount30d})
+                : t("workflowEditor.inspector.sourceVerifiedNoActivity")}</p>
+              <p>{t("workflowEditor.inspector.sourceAdmissionPending")}</p>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -920,12 +1187,13 @@ function cloneConfig(config) {
   return JSON.parse(JSON.stringify(config ?? {}));
 }
 
-export function NodeInspector({ editor, nodeId, onClose }) {
+export function NodeInspector({ editor, nodeId, onClose, sourceDiscovery }) {
   const { t } = useI18n();
   const node = editor.nodes.find((item) => item.id === nodeId)?.data?.node;
   const inspectorRef = useRef(null);
   const [draftConfig, setDraftConfig] = useState({});
   const [sourceMode, setSourceMode] = useState("discovered");
+  const [pendingSource, setPendingSource] = useState(null);
   const [legacyFilterExpression, setLegacyFilterExpression] = useState(false);
 
   useEffect(() => {
@@ -943,6 +1211,7 @@ export function NodeInspector({ editor, nodeId, onClose }) {
       setDraftConfig(cloneConfig(editable.config));
       setLegacyFilterExpression(editable.legacyExpression);
       setSourceMode("discovered");
+      setPendingSource(null);
     }
   }, [nodeId]);
 
@@ -989,14 +1258,20 @@ export function NodeInspector({ editor, nodeId, onClose }) {
   const aggregateFields = node.type === "aggregate" ? deriveDirectInputFields(editor, node.id) : [];
   const aggregateErrors = node.type === "aggregate" ? validateAggregateConfig(draftConfig, aggregateFields) : [];
   const outputFields = node.type === "output" ? deriveDirectInputFields(editor, node.id) : [];
-  const canConfirm = (node.type !== "source" || sourceMode === "discovered")
+  const canConfirm = (node.type !== "source"
+      || (sourceMode === "discovered" && Boolean(draftConfig.sourceId ?? draftConfig.sourceKey))
+      || (sourceMode === "add" && Boolean(pendingSource)))
     && (node.type !== "filter" || (!legacyFilterExpression && filterErrors.length === 0))
     && (node.type !== "sort" || sortErrors.length === 0)
     && (node.type !== "map" || mapErrors.length === 0)
     && (node.type !== "aggregate" || aggregateErrors.length === 0);
   const confirm = () => {
     if (!canConfirm) return;
-    editor.updateConfig(node.id, draftConfig);
+    if (node.type === "source" && sourceMode === "add") {
+      editor.configureSource(node.id, draftConfig, pendingSource);
+    } else {
+      editor.updateConfig(node.id, draftConfig);
+    }
     onClose();
   };
 
@@ -1034,7 +1309,13 @@ export function NodeInspector({ editor, nodeId, onClose }) {
               draft={editor.draft}
               update={update}
               mode={sourceMode}
-              onModeChange={setSourceMode}
+              onModeChange={(nextMode) => {
+                setSourceMode(nextMode);
+                setPendingSource(null);
+                if (nextMode === "discovered") setDraftConfig(cloneConfig(node.config));
+              }}
+              sourceDiscovery={sourceDiscovery}
+              onVerifiedSource={setPendingSource}
             />
           )}
           {node.type === "filter" && (

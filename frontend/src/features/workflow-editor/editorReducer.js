@@ -139,6 +139,30 @@ export function editorReducer(state, action) {
         : item);
       return commit(state, nodes, state.edges);
     }
+    case "configure_source": {
+      const sources = [...(state.draft.specification.sources ?? [])];
+      const sourceIndex = sources.findIndex((source) => source.id === action.source.id);
+      if (sourceIndex >= 0) sources[sourceIndex] = clone(action.source);
+      else sources.push(clone(action.source));
+      const draft = {
+        ...state.draft,
+        specification: {...state.draft.specification, sources},
+      };
+      const nodes = state.nodes.map((item) => item.id === action.id
+        ? {
+          ...item,
+          data: {
+            ...item.data,
+            node: {
+              ...item.data.node,
+              config: clone(action.config),
+              outputSchema: clone(action.source.outputSchema),
+            },
+          },
+        }
+        : item);
+      return commit({...state, draft}, nodes, state.edges);
+    }
     case "undo": {
       const previous = state.history.at(-1);
       if (!previous) return state;

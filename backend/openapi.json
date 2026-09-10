@@ -1740,6 +1740,138 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceId}/graph-sources/search": {
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdGraphSourcesSearch",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized live The Graph metadata discovery or schema verification",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BuilderSourceSearchResult"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "implemented",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BuilderSourceSearchInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/graph-sources/validate": {
+      "post": {
+        "operationId": "postApiV1WorkspacesWorkspaceIdGraphSourcesValidate",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized live The Graph metadata discovery or schema verification",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BuilderSourceValidation"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "implemented",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BuilderSourceValidateInput"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/workspaces/{workspaceId}/products": {
       "get": {
         "operationId": "getApiV1WorkspacesWorkspaceIdProducts",
@@ -9456,6 +9588,484 @@
         },
         "required": [
           "contentText"
+        ],
+        "additionalProperties": false
+      },
+      "BuilderSourceSearchInput": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 80
+          },
+          "network": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      },
+      "BuilderSourceSearchResult": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "network": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "dataNetwork": {
+                    "type": "string"
+                  },
+                  "graphNetworkId": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "dataNetwork",
+                  "graphNetworkId",
+                  "label"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "candidates": {
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "displayName": {
+                  "type": "string"
+                },
+                "logicalSubgraphId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "manifestIpfsCid": {
+                  "type": "string"
+                },
+                "reportedNetwork": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "networkEvidence": {
+                  "type": "string",
+                  "enum": [
+                    "matched",
+                    "unknown"
+                  ]
+                },
+                "totalQueryCount30d": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "reference": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "ipfs_hash"
+                    },
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "id"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "displayName",
+                "logicalSubgraphId",
+                "manifestIpfsCid",
+                "reportedNetwork",
+                "networkEvidence",
+                "totalQueryCount30d",
+                "reference"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "query",
+          "network",
+          "total",
+          "candidates"
+        ],
+        "additionalProperties": false
+      },
+      "BuilderSourceValidateInput": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "reference": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "subgraph_id"
+                  },
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  }
+                },
+                "required": [
+                  "type",
+                  "id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "deployment_id"
+                  },
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  }
+                },
+                "required": [
+                  "type",
+                  "id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "ipfs_hash"
+                  },
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  }
+                },
+                "required": [
+                  "type",
+                  "id"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "network": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "reference"
+        ],
+        "additionalProperties": false
+      },
+      "BuilderSourceValidation": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "sourceId": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string",
+            "const": "the_graph"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "reference": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "subgraph_id"
+                  },
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  }
+                },
+                "required": [
+                  "type",
+                  "id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "deployment_id"
+                  },
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  }
+                },
+                "required": [
+                  "type",
+                  "id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "ipfs_hash"
+                  },
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  }
+                },
+                "required": [
+                  "type",
+                  "id"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "dataNetwork": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "networkLabel": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "schemaHash": {
+            "type": "string"
+          },
+          "schemaBytes": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "queryEntitySource": {
+            "type": "string",
+            "enum": [
+              "source_sdl",
+              "runtime_introspection"
+            ]
+          },
+          "entities": {
+            "minItems": 1,
+            "maxItems": 128,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "queryEntity": {
+                  "type": "string"
+                },
+                "entityType": {
+                  "type": "string"
+                },
+                "fields": {
+                  "maxItems": 1024,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "path": {
+                        "type": "string"
+                      },
+                      "graphType": {
+                        "type": "string"
+                      },
+                      "valueType": {
+                        "type": "string",
+                        "enum": [
+                          "boolean",
+                          "string",
+                          "id",
+                          "address",
+                          "bytes",
+                          "integer",
+                          "decimal",
+                          "timestamp",
+                          "date",
+                          "json"
+                        ]
+                      },
+                      "nullable": {
+                        "type": "boolean"
+                      },
+                      "list": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "graphType",
+                      "valueType",
+                      "nullable",
+                      "list"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "queryEntity",
+                "entityType",
+                "fields"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "activity": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "totalQueryCount30d": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "dataPointsCount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "totalQueryCount30d",
+                  "dataPointsCount"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "access": {
+            "type": "object",
+            "properties": {
+              "mode": {
+                "type": "string",
+                "const": "api_key"
+              },
+              "credentialId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "verified": {
+                "type": "boolean",
+                "const": true
+              }
+            },
+            "required": [
+              "mode",
+              "credentialId",
+              "verified"
+            ],
+            "additionalProperties": false
+          },
+          "observedAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "admissionStatus": {
+            "type": "string",
+            "const": "planning_verified"
+          }
+        },
+        "required": [
+          "sourceId",
+          "provider",
+          "displayName",
+          "reference",
+          "dataNetwork",
+          "networkLabel",
+          "schemaHash",
+          "schemaBytes",
+          "queryEntitySource",
+          "entities",
+          "activity",
+          "access",
+          "observedAt",
+          "admissionStatus"
         ],
         "additionalProperties": false
       },

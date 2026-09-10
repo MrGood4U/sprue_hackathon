@@ -33,6 +33,16 @@ const definitions = {
     "A resource with the same protected identity already exists.",
     "reload_resource",
   ],
+  GRAPH_CREDENTIAL_REQUIRED: [
+    409,
+    "Select an active Graph API credential before discovering sources.",
+    "resolve_blocker",
+  ],
+  GRAPH_SOURCE_VERIFICATION_FAILED: [
+    422,
+    "The Graph source identity or schema could not be verified.",
+    "none",
+  ],
   RATE_LIMITED: [
     429,
     "The provider limit prevents this operation from completing now.",

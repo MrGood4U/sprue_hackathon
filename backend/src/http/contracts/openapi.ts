@@ -33,6 +33,12 @@ import {
   createSessionInputSchema,
   messageInputSchema,
 } from "../agent/agent.controller.js";
+import {
+  builderSourceSearchInputSchema,
+  builderSourceSearchResultSchema,
+  builderSourceValidateInputSchema,
+  builderSourceValidationSchema,
+} from "../graph/builder-source.controller.js";
 export function openApiDocument() {
   const paths: Record<string, Record<string, unknown>> = {};
   for (const route of routeCatalog) {
@@ -120,6 +126,10 @@ export function openApiDocument() {
                             ? "AgentPlanningTrace"
                           : ["agent-messages-submit", "agent-planning-cancel"].includes(route.implementation)
                             ? "AgentCommand"
+                            : route.implementation === "graph-sources-search"
+                              ? "BuilderSourceSearchResult"
+                              : route.implementation === "graph-sources-validate"
+                                ? "BuilderSourceValidation"
         : ["me", "bootstrap"].includes(route.implementation)
           ? "Bootstrap"
           : route.implementation === "app-config"
@@ -143,6 +153,8 @@ export function openApiDocument() {
                     ? "Authorized Graph credential metadata without raw secret material"
                     : route.implementation.startsWith("agent-")
                       ? "Authorized durable Agent conversation, sanitized planning evidence, or terminal command"
+                      : route.implementation.startsWith("graph-sources-")
+                        ? "Authorized live The Graph metadata discovery or schema verification"
                     : "Actual server configuration; unsupported capabilities remain disabled",
         content: {
           "application/json": {
@@ -204,7 +216,9 @@ export function openApiDocument() {
       route.implementation === "products-update" ||
       route.implementation === "agent-sessions-create" ||
       route.implementation === "agent-messages-submit" ||
-      route.implementation === "agent-planning-cancel"
+      route.implementation === "agent-planning-cancel" ||
+      route.implementation === "graph-sources-search" ||
+      route.implementation === "graph-sources-validate"
     ) {
       operation.requestBody = {
         required: true,
@@ -218,6 +232,10 @@ export function openApiDocument() {
                   ? {$ref: "#/components/schemas/CreateAgentSessionInput"}
                   : route.implementation === "agent-messages-submit"
                     ? {$ref: "#/components/schemas/AgentMessageInput"}
+                  : route.implementation === "graph-sources-search"
+                    ? {$ref: "#/components/schemas/BuilderSourceSearchInput"}
+                    : route.implementation === "graph-sources-validate"
+                      ? {$ref: "#/components/schemas/BuilderSourceValidateInput"}
                 : route.implementation === "wallet-hedera-create" ||
               route.implementation === "agent-planning-cancel" ||
               route.implementation === "graph-credentials-validate" ||
@@ -299,6 +317,10 @@ export function openApiDocument() {
         AgentCommand: z.toJSONSchema(agentCommandSchema),
         CreateAgentSessionInput: z.toJSONSchema(createSessionInputSchema),
         AgentMessageInput: z.toJSONSchema(messageInputSchema),
+        BuilderSourceSearchInput: z.toJSONSchema(builderSourceSearchInputSchema),
+        BuilderSourceSearchResult: z.toJSONSchema(builderSourceSearchResultSchema),
+        BuilderSourceValidateInput: z.toJSONSchema(builderSourceValidateInputSchema),
+        BuilderSourceValidation: z.toJSONSchema(builderSourceValidationSchema),
         DemoEnvelope: {
           type: "object",
           description: "A server-generated evaluator demo projection or action result.",

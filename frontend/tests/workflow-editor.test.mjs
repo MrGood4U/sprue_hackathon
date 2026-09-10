@@ -67,6 +67,38 @@ test("the editor round-trips a canonical DAG without storing canvas coordinates"
   assert.equal(state.draft.specification.outputSchema.fields.length, 1);
 });
 
+test("verified Graph source configuration is added atomically with its exact provider schema", () => {
+  const state = createEditorState(draftFixture());
+  const source = {
+    id: "graph:manual:01234567890123456789",
+    provider: "the_graph",
+    kind: "subgraph",
+    outputSchema: {
+      fields: [
+        {name: "amountUSD", type: "decimal", nullable: false, unit: null},
+        {name: "pair.token0.symbol", type: "string", nullable: true, unit: null},
+      ],
+    },
+  };
+  const configured = editorReducer(state, {
+    type: "configure_source",
+    id: "source",
+    config: {sourceId: source.id, queryEntity: "swaps", queryPlan: null},
+    source,
+  });
+
+  assert.deepEqual(configured.draft.specification.sources, [source]);
+  assert.deepEqual(
+    configured.draft.specification.dag.nodes.find((node) => node.id === "source").outputSchema.fields,
+    source.outputSchema.fields,
+  );
+  assert.equal(
+    configured.draft.specification.dag.nodes.find((node) => node.id === "source").config.sourceId,
+    source.id,
+  );
+  assert.equal(configured.history.length, 1);
+});
+
 test("dragging applies React Flow state without rebuilding the canonical DAG on every frame", () => {
   const state = createEditorState(draftFixture());
   const measured = editorReducer(state, {

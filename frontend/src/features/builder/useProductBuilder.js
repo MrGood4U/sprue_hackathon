@@ -4,6 +4,7 @@ import {loadAgentMessages, resolveProduct} from "../agent/agentData.js";
 import {latestRunMessages} from "../agent/latestRunMessages.js";
 import {listAgentSessions} from "../../services/api/agent.js";
 import {updateProduct} from "../../services/api/products.js";
+import {searchGraphSources, validateGraphSource} from "../../services/api/graph-sources.js";
 import {browserSessionStorage, projectAgentBuilderDraft, readCachedBuilderDraft} from "./liveBuilderProjection.js";
 import {useProductCache} from "../products/ProductCacheProvider.jsx";
 
@@ -58,5 +59,15 @@ export function useProductBuilder(productRef) {
     setState((current) => ({...current, product}));
   }, [rememberProduct, scope, state.product]);
 
-  return {...state, workspaceId, refresh, rename};
+  const searchSources = useCallback(async (input, signal) => searchGraphSources(input, {
+    ...await scope(),
+    signal,
+  }), [scope]);
+
+  const validateSource = useCallback(async (input, signal) => validateGraphSource(input, {
+    ...await scope(),
+    signal,
+  }), [scope]);
+
+  return {...state, workspaceId, refresh, rename, searchSources, validateSource};
 }

@@ -29,6 +29,8 @@ import {postgresProductRepository} from "../modules/products/postgres-repository
 import {ProductService} from "../modules/products/service.js";
 import {postgresAgentRepository} from "../modules/agent/postgres-repository.js";
 import {AgentService} from "../modules/agent/service.js";
+import {BuilderGraphSourceService} from "../modules/graph/builder-source-service.js";
+import {RestrictedGraphMcpClient, SdkGraphMcpPlanningWire} from "../modules/graph/mcp-client.js";
 import {DisabledGraphSchemaCache, RedisGraphSchemaCache} from "../modules/graph/schema-cache.js";
 import { listen, drain } from "./server.js";
 export async function startRuntime(
@@ -133,6 +135,16 @@ export async function startRuntime(
           config.embedding,
         )
       : undefined;
+    const builderSources = graphCredentials
+      ? new BuilderGraphSourceService(
+          graphCredentials,
+          (graphApiKey) => new RestrictedGraphMcpClient(new SdkGraphMcpPlanningWire({
+            gatewayApiKey: graphApiKey,
+            gatewayEnvironment: config.graph.gatewayEnvironment,
+            timeoutMs: config.agent.timeoutMs,
+          })),
+        )
+      : undefined;
     const auth = new AuthService(authRepository, wallets, logger);
     const app = createHttpApp(
       {
@@ -147,6 +159,7 @@ export async function startRuntime(
         wallets,
         products,
         agents,
+        builderSources,
         ready: databaseReadiness(pool, migrations),
         stopping: () => stopping,
       },
