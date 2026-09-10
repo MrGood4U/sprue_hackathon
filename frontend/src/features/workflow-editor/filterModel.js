@@ -1,4 +1,5 @@
 import {inferMapExpressionField} from "./mapModel.js";
+import {editableAggregateConfig} from "./aggregateModel.js";
 
 const scalarTypes = new Set(["boolean", "string", "id", "address", "bytes", "integer", "decimal", "timestamp", "date"]);
 const textualTypes = new Set(["string", "id", "address", "bytes"]);
@@ -133,8 +134,9 @@ function sourceFields(editor, node) {
 
 function aggregateFields(node, inputFields) {
   const byName = new Map(inputFields.map((field) => [field.name, field]));
-  const fields = (node.config?.groupBy ?? []).map((name) => byName.get(name)).filter(Boolean);
-  for (const measure of node.config?.measures ?? []) {
+  const config = editableAggregateConfig(node.config);
+  const fields = config.groupBy.map((name) => byName.get(name)).filter(Boolean);
+  for (const measure of config.measures) {
     if (!measure || typeof measure !== "object" || typeof measure.name !== "string") continue;
     const source = measure.field ? byName.get(measure.field) : null;
     fields.push({

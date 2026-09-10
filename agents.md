@@ -40,6 +40,8 @@ On 2026-09-05, the user expanded the first runtime to support multiple existing 
 
 The MVP runtime scope is Source, Filter, Map, Aggregate, Union, Join, and Output. GroupBy is aggregate configuration; source windows and derived scores use bounded configuration/expressions. Union requires compatible normalized row schemas. Join requires explicit input ports, join keys, join type/cardinality and bounded fan-out; it must not hide a cross-source merge inside an adapter. Standalone Window/Score and advanced onchain analytics remain deferred. The frontend DAG and backend execution model should share a simple, validated representation.
 
+On 2026-09-10, the user required Aggregate configuration to remain structured end to end. The visual inspector derives group and measure source fields from the direct predecessor schema, edits each measure as `{name, op, field}`, shows only type-compatible field choices, and never stringifies measure objects into comma-delimited text. Invalid or stale references stay visible and block confirmation.
+
 ## Confirmed DAG Execution Boundary
 
 On 2026-09-05, the user selected Option A: the Agent dynamically selects, configures, and connects predefined, developer-implemented operators. Different requests can produce different DAGs; this is not a single fixed pipeline. The exact operator subset remains limited to the MVP's demonstrated needs.

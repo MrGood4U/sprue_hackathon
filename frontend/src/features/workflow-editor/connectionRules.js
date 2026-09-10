@@ -1,6 +1,7 @@
 import {deriveDirectInputFields, deriveFilterInputFields, validateFilterConfig} from "./filterModel.js";
 import {validateMapConfig} from "./mapModel.js";
 import {validateSortConfig} from "./sortModel.js";
+import {validateAggregateConfig} from "./aggregateModel.js";
 
 const inputPorts = {
   source: [],
@@ -83,6 +84,12 @@ export function validateWorkflow(nodes, edges, draft = null) {
       const fields = deriveDirectInputFields({nodes, edges, draft}, node.id);
       if (fields.length === 0) errors.push({code: "SORT_INPUT_SCHEMA", nodeId: node.id});
       for (const issue of validateSortConfig(definition.config, fields)) {
+        errors.push({code: issue.code, nodeId: node.id});
+      }
+    }
+    if (definition.type === "aggregate" && connected.has("rows") && draft) {
+      const fields = deriveDirectInputFields({nodes, edges, draft}, node.id);
+      for (const issue of validateAggregateConfig(definition.config, fields)) {
         errors.push({code: issue.code, nodeId: node.id});
       }
     }

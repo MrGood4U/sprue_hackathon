@@ -18,6 +18,12 @@ import {
   validateMapConfig,
 } from "../src/features/workflow-editor/mapModel.js";
 import {createSortConfig, validateSortConfig} from "../src/features/workflow-editor/sortModel.js";
+import {
+  aggregateFieldsForOperation,
+  createAggregateMeasure,
+  editableAggregateConfig,
+  validateAggregateConfig,
+} from "../src/features/workflow-editor/aggregateModel.js";
 
 function draftFixture() {
   return {
@@ -349,6 +355,104 @@ test("Sort / Top K derives predecessor fields, preserves schema, and validates b
     ],
     limit: null,
   }, fields).some((error) => error.code === "SORT_FIELD_DUPLICATED"));
+});
+
+test("Aggregate derives predecessor fields and validates structured measures", () => {
+  const draft = draftFixture();
+  draft.specification.dag.nodes = [
+    {
+      id: "source",
+      type: "source",
+      operatorVersion: "1",
+      outputSchema: {fields: [
+        {name: "network", type: "string", nullable: false, unit: null},
+        {name: "amount", type: "decimal", nullable: false, unit: "USD"},
+        {name: "wallet", type: "address", nullable: false, unit: null},
+      ]},
+      config: {sourceKey: "existing-source"},
+    },
+    {
+      id: "aggregate",
+      type: "aggregate",
+      operatorVersion: "2",
+      config: {
+        groupBy: ["network"],
+        measures: [
+          {name: "trade_count", op: "count_rows", field: null},
+          {name: "volume", op: "sum", field: "amount"},
+          {name: "wallet_count", op: "count_distinct", field: "wallet"},
+        ],
+      },
+    },
+    {id: "output", type: "output", operatorVersion: "2", config: {fields: ["network", "trade_count", "volume", "wallet_count"], orderBy: []}},
+  ];
+  draft.specification.dag.edges = [
+    {fromNode: "source", fromPort: "rows", toNode: "aggregate", toPort: "rows"},
+    {fromNode: "aggregate", fromPort: "rows", toNode: "output", toPort: "rows"},
+  ];
+
+  const state = createEditorState(draft);
+  const fields = deriveDirectInputFields(state, "aggregate");
+  const config = state.nodes.find((node) => node.id === "aggregate").data.node.config;
+  assert.deepEqual(fields.map(({name}) => name), ["network", "amount", "wallet"]);
+  assert.deepEqual(validateAggregateConfig(config, fields), []);
+  assert.deepEqual(deriveNodeOutputFields(state, "aggregate").map(({name, type}) => [name, type]), [
+    ["network", "string"],
+    ["trade_count", "integer"],
+    ["volume", "decimal"],
+    ["wallet_count", "integer"],
+  ]);
+  assert.deepEqual(aggregateFieldsForOperation(fields, "sum").map(({name}) => name), ["amount"]);
+  assert.equal(state.validation.some((error) => error.nodeId === "aggregate"), false);
+
+  assert.ok(validateAggregateConfig({...config, measures: [{name: "bad", op: "sum", field: "missing"}]}, fields)
+    .some((error) => error.code === "AGGREGATE_FIELD_UNKNOWN"));
+  assert.ok(validateAggregateConfig({...config, measures: [{name: "bad", op: "sum", field: "network"}]}, fields)
+    .some((error) => error.code === "AGGREGATE_FIELD_TYPE_INVALID"));
+  assert.ok(validateAggregateConfig({...config, measures: [{name: "network", op: "count_rows", field: null}]}, fields)
+    .some((error) => error.code === "AGGREGATE_OUTPUT_NAME_DUPLICATED"));
+});
+
+test("Aggregate migrates legacy measure shapes without stringifying objects", () => {
+  assert.deepEqual(editableAggregateConfig({
+    groupBy: ["network"],
+    measures: {volume: {op: "sum", field: "amount"}},
+  }), {
+    groupBy: ["network"],
+    measures: [{name: "volume", op: "sum", field: "amount"}],
+  });
+  assert.deepEqual(editableAggregateConfig({
+    groupBy: [],
+    measures: ["trade_count"],
+  }), {
+    groupBy: [],
+    measures: [{name: "trade_count", op: "count_rows", field: null}],
+  });
+  assert.equal(createAggregateMeasure(["row_count"]).name, "row_count_2");
+
+  const draft = draftFixture();
+  draft.specification.dag.nodes = [
+    {
+      id: "source",
+      type: "source",
+      operatorVersion: "1",
+      outputSchema: {fields: [{name: "amount", type: "decimal", nullable: false, unit: "USD"}]},
+      config: {sourceKey: "existing-source"},
+    },
+    {
+      id: "aggregate",
+      type: "aggregate",
+      operatorVersion: "1",
+      config: {groupBy: [], measures: {volume: {op: "sum", field: "amount"}}},
+    },
+    {id: "output", type: "output", operatorVersion: "2", config: {fields: ["volume"], orderBy: []}},
+  ];
+  draft.specification.dag.edges = [
+    {fromNode: "source", fromPort: "rows", toNode: "aggregate", toPort: "rows"},
+    {fromNode: "aggregate", fromPort: "rows", toNode: "output", toPort: "rows"},
+  ];
+  const state = createEditorState(draft);
+  assert.deepEqual(deriveNodeOutputFields(state, "aggregate").map(({name, type}) => [name, type]), [["volume", "decimal"]]);
 });
 
 test("the canvas keeps a larger tokenized dot grid", async () => {

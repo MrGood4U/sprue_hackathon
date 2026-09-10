@@ -21,6 +21,13 @@ import {
   mapTransformsForField,
   validateMapConfig,
 } from "./mapModel.js";
+import {
+  aggregateFieldsForOperation,
+  aggregateOperations,
+  createAggregateMeasure,
+  editableAggregateConfig,
+  validateAggregateConfig,
+} from "./aggregateModel.js";
 import { getOperator } from "./nodeCatalog.js";
 import {createSortConfig, validateSortConfig} from "./sortModel.js";
 
@@ -690,17 +697,167 @@ function MapConfig({node, update, fields, errors}) {
   );
 }
 
-function AggregateConfig({ node, update }) {
-  const { t } = useI18n();
+function AggregateConfig({node, update, fields, errors}) {
+  const {t} = useI18n();
+  const config = editableAggregateConfig(node.config);
+  const groupBy = config.groupBy;
+  const measures = config.measures;
+  const operations = aggregateOperations();
+  const usedGroupFields = new Set(groupBy);
+  const availableGroupField = fields.find((field) => !usedGroupFields.has(field.name));
+  const updateGroup = (index, fieldName) => {
+    update({...config, groupBy: groupBy.map((item, candidateIndex) => candidateIndex === index ? fieldName : item)});
+  };
+  const removeGroup = (index) => {
+    update({...config, groupBy: groupBy.filter((_, candidateIndex) => candidateIndex !== index)});
+  };
+  const addGroup = () => {
+    if (!availableGroupField || groupBy.length >= 16) return;
+    update({...config, groupBy: [...groupBy, availableGroupField.name]});
+  };
+  const updateMeasure = (index, measure) => {
+    update({...config, measures: measures.map((item, candidateIndex) => candidateIndex === index ? measure : item)});
+  };
+  const removeMeasure = (index) => {
+    update({...config, measures: measures.filter((_, candidateIndex) => candidateIndex !== index)});
+  };
+  const addMeasure = () => {
+    if (measures.length >= 32) return;
+    const names = [...groupBy, ...measures.map((measure) => measure.name)];
+    update({...config, measures: [...measures, createAggregateMeasure(names)]});
+  };
+
   return (
-    <>
-      <Field id={`aggregate-group-${node.id}`} label={t("workflowEditor.inspector.groupBy")} hint={t("workflowEditor.inspector.listHint")}>
-        <input id={`aggregate-group-${node.id}`} value={listValue(node.config?.groupBy)} onChange={(event) => update({ ...node.config, groupBy: parseList(event.target.value) })} />
-      </Field>
-      <Field id={`aggregate-measures-${node.id}`} label={t("workflowEditor.inspector.measures")} hint={t("workflowEditor.inspector.listHint")}>
-        <input id={`aggregate-measures-${node.id}`} value={listValue(node.config?.measures)} onChange={(event) => update({ ...node.config, measures: parseList(event.target.value) })} />
-      </Field>
-    </>
+    <div className="workflow-aggregate-config">
+      <p className="workflow-inspector-help">{t("workflowEditor.inspector.aggregateHint")}</p>
+      <div className="workflow-aggregate-schema" role="group" aria-label={t("workflowEditor.inspector.aggregateInputSchema")}>
+        <span className="workflow-inspector-subtitle">{t("workflowEditor.inspector.aggregateInputSchema")}</span>
+        {fields.length === 0 ? (
+          <div className="workflow-aggregate-empty" role="status">{t("workflowEditor.inspector.aggregateNoFields")}</div>
+        ) : (
+          <ul>
+            {fields.map((field) => <li key={field.name}><code>{field.name}</code><span>{field.type}</span></li>)}
+          </ul>
+        )}
+      </div>
+
+      <div className="workflow-aggregate-groups">
+        <span className="workflow-inspector-subtitle">{t("workflowEditor.inspector.groupBy")}</span>
+        {groupBy.length === 0 && <div className="workflow-aggregate-empty">{t("workflowEditor.inspector.aggregateNoGroups")}</div>}
+        {groupBy.map((fieldName, index) => {
+          const field = fields.find((candidate) => candidate.name === fieldName);
+          const error = errors.find((candidate) => candidate.groupIndex === index);
+          return (
+            <div className={`workflow-aggregate-group${error ? " is-invalid" : ""}`} key={`${fieldName}-${index}`}>
+              <div className="workflow-aggregate-group-row">
+                <Field id={`aggregate-${node.id}-group-${index}`} label={t("workflowEditor.inspector.aggregateGroupField")}>
+                  <select
+                    id={`aggregate-${node.id}-group-${index}`}
+                    value={fieldName}
+                    aria-invalid={Boolean(error) || undefined}
+                    onChange={(event) => updateGroup(index, event.target.value)}
+                  >
+                    {!field && fieldName && <option value={fieldName}>{fieldName} · {t("workflowEditor.inspector.aggregateMissingField")}</option>}
+                    {fields.map((candidate) => (
+                      <option
+                        value={candidate.name}
+                        key={candidate.name}
+                        disabled={usedGroupFields.has(candidate.name) && candidate.name !== fieldName}
+                      >
+                        {candidate.name} · {candidate.type}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <IconButton type="button" label={t("workflowEditor.inspector.aggregateRemoveGroup")} onClick={() => removeGroup(index)}>
+                  <Trash size={17} aria-hidden="true" />
+                </IconButton>
+              </div>
+              {error && <p className="workflow-aggregate-error" role="alert">{t(`workflowEditor.inspector.aggregateError.${error.code}`)}</p>}
+            </div>
+          );
+        })}
+        <Button type="button" icon={Plus} disabled={!availableGroupField || groupBy.length >= 16} onClick={addGroup}>
+          {t("workflowEditor.inspector.aggregateAddGroup")}
+        </Button>
+      </div>
+
+      <div className="workflow-aggregate-measures">
+        <span className="workflow-inspector-subtitle">{t("workflowEditor.inspector.measures")}</span>
+        {measures.length === 0 && <div className="workflow-aggregate-empty">{t("workflowEditor.inspector.aggregateNoMeasures")}</div>}
+        {measures.map((measure, index) => {
+          const operation = operations.find((candidate) => candidate.op === measure.op);
+          const compatibleFields = aggregateFieldsForOperation(fields, measure.op);
+          const selectedField = fields.find((field) => field.name === measure.field);
+          const selectedFieldIsCompatible = compatibleFields.some((field) => field.name === measure.field);
+          const error = errors.find((candidate) => candidate.measureIndex === index);
+          return (
+            <fieldset className={`workflow-aggregate-measure${error ? " is-invalid" : ""}`} key={`${measure.name}-${measure.op}-${index}`}>
+              <legend>{t("workflowEditor.inspector.aggregateMeasure", {number: index + 1})}</legend>
+              <div className="workflow-aggregate-measure-grid">
+                <Field id={`aggregate-${node.id}-measure-name-${index}`} label={t("workflowEditor.inspector.aggregateOutputField")}>
+                  <input
+                    id={`aggregate-${node.id}-measure-name-${index}`}
+                    value={measure.name ?? ""}
+                    aria-invalid={error?.code === "AGGREGATE_OUTPUT_NAME_INVALID" || error?.code === "AGGREGATE_OUTPUT_NAME_DUPLICATED" || undefined}
+                    onChange={(event) => updateMeasure(index, {...measure, name: event.target.value})}
+                  />
+                </Field>
+                <Field id={`aggregate-${node.id}-measure-op-${index}`} label={t("workflowEditor.inspector.aggregateOperation")}>
+                  <select
+                    id={`aggregate-${node.id}-measure-op-${index}`}
+                    value={measure.op ?? ""}
+                    aria-invalid={error?.code === "AGGREGATE_OPERATION_INVALID" || undefined}
+                    onChange={(event) => {
+                      const op = event.target.value;
+                      const nextOperation = operations.find((candidate) => candidate.op === op);
+                      const nextFields = aggregateFieldsForOperation(fields, op);
+                      const field = nextOperation?.requiresField
+                        ? (nextFields.some((candidate) => candidate.name === measure.field) ? measure.field : nextFields[0]?.name ?? "")
+                        : null;
+                      updateMeasure(index, {...measure, op, field});
+                    }}
+                  >
+                    {!operation && measure.op && <option value={measure.op} disabled>{measure.op}</option>}
+                    {operations.map(({op}) => <option value={op} key={op}>{t(`workflowEditor.inspector.aggregateOperation.${op}`)}</option>)}
+                  </select>
+                </Field>
+                <IconButton type="button" label={t("workflowEditor.inspector.aggregateRemoveMeasure")} onClick={() => removeMeasure(index)}>
+                  <Trash size={17} aria-hidden="true" />
+                </IconButton>
+              </div>
+              {operation?.requiresField && (
+                <Field id={`aggregate-${node.id}-measure-field-${index}`} label={t("workflowEditor.inspector.aggregateSourceField")}>
+                  <select
+                    id={`aggregate-${node.id}-measure-field-${index}`}
+                    value={measure.field ?? ""}
+                    aria-invalid={error?.code === "AGGREGATE_FIELD_UNKNOWN" || error?.code === "AGGREGATE_FIELD_TYPE_INVALID" || undefined}
+                    onChange={(event) => updateMeasure(index, {...measure, field: event.target.value})}
+                  >
+                    {measure.field && !selectedFieldIsCompatible && (
+                      <option value={measure.field}>
+                        {measure.field} · {t(selectedField ? "workflowEditor.inspector.aggregateIncompatibleField" : "workflowEditor.inspector.aggregateMissingField")}
+                      </option>
+                    )}
+                    <option value="" disabled>{t("workflowEditor.inspector.aggregateSelectField")}</option>
+                    {compatibleFields.map((field) => <option value={field.name} key={field.name}>{field.name} · {field.type}</option>)}
+                  </select>
+                </Field>
+              )}
+              {error && <p className="workflow-aggregate-error" role="alert">{t(`workflowEditor.inspector.aggregateError.${error.code}`)}</p>}
+            </fieldset>
+          );
+        })}
+        <Button type="button" icon={Plus} disabled={measures.length >= 32} onClick={addMeasure}>
+          {t("workflowEditor.inspector.aggregateAddMeasure")}
+        </Button>
+      </div>
+      {errors.some((error) => error.groupIndex === null && error.measureIndex === null) && (
+        <p className="workflow-aggregate-error" role="alert">
+          {t(`workflowEditor.inspector.aggregateError.${errors.find((error) => error.groupIndex === null && error.measureIndex === null).code}`)}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -774,7 +931,14 @@ export function NodeInspector({ editor, nodeId, onClose }) {
     if (nodeId) {
       const editable = node?.type === "filter"
         ? editableFilterConfig(node?.config)
-        : {config: node?.type === "map" ? editableMapConfig(node?.config) : node?.config, legacyExpression: false};
+        : {
+          config: node?.type === "map"
+            ? editableMapConfig(node?.config)
+            : node?.type === "aggregate"
+              ? editableAggregateConfig(node?.config)
+              : node?.config,
+          legacyExpression: false,
+        };
       setDraftConfig(cloneConfig(editable.config));
       setLegacyFilterExpression(editable.legacyExpression);
       setSourceMode("discovered");
@@ -821,10 +985,13 @@ export function NodeInspector({ editor, nodeId, onClose }) {
   const sortErrors = node.type === "sort" ? validateSortConfig(draftConfig, sortFields) : [];
   const mapFields = node.type === "map" ? deriveDirectInputFields(editor, node.id) : [];
   const mapErrors = node.type === "map" ? validateMapConfig(draftConfig, mapFields) : [];
+  const aggregateFields = node.type === "aggregate" ? deriveDirectInputFields(editor, node.id) : [];
+  const aggregateErrors = node.type === "aggregate" ? validateAggregateConfig(draftConfig, aggregateFields) : [];
   const canConfirm = (node.type !== "source" || sourceMode === "discovered")
     && (node.type !== "filter" || (!legacyFilterExpression && filterErrors.length === 0))
     && (node.type !== "sort" || sortErrors.length === 0)
-    && (node.type !== "map" || mapErrors.length === 0);
+    && (node.type !== "map" || mapErrors.length === 0)
+    && (node.type !== "aggregate" || aggregateErrors.length === 0);
   const confirm = () => {
     if (!canConfirm) return;
     editor.updateConfig(node.id, draftConfig);
@@ -883,7 +1050,7 @@ export function NodeInspector({ editor, nodeId, onClose }) {
           )}
           {node.type === "sort" && <SortConfig node={draftNode} update={update} fields={sortFields} errors={sortErrors} />}
           {node.type === "map" && <MapConfig node={draftNode} update={update} fields={mapFields} errors={mapErrors} />}
-          {node.type === "aggregate" && <AggregateConfig node={draftNode} update={update} />}
+          {node.type === "aggregate" && <AggregateConfig node={draftNode} update={update} fields={aggregateFields} errors={aggregateErrors} />}
           {node.type === "union" && <UnionConfig node={draftNode} update={update} />}
           {node.type === "join" && <JoinConfig node={draftNode} update={update} />}
           {node.type === "output" && <OutputConfig node={draftNode} update={update} />}
