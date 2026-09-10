@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Handle, Position } from "@xyflow/react";
 import {
   ArrowsClockwise,
@@ -30,7 +31,7 @@ function portStyle(index, count) {
   return { top: `${((index + 1) / (count + 1)) * 100}%` };
 }
 
-export function WorkflowNode({ data, selected }) {
+export const WorkflowNode = memo(function WorkflowNode({ data, selected }) {
   const { t } = useI18n();
   const node = data.node;
   const operator = getOperator(node.type);
@@ -55,4 +56,4 @@ export function WorkflowNode({ data, selected }) {
       ))}
     </div>
   );
-}
+});

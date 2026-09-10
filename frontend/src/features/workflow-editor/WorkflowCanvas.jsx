@@ -5,21 +5,31 @@ import { canConnect } from "./connectionRules.js";
 import { NodePalette } from "./NodePalette.jsx";
 import { WorkflowEditorToolbar } from "./WorkflowEditorToolbar.jsx";
 import { WorkflowNode } from "./WorkflowNode.jsx";
-import { isNodeConfigured } from "./nodeConfiguration.js";
+import { presentWorkflowNodes } from "./nodePresentation.js";
 
 const nodeTypes = { workflow: WorkflowNode };
+const defaultEdgeOptions = { markerEnd: { type: MarkerType.ArrowClosed } };
+const fitViewOptions = { padding: 0.24 };
+const deleteKeyCode = ["Backspace", "Delete"];
+const proOptions = { hideAttribution: true };
+
+function allowPaletteDrop(event) {
+  event.preventDefault();
+  event.dataTransfer.dropEffect = "copy";
+}
 
 export function WorkflowCanvas({ editor, onSelectNode, onEditNode }) {
   const { t } = useI18n();
   const { fitView, screenToFlowPosition } = useReactFlow();
   const canvasRef = useRef(null);
-  const displayNodes = useMemo(() => editor.nodes.map((node) => ({
-    ...node,
-    data: {
-      ...node.data,
-      configured: isNodeConfigured(node.data.node, editor.validation),
-    },
-  })), [editor.nodes, editor.validation]);
+  const graphRef = useRef({ nodes: editor.nodes, edges: editor.edges });
+  graphRef.current = { nodes: editor.nodes, edges: editor.edges };
+  const presentedNodesRef = useRef(new Map());
+  const displayNodes = useMemo(() => {
+    const next = presentWorkflowNodes(editor.nodes, editor.validation, presentedNodesRef.current);
+    presentedNodesRef.current = next.cache;
+    return next.nodes;
+  }, [editor.nodes, editor.validation]);
 
   useEffect(() => {
     const element = canvasRef.current;
@@ -51,17 +61,43 @@ export function WorkflowCanvas({ editor, onSelectNode, onEditNode }) {
     const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
     if (payload.kind === "template") editor.addTemplate(payload.id, position);
     if (payload.kind === "operator") editor.addOperator(payload.id, position);
-  }, [editor, screenToFlowPosition]);
+  }, [editor.addOperator, editor.addTemplate, screenToFlowPosition]);
 
   const onNodesChange = useCallback((changes) => {
     const nextChanges = editor.tool === "pan" ? changes.filter((change) => change.type !== "select") : changes;
     if (nextChanges.length > 0) editor.onNodesChange(nextChanges);
-  }, [editor]);
+  }, [editor.onNodesChange, editor.tool]);
 
   const onEdgesChange = useCallback((changes) => {
     const nextChanges = editor.tool === "pan" ? changes.filter((change) => change.type !== "select") : changes;
     if (nextChanges.length > 0) editor.onEdgesChange(nextChanges);
-  }, [editor]);
+  }, [editor.onEdgesChange, editor.tool]);
+
+  const onNodeClick = useCallback((_, node) => {
+    if (editor.tool !== "select") return;
+    editor.selectNode(node.id);
+    onSelectNode?.(node.id);
+  }, [editor.selectNode, editor.tool, onSelectNode]);
+
+  const onNodeDoubleClick = useCallback((_, node) => {
+    if (editor.tool !== "select") return;
+    editor.selectNode(node.id);
+    onEditNode?.(node.id);
+  }, [editor.selectNode, editor.tool, onEditNode]);
+
+  const onEdgeClick = useCallback((_, edge) => {
+    if (editor.tool !== "select") return;
+    editor.selectEdge(edge.id);
+  }, [editor.selectEdge, editor.tool]);
+
+  const onPaneClick = useCallback(() => {
+    if (editor.tool === "select") editor.selectNode(null);
+  }, [editor.selectNode, editor.tool]);
+
+  const isValidConnection = useCallback((connection) => {
+    const { nodes, edges } = graphRef.current;
+    return canConnect(connection, nodes, edges);
+  }, []);
 
   return (
     <div
@@ -69,10 +105,7 @@ export function WorkflowCanvas({ editor, onSelectNode, onEditNode }) {
       className={`workflow-canvas workflow-canvas-${editor.tool}`}
       aria-label={t("workflowEditor.canvasLabel")}
       onDrop={onDrop}
-      onDragOver={(event) => {
-        event.preventDefault();
-        event.dataTransfer.dropEffect = "copy";
-      }}
+      onDragOver={allowPaletteDrop}
     >
       <ReactFlow
         nodes={displayNodes}
@@ -81,23 +114,10 @@ export function WorkflowCanvas({ editor, onSelectNode, onEditNode }) {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={editor.onConnect}
-        onNodeClick={(_, node) => {
-          if (editor.tool !== "select") return;
-          editor.selectNode(node.id);
-          onSelectNode?.(node.id);
-        }}
-        onNodeDoubleClick={(_, node) => {
-          if (editor.tool !== "select") return;
-          editor.selectNode(node.id);
-          onEditNode?.(node.id);
-        }}
-        onEdgeClick={(_, edge) => {
-          if (editor.tool !== "select") return;
-          editor.selectEdge(edge.id);
-        }}
-        onPaneClick={() => {
-          if (editor.tool === "select") editor.selectNode(null);
-        }}
+        onNodeClick={onNodeClick}
+        onNodeDoubleClick={onNodeDoubleClick}
+        onEdgeClick={onEdgeClick}
+        onPaneClick={onPaneClick}
         nodesSelectable={editor.tool === "select"}
         nodesDraggable={editor.tool === "select"}
         nodesConnectable={editor.tool === "select"}
@@ -107,12 +127,12 @@ export function WorkflowCanvas({ editor, onSelectNode, onEditNode }) {
         selectionOnDrag={false}
         zoomOnDoubleClick={false}
         minZoom={0.25}
-        deleteKeyCode={["Backspace", "Delete"]}
-        isValidConnection={(connection) => canConnect(connection, editor.nodes, editor.edges)}
-        defaultEdgeOptions={{ markerEnd: { type: MarkerType.ArrowClosed } }}
-        proOptions={{ hideAttribution: true }}
+        deleteKeyCode={deleteKeyCode}
+        isValidConnection={isValidConnection}
+        defaultEdgeOptions={defaultEdgeOptions}
+        proOptions={proOptions}
         fitView
-        fitViewOptions={{ padding: 0.24 }}
+        fitViewOptions={fitViewOptions}
       >
         <Background gap={28} size={1.4} color="var(--dag-grid)" />
         <Panel position="top-left" className="workflow-canvas-palette-panel nodrag nopan">

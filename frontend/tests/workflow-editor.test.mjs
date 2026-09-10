@@ -25,6 +25,7 @@ import {
   validateAggregateConfig,
 } from "../src/features/workflow-editor/aggregateModel.js";
 import {isNodeConfigured} from "../src/features/workflow-editor/nodeConfiguration.js";
+import {presentWorkflowNodes} from "../src/features/workflow-editor/nodePresentation.js";
 import {getInputPorts} from "../src/features/workflow-editor/connectionRules.js";
 
 function draftFixture() {
@@ -64,6 +65,55 @@ test("the editor round-trips a canonical DAG without storing canvas coordinates"
   assert.equal(state.validation.length, 0);
   assert.equal(state.draft.specification.dag.nodes[0].x, undefined);
   assert.equal(state.draft.specification.outputSchema.fields.length, 1);
+});
+
+test("dragging applies React Flow state without rebuilding the canonical DAG on every frame", () => {
+  const state = createEditorState(draftFixture());
+  const measured = editorReducer(state, {
+    type: "nodes_change",
+    changes: [{type: "dimensions", id: "source", dimensions: {width: 154, height: 96}, setAttributes: true}],
+  });
+  assert.deepEqual(measured.nodes.find((node) => node.id === "source").measured, {width: 154, height: 96});
+
+  const stationary = state.nodes.find((node) => node.id === "source");
+  const validation = state.validation;
+  const draft = state.draft;
+  const dragging = editorReducer(state, {
+    type: "nodes_change",
+    changes: [{type: "position", id: "map", position: {x: 320, y: 180}, dragging: true}],
+  });
+
+  assert.equal(dragging.draft, draft);
+  assert.equal(dragging.validation, validation);
+  assert.equal(dragging.nodes.find((node) => node.id === "source"), stationary);
+  assert.equal(dragging.nodes.find((node) => node.id === "map").dragging, true);
+
+  const stopped = editorReducer(dragging, {
+    type: "nodes_change",
+    changes: [{type: "position", id: "map", position: {x: 340, y: 190}, dragging: false}],
+  });
+  assert.equal(stopped.nodes.find((node) => node.id === "map").dragging, false);
+  assert.notEqual(stopped.draft, draft);
+  assert.equal(stopped.dragSnapshot, false);
+});
+
+test("node presentation preserves stationary node references during a drag", () => {
+  const state = createEditorState(draftFixture());
+  const first = presentWorkflowNodes(state.nodes, state.validation);
+  const dragging = editorReducer(state, {
+    type: "nodes_change",
+    changes: [{type: "position", id: "map", position: {x: 320, y: 180}, dragging: true}],
+  });
+  const second = presentWorkflowNodes(dragging.nodes, dragging.validation, first.cache);
+
+  assert.equal(
+    second.nodes.find((node) => node.id === "source"),
+    first.nodes.find((node) => node.id === "source"),
+  );
+  assert.notEqual(
+    second.nodes.find((node) => node.id === "map"),
+    first.nodes.find((node) => node.id === "map"),
+  );
 });
 
 test("node status recognizes valid Map v2 configuration and current validation errors", () => {

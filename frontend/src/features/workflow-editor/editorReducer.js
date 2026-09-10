@@ -1,3 +1,4 @@
+import { applyEdgeChanges as applyFlowEdgeChanges, applyNodeChanges as applyFlowNodeChanges } from "@xyflow/react";
 import { canConnect, validateWorkflow } from "./connectionRules.js";
 import { createOperatorNode, draftFromFlow, flowStateFromDraft, instantiateTemplate, nextNodeId } from "./editorProjection.js";
 
@@ -33,23 +34,6 @@ function commit(state, nodes, edges) {
   return { ...withDraft(state, nodes, edges), history: [...state.history, snapshot(state)], future: [], dirty: true };
 }
 
-function applyNodeChanges(nodes, changes) {
-  return changes.reduce((current, change) => {
-    if (change.type === "position" && change.position) return current.map((node) => node.id === change.id ? { ...node, position: change.position } : node);
-    if (change.type === "select") return current.map((node) => ({ ...node, selected: node.id === change.id ? change.selected : false }));
-    if (change.type === "remove") return current.filter((node) => node.id !== change.id);
-    return current;
-  }, nodes);
-}
-
-function applyEdgeChanges(edges, changes) {
-  return changes.reduce((current, change) => {
-    if (change.type === "select") return current.map((edge) => ({ ...edge, selected: edge.id === change.id ? change.selected : false }));
-    if (change.type === "remove") return current.filter((edge) => edge.id !== change.id);
-    return current;
-  }, edges);
-}
-
 export function editorReducer(state, action) {
   switch (action.type) {
     case "reset": return createEditorState(action.draft);
@@ -70,7 +54,7 @@ export function editorReducer(state, action) {
       edges: state.edges.map((edge) => ({ ...edge, selected: edge.id === action.id })),
     };
     case "nodes_change": {
-      const nextNodes = applyNodeChanges(state.nodes, action.changes);
+      const nextNodes = applyFlowNodeChanges(action.changes, state.nodes);
       const nextEdges = state.edges.filter((edge) => nextNodes.some((node) => node.id === edge.source) && nextNodes.some((node) => node.id === edge.target));
       const selectedNodeChange = action.changes.find((change) => change.type === "select" && change.selected);
       const deselectedNode = action.changes.some((change) => change.type === "select" && !change.selected && change.id === state.selectedNodeId);
@@ -85,9 +69,12 @@ export function editorReducer(state, action) {
         selectedEdgeId: state.selectedEdgeId && nextEdges.some((edge) => edge.id === state.selectedEdgeId) ? state.selectedEdgeId : null,
       };
       if (positions.length && (isDragging || finishedDragging || !action.changes.some((change) => change.dragging !== undefined))) {
-        const next = withDraft(state, nextNodes, nextEdges);
-        if (isDragging && !state.dragSnapshot) return { ...next, history: [...state.history, snapshot(state)], future: [], dirty: true, dragSnapshot: true };
-        return { ...next, dirty: true, dragSnapshot: isDragging ? true : false };
+        if (isDragging) {
+          const dragState = { ...state, nodes: nextNodes, edges: nextEdges, dirty: true, dragSnapshot: true };
+          if (!state.dragSnapshot) return { ...dragState, history: [...state.history, snapshot(state)], future: [] };
+          return dragState;
+        }
+        return { ...withDraft(state, nextNodes, nextEdges), dirty: true, dragSnapshot: false };
       }
       if (hasNodeSelectionChange) return {
         ...state,
@@ -99,7 +86,7 @@ export function editorReducer(state, action) {
       return { ...state, nodes: nextNodes };
     }
     case "edges_change": {
-      const nextEdges = applyEdgeChanges(state.edges, action.changes);
+      const nextEdges = applyFlowEdgeChanges(action.changes, state.edges);
       const removed = action.changes.some((change) => change.type === "remove");
       const selectedEdgeChange = action.changes.find((change) => change.type === "select" && change.selected);
       const deselectedEdge = action.changes.some((change) => change.type === "select" && !change.selected && change.id === state.selectedEdgeId);
