@@ -24,6 +24,7 @@ import {
   editableAggregateConfig,
   validateAggregateConfig,
 } from "../src/features/workflow-editor/aggregateModel.js";
+import {isNodeConfigured} from "../src/features/workflow-editor/nodeConfiguration.js";
 
 function draftFixture() {
   return {
@@ -62,6 +63,22 @@ test("the editor round-trips a canonical DAG without storing canvas coordinates"
   assert.equal(state.validation.length, 0);
   assert.equal(state.draft.specification.dag.nodes[0].x, undefined);
   assert.equal(state.draft.specification.outputSchema.fields.length, 1);
+});
+
+test("node status recognizes valid Map v2 configuration and current validation errors", () => {
+  const state = createEditorState(draftFixture());
+  const map = state.nodes.find((node) => node.id === "map").data.node;
+  assert.equal(isNodeConfigured(map, state.validation), true);
+
+  const blankMap = {...map, config: {mode: "project", fields: []}};
+  assert.equal(isNodeConfigured(blankMap, []), false);
+
+  const invalidDraft = draftFixture();
+  invalidDraft.specification.dag.nodes.find((node) => node.id === "map").config.fields[0].expression.field = "missing_field";
+  const invalidState = createEditorState(invalidDraft);
+  const invalidMap = invalidState.nodes.find((node) => node.id === "map").data.node;
+  assert.ok(invalidState.validation.some((error) => error.nodeId === "map" && error.code === "MAP_SOURCE_FIELD_UNKNOWN"));
+  assert.equal(isNodeConfigured(invalidMap, invalidState.validation), false);
 });
 
 test("removing the output connection marks the draft invalid and clears derived output", () => {

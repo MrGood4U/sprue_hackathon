@@ -12,6 +12,7 @@ import {
 import { useI18n } from "../../i18n/I18nProvider.jsx";
 import { getOperator } from "./nodeCatalog.js";
 import { getInputPorts, getOutputPorts } from "./connectionRules.js";
+import { isNodeConfigured } from "./nodeConfiguration.js";
 
 const icons = {
   source: Database,
@@ -23,18 +24,6 @@ const icons = {
   join: GitMerge,
   output: BracketsCurly,
 };
-
-function isConfigured(node) {
-  const config = node.config ?? {};
-  if (node.type === "source") return Boolean(config.sourceId || config.sourceKey);
-  if (node.type === "filter") {
-    return Boolean(config.expression || config.window || (Array.isArray(config.predicate?.conditions) && config.predicate.conditions.length > 0));
-  }
-  if (node.type === "map") return Boolean(config.recipe) || Object.keys(config.mapping ?? {}).length > 0;
-  if (node.type === "aggregate") return (config.groupBy ?? []).length > 0 || (config.measures ?? []).length > 0;
-  if (node.type === "sort") return Array.isArray(config.orderBy) && config.orderBy.length > 0;
-  return true;
-}
 
 function portStyle(index, count) {
   if (count === 1) return undefined;
@@ -48,7 +37,7 @@ export function WorkflowNode({ data, selected }) {
   const Icon = icons[node.type] ?? ArrowsClockwise;
   const inputPorts = getInputPorts(node.type);
   const outputPorts = getOutputPorts(node.type);
-  const configured = isConfigured(node);
+  const configured = data.configured ?? isNodeConfigured(node);
 
   return (
     <div className={`workflow-node ${selected ? "is-selected" : ""}`} role="group" aria-label={t(operator.labelKey)} data-operator-type={node.type}>

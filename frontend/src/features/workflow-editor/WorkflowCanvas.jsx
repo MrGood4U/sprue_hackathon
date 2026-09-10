@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Background, MarkerType, Panel, ReactFlow, useReactFlow } from "@xyflow/react";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
 import { canConnect } from "./connectionRules.js";
 import { NodePalette } from "./NodePalette.jsx";
 import { WorkflowEditorToolbar } from "./WorkflowEditorToolbar.jsx";
 import { WorkflowNode } from "./WorkflowNode.jsx";
+import { isNodeConfigured } from "./nodeConfiguration.js";
 
 const nodeTypes = { workflow: WorkflowNode };
 
@@ -12,6 +13,13 @@ export function WorkflowCanvas({ editor, onSelectNode, onEditNode }) {
   const { t } = useI18n();
   const { fitView, screenToFlowPosition } = useReactFlow();
   const canvasRef = useRef(null);
+  const displayNodes = useMemo(() => editor.nodes.map((node) => ({
+    ...node,
+    data: {
+      ...node.data,
+      configured: isNodeConfigured(node.data.node, editor.validation),
+    },
+  })), [editor.nodes, editor.validation]);
 
   useEffect(() => {
     const element = canvasRef.current;
@@ -67,7 +75,7 @@ export function WorkflowCanvas({ editor, onSelectNode, onEditNode }) {
       }}
     >
       <ReactFlow
-        nodes={editor.nodes}
+        nodes={displayNodes}
         edges={editor.edges}
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
