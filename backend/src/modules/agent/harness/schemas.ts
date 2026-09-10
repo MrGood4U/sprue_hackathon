@@ -167,7 +167,22 @@ const expressionSchema: z.ZodType<unknown> = z.lazy(() => z.union([
     value: z.union([z.string(), z.number(), z.boolean(), z.null()]),
   }).strict(),
   z.object({
-    op: z.enum(["not", "utc_date"]),
+    op: z.enum([
+      "not",
+      "utc_date",
+      "to_integer",
+      "to_decimal",
+      "to_timestamp",
+      "epoch_seconds_to_timestamp",
+      "epoch_milliseconds_to_timestamp",
+      "trim",
+      "lower",
+      "upper",
+      "abs",
+      "round",
+      "floor",
+      "ceil",
+    ]),
     inputs: z.tuple([expressionSchema]),
   }).strict(),
   z.object({
@@ -175,7 +190,7 @@ const expressionSchema: z.ZodType<unknown> = z.lazy(() => z.union([
     inputs: z.tuple([expressionSchema, expressionSchema]),
   }).strict(),
   z.object({
-    op: z.enum(["and", "or"]),
+    op: z.enum(["and", "or", "concat", "coalesce"]),
     inputs: z.array(expressionSchema).min(2).max(8),
   }).strict(),
   z.object({

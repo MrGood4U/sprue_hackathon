@@ -10,8 +10,11 @@ import {
   validateFilterConfig,
 } from "../src/features/workflow-editor/filterModel.js";
 import {
+  defaultMapFallbackValue,
   editableMapConfig,
   mapExpressionEditor,
+  mapExpressionForEditor,
+  mapTransformsForField,
   validateMapConfig,
 } from "../src/features/workflow-editor/mapModel.js";
 import {createSortConfig, validateSortConfig} from "../src/features/workflow-editor/sortModel.js";
@@ -192,7 +195,12 @@ test("Map reads its direct predecessor schema and preserves Agent-authored field
     "data_network",
   ]);
   assert.equal(validateMapConfig(config, fields).length, 0);
-  assert.deepEqual(mapExpressionEditor(config.fields[1].expression), {kind: "utc_date", sourceField: "trade_timestamp"});
+  assert.deepEqual(mapExpressionEditor(config.fields[1].expression), {
+    kind: "utc_date",
+    sourceField: "trade_timestamp",
+    secondaryField: null,
+    fallbackValue: null,
+  });
   assert.deepEqual(deriveNodeOutputFields(state, "map").slice(-2).map(({name, type}) => [name, type]), [
     ["network", "string"],
     ["trade_date", "date"],
@@ -206,6 +214,50 @@ test("Map reads its direct predecessor schema and preserves Agent-authored field
     mode: "project",
     fields: [{name: "kept", expression: {op: "field", field: "token0_symbol"}}],
   });
+});
+
+test("Map exposes type-aware conversions and round-trips progressively disclosed editor expressions", () => {
+  const fields = [
+    {name: "integer_text", type: "string", nullable: false, unit: null},
+    {name: "epoch_seconds", type: "integer", nullable: false, unit: "seconds"},
+    {name: "label", type: "string", nullable: true, unit: null},
+    {name: "suffix", type: "id", nullable: false, unit: null},
+    {name: "amount", type: "decimal", nullable: false, unit: "USD"},
+    {name: "active", type: "boolean", nullable: true, unit: null},
+  ];
+  assert.ok(mapTransformsForField(fields[0]).some(({kind}) => kind === "to_integer"));
+  assert.ok(mapTransformsForField(fields[1]).some(({kind}) => kind === "epoch_seconds_to_timestamp"));
+  assert.ok(mapTransformsForField(fields[2]).some(({kind}) => kind === "concat"));
+  assert.ok(mapTransformsForField(fields[4]).some(({kind}) => kind === "round"));
+  assert.equal(mapTransformsForField(fields[5]).some(({kind}) => kind === "upper"), false);
+
+  const concat = mapExpressionForEditor("concat", "label", {secondaryField: "suffix"});
+  assert.deepEqual(mapExpressionEditor(concat), {
+    kind: "concat",
+    sourceField: "label",
+    secondaryField: "suffix",
+    fallbackValue: null,
+  });
+  const coalesce = mapExpressionForEditor("coalesce", "active", {sourceType: "boolean", fallbackValue: false});
+  assert.deepEqual(mapExpressionEditor(coalesce), {
+    kind: "coalesce",
+    sourceField: "active",
+    secondaryField: null,
+    fallbackValue: false,
+  });
+  assert.equal(defaultMapFallbackValue("count"), "0");
+
+  const config = {
+    mode: "project",
+    fields: [
+      {name: "parsed", expression: mapExpressionForEditor("to_integer", "integer_text")},
+      {name: "occurred_at", expression: mapExpressionForEditor("epoch_seconds_to_timestamp", "epoch_seconds")},
+      {name: "display", expression: concat},
+      {name: "score", expression: mapExpressionForEditor("round", "amount")},
+      {name: "enabled", expression: coalesce},
+    ],
+  };
+  assert.deepEqual(validateMapConfig(config, fields), []);
 });
 
 test("Map exposes exact camel-case and nested Graph field paths from a Source boundary", () => {

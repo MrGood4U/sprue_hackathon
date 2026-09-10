@@ -2,6 +2,44 @@ const identifierPattern = /^[a-z][a-z0-9_]{0,99}$/;
 const scalarTypes = new Set(["boolean", "string", "id", "address", "bytes", "integer", "decimal", "timestamp", "date", "json"]);
 const textualTypes = new Set(["string", "id", "address", "bytes"]);
 const numericTypes = new Set(["integer", "decimal"]);
+const unaryOperations = new Set([
+  "not",
+  "utc_date",
+  "to_integer",
+  "to_decimal",
+  "to_timestamp",
+  "epoch_seconds_to_timestamp",
+  "epoch_milliseconds_to_timestamp",
+  "trim",
+  "lower",
+  "upper",
+  "abs",
+  "round",
+  "floor",
+  "ceil",
+]);
+const binaryOperations = new Set(["eq", "ne", "lt", "lte", "gt", "gte", "add", "subtract", "multiply", "safe_divide"]);
+const variadicOperations = new Set(["and", "or", "concat", "coalesce"]);
+const editorUnaryOperations = new Set([...unaryOperations].filter((operation) => operation !== "not"));
+
+const transformDefinitions = [
+  {kind: "field", group: "basic", accepts: () => true},
+  {kind: "to_integer", group: "type", accepts: (type) => ["string", "integer", "decimal"].includes(type)},
+  {kind: "to_decimal", group: "type", accepts: (type) => ["string", "integer", "decimal"].includes(type)},
+  {kind: "to_timestamp", group: "type", accepts: (type) => type === "string"},
+  {kind: "epoch_seconds_to_timestamp", group: "time", accepts: (type) => ["string", "integer"].includes(type)},
+  {kind: "epoch_milliseconds_to_timestamp", group: "time", accepts: (type) => ["string", "integer"].includes(type)},
+  {kind: "utc_date", group: "time", accepts: (type) => ["timestamp", "integer", "string"].includes(type)},
+  {kind: "trim", group: "text", accepts: (type) => textualTypes.has(type)},
+  {kind: "lower", group: "text", accepts: (type) => textualTypes.has(type)},
+  {kind: "upper", group: "text", accepts: (type) => textualTypes.has(type)},
+  {kind: "concat", group: "text", accepts: (type) => textualTypes.has(type)},
+  {kind: "coalesce", group: "null", accepts: (type) => type !== "json"},
+  {kind: "abs", group: "numeric", accepts: (type) => numericTypes.has(type)},
+  {kind: "round", group: "numeric", accepts: (type) => numericTypes.has(type)},
+  {kind: "floor", group: "numeric", accepts: (type) => numericTypes.has(type)},
+  {kind: "ceil", group: "numeric", accepts: (type) => numericTypes.has(type)},
+];
 
 function normalizeType(type) {
   if (type === "count") return "integer";
@@ -13,6 +51,30 @@ function compatible(left, right) {
   return (textualTypes.has(left) && textualTypes.has(right)) || (numericTypes.has(left) && numericTypes.has(right));
 }
 
+function promotedType(left, right) {
+  if (left === right) return left;
+  if (numericTypes.has(left) && numericTypes.has(right)) return "decimal";
+  if (textualTypes.has(left) && textualTypes.has(right)) return "string";
+  return null;
+}
+
+function literalIsValid(type, value) {
+  if (value === null) return true;
+  if (type === "boolean") return typeof value === "boolean";
+  if (type === "json") return ["string", "number", "boolean"].includes(typeof value);
+  if (typeof value !== "string") return false;
+  const text = String(value);
+  if (type === "integer") return /^-?(?:0|[1-9]\d*)$/.test(text);
+  if (type === "decimal") return /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/.test(text);
+  if (type === "timestamp") return /^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/.test(text) && !Number.isNaN(Date.parse(text));
+  if (type === "date") {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return false;
+    const parsed = new Date(`${text}T00:00:00.000Z`);
+    return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === text;
+  }
+  return typeof value === "string";
+}
+
 function expressionResult(expression, inputByName, depth = 0) {
   if (!expression || typeof expression !== "object" || depth > 8) return {error: "MAP_EXPRESSION_INVALID"};
   if (expression.op === "field") {
@@ -21,19 +83,17 @@ function expressionResult(expression, inputByName, depth = 0) {
   }
   if (expression.op === "literal") {
     const type = normalizeType(expression.valueType);
-    if (!type || (expression.value !== null && !["string", "number", "boolean"].includes(typeof expression.value))) {
+    if (!type || !literalIsValid(type, expression.value)) {
       return {error: "MAP_EXPRESSION_INVALID"};
     }
     return {field: {name: "expression", type, nullable: expression.value === null, unit: null}};
   }
   const inputs = Array.isArray(expression.inputs) ? expression.inputs : [];
-  const unary = new Set(["not", "utc_date"]);
-  const binary = new Set(["eq", "ne", "lt", "lte", "gt", "gte", "add", "subtract", "multiply", "safe_divide"]);
-  if ((unary.has(expression.op) && inputs.length !== 1)
-    || (binary.has(expression.op) && inputs.length !== 2)
-    || (["and", "or"].includes(expression.op) && (inputs.length < 2 || inputs.length > 8))
+  if ((unaryOperations.has(expression.op) && inputs.length !== 1)
+    || (binaryOperations.has(expression.op) && inputs.length !== 2)
+    || (variadicOperations.has(expression.op) && (inputs.length < 2 || inputs.length > 8))
     || (expression.op === "if" && inputs.length !== 3)
-    || (!unary.has(expression.op) && !binary.has(expression.op) && !["and", "or", "if"].includes(expression.op))) {
+    || (!unaryOperations.has(expression.op) && !binaryOperations.has(expression.op) && !variadicOperations.has(expression.op) && expression.op !== "if")) {
     return {error: "MAP_EXPRESSION_INVALID"};
   }
   const inferred = inputs.map((input) => expressionResult(input, inputByName, depth + 1));
@@ -43,6 +103,53 @@ function expressionResult(expression, inputByName, depth = 0) {
   if (["not", "and", "or"].includes(expression.op)) {
     if (fields.some((field) => field.type !== "boolean")) return {error: "MAP_EXPRESSION_TYPE_INVALID"};
     return {field: {name: "expression", type: "boolean", nullable: fields.some((field) => field.nullable), unit: null}};
+  }
+  if (expression.op === "to_integer") {
+    if (!["integer", "decimal", "string"].includes(fields[0].type)) return {error: "MAP_EXPRESSION_TYPE_INVALID"};
+    return {field: {...fields[0], name: "expression", type: "integer"}};
+  }
+  if (expression.op === "to_decimal") {
+    if (!["integer", "decimal", "string"].includes(fields[0].type)) return {error: "MAP_EXPRESSION_TYPE_INVALID"};
+    return {field: {...fields[0], name: "expression", type: "decimal"}};
+  }
+  if (expression.op === "to_timestamp") {
+    if (fields[0].type !== "string") return {error: "MAP_EXPRESSION_TYPE_INVALID"};
+    return {field: {name: "expression", type: "timestamp", nullable: fields[0].nullable, unit: null}};
+  }
+  if (["epoch_seconds_to_timestamp", "epoch_milliseconds_to_timestamp"].includes(expression.op)) {
+    if (!["integer", "string"].includes(fields[0].type)) return {error: "MAP_EXPRESSION_TYPE_INVALID"};
+    return {field: {name: "expression", type: "timestamp", nullable: fields[0].nullable, unit: null}};
+  }
+  if (["trim", "lower", "upper"].includes(expression.op)) {
+    if (!textualTypes.has(fields[0].type)) return {error: "MAP_EXPRESSION_TYPE_INVALID"};
+    return {field: {name: "expression", type: "string", nullable: fields[0].nullable, unit: null}};
+  }
+  if (["abs", "round", "floor", "ceil"].includes(expression.op)) {
+    if (!numericTypes.has(fields[0].type)) return {error: "MAP_EXPRESSION_TYPE_INVALID"};
+    return {
+      field: {
+        name: "expression",
+        type: expression.op === "abs" ? fields[0].type : "integer",
+        nullable: fields[0].nullable,
+        unit: fields[0].unit,
+      },
+    };
+  }
+  if (expression.op === "concat") {
+    if (fields.some((field) => !textualTypes.has(field.type))) return {error: "MAP_EXPRESSION_TYPE_INVALID"};
+    return {field: {name: "expression", type: "string", nullable: fields.some((field) => field.nullable), unit: null}};
+  }
+  if (expression.op === "coalesce") {
+    const type = fields.slice(1).reduce((current, field) => current && promotedType(current, field.type), fields[0].type);
+    if (!type) return {error: "MAP_EXPRESSION_TYPE_INVALID"};
+    return {
+      field: {
+        name: "expression",
+        type,
+        nullable: fields.every((field) => field.nullable),
+        unit: fields.every((field) => field.unit === fields[0].unit) ? fields[0].unit : null,
+      },
+    };
   }
   if (["eq", "ne", "lt", "lte", "gt", "gte"].includes(expression.op)) {
     if (!compatible(fields[0].type, fields[1].type)) return {error: "MAP_EXPRESSION_TYPE_INVALID"};
@@ -69,8 +176,8 @@ function expressionResult(expression, inputByName, depth = 0) {
   return {
     field: {
       name: "expression",
-      type: fields[1].type,
-      nullable: fields[1].nullable || fields[2].nullable,
+      type: promotedType(fields[1].type, fields[2].type),
+      nullable: fields.some((field) => field.nullable),
       unit: fields[1].unit === fields[2].unit ? fields[1].unit : null,
     },
   };
@@ -96,16 +203,70 @@ export function editableMapConfig(config) {
 
 export function mapExpressionEditor(expression) {
   if (expression?.op === "field" && typeof expression.field === "string") {
-    return {kind: "field", sourceField: expression.field};
+    return {kind: "field", sourceField: expression.field, secondaryField: null, fallbackValue: null};
   }
-  if (expression?.op === "utc_date" && expression.inputs?.[0]?.op === "field" && typeof expression.inputs[0].field === "string") {
-    return {kind: "utc_date", sourceField: expression.inputs[0].field};
+  if (editorUnaryOperations.has(expression?.op) && expression.inputs?.length === 1
+    && expression.inputs[0]?.op === "field" && typeof expression.inputs[0].field === "string") {
+    return {kind: expression.op, sourceField: expression.inputs[0].field, secondaryField: null, fallbackValue: null};
   }
-  return {kind: "advanced", sourceField: null};
+  if (expression?.op === "concat" && expression.inputs?.length === 2
+    && expression.inputs.every((input) => input?.op === "field" && typeof input.field === "string")) {
+    return {
+      kind: "concat",
+      sourceField: expression.inputs[0].field,
+      secondaryField: expression.inputs[1].field,
+      fallbackValue: null,
+    };
+  }
+  if (expression?.op === "coalesce" && expression.inputs?.length === 2
+    && expression.inputs[0]?.op === "field" && typeof expression.inputs[0].field === "string"
+    && expression.inputs[1]?.op === "literal") {
+    return {
+      kind: "coalesce",
+      sourceField: expression.inputs[0].field,
+      secondaryField: null,
+      fallbackValue: expression.inputs[1].value,
+    };
+  }
+  return {kind: "advanced", sourceField: null, secondaryField: null, fallbackValue: null};
 }
 
-export function mapExpressionForEditor(kind, sourceField) {
-  if (kind === "utc_date") return {op: "utc_date", inputs: [{op: "field", field: sourceField}]};
+export function defaultMapFallbackValue(type) {
+  if (type === "count") type = "integer";
+  if (type === "boolean") return false;
+  if (type === "integer" || type === "decimal") return "0";
+  if (type === "timestamp") return "1970-01-01T00:00:00.000Z";
+  if (type === "date") return "1970-01-01";
+  return "";
+}
+
+export function mapTransformsForField(field) {
+  const type = normalizeType(field?.type);
+  if (!type) return [];
+  return transformDefinitions.filter((definition) => definition.accepts(type));
+}
+
+export function mapExpressionForEditor(kind, sourceField, options = {}) {
+  if (editorUnaryOperations.has(kind)) return {op: kind, inputs: [{op: "field", field: sourceField}]};
+  if (kind === "concat") {
+    return {
+      op: "concat",
+      inputs: [
+        {op: "field", field: sourceField},
+        {op: "field", field: options.secondaryField ?? sourceField},
+      ],
+    };
+  }
+  if (kind === "coalesce") {
+    const sourceType = normalizeType(options.sourceType) ?? "string";
+    return {
+      op: "coalesce",
+      inputs: [
+        {op: "field", field: sourceField},
+        {op: "literal", valueType: sourceType, value: options.fallbackValue ?? defaultMapFallbackValue(sourceType)},
+      ],
+    };
+  }
   return {op: "field", field: sourceField};
 }
 

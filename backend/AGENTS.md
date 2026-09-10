@@ -16,6 +16,8 @@ On 2026-09-10, the user approved the version-2 generic Filter predicate. It cont
 
 On 2026-09-10, the user approved the version-1 Sort / Top K operator. It contains one to eight prioritized scalar field keys, explicit asc/desc direction, independent first/last null placement, and a nullable bounded K from 1 through 10,000. It executes on already-fetched Sprue rows, preserves the input schema, and uses upstream row order as the deterministic final tie-breaker. A configured K may use bounded heap selection but must produce exactly the same ordered prefix as a complete stable sort. Keep schema validation field-name agnostic, reject JSON/object/list sorting, and preserve invalid upstream references visibly.
 
+On 2026-09-10, the user approved the bounded generic Map transform set. Support explicit integer, decimal, ISO timestamp, epoch-seconds, and epoch-milliseconds conversions; trim/lower/upper and bounded concatenation; compatible-type coalesce; and abs/half-even round/floor/ceil. Execute on already-fetched rows, preserve exact integer/decimal strings, reject fractional to-integer casts unless an explicit rounding operator is present, and never guess epoch units or provider field semantics. Keep Harness inference, deterministic execution, and frontend schema inference aligned.
+
 All repository text, code comments, test names, migration notes, and commit messages must be written in English. Communication with the user may be in Chinese.
 
 Use the approved root `data-model.md` as the persistence baseline. Do not invent durable fields in endpoint code; update the reviewed model first when a missing concept is discovered.

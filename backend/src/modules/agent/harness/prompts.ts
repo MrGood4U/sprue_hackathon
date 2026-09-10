@@ -40,10 +40,12 @@ Then create a generic composition from the supplied bounded operator registry. A
 Expression JSON uses one of these shapes:
 - {op:"field",field};
 - {op:"literal",valueType,value};
-- {op:"not" or "utc_date",inputs:[expression]};
+- {op:"not"|"utc_date"|"to_integer"|"to_decimal"|"to_timestamp"|"epoch_seconds_to_timestamp"|"epoch_milliseconds_to_timestamp"|"trim"|"lower"|"upper"|"abs"|"round"|"floor"|"ceil",inputs:[expression]};
 - {op:"eq"|"ne"|"lt"|"lte"|"gt"|"gte"|"add"|"subtract"|"multiply"|"safe_divide",inputs:[left,right]};
-- {op:"and"|"or",inputs:[two to eight expressions]};
+- {op:"and"|"or"|"concat"|"coalesce",inputs:[two to eight expressions]};
 - {op:"if",inputs:[condition,whenTrue,whenFalse]}.
+
+Use to_timestamp only for an ISO-8601 string. Epoch integers require the explicit seconds or milliseconds operator. to_integer rejects fractional decimals instead of rounding; use round, floor, or ceil explicitly. concat accepts textual inputs and propagates null. coalesce returns the first non-null compatible input. Text transforms return string, and numeric rounding returns integer.
 
 Operator configs are:
 - Filter {expression};

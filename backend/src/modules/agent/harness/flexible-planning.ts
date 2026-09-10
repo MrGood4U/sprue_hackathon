@@ -13,6 +13,10 @@ import type {
 
 const identifierPattern = /^[a-z][a-z0-9_]{0,99}$/;
 const fieldReferencePattern = /^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$/;
+const integerLiteralPattern = /^-?(?:0|[1-9]\d*)$/;
+const decimalLiteralPattern = /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/;
+const dateLiteralPattern = /^\d{4}-\d{2}-\d{2}$/;
+const zonedTimestampPattern = /^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/i;
 
 interface FieldShape {
   type: GraphSemanticValueType;
@@ -109,6 +113,36 @@ function fail(code: string, message: string): never {
   throw new HarnessCompileError(code, message);
 }
 
+function validateLiteralValue(type: GraphSemanticValueType, value: unknown): void {
+  if (value === null) return;
+  if (type === "boolean") {
+    if (typeof value !== "boolean") fail("EXPRESSION_INVALID", "Boolean literal must contain a Boolean value");
+    return;
+  }
+  if (type === "integer") {
+    if (typeof value !== "string" || !integerLiteralPattern.test(value)) fail("EXPRESSION_INVALID", "Integer literal must be a canonical integer string");
+    return;
+  }
+  if (type === "decimal") {
+    if (typeof value !== "string" || !decimalLiteralPattern.test(value)) fail("EXPRESSION_INVALID", "Decimal literal must be an exact decimal string");
+    return;
+  }
+  if (type === "timestamp") {
+    if (typeof value !== "string" || !zonedTimestampPattern.test(value) || Number.isNaN(Date.parse(value))) {
+      fail("EXPRESSION_INVALID", "Timestamp literal must be an ISO-8601 value with a timezone");
+    }
+    return;
+  }
+  if (type === "date") {
+    if (typeof value !== "string" || !dateLiteralPattern.test(value)) fail("EXPRESSION_INVALID", "Date literal must be YYYY-MM-DD");
+    const parsed = new Date(`${value}T00:00:00.000Z`);
+    if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) fail("EXPRESSION_INVALID", "Date literal is invalid");
+    return;
+  }
+  if (type !== "json" && typeof value !== "string") fail("EXPRESSION_INVALID", `${type} literal must contain a string value`);
+  if (type === "json" && !["string", "number", "boolean"].includes(typeof value)) fail("EXPRESSION_INVALID", "JSON literal must be scalar or null");
+}
+
 function record(value: unknown, label: string): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) fail("OPERATOR_CONFIG_INVALID", `${label} must be an object`);
   return value as Record<string, unknown>;
@@ -201,9 +235,7 @@ function expressionType(
     if (typeof valueType !== "string" || !allowed.includes(valueType as GraphSemanticValueType)) {
       fail("EXPRESSION_INVALID", "Literal valueType is invalid");
     }
-    if (expression.value !== null && !["string", "number", "boolean"].includes(typeof expression.value)) {
-      fail("EXPRESSION_INVALID", "Literal value must be a scalar or null");
-    }
+    validateLiteralValue(valueType as GraphSemanticValueType, expression.value);
     return {
       type: valueType as GraphSemanticValueType,
       nullable: expression.value === null,
@@ -216,13 +248,30 @@ function expressionType(
 
   exactKeys(expression, ["op", "inputs"], `${op} expression`);
   const inputs = array(expression.inputs, `${op}.inputs`, 8);
-  const unary = new Set(["not", "utc_date"]);
+  const unary = new Set([
+    "not",
+    "utc_date",
+    "to_integer",
+    "to_decimal",
+    "to_timestamp",
+    "epoch_seconds_to_timestamp",
+    "epoch_milliseconds_to_timestamp",
+    "trim",
+    "lower",
+    "upper",
+    "abs",
+    "round",
+    "floor",
+    "ceil",
+  ]);
   const binary = new Set(["eq", "ne", "lt", "lte", "gt", "gte", "add", "subtract", "multiply", "safe_divide"]);
   if (unary.has(op) && inputs.length !== 1) fail("EXPRESSION_INVALID", `${op} requires one input`);
   if (binary.has(op) && inputs.length !== 2) fail("EXPRESSION_INVALID", `${op} requires two inputs`);
-  if ((op === "and" || op === "or") && (inputs.length < 2 || inputs.length > 8)) fail("EXPRESSION_INVALID", `${op} requires two to eight inputs`);
+  if (["and", "or", "concat", "coalesce"].includes(op) && (inputs.length < 2 || inputs.length > 8)) {
+    fail("EXPRESSION_INVALID", `${op} requires two to eight inputs`);
+  }
   if (op === "if" && inputs.length !== 3) fail("EXPRESSION_INVALID", "if requires three inputs");
-  if (!unary.has(op) && !binary.has(op) && op !== "and" && op !== "or" && op !== "if") {
+  if (!unary.has(op) && !binary.has(op) && !["and", "or", "concat", "coalesce", "if"].includes(op)) {
     fail("EXPRESSION_OPERATOR_UNKNOWN", `Expression operator ${op} is not registered`);
   }
   const inferred = inputs.map((input) => expressionType(input, shape, budget, usage, depth + 1));
@@ -282,12 +331,128 @@ function expressionType(
       origins: inferred[0]!.origins,
     };
   }
+  if (op === "to_integer") {
+    if (!new Set<GraphSemanticValueType>(["integer", "decimal", "string"]).has(inferred[0]!.type)) {
+      fail("EXPRESSION_TYPE_INVALID", "to_integer requires an integer, decimal, or string input");
+    }
+    return {
+      type: "integer",
+      nullable: inferred[0]!.nullable,
+      unit: inferred[0]!.unit,
+      cardinality: inferred[0]!.cardinality,
+      nonZero: inferred[0]!.nonZero,
+      origins: inferred[0]!.origins,
+    };
+  }
+  if (op === "to_decimal") {
+    if (!new Set<GraphSemanticValueType>(["integer", "decimal", "string"]).has(inferred[0]!.type)) {
+      fail("EXPRESSION_TYPE_INVALID", "to_decimal requires an integer, decimal, or string input");
+    }
+    return {
+      type: "decimal",
+      nullable: inferred[0]!.nullable,
+      unit: inferred[0]!.unit,
+      cardinality: false,
+      nonZero: inferred[0]!.nonZero,
+      origins: inferred[0]!.origins,
+    };
+  }
+  if (op === "to_timestamp") {
+    if (inferred[0]!.type !== "string") {
+      fail("EXPRESSION_TYPE_INVALID", "to_timestamp requires an ISO-8601 string input");
+    }
+    return {
+      type: "timestamp",
+      nullable: inferred[0]!.nullable,
+      unit: null,
+      cardinality: false,
+      nonZero: false,
+      origins: inferred[0]!.origins,
+    };
+  }
+  if (op === "epoch_seconds_to_timestamp" || op === "epoch_milliseconds_to_timestamp") {
+    if (inferred[0]!.type !== "integer" && inferred[0]!.type !== "string") {
+      fail("EXPRESSION_TYPE_INVALID", `${op} requires an integer or integer-string input`);
+    }
+    return {
+      type: "timestamp",
+      nullable: inferred[0]!.nullable,
+      unit: null,
+      cardinality: false,
+      nonZero: false,
+      origins: inferred[0]!.origins,
+    };
+  }
+  if (op === "trim" || op === "lower" || op === "upper") {
+    if (!new Set<GraphSemanticValueType>(["string", "id", "address", "bytes"]).has(inferred[0]!.type)) {
+      fail("EXPRESSION_TYPE_INVALID", `${op} requires a textual input`);
+    }
+    return {
+      type: "string",
+      nullable: inferred[0]!.nullable,
+      unit: null,
+      cardinality: false,
+      nonZero: false,
+      origins: inferred[0]!.origins,
+    };
+  }
+  if (op === "abs" || op === "round" || op === "floor" || op === "ceil") {
+    if (inferred[0]!.type !== "integer" && inferred[0]!.type !== "decimal") {
+      fail("EXPRESSION_TYPE_INVALID", `${op} requires a numeric input`);
+    }
+    return {
+      type: op === "abs" ? inferred[0]!.type : "integer",
+      nullable: inferred[0]!.nullable,
+      unit: inferred[0]!.unit,
+      cardinality: op === "abs" && inferred[0]!.cardinality,
+      nonZero: op === "abs" && inferred[0]!.nonZero,
+      origins: inferred[0]!.origins,
+    };
+  }
+  if (op === "concat") {
+    const textual = new Set<GraphSemanticValueType>(["string", "id", "address", "bytes"]);
+    if (inferred.some((item) => !textual.has(item.type))) fail("EXPRESSION_TYPE_INVALID", "concat requires textual inputs");
+    return {
+      type: "string",
+      nullable: inferred.some((item) => item.nullable),
+      unit: null,
+      cardinality: false,
+      nonZero: false,
+      origins: mergedOrigins(inferred),
+    };
+  }
+  if (op === "coalesce") {
+    const firstType = inferred[0]!.type;
+    if (inferred.some((item) => !compatible(firstType, item.type))) {
+      fail("EXPRESSION_TYPE_INVALID", "coalesce requires compatible inputs");
+    }
+    const numeric = inferred.every((item) => item.type === "integer" || item.type === "decimal");
+    const textual = inferred.every((item) => new Set<GraphSemanticValueType>(["string", "id", "address", "bytes"]).has(item.type));
+    return {
+      type: numeric && inferred.some((item) => item.type === "decimal")
+        ? "decimal"
+        : textual && inferred.some((item) => item.type !== firstType)
+          ? "string"
+          : firstType,
+      nullable: inferred.every((item) => item.nullable),
+      unit: inferred.every((item) => item.unit === inferred[0]!.unit) ? inferred[0]!.unit : null,
+      cardinality: inferred.every((item) => item.cardinality),
+      nonZero: inferred.every((item) => item.nonZero),
+      origins: mergedOrigins(inferred),
+    };
+  }
   if (inferred[0]!.type !== "boolean" || !compatible(inferred[1]!.type, inferred[2]!.type)) {
     fail("EXPRESSION_TYPE_INVALID", "if requires a Boolean condition and compatible result branches");
   }
+  const branchType = inferred[1]!.type === inferred[2]!.type
+    ? inferred[1]!.type
+    : (inferred[1]!.type === "integer" || inferred[1]!.type === "decimal")
+        && (inferred[2]!.type === "integer" || inferred[2]!.type === "decimal")
+      ? "decimal"
+      : "string";
   return {
-    type: inferred[1]!.type,
-    nullable: inferred[1]!.nullable || inferred[2]!.nullable,
+    type: branchType,
+    nullable: inferred.some((item) => item.nullable),
     unit: inferred[1]!.unit === inferred[2]!.unit ? inferred[1]!.unit : null,
     cardinality: inferred[1]!.cardinality && inferred[2]!.cardinality,
     nonZero: inferred[1]!.nonZero && inferred[2]!.nonZero,

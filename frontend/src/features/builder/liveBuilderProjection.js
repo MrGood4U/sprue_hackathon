@@ -54,6 +54,11 @@ function knownExpressionType(expression, fields) {
   if (expression.op === "field") return fields.get(expression.field)?.type ?? null;
   if (expression.op === "literal") return normalizeScalarType(expression.valueType) ?? literalType(expression.value);
   if (expression.op === "utc_date") return "date";
+  if (["to_timestamp", "epoch_seconds_to_timestamp", "epoch_milliseconds_to_timestamp"].includes(expression.op)) return "timestamp";
+  if (["to_integer", "round", "floor", "ceil"].includes(expression.op)) return "integer";
+  if (expression.op === "to_decimal") return "decimal";
+  if (["trim", "lower", "upper", "concat"].includes(expression.op)) return "string";
+  if (expression.op === "abs" || expression.op === "coalesce") return knownExpressionType(expression.inputs?.[0], fields);
   if (["eq", "ne", "lt", "lte", "gt", "gte", "and", "or", "not"].includes(expression.op)) return "boolean";
   if (["add", "subtract", "multiply", "safe_divide"].includes(expression.op)) return "decimal";
   return null;
@@ -70,6 +75,35 @@ function collectExpressionConstraints(expression, fields, expectedType = null) {
   if (expression.op === "utc_date") {
     inputs.forEach((input) => collectExpressionConstraints(input, fields, "timestamp"));
     return "date";
+  }
+  if (expression.op === "to_integer") {
+    inputs.forEach((input) => collectExpressionConstraints(input, fields));
+    return "integer";
+  }
+  if (expression.op === "to_decimal") {
+    inputs.forEach((input) => collectExpressionConstraints(input, fields));
+    return "decimal";
+  }
+  if (expression.op === "to_timestamp") {
+    inputs.forEach((input) => collectExpressionConstraints(input, fields, "string"));
+    return "timestamp";
+  }
+  if (["epoch_seconds_to_timestamp", "epoch_milliseconds_to_timestamp"].includes(expression.op)) {
+    inputs.forEach((input) => collectExpressionConstraints(input, fields, "integer"));
+    return "timestamp";
+  }
+  if (["trim", "lower", "upper", "concat"].includes(expression.op)) {
+    inputs.forEach((input) => collectExpressionConstraints(input, fields, "string"));
+    return "string";
+  }
+  if (["abs", "round", "floor", "ceil"].includes(expression.op)) {
+    inputs.forEach((input) => collectExpressionConstraints(input, fields, "decimal"));
+    return expression.op === "abs" ? knownExpressionType(inputs[0], fields) ?? "decimal" : "integer";
+  }
+  if (expression.op === "coalesce") {
+    const resultType = inputs.map((input) => knownExpressionType(input, fields)).find(Boolean) ?? expectedType;
+    inputs.forEach((input) => collectExpressionConstraints(input, fields, resultType));
+    return normalizeScalarType(resultType);
   }
   if (["add", "subtract", "multiply", "safe_divide"].includes(expression.op)) {
     inputs.forEach((input) => collectExpressionConstraints(input, fields, "decimal"));

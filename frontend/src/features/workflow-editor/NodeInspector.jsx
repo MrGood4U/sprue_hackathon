@@ -14,9 +14,11 @@ import {
 } from "./filterModel.js";
 import {
   createMapDefinition,
+  defaultMapFallbackValue,
   editableMapConfig,
   mapExpressionEditor,
   mapExpressionForEditor,
+  mapTransformsForField,
   validateMapConfig,
 } from "./mapModel.js";
 import { getOperator } from "./nodeCatalog.js";
@@ -486,6 +488,7 @@ function SortConfig({node, update, fields, errors}) {
 
 function MapConfig({node, update, fields, errors}) {
   const { t } = useI18n();
+  const transformGroups = ["basic", "type", "time", "text", "null", "numeric"];
   if (node.config?.recipe) {
     return (
       <Field id={`map-recipe-${node.id}`} label={t("workflowEditor.inspector.recipe")}>
@@ -528,7 +531,24 @@ function MapConfig({node, update, fields, errors}) {
         {definitions.map((definition, index) => {
           const editorExpression = mapExpressionEditor(definition.expression);
           const selectedField = fields.find((field) => field.name === editorExpression.sourceField);
+          const secondaryField = fields.find((field) => field.name === editorExpression.secondaryField);
+          const availableTransforms = mapTransformsForField(selectedField ?? fields[0]);
+          const textualFields = fields.filter((field) => ["string", "id", "address", "bytes"].includes(field.type));
           const error = errors.find((candidate) => candidate.fieldIndex === index);
+          const expressionOptions = (kind, sourceField, overrides = {}) => {
+            const source = fields.find((field) => field.name === sourceField);
+            const preferredSecondary = overrides.secondaryField ?? editorExpression.secondaryField;
+            const compatibleSecondary = textualFields.some((field) => field.name === preferredSecondary)
+              ? preferredSecondary
+              : textualFields[0]?.name ?? sourceField;
+            const sourceChanged = sourceField !== editorExpression.sourceField;
+            return {
+              sourceType: source?.type,
+              secondaryField: compatibleSecondary,
+              fallbackValue: overrides.fallbackValue
+                ?? (sourceChanged ? defaultMapFallbackValue(source?.type) : editorExpression.fallbackValue),
+            };
+          };
           return (
             <fieldset className={`workflow-map-definition${error ? " is-invalid" : ""}`} key={index}>
               <legend>{t("workflowEditor.inspector.mapDefinition", {number: index + 1})}</legend>
@@ -547,11 +567,29 @@ function MapConfig({node, update, fields, errors}) {
                     value={editorExpression.kind}
                     onChange={(event) => {
                       const sourceField = editorExpression.sourceField ?? fields[0]?.name ?? "";
-                      updateDefinition(index, {...definition, expression: mapExpressionForEditor(event.target.value, sourceField)});
+                      const kind = event.target.value;
+                      updateDefinition(index, {
+                        ...definition,
+                        expression: mapExpressionForEditor(kind, sourceField, expressionOptions(kind, sourceField)),
+                      });
                     }}
                   >
-                    <option value="field">{t("workflowEditor.inspector.mapTransformField")}</option>
-                    <option value="utc_date">{t("workflowEditor.inspector.mapTransformUtcDate")}</option>
+                    {transformGroups.map((group) => {
+                      const options = availableTransforms.filter((transform) => transform.group === group);
+                      if (options.length === 0) return null;
+                      return (
+                        <optgroup label={t(`workflowEditor.inspector.mapTransformGroup.${group}`)} key={group}>
+                          {options.map((transform) => (
+                            <option value={transform.kind} key={transform.kind}>
+                              {t(`workflowEditor.inspector.mapTransform.${transform.kind}`)}
+                            </option>
+                          ))}
+                        </optgroup>
+                      );
+                    })}
+                    {editorExpression.kind !== "advanced" && !availableTransforms.some((transform) => transform.kind === editorExpression.kind) && (
+                      <option value={editorExpression.kind} disabled>{t(`workflowEditor.inspector.mapTransform.${editorExpression.kind}`)}</option>
+                    )}
                     {editorExpression.kind === "advanced" && <option value="advanced" disabled>{t("workflowEditor.inspector.mapTransformAdvanced")}</option>}
                   </select>
                 </Field>
@@ -563,7 +601,11 @@ function MapConfig({node, update, fields, errors}) {
                     aria-invalid={error?.code === "MAP_SOURCE_FIELD_UNKNOWN" || undefined}
                     onChange={(event) => updateDefinition(index, {
                       ...definition,
-                      expression: mapExpressionForEditor(editorExpression.kind, event.target.value),
+                      expression: mapExpressionForEditor(
+                        editorExpression.kind,
+                        event.target.value,
+                        expressionOptions(editorExpression.kind, event.target.value),
+                      ),
                     })}
                   >
                     {!selectedField && editorExpression.sourceField && (
@@ -576,6 +618,60 @@ function MapConfig({node, update, fields, errors}) {
                   <Trash size={17} aria-hidden="true" />
                 </IconButton>
               </div>
+              {editorExpression.kind === "concat" && (
+                <Field id={`map-${node.id}-secondary-${index}`} label={t("workflowEditor.inspector.mapSecondSourceField")}>
+                  <select
+                    id={`map-${node.id}-secondary-${index}`}
+                    value={editorExpression.secondaryField ?? ""}
+                    disabled={textualFields.length === 0}
+                    onChange={(event) => updateDefinition(index, {
+                      ...definition,
+                      expression: mapExpressionForEditor("concat", editorExpression.sourceField, expressionOptions("concat", editorExpression.sourceField, {
+                        secondaryField: event.target.value,
+                      })),
+                    })}
+                  >
+                    {!secondaryField && editorExpression.secondaryField && (
+                      <option value={editorExpression.secondaryField}>{editorExpression.secondaryField} · {t("workflowEditor.inspector.mapMissingField")}</option>
+                    )}
+                    {textualFields.map((field) => <option value={field.name} key={field.name}>{field.name} · {field.type}</option>)}
+                  </select>
+                </Field>
+              )}
+              {editorExpression.kind === "coalesce" && (
+                <Field
+                  id={`map-${node.id}-fallback-${index}`}
+                  label={t("workflowEditor.inspector.mapFallbackValue")}
+                  hint={t("workflowEditor.inspector.mapFallbackHint")}
+                >
+                  {selectedField?.type === "boolean" ? (
+                    <select
+                      id={`map-${node.id}-fallback-${index}`}
+                      value={String(editorExpression.fallbackValue)}
+                      onChange={(event) => updateDefinition(index, {
+                        ...definition,
+                        expression: mapExpressionForEditor("coalesce", editorExpression.sourceField, expressionOptions("coalesce", editorExpression.sourceField, {
+                          fallbackValue: event.target.value === "true",
+                        })),
+                      })}
+                    >
+                      <option value="false">{t("common.no")}</option>
+                      <option value="true">{t("common.yes")}</option>
+                    </select>
+                  ) : (
+                    <input
+                      id={`map-${node.id}-fallback-${index}`}
+                      value={editorExpression.fallbackValue ?? ""}
+                      onChange={(event) => updateDefinition(index, {
+                        ...definition,
+                        expression: mapExpressionForEditor("coalesce", editorExpression.sourceField, expressionOptions("coalesce", editorExpression.sourceField, {
+                          fallbackValue: event.target.value,
+                        })),
+                      })}
+                    />
+                  )}
+                </Field>
+              )}
               {editorExpression.kind === "advanced" && <p className="workflow-map-advanced">{t("workflowEditor.inspector.mapAdvancedHint")}</p>}
               {error && <p className="workflow-map-error" role="alert">{t(`workflowEditor.inspector.mapError.${error.code}`)}</p>}
             </fieldset>

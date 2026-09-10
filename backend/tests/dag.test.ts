@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import test from "node:test";
 import {filterRows, validateFilterPredicate} from "../src/modules/dag/filter.js";
+import {inferMapExpressionField, mapRows, validateMapConfig} from "../src/modules/dag/map.js";
 import {sortRows, validateSortConfig} from "../src/modules/dag/sort.js";
 import {
   type CanonicalSwapField,
@@ -179,6 +180,88 @@ test("generic Filter rejects missing fields and type-incompatible operators befo
     combinator: "and",
     conditions: [{field: "active", operator: "gt", value: true}],
   }, fields)[0]?.code, "FILTER_OPERATOR_INVALID");
+});
+
+test("generic Map executes explicit type, time, text, null, and numeric transforms", () => {
+  const fields = [
+    {name: "integer_text", type: "string" as const, nullable: false, unit: null},
+    {name: "iso_time", type: "string" as const, nullable: false, unit: null},
+    {name: "epoch_seconds", type: "integer" as const, nullable: false, unit: "seconds"},
+    {name: "epoch_milliseconds", type: "integer" as const, nullable: false, unit: "milliseconds"},
+    {name: "label", type: "string" as const, nullable: false, unit: null},
+    {name: "suffix", type: "id" as const, nullable: false, unit: null},
+    {name: "missing_label", type: "string" as const, nullable: true, unit: null},
+    {name: "amount", type: "decimal" as const, nullable: false, unit: "USD"},
+  ];
+  const config = {
+    mode: "project" as const,
+    fields: [
+      {name: "count", expression: {op: "to_integer", inputs: [{op: "field", field: "integer_text"}]}},
+      {name: "decimal_count", expression: {op: "to_decimal", inputs: [{op: "field", field: "integer_text"}]}},
+      {name: "parsed_time", expression: {op: "to_timestamp", inputs: [{op: "field", field: "iso_time"}]}},
+      {name: "seconds_time", expression: {op: "epoch_seconds_to_timestamp", inputs: [{op: "field", field: "epoch_seconds"}]}},
+      {name: "milliseconds_time", expression: {op: "epoch_milliseconds_to_timestamp", inputs: [{op: "field", field: "epoch_milliseconds"}]}},
+      {name: "display", expression: {op: "concat", inputs: [
+        {op: "trim", inputs: [{op: "field", field: "label"}]},
+        {op: "upper", inputs: [{op: "field", field: "suffix"}]},
+      ]}},
+      {name: "normalized", expression: {op: "lower", inputs: [{op: "field", field: "suffix"}]}},
+      {name: "fallback", expression: {op: "coalesce", inputs: [
+        {op: "field", field: "missing_label"},
+        {op: "literal", valueType: "string", value: "unknown"},
+      ]}},
+      {name: "absolute", expression: {op: "abs", inputs: [{op: "field", field: "amount"}]}},
+      {name: "rounded", expression: {op: "round", inputs: [{op: "field", field: "amount"}]}},
+      {name: "floored", expression: {op: "floor", inputs: [{op: "field", field: "amount"}]}},
+      {name: "ceiled", expression: {op: "ceil", inputs: [{op: "field", field: "amount"}]}},
+    ],
+  };
+  assert.deepEqual(validateMapConfig(config, fields), []);
+  assert.deepEqual(mapRows([{
+    integer_text: "42",
+    iso_time: "2024-01-01T08:00:00+08:00",
+    epoch_seconds: "1704067200",
+    epoch_milliseconds: "1704067200000",
+    label: "  Alpha ",
+    suffix: "beta",
+    missing_label: null,
+    amount: "-2.5",
+  }], config, fields), [{
+    count: "42",
+    decimal_count: "42",
+    parsed_time: "2024-01-01T00:00:00.000Z",
+    seconds_time: "2024-01-01T00:00:00.000Z",
+    milliseconds_time: "2024-01-01T00:00:00.000Z",
+    display: "AlphaBETA",
+    normalized: "beta",
+    fallback: "unknown",
+    absolute: "2.5",
+    rounded: "-2",
+    floored: "-3",
+    ceiled: "-2",
+  }]);
+  assert.deepEqual(inferMapExpressionField(config.fields[7]!.expression, fields), {
+    name: "expression",
+    type: "string",
+    nullable: false,
+    unit: null,
+  });
+});
+
+test("generic Map rejects implicit lossy casts and type-incompatible transforms", () => {
+  const fields = [
+    {name: "amount", type: "decimal" as const, nullable: false, unit: null},
+    {name: "active", type: "boolean" as const, nullable: false, unit: null},
+  ];
+  const lossy = {
+    mode: "project" as const,
+    fields: [{name: "count", expression: {op: "to_integer", inputs: [{op: "field", field: "amount"}]}}],
+  };
+  assert.throws(() => mapRows([{amount: "1.5", active: true}], lossy, fields), /explicit rounding operation/);
+  assert.equal(validateMapConfig({
+    mode: "project",
+    fields: [{name: "label", expression: {op: "upper", inputs: [{op: "field", field: "active"}]}}],
+  }, fields)[0]?.code, "MAP_EXPRESSION_INVALID");
 });
 
 test("Sort / Top K applies stable typed ordering without mutating upstream rows", () => {

@@ -168,6 +168,8 @@ Before implementing or changing a sponsor integration, consult the corresponding
 
 On 2026-09-10, the user approved Sort / Top K as the eighth bounded DAG operator. Its exact version-1 contract is stable multi-key scalar ordering with explicit direction and null placement, an optional positive K capped at 10,000, input-schema preservation, and upstream ordinal as the final tie-breaker. The Builder derives fields from the direct predecessor and exposes keyboard-operable priority controls. No protocol, asset, network, entity, or field name may be hardcoded into this operator.
 
+On 2026-09-10, the user approved the bounded generic Map transform set. It includes explicit integer, decimal, ISO timestamp, epoch-seconds, and epoch-milliseconds conversions; trim/lower/upper and bounded concatenation; compatible-type coalesce; and abs/half-even round/floor/ceil. Never guess epoch units, silently truncate a fractional integer cast, use binary floating point for exact decimal operations, or hardcode provider field names. The Builder exposes only transforms compatible with the direct predecessor field type and progressively reveals secondary-field or fallback controls.
+
 All text records in this repository must be written in English. This includes source comments, documentation, README files, commit messages, issue or task notes, and other project artifacts.
 
 Runtime localization resources may represent non-English UI copy through escaped Unicode literals so the source record remains English/ASCII while the browser renders the requested language.

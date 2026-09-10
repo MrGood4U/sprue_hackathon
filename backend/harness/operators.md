@@ -72,7 +72,11 @@ Allowed AST operations initially:
 - add, subtract, multiply, safe_divide with checked precision/scale;
 - if with a Boolean condition and compatible result branches;
 - utc_date for an explicitly normalized UTC timestamp;
-- narrowly specified integer/decimal/timestamp conversions with parse/overflow rejection.
+- to_integer, to_decimal, and to_timestamp with explicit parse and precision rejection;
+- epoch_seconds_to_timestamp and epoch_milliseconds_to_timestamp so epoch units are never guessed;
+- trim, lower, upper, and concat for bounded text normalization;
+- coalesce for explicit compatible-type null fallback;
+- abs, round, floor, and ceil for bounded numeric normalization. Round uses half-even tie breaking.
 
 Field paths are arrays of inspected field segments, never executable strings or dynamic object lookups. Reject prototype-sensitive keys, excessive nesting and unbounded collections. The first expression language has no regex, arbitrary JSONPath, dynamic property generation or locale-dependent string comparison.
 
@@ -86,17 +90,18 @@ Example map node, a configuration excerpt rather than a complete executable spec
   "type": "map",
   "operatorVersion": "1",
   "config": {
-    "fields": {
-      "protocol": {"op": "field", "path": ["protocol"]},
-      "isRepeat": {
+    "mode": "project",
+    "fields": [
+      {"name": "protocol", "expression": {"op": "trim", "inputs": [{"op": "field", "field": "protocol"}]}},
+      {"name": "is_repeat", "expression": {
         "op": "if",
-        "args": [
-          {"op": "gte", "args": [{"op": "field", "path": ["activeDays"]}, {"op": "literal", "type": "integer", "value": "2"}]},
-          {"op": "literal", "type": "integer", "value": "1"},
-          {"op": "literal", "type": "integer", "value": "0"}
+        "inputs": [
+          {"op": "gte", "inputs": [{"op": "field", "field": "active_days"}, {"op": "literal", "valueType": "integer", "value": "2"}]},
+          {"op": "literal", "valueType": "boolean", "value": true},
+          {"op": "literal", "valueType": "boolean", "value": false}
         ]
-      }
-    }
+      }}
+    ]
   }
 }
 ```
