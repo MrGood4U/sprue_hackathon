@@ -10,7 +10,7 @@ function liveBody(dataSource = "live") {
     meta: {apiVersion: "1", dataSource, observedAt: "2026-09-09T00:00:00.000Z"},
     data: {
       productId,
-      capabilities: {deploy: false, privateRequest: false, publishX402: false, publicRequest: false},
+      capabilities: {deploy: false, privateRequest: false, privateExport: false, publishX402: false, publicRequest: false},
       api: {readiness: "no_version", blockers: [], latestVersion: null, activeVersion: null, deployment: null, contract: null},
       monetization: {readiness: "api_not_ready", blockers: [], publication: null, revenue: {grossSales: [], creatorProceeds: [], providerFees: []}, sales: []},
     },

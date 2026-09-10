@@ -1,7 +1,7 @@
 import {useCallback, useEffect, useState} from "react";
 import {resolveProduct} from "../agent/agentData.js";
 import {useAuth} from "../auth/AuthProvider.jsx";
-import {getProductDelivery} from "../../services/api/delivery.js";
+import {deployProduct, downloadPrivateDeployment, getProductDelivery} from "../../services/api/delivery.js";
 import {updateProduct} from "../../services/api/products.js";
 import {useProductCache} from "../products/ProductCacheProvider.jsx";
 
@@ -55,5 +55,26 @@ export function useProductDelivery(productRef) {
     setState((current) => ({...current, product}));
   }, [rememberProduct, scope, state.product]);
 
-  return {...state, workspaceId, refresh, rename};
+  const deploy = useCallback(async (alias, idempotencyKey) => {
+    if (!state.product) throw new Error("PRODUCT_NOT_FOUND");
+    const result = await deployProduct(state.product.id, alias ? {alias} : {}, {
+      ...await scope(),
+      idempotencyKey,
+    });
+    const options = await scope();
+    const [product, delivery] = await Promise.all([
+      resolveProduct(productRef, options),
+      getProductDelivery(state.product.id, options),
+    ]);
+    rememberProduct(product);
+    setState({status: "ready", product, ...delivery, error: null});
+    return result;
+  }, [productRef, rememberProduct, scope, state.product]);
+
+  const exportPrivate = useCallback(async () => {
+    if (!state.product) throw new Error("PRODUCT_NOT_FOUND");
+    return downloadPrivateDeployment(state.product.id, await scope());
+  }, [scope, state.product]);
+
+  return {...state, workspaceId, refresh, rename, deploy, exportPrivate};
 }

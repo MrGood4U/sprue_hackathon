@@ -11,6 +11,16 @@ export function createBuilderCompilationInput(draft) {
   const specification = draft?.specification;
   return {
     schemaVersion: 1,
+    sources: (specification?.sources ?? []).map((source) => ({
+      id: source.id,
+      displayName: source.displayName,
+      logicalSubgraphId: source.logicalSubgraphId ?? source.target?.logicalSubgraphId ?? null,
+      manifestIpfsCid: source.manifestIpfsCid ?? source.target?.manifestIpfsCid ?? null,
+      dataNetwork: source.dataNetwork,
+      queryEntity: source.queryEntity,
+      fieldBindings: structuredClone(source.fieldBindings ?? []),
+      auxiliaryFieldBindings: structuredClone(source.auxiliaryFieldBindings ?? []),
+    })),
     dag: {
       nodes: (specification?.dag?.nodes ?? []).map((node) => ({
         id: node.id,

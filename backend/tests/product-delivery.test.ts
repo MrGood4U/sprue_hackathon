@@ -205,7 +205,7 @@ test("product delivery projects only durable API and monetization facts", async 
       runtime_target: "shared_hosted",
       provider: "local",
       endpoint_slug: "live-delivery-product",
-      public_base_url: "http://127.0.0.1:3001",
+      public_base_url: "http://127.0.0.1:3001/data/v1",
       status: "pending",
     });
     await db.query(
@@ -264,15 +264,19 @@ test("product delivery projects only durable API and monetization facts", async 
 
     const projected = await service.delivery(workspaceId, String(product.id));
     assert.deepEqual(projected.capabilities, {
-      deploy: false,
-      privateRequest: false,
+      deploy: true,
+      privateRequest: true,
+      privateExport: true,
       publishX402: false,
       publicRequest: false,
     });
     assert.equal(projected.api.readiness, "available");
-    assert.equal(projected.api.contract?.endpointUrl, "http://127.0.0.1:3001/data/v1/live-delivery-product");
+    assert.equal(
+      projected.api.contract?.endpointUrl,
+      `http://127.0.0.1:3001/data/v1/${userId}/${String(product.id)}`,
+    );
     assert.deepEqual(projected.api.contract?.responseSchema.outputSchema, outputSchema);
-    assert.deepEqual((projected.api.contract?.exampleBody?.data as unknown[])[0], {wallet: "0x1234", trade_count: "7"});
+    assert.equal(projected.api.contract?.exampleBody, null);
     assert.equal(projected.monetization.readiness, "draft");
     assert.equal(projected.monetization.publication?.price?.amountAtomic, "20000000");
     assert.equal(projected.monetization.publication?.recipient?.networkAccountRef, "0.0.12345");

@@ -39,7 +39,10 @@ export interface RouteDefinition {
     | "agent-planning-cancel"
     | "builder-compile"
     | "graph-sources-search"
-    | "graph-sources-validate";
+    | "graph-sources-validate"
+    | "deployments-create"
+    | "deployment-private-export"
+    | "data-product-execute";
   idempotency: boolean;
   ifMatch: boolean;
 }

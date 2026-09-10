@@ -4,7 +4,7 @@ Event: ETHOnline 2026
 
 Last checked: 2026-09-07
 
-Status: Official prize, source-identity, MCP, GraphQL, gateway, API-key, and x402 documentation reviewed; live integration and eligibility remain unverified.
+Status: Official prize, source-identity, MCP, GraphQL, gateway, API-key, and x402 documentation reviewed. A generic live runtime is implemented locally, but successful hosted source execution and prize eligibility remain unverified until recorded end-to-end evidence exists.
 
 Participation: Start Fresh, confirmed by the user on 2026-09-05. The AI Continuity award is not applicable to the current plan.
 

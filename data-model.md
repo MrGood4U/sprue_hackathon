@@ -2,11 +2,11 @@
 
 ## Status
 
-Version: 1.14
+Version: 1.15
 
-Date: 2026-09-08
+Date: 2026-09-11
 
-Stage: Approved MVP design baseline. Version 1.14 adds a recoverable product tombstone for the creator-confirmed Dashboard delete action. A deleted product disappears from ordinary creator reads and cannot accept new planning work, while its immutable versions, runs, source/payment evidence, and slug remain retained for auditability and identity safety. Version 1.13 defines creator-confirmed direct withdrawals from the user-owned Privy wallet as browser-to-Privy transactions rather than Sprue delegated-spending commands. Earlier version history remains recorded below. Delegated spending, x402 settlement, and mainnet capability remain unverified.
+Stage: Approved MVP design baseline. Version 1.15 activates the live hosted-runtime profile: a successful Builder compilation persists one immutable, hash-bound executable product version, and every accepted data API request executes that fixed plan against fresh The Graph responses. Compiled plans and provider metadata may be cached; source result rows and final response rows are not reused between requests. Version 1.14 added recoverable product tombstones. Earlier version history remains recorded below. Delegated spending, x402 settlement, and mainnet capability remain unverified.
 
 This document is the source of truth for Sprue's MVP domain model, PostgreSQL persistence model, lifecycle rules, financial separation, and runtime records. It translates the product and architecture decisions in [agents.md](agents.md), [plan.md](plan.md), and [project-structure.md](project-structure.md) into an implementation-ready model.
 
@@ -37,7 +37,7 @@ The model describes intended behavior. It is not evidence that an external walle
 
 The human team confirmed these defaults on 2026-09-05.
 
-1. **MVP serving mode:** return the latest successful materialization. An API request does not run a fresh paid Graph query. A future `live` mode is modeled but disabled.
+1. **MVP serving mode:** execute the active immutable plan in `live` mode. Every accepted API request performs fresh bounded The Graph queries and then executes the validated DAG. Result rows are never served from a previous request. Compiled plans, inspected schemas, and static GraphQL documents may be cached by their immutable hashes.
 2. **Workspace scope:** model workspace membership and roles now, but implement only a single-owner flow in the MVP. Invitations, role-management UI, and non-owner authorization flows are deferred.
 3. **Artifact storage:** store bounded JSON artifacts in PostgreSQL up to 5 MiB per artifact. Keep an object-storage adapter in the schema for later use.
 4. **Conversation retention:** retain user-visible Agent messages and build traces for the product's lifetime. Never persist hidden chain-of-thought. Support content redaction while preserving hashes and audit metadata when deletion is required.
@@ -1194,7 +1194,7 @@ Rules:
 
 #### `deployments`
 
-One product has one logical deployment per environment. It points atomically to the version and materialization currently served.
+One product has one logical deployment per environment. It points atomically to the version currently served and, only for materialized serving, the result currently served.
 
 | Column | Type | Null | Rules and purpose |
 |---|---|---:|---|
@@ -1204,7 +1204,7 @@ One product has one logical deployment per environment. It points atomically to 
 | `environment` | `text` | no | `local`, `demo`, `self_hosted` |
 | `runtime_target` | `text` | no | MVP value `shared_hosted` |
 | `provider` | `text` | no | `railway`, `docker`, or `local` |
-| `endpoint_slug` | `text` | no | Stable route segment |
+| `endpoint_slug` | `text` | no | Optional owner-scoped alias; the product UUID remains the canonical route segment |
 | `public_base_url` | `text` | yes | Environment URL; no credentials |
 | `active_version_id` | `uuid` | yes | Version currently served |
 | `active_materialization_id` | `uuid` | yes | Latest successful result served |
@@ -1218,8 +1218,9 @@ One product has one logical deployment per environment. It points atomically to 
 Constraints and indexes:
 
 - Unique `(data_product_id, environment)`.
-- Unique `(environment, endpoint_slug)` for the shared runtime.
-- Active version and materialization must belong to the same product; activation is transactional.
+- Unique `(workspace_id, environment, endpoint_slug)`. Aliases are owner-scoped by the workspace and by the owner segment in the public data route.
+- The canonical hosted route is `/data/v1/{ownerUserId}/{productId}`. The same deployment may also resolve through `/data/v1/{ownerUserId}/{endpointSlug}` without weakening product or owner scoping.
+- A live deployment requires an active version and no materialization. A materialization, when present, requires an active version and must belong to the same product; activation is transactional.
 - Provider identifies the current runtime, not product semantics.
 
 #### `publication_versions`
@@ -1232,7 +1233,7 @@ Immutable versions of private, API-key, or x402 access policy.
 | `deployment_id` | `uuid` | no | FK to `deployments` |
 | `revision_no` | `integer` | no | Monotonic per deployment |
 | `access_mode` | `text` | no | `private`, `api_key`, `x402` |
-| `serve_mode` | `text` | no | MVP `materialized`; future `live` |
+| `serve_mode` | `text` | no | `live` for the active hosted MVP; `materialized` remains modeled for later use |
 | `network_id` | `uuid` | yes | Required for x402 |
 | `asset_id` | `uuid` | yes | Required for x402 |
 | `price_atomic` | `numeric(78,0)` | yes | Positive for x402 |

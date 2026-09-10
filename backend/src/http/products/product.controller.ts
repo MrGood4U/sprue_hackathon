@@ -102,7 +102,7 @@ const deliveryContractSchema = z.strictObject({
   method: z.literal("GET"),
   endpointUrl: z.url(),
   accessMode: z.enum(["private", "api_key", "x402"]),
-  serveMode: z.literal("materialized"),
+  serveMode: z.enum(["materialized", "live"]),
   parameterSchema: z.array(z.strictObject({
     name: z.literal("limit"),
     location: z.literal("query"),
@@ -172,6 +172,7 @@ export const productDeliverySchema = z.strictObject({
   capabilities: z.strictObject({
     deploy: z.boolean(),
     privateRequest: z.boolean(),
+    privateExport: z.boolean(),
     publishX402: z.boolean(),
     publicRequest: z.boolean(),
   }),

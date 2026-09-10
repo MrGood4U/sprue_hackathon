@@ -6,6 +6,8 @@ import {
   ProductStorageError,
 } from "../../modules/products/contracts.js";
 import type {ProductService} from "../../modules/products/service.js";
+import {LiveDeploymentError} from "../../modules/deployments/contracts.js";
+import type {LiveDeploymentService} from "../../modules/deployments/service.js";
 import {AppError} from "../../shared/errors.js";
 import {meta} from "../contracts/common.js";
 
@@ -47,8 +49,34 @@ const edgeSchema = z.strictObject({
   toPort: z.string().min(1).max(64),
 });
 
+const sourceBindingSchema = z.strictObject({
+  fieldPath: z.string().regex(/^[_A-Za-z][_0-9A-Za-z]*(?:\.[_A-Za-z][_0-9A-Za-z]*)*$/),
+  requirementId: z.string().regex(/^[a-z][a-z0-9_]{0,99}$/),
+});
+
+const auxiliarySourceBindingSchema = z.union([
+  sourceBindingSchema,
+  z.strictObject({
+    fieldPath: z.string().regex(/^[_A-Za-z][_0-9A-Za-z]*(?:\.[_A-Za-z][_0-9A-Za-z]*)*$/),
+    name: z.string().regex(/^[a-z][a-z0-9_]{0,99}$/),
+    purpose: z.enum(["filter", "join", "group", "sort", "derive", "output"]),
+  }),
+]);
+
+const liveSourceSchema = z.strictObject({
+  id: z.string().min(1).max(256),
+  displayName: z.string().trim().min(1).max(300),
+  logicalSubgraphId: z.string().min(1).max(256).nullable(),
+  manifestIpfsCid: z.string().min(1).max(256),
+  dataNetwork: z.string().min(1).max(100),
+  queryEntity: z.string().regex(/^[_A-Za-z][_0-9A-Za-z]*$/),
+  fieldBindings: z.array(sourceBindingSchema).max(64),
+  auxiliaryFieldBindings: z.array(auxiliarySourceBindingSchema).max(64),
+});
+
 export const builderCompileInputSchema = z.strictObject({
   schemaVersion: z.literal(1),
+  sources: z.array(liveSourceSchema).min(1).max(8).optional(),
   dag: z.strictObject({
     nodes: z.array(nodeSchema).max(128),
     edges: z.array(edgeSchema).max(256),
@@ -81,6 +109,11 @@ export const builderCompilationSchema = z.discriminatedUnion("status", [
     status: z.literal("passed"),
     compilationHash: z.string().regex(/^[0-9a-f]{64}$/),
     outputSchema: rowSchema,
+    version: z.strictObject({
+      id: z.uuid(),
+      versionNo: z.number().int().positive(),
+      specHash: z.string().regex(/^[0-9a-f]{64}$/),
+    }).optional(),
     issues: z.tuple([]),
   }),
 ]);
@@ -101,13 +134,41 @@ function workspaceId(req: Request): string {
   return String(req.params.workspaceId);
 }
 
-export function compileBuilderDag(service?: ProductService): RequestHandler {
+export function compileBuilderDag(service?: ProductService, deployments?: LiveDeploymentService): RequestHandler {
   return async (req, res) => {
     const parsed = builderCompileInputSchema.safeParse(req.body);
     if (!parsed.success) throw new AppError("INVALID_REQUEST");
     try {
       await requireService(service).read(workspaceId(req), String(req.params.productId));
-      const data = builderCompilationSchema.parse(compileStructuredDag(parsed.data));
+      const compilation = compileStructuredDag(parsed.data);
+      let data: unknown = compilation;
+      if (compilation.status === "passed" && parsed.data.sources) {
+        if (!deployments) throw new AppError("CAPABILITY_DISABLED");
+        try {
+          const version = await deployments.buildVersion({
+            workspaceId: workspaceId(req),
+            productId: String(req.params.productId),
+            actorUserId: String(res.locals.workspaceAuthorization?.userId),
+            compilation,
+            dag: parsed.data.dag,
+            sources: parsed.data.sources,
+          });
+          data = {...compilation, version};
+        } catch (error) {
+          const code = error instanceof LiveDeploymentError ? error.code : "SOURCE_ADMISSION_FAILED";
+          data = {
+            schemaVersion: 1,
+            status: "failed",
+            compiledAt: new Date().toISOString(),
+            nodeCount: parsed.data.dag.nodes.length,
+            edgeCount: parsed.data.dag.edges.length,
+            issues: [{code, message: code === "GRAPH_CREDENTIAL_NOT_SELECTED"
+              ? "Select and validate a The Graph API key before building this live product."
+              : "The compiled DAG passed, but its live The Graph sources could not be admitted.", nodeId: null, path: "sources"}],
+          };
+        }
+      }
+      data = builderCompilationSchema.parse(data);
       res.json({data, meta: meta(res.locals.requestId)});
     } catch (error) {
       mapProductReadError(error);

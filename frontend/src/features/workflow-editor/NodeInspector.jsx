@@ -80,6 +80,10 @@ function sourceRecord(validation, entity, candidate) {
     outputSchema: {type: "array", items: {type: "object"}, fields},
     evidenceStatus: validation.admissionStatus,
     displayName: candidate?.displayName ?? validation.displayName,
+    logicalSubgraphId: candidate?.logicalSubgraphId
+      ?? (validation.reference.type === "subgraph_id" ? validation.reference.id : null),
+    manifestIpfsCid: candidate?.manifestIpfsCid
+      ?? (validation.reference.type === "ipfs_hash" ? validation.reference.id : null),
     target: {
       type: targetType,
       id: validation.reference.id,

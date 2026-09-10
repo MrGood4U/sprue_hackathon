@@ -194,7 +194,7 @@ export interface DeliveryContract {
   method: "GET";
   endpointUrl: string;
   accessMode: "private" | "api_key" | "x402";
-  serveMode: "materialized";
+  serveMode: "materialized" | "live";
   parameterSchema: readonly {
     name: "limit";
     location: "query";
@@ -255,6 +255,7 @@ export interface ProductDeliveryView {
   capabilities: {
     deploy: boolean;
     privateRequest: boolean;
+    privateExport: boolean;
     publishX402: boolean;
     publicRequest: boolean;
   };

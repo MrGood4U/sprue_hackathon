@@ -134,7 +134,7 @@ export function publicConfiguration(config: AppConfig): RequestHandler {
       hederaPublication: false,
       hostedDemoConsumer: config.demoRuntimeEnabled,
       serviceFees: false,
-      liveGraphExecution: false,
+      liveGraphExecution: Boolean(config.privyAppSecret),
     },
   });
   return (req, res) => {

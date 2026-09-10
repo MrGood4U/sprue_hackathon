@@ -33,6 +33,8 @@ import {BuilderGraphSourceService} from "../modules/graph/builder-source-service
 import {RestrictedGraphMcpClient, SdkGraphMcpPlanningWire} from "../modules/graph/mcp-client.js";
 import {DisabledGraphSchemaCache, RedisGraphSchemaCache} from "../modules/graph/schema-cache.js";
 import { listen, drain } from "./server.js";
+import {postgresLiveDeploymentRepository} from "../modules/deployments/postgres-repository.js";
+import {LiveDeploymentService} from "../modules/deployments/service.js";
 export async function startRuntime(
   config: AppConfig,
   role: "api" | "worker",
@@ -145,6 +147,22 @@ export async function startRuntime(
           })),
         )
       : undefined;
+    const deployments = graphCredentials && config.privyAppSecret
+      ? new LiveDeploymentService(
+          postgresLiveDeploymentRepository(pool),
+          graphCredentials,
+          (graphApiKey) => new RestrictedGraphMcpClient(new SdkGraphMcpPlanningWire({
+            gatewayApiKey: graphApiKey,
+            gatewayEnvironment: config.graph.gatewayEnvironment,
+            timeoutMs: config.agent.timeoutMs,
+          })),
+          createHash("sha256")
+            .update("sprue-data-api-key-v1\0")
+            .update(config.privyAppSecret)
+            .digest(),
+          config.dataPublicBaseUrl,
+        )
+      : undefined;
     const auth = new AuthService(authRepository, wallets, logger);
     const app = createHttpApp(
       {
@@ -160,6 +178,7 @@ export async function startRuntime(
         products,
         agents,
         builderSources,
+        deployments,
         ready: databaseReadiness(pool, migrations),
         stopping: () => stopping,
       },

@@ -349,6 +349,15 @@ test("preserves the resolved product name across tabs without exposing another w
 
 test("serializes only the layout-free structured DAG for backend compilation", () => {
   const input = createBuilderCompilationInput({specification: {
+    sources: [{
+      id: "graph:source",
+      displayName: "Verified source",
+      target: {logicalSubgraphId: "source-id", manifestIpfsCid: "QmSource"},
+      dataNetwork: "eip155:1",
+      queryEntity: "swaps",
+      fieldBindings: [],
+      auxiliaryFieldBindings: [],
+    }],
     dag: {
       nodes: [{
         id: "source_rows",
@@ -378,6 +387,16 @@ test("serializes only the layout-free structured DAG for backend compilation", (
 
   assert.deepEqual(input, {
     schemaVersion: 1,
+    sources: [{
+      id: "graph:source",
+      displayName: "Verified source",
+      logicalSubgraphId: "source-id",
+      manifestIpfsCid: "QmSource",
+      dataNetwork: "eip155:1",
+      queryEntity: "swaps",
+      fieldBindings: [],
+      auxiliaryFieldBindings: [],
+    }],
     dag: {
       nodes: [{
         id: "source_rows",

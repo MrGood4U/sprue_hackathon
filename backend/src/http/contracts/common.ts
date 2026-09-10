@@ -8,7 +8,7 @@ export const featureSchema = z.strictObject({
   hederaPublication: z.literal(false),
   hostedDemoConsumer: z.boolean(),
   serviceFees: z.literal(false),
-  liveGraphExecution: z.literal(false),
+  liveGraphExecution: z.boolean(),
 });
 export const appConfigSchema = z.strictObject({
   apiVersion: z.literal("1"),

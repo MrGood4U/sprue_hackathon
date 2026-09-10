@@ -1,6 +1,6 @@
 # Deployment, Private API, and Publication APIs
 
-Draft 0.2. Read the [shared contract](../../api-contract.md) and [Builder contracts](products-builder.md). `W` expands to `/api/v1/workspaces/{workspaceId}`. All operations require the active creator owner; mutations require Idempotency-Key. M1/M3 directions are approved in model 1.5; asynchronous guarantees, explicit activation and refresh compare-and-swap still require service implementation.
+Draft 0.3. Read the [shared contract](../../api-contract.md) and [Builder contracts](products-builder.md). `W` expands to `/api/v1/workspaces/{workspaceId}`. All creator operations require the active owner; mutations require Idempotency-Key. The implemented hosted profile is live: build persists an immutable executable version, deployment activates that version, and each data request makes fresh bounded The Graph queries before running the fixed DAG. Result rows are not materialized or reused. Publication, payment, refresh, and multi-key management sections remain future contracts unless explicitly marked implemented.
 
 ## 0. Product Delivery Read Model
 
@@ -8,7 +8,7 @@ Draft 0.2. Read the [shared contract](../../api-contract.md) and [Builder contra
 |---|---|---|---|---|
 | GET | `W/products/{productId}/delivery` | None | 200 `ProductDeliveryView` | Read-only projection of version, deployment, materialization, publication, recipient capability, sales, and ledger facts |
 
-`ProductDeliveryView` is the shared backend fact source for the authenticated API and Monetize pages. It returns explicit readiness and blocker codes rather than synthesizing a healthy endpoint, example rows, publication, price, recipient, or revenue. Its `capabilities` object separately reports whether deploy, private request, x402 publication, and public request operations are implemented; all four remain false in the current read-only slice. The API contract appears only when an active version, active materialization, and configured endpoint URL exist. Its optional example body is bounded to at most three rows from the active inline materialization; absence remains null. The fixed optional `limit` parameter is the platform contract documented below, while every output field comes from the active immutable version.
+`ProductDeliveryView` is the shared backend fact source for the authenticated API and Monetize pages. It returns explicit readiness and blocker codes rather than synthesizing a healthy endpoint, example rows, publication, price, recipient, or revenue. Its `capabilities` object reports deploy, private request, private export, x402 publication, and public request independently. The API contract appears when a healthy deployment has an active ready version and configured endpoint URL; a live deployment does not require an active materialization. The fixed optional `limit` parameter is the platform contract documented below, while every output field comes from the active immutable version.
 
 The monetization projection selects only a stored Hedera x402 publication revision, derives recipient readiness from the linked wallet address and HBAR capability observation, aggregates confirmed ledger entries by network and asset, and returns at most twenty persisted paid access requests. It masks payer addresses and never counts pending or uncertain values as confirmed revenue. This read does not deploy, publish, charge, retry, reconcile, or grant wallet authority.
 
@@ -17,7 +17,8 @@ The monetization projection selects only a stored Hedera x402 publication revisi
 | Method | Path | Input | Success | Model ownership |
 |---|---|---|---|---|
 | GET | `W/products/{productId}/deployments` | None | 200 Deployment collection | Logical deployment in the server-configured environment |
-| POST | `W/products/{productId}/deployments` | `{}` | 201 `Deployment` | Create shared-hosted deployment and initial private publication policy; no paid access |
+| POST | `W/products/{productId}/deployments` | `{alias?: string}` | 201 `{deployment, apiKey}` | Activate latest ready version and issue one scoped Sprue API key |
+| GET | `W/products/{productId}/private-export` | None | Downloadable deployment bundle | Immutable plan plus portable runner contract; never credentials |
 | GET | `W/deployments/{deploymentId}` | None | 200 `Deployment` + ETag | Atomic active pointers and health/freshness |
 | POST | `W/deployments/{deploymentId}/activation-preflight` | `{versionId, materializationId}`; read-only, key optional | 200 `ActivationPreflight` | Read ownership, output schema, artifact and runtime readiness |
 | POST | `W/deployments/{deploymentId}/activate` | `{versionId, materializationId, expectedSpecHash}` + If-Match | 202 `CommandAccepted` | Explicit atomic activation after all checks |
@@ -25,7 +26,9 @@ The monetization projection selects only a stored Hedera x402 publication revisi
 | GET | `W/deployments/{deploymentId}/trace-streams` | Pagination | 200 TraceStream collection | Deployment streams linked through product/version; expose only relevant deployment events |
 | GET | `W/deployments/{deploymentId}/access-requests` | `status?`, pagination | 200 `AccessRequestSummary` collection | Logical requests, not server/cloud raw logs |
 
-Creation chooses the configured environment/provider/runtime and allocates an environment-unique endpointSlug. `(productId, environment)` already existing returns the existing resource for a matching command; a new conflicting command returns `409 DEPLOYMENT_ALREADY_EXISTS` with its ID. The browser cannot choose Railway/Docker internals, overwrite a route, or trigger per-product cloud provisioning.
+Creation chooses the configured environment/provider/runtime and upserts the product's logical deployment. The canonical URL is `/data/v1/{ownerUserId}/{productId}`. An optional lowercase alias may resolve at `/data/v1/{ownerUserId}/{alias}` and is unique only inside the owner's workspace/environment. The browser cannot choose provider internals, overwrite another owner's route, or trigger per-product application-code generation. Each successful deployment response reveals the new Sprue API key once; only its prefix and HMAC remain stored.
+
+The immutable ready version contains compiler identity, DAG operator versions, static GraphQL documents, bounded pagination policy, exact source snapshots and bindings, credential references, output schema, and a canonical specification hash. The runtime verifies that hash and never recompiles or accepts arbitrary query/code input from the caller. Each `GET /data/v1/{ownerUserId}/{productIdOrAlias}?limit=N` requires `Authorization: Bearer sprue_live_...`, queries every source again, executes the fixed DAG, returns `Cache-Control: private, no-store`, and reports the live query timestamp and source request counts in response metadata.
 
 `Deployment = {id, productId, environment, provider, runtimeTarget: shared_hosted, endpointSlug, endpointUrl: string | null, publicProductUrl: string | null, activeVersionId: Id | null, activeMaterializationId: Id | null, activePublicationVersionId: Id | null, status, lastHealthAt: Timestamp | null, materialization: MaterializationSummary | null, publication: PublicationSummary | null, schedule: RefreshSchedule | null, lockVersion, updatedAt}`. Derived URLs come from configured origins. publicProductUrl is null unless an active public x402 revision exists. Fixture artifactDigest/region/lastDeployed must not become invented persistent fields: use actual artifact contentHash, observation timestamps, and optional deployment configuration metadata, clearly labeled.
 
@@ -41,12 +44,13 @@ A new deployment may show deploying while its command runs. A replacement comman
 
 | Method | Path | Input | Success | Model ownership |
 |---|---|---|---|---|
+| GET | `/data/v1/{ownerId}/{productRef}` | `Authorization: Bearer sprue_live_...`; optional `limit` | 200 live `DataResponse` | API-key-authorized execution of the immutable plan with fresh bounded The Graph reads |
 | POST | `W/deployments/{deploymentId}/private-requests` | `{parameters: {limit?: number}}` | 200 `PrivateTestResult` | Owner-authorized api_access_requests/attempts + usage; no api_sale or Graph query |
 | GET | `W/access-requests/{accessRequestId}` | None | 200 creator `RequestReceipt` | Sanitized request/payment/delivery chronology |
 
-`EndpointContract = {deploymentId, activeVersionId, endpointUrl, method: GET, parameterSchema, responseSchema, serveMode: materialized, accessMode, authentication, rateLimit: {requests, windowSeconds, scope}, materialization: MaterializationSummary | null, examples: {curl, javascript, python}}`.
+`EndpointContract = {deploymentId, activeVersionId, endpointUrl, method: GET, parameterSchema, responseSchema, serveMode: live, accessMode: api_key}`.
 
-The initial parameter contract is platform-defined: optional integer `limit`, default 100, minimum 1, maximum 1000. No arbitrary GraphQL query, offset, filter expression, sort expression, SQL, or refresh flag is accepted. It selects the first N rows of the pinned canonical output ordering. Limit never changes the spec, launches computation, or changes a flat per-request price. The canonical DAG determines ordering; public output schema declares row types. Future product-defined parameters require a versioned spec/model change, not ad hoc UI fields.
+The initial parameter contract is platform-defined: optional integer `limit`, default 100, minimum 1, maximum 1000. No arbitrary GraphQL query, offset, filter expression, sort expression, SQL, or refresh flag is accepted. It selects the first N rows of the current execution's canonical output. Limit never changes the spec. The canonical DAG determines ordering; public output schema declares row types. Future product-defined parameters require a versioned spec/model change, not ad hoc UI fields.
 
 ResponseSchema describes `{data: <output rows>, meta: <delivery metadata>}`, with the row schema derived from the active specification.outputSchema. Backend-generated examples contain placeholders for secrets and correctly reflect the access mode; plain cURL cannot sign a Hedera transaction. A Python tab may show the unpaid challenge and integration requirements rather than falsely claiming compatible signing support. The live consumer command is published only after its pinned adapter is tested.
 

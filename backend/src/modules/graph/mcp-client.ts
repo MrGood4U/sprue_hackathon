@@ -8,6 +8,8 @@ import {
   type GraphMcpTool,
   type GraphPlanningMcpPort,
   type GraphRuntimeQueryField,
+  type GraphRuntimeQueryPort,
+  type GraphRuntimeQueryResult,
   type GraphRuntimeSchemaPort,
   type GraphSearchResult,
   type GraphSourceReference,
@@ -218,7 +220,7 @@ function runtimeQueryField(value: {name: string; type: RawTypeReference}): Graph
   return entityType ? {name: value.name, entityType, list} : null;
 }
 
-export class RestrictedGraphMcpClient implements GraphPlanningMcpPort, GraphRuntimeSchemaPort {
+export class RestrictedGraphMcpClient implements GraphPlanningMcpPort, GraphRuntimeSchemaPort, GraphRuntimeQueryPort {
   private toolNames: ReadonlySet<string> | null = null;
 
   constructor(
@@ -255,6 +257,47 @@ export class RestrictedGraphMcpClient implements GraphPlanningMcpPort, GraphRunt
     return (parsed.data.__schema.queryType?.fields ?? [])
       .map(runtimeQueryField)
       .filter((field): field is GraphRuntimeQueryField => field !== null);
+  }
+
+  async executeStaticQuery(
+    manifestIpfsCid: string,
+    query: string,
+    variables: Readonly<Record<string, unknown>>,
+    signal?: AbortSignal,
+  ): Promise<GraphRuntimeQueryResult> {
+    const id = identifier.parse(manifestIpfsCid);
+    if (query.length < 1 || query.length > 32_768 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(query)) {
+      fail("GRAPH_RUNTIME_QUERY_INVALID", "Compiled Graph runtime query is invalid");
+    }
+    if (Buffer.byteLength(JSON.stringify(variables), "utf8") > 16_384) {
+      fail("GRAPH_RUNTIME_VARIABLES_TOO_LARGE", "Compiled Graph runtime variables exceeded their limit");
+    }
+    this.toolNames ??= await this.wire.listToolNames(signal);
+    if (!this.toolNames.has(runtimeSchemaTool)) {
+      fail("GRAPH_MCP_TOOL_UNAVAILABLE", "The fixed Graph runtime-query capability is unavailable");
+    }
+    const result = await this.wire.callTool(runtimeSchemaTool, {
+      ipfs_hash: id,
+      query,
+      variables: {...variables},
+    }, signal);
+    const parsed = parseJson(runtimeSchemaTool, extractText(runtimeSchemaTool, result, this.limits.maxJsonBytes));
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      fail("GRAPH_RUNTIME_RESULT_INVALID", "Graph runtime returned an invalid response");
+    }
+    const body = parsed as Record<string, unknown>;
+    const data = body.data;
+    if (typeof data !== "object" || data === null || Array.isArray(data)) {
+      fail("GRAPH_RUNTIME_RESULT_INVALID", "Graph runtime returned no data object");
+    }
+    const errors = Array.isArray(body.errors)
+      ? body.errors.slice(0, 16).map((item) => ({
+          message: typeof item === "object" && item !== null && typeof (item as {message?: unknown}).message === "string"
+            ? (item as {message: string}).message.slice(0, 500)
+            : "GraphQL request failed",
+        }))
+      : [];
+    return {data: data as Record<string, unknown>, errors};
   }
 
   async searchSubgraphsByKeyword(value: string, signal?: AbortSignal): Promise<GraphSearchResult> {

@@ -91,6 +91,25 @@ export interface GraphRuntimeSchemaPort {
   getRuntimeQueryFields(manifestIpfsCid: string, signal?: AbortSignal): Promise<readonly GraphRuntimeQueryField[]>;
 }
 
+export interface GraphRuntimeQueryResult {
+  data: Readonly<Record<string, unknown>>;
+  errors: readonly {message: string}[];
+}
+
+/**
+ * Executes only a server-owned, immutable GraphQL document from a compiled product
+ * version. HTTP callers never supply this document or its variables.
+ */
+export interface GraphRuntimeQueryPort {
+  executeStaticQuery(
+    manifestIpfsCid: string,
+    query: string,
+    variables: Readonly<Record<string, unknown>>,
+    signal?: AbortSignal,
+  ): Promise<GraphRuntimeQueryResult>;
+  close(): Promise<void>;
+}
+
 export interface GraphCachedSchemaProjection {
   schemaVersion: 1;
   gatewayEnvironment: "mainnet";

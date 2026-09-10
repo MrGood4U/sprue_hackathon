@@ -10,6 +10,7 @@ import type {WalletService} from "../modules/wallet/service.js";
 import type {ProductService} from "../modules/products/service.js";
 import type {AgentService} from "../modules/agent/service.js";
 import type {BuilderGraphSourceService} from "../modules/graph/builder-source-service.js";
+import type {LiveDeploymentService} from "../modules/deployments/service.js";
 import { AppError } from "../shared/errors.js";
 import { routeCatalog } from "./contracts/catalog.js";
 import { idSchema } from "./contracts/common.js";
@@ -48,6 +49,7 @@ import {
 } from "./agent/agent.controller.js";
 import {searchBuilderSources, validateBuilderSource} from "./graph/builder-source.controller.js";
 import {compileBuilderDag} from "./control/builder-compile.controller.js";
+import {deployProduct, executeDataProduct, exportPrivateDeployment} from "./control/deployment.controller.js";
 export interface RouteDependencies {
   config: AppConfig;
   verifier: IdentityVerifier;
@@ -60,6 +62,7 @@ export interface RouteDependencies {
   products?: ProductService;
   agents?: AgentService;
   builderSources?: BuilderGraphSourceService;
+  deployments?: LiveDeploymentService;
 }
 export function registerRoutes(app: Express, deps: RouteDependencies) {
   const auth = requireIdentity(deps.verifier);
@@ -173,7 +176,13 @@ export function registerRoutes(app: Express, deps: RouteDependencies) {
                                                       : route.implementation === "graph-sources-validate"
                                                         ? validateBuilderSource(deps.builderSources)
                                                         : route.implementation === "builder-compile"
-                                                          ? compileBuilderDag(deps.products)
+                                                          ? compileBuilderDag(deps.products, deps.deployments)
+                                                        : route.implementation === "deployments-create"
+                                                          ? deployProduct(deps.deployments)
+                                                        : route.implementation === "deployment-private-export"
+                                                          ? exportPrivateDeployment(deps.deployments)
+                                                        : route.implementation === "data-product-execute"
+                                                          ? executeDataProduct(deps.deployments)
               : () => {
                   throw new AppError("CAPABILITY_NOT_IMPLEMENTED");
                 };

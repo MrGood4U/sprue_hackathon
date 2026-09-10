@@ -20,7 +20,7 @@ import type {
 } from "./contracts.js";
 
 const productProjection = `
-  p.id,p.workspace_id,p.account_wallet_id,p.slug,p.name,p.description,
+  p.id,p.workspace_id,p.creator_user_id,p.account_wallet_id,p.slug,p.name,p.description,
   p.original_intent,p.status,p.created_at,p.updated_at,p.lock_version,
   lv.id AS version_id,lv.version_no,lv.source_count AS version_source_count,
   lv.parent_version_id,lv.spec_hash,
@@ -83,9 +83,9 @@ function version(row: Record<string, unknown>): VersionSummary | null {
   };
 }
 
-function endpointUrl(base: unknown, slug: unknown) {
+function endpointUrl(base: unknown, ownerUserId: unknown, productId: unknown) {
   if (typeof base !== "string" || !base) return null;
-  return `${base.replace(/\/$/, "")}/data/v1/${String(slug)}`;
+  return `${base.replace(/\/$/, "")}/${String(ownerUserId)}/${String(productId)}`;
 }
 
 function deployment(row: Record<string, unknown>): DeploymentSummary | null {
@@ -95,7 +95,7 @@ function deployment(row: Record<string, unknown>): DeploymentSummary | null {
     environment: String(row.deployment_environment) as DeploymentSummary["environment"],
     status: String(row.deployment_status) as DeploymentSummary["status"],
     endpointSlug: String(row.endpoint_slug),
-    endpointUrl: endpointUrl(row.public_base_url, row.endpoint_slug),
+    endpointUrl: endpointUrl(row.public_base_url, row.creator_user_id, row.id),
     activeVersionId: row.active_version_id ? String(row.active_version_id) : null,
     activeMaterializationId: row.active_materialization_id
       ? String(row.active_materialization_id)
@@ -210,9 +210,9 @@ function deliveryVersion(row: Record<string, unknown>, prefix: "latest" | "activ
 
 function deliveryDeployment(row: Record<string, unknown>): DeliveryDeployment | null {
   if (!row.deployment_id) return null;
-  const url = endpointUrl(row.public_base_url, row.endpoint_slug);
+  const url = endpointUrl(row.public_base_url, row.creator_user_id, row.id);
   const base = typeof row.public_base_url === "string" && row.public_base_url
-    ? row.public_base_url.replace(/\/$/, "")
+    ? row.public_base_url.replace(/\/data\/v1\/?$/, "")
     : null;
   return {
     id: String(row.deployment_id),
@@ -243,7 +243,6 @@ function apiReadiness(
   if (
     deployment.status !== "healthy" ||
     !deployment.activeVersionId ||
-    !deployment.activeMaterializationId ||
     !deployment.endpointUrl
   ) return "unavailable";
   return "available";
@@ -255,7 +254,7 @@ function apiBlockers(readiness: ProductDeliveryView["api"]["readiness"]) {
     version_not_ready: ["VERSION_NOT_READY", "The latest durable product version is not ready."],
     not_deployed: ["DEPLOYMENT_MISSING", "No deployment exists for this product."],
     deploying: ["DEPLOYMENT_IN_PROGRESS", "The deployment has not finished."],
-    unavailable: ["DEPLOYMENT_UNAVAILABLE", "The deployment is not healthy with an active materialization and endpoint."],
+    unavailable: ["DEPLOYMENT_UNAVAILABLE", "The live deployment is not healthy with an active version and endpoint."],
   } as const;
   if (readiness === "available") return [];
   const [code, message] = details[readiness];
@@ -267,18 +266,17 @@ function deliveryContract(
   deployment: DeliveryDeployment | null,
   activeVersion: DeliveryVersion | null,
 ): DeliveryContract | null {
-  if (!deployment?.endpointUrl || !activeVersion || !deployment.activeMaterializationId) return null;
-  const sample = Array.isArray(row.sample_rows) ? row.sample_rows : null;
+  if (!deployment?.endpointUrl || !activeVersion) return null;
   const accessMode = row.active_access_mode
     ? String(row.active_access_mode) as DeliveryContract["accessMode"]
-    : "private";
+    : "api_key";
   return {
     deploymentId: deployment.id,
     activeVersionId: activeVersion.id,
     method: "GET",
     endpointUrl: deployment.endpointUrl,
     accessMode,
-    serveMode: "materialized",
+    serveMode: "live",
     parameterSchema: [{
       name: "limit",
       location: "query",
@@ -292,14 +290,7 @@ function deliveryContract(
       mediaType: "application/json",
       outputSchema: activeVersion.outputSchema,
     },
-    exampleBody: sample ? {
-      data: sample,
-      meta: {
-        versionId: activeVersion.id,
-        materializationId: deployment.activeMaterializationId,
-        sourceFreshnessAt: deployment.sourceFreshnessAt,
-      },
-    } : null,
+    exampleBody: null,
   };
 }
 
@@ -666,7 +657,7 @@ export function postgresProductRepository(
 
     async delivery(workspaceId, productId) {
       const productResult = await client.query(
-        `SELECT p.id,
+        `SELECT p.id,p.creator_user_id,
           lv.id AS latest_version_id,lv.version_no AS latest_version_no,
           lv.status AS latest_version_status,lv.output_schema_json AS latest_output_schema
          FROM data_products p
@@ -820,8 +811,9 @@ export function postgresProductRepository(
       return {
         productId,
         capabilities: {
-          deploy: false,
-          privateRequest: false,
+          deploy: latestVersion?.status === "ready",
+          privateRequest: readiness === "available",
+          privateExport: latestVersion?.status === "ready",
           publishX402: false,
           publicRequest: false,
         },

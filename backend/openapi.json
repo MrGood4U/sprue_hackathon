@@ -4378,12 +4378,25 @@
           }
         ],
         "responses": {
-          "503": {
-            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+          "200": {
+            "description": "Actual server configuration; unsupported capabilities remain disabled",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/DemoEnvelope"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
                 }
               }
             }
@@ -4399,7 +4412,71 @@
             }
           }
         },
-        "x-sprue-implementation": "reserved",
+        "x-sprue-implementation": "implemented",
+        "security": [
+          {
+            "privyBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/products/{productId}/private-export": {
+      "get": {
+        "operationId": "getApiV1WorkspacesWorkspaceIdProductsProductIdPrivateExport",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Actual server configuration; unsupported capabilities remain disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/DemoEnvelope"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "implemented",
         "security": [
           {
             "privyBearer": []
@@ -6233,6 +6310,66 @@
         ]
       }
     },
+    "/data/v1/{ownerId}/{productRef}": {
+      "get": {
+        "operationId": "getDataV1OwnerIdProductRef",
+        "parameters": [
+          {
+            "name": "ownerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "productRef",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Actual server configuration; unsupported capabilities remain disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/DemoEnvelope"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "implemented",
+        "security": []
+      }
+    },
     "/data/v1/{endpointSlug}": {
       "get": {
         "operationId": "getDataV1EndpointSlug",
@@ -6754,8 +6891,7 @@
                 "const": false
               },
               "liveGraphExecution": {
-                "type": "boolean",
-                "const": false
+                "type": "boolean"
               }
             },
             "required": [
@@ -10100,6 +10236,141 @@
             "type": "number",
             "const": 1
           },
+          "sources": {
+            "minItems": 1,
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "displayName": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "logicalSubgraphId": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "manifestIpfsCid": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "dataNetwork": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                "queryEntity": {
+                  "type": "string",
+                  "pattern": "^[_A-Za-z][_0-9A-Za-z]*$"
+                },
+                "fieldBindings": {
+                  "maxItems": 64,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "fieldPath": {
+                        "type": "string",
+                        "pattern": "^[_A-Za-z][_0-9A-Za-z]*(?:\\.[_A-Za-z][_0-9A-Za-z]*)*$"
+                      },
+                      "requirementId": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_]{0,99}$"
+                      }
+                    },
+                    "required": [
+                      "fieldPath",
+                      "requirementId"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "auxiliaryFieldBindings": {
+                  "maxItems": 64,
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "fieldPath": {
+                            "type": "string",
+                            "pattern": "^[_A-Za-z][_0-9A-Za-z]*(?:\\.[_A-Za-z][_0-9A-Za-z]*)*$"
+                          },
+                          "requirementId": {
+                            "type": "string",
+                            "pattern": "^[a-z][a-z0-9_]{0,99}$"
+                          }
+                        },
+                        "required": [
+                          "fieldPath",
+                          "requirementId"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "fieldPath": {
+                            "type": "string",
+                            "pattern": "^[_A-Za-z][_0-9A-Za-z]*(?:\\.[_A-Za-z][_0-9A-Za-z]*)*$"
+                          },
+                          "name": {
+                            "type": "string",
+                            "pattern": "^[a-z][a-z0-9_]{0,99}$"
+                          },
+                          "purpose": {
+                            "type": "string",
+                            "enum": [
+                              "filter",
+                              "join",
+                              "group",
+                              "sort",
+                              "derive",
+                              "output"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "fieldPath",
+                          "name",
+                          "purpose"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "displayName",
+                "logicalSubgraphId",
+                "manifestIpfsCid",
+                "dataNetwork",
+                "queryEntity",
+                "fieldBindings",
+                "auxiliaryFieldBindings"
+              ],
+              "additionalProperties": false
+            }
+          },
           "dag": {
             "type": "object",
             "properties": {
@@ -10480,6 +10751,31 @@
                 },
                 "required": [
                   "fields"
+                ],
+                "additionalProperties": false
+              },
+              "version": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "versionNo": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "specHash": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  }
+                },
+                "required": [
+                  "id",
+                  "versionNo",
+                  "specHash"
                 ],
                 "additionalProperties": false
               },

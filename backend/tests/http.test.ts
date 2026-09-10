@@ -118,6 +118,7 @@ test("HTTP framework boundaries through real local sockets", async (t) => {
     capabilities: {
       deploy: false,
       privateRequest: false,
+      privateExport: false,
       publishX402: false,
       publicRequest: false,
     },

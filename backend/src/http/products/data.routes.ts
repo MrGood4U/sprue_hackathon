@@ -2,6 +2,15 @@ import type { RouteDefinition } from "../contracts/route.js";
 export const dataRoutes: readonly RouteDefinition[] = [
   {
     method: "GET",
+    path: "/data/v1/{ownerId}/{productRef}",
+    operationId: "getDataV1OwnerIdProductRef",
+    audience: "data",
+    implementation: "data-product-execute",
+    idempotency: false,
+    ifMatch: false,
+  },
+  {
+    method: "GET",
     path: "/data/v1/{endpointSlug}",
     operationId: "getDataV1EndpointSlug",
     audience: "data",

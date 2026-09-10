@@ -43,6 +43,21 @@ const definitions = {
     "The Graph source identity or schema could not be verified.",
     "none",
   ],
+  DATA_API_KEY_REQUIRED: [
+    401,
+    "A valid Sprue data API key is required.",
+    "none",
+  ],
+  DATA_API_KEY_INVALID: [
+    403,
+    "The Sprue data API key is invalid, expired, or outside this product scope.",
+    "none",
+  ],
+  LIVE_EXECUTION_FAILED: [
+    502,
+    "The fixed live data plan could not complete its upstream query.",
+    "none",
+  ],
   RATE_LIMITED: [
     429,
     "The provider limit prevents this operation from completing now.",

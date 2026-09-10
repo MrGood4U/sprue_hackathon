@@ -46,8 +46,87 @@ function assertBlockers(value) {
 }
 
 function assertCapabilities(value) {
-  return value && ["deploy", "privateRequest", "publishX402", "publicRequest"]
+  return value && ["deploy", "privateRequest", "privateExport", "publishX402", "publicRequest"]
     .every((key) => typeof value[key] === "boolean");
+}
+
+export async function deployProduct(productId, input, {
+  apiBaseUrl: configuredBaseUrl,
+  fetchImpl = globalThis.fetch,
+  workspaceId,
+  accessToken,
+  idempotencyKey = `sprue-deploy-${globalThis.crypto.randomUUID()}`,
+  signal,
+} = {}) {
+  assertScope(workspaceId, productId, accessToken);
+  const response = await fetchImpl(
+    `${apiBaseUrl(configuredBaseUrl)}/api/v1/workspaces/${workspaceId}/products/${productId}/deployments`,
+    {
+      method: "POST",
+      credentials: "omit",
+      redirect: "error",
+      cache: "no-store",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        "Idempotency-Key": idempotencyKey,
+      },
+      body: JSON.stringify(input),
+      signal: requestSignal(signal, 30_000),
+    },
+  );
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.error?.code ?? "DEPLOYMENT_API_UNAVAILABLE");
+  }
+  return (await response.json()).data;
+}
+
+export async function downloadPrivateDeployment(productId, {
+  apiBaseUrl: configuredBaseUrl,
+  fetchImpl = globalThis.fetch,
+  workspaceId,
+  accessToken,
+  signal,
+} = {}) {
+  assertScope(workspaceId, productId, accessToken);
+  const response = await fetchImpl(
+    `${apiBaseUrl(configuredBaseUrl)}/api/v1/workspaces/${workspaceId}/products/${productId}/private-export`,
+    {
+      method: "GET",
+      credentials: "omit",
+      redirect: "error",
+      cache: "no-store",
+      headers: {Accept: "application/json", Authorization: `Bearer ${accessToken}`},
+      signal: requestSignal(signal, 30_000),
+    },
+  );
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.error?.code ?? "PRIVATE_EXPORT_UNAVAILABLE");
+  }
+  return response.blob();
+}
+
+export async function executeLiveProduct(endpointUrl, apiKey, limit, {fetchImpl = globalThis.fetch, signal} = {}) {
+  if (typeof endpointUrl !== "string" || !endpointUrl || !/^sprue_live_[A-Za-z0-9_-]{43}$/.test(apiKey ?? "")) {
+    throw new Error("DATA_API_KEY_REQUIRED");
+  }
+  const url = new URL(endpointUrl);
+  url.searchParams.set("limit", String(limit));
+  const response = await fetchImpl(url, {
+    method: "GET",
+    credentials: "omit",
+    redirect: "error",
+    cache: "no-store",
+    headers: {Accept: "application/json", Authorization: `Bearer ${apiKey}`},
+    signal: requestSignal(signal, 120_000),
+  });
+  const body = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(body?.error?.code ?? "LIVE_REQUEST_FAILED");
+  if (!Array.isArray(body?.data) || body?.meta?.serveMode !== "live") throw new Error("INVALID_LIVE_RESPONSE");
+  return body;
 }
 
 function assertDelivery(value, productId) {
