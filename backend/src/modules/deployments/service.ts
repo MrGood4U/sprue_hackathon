@@ -2,6 +2,7 @@ import {createHmac, createHash, randomUUID} from "node:crypto";
 import {readFile} from "node:fs/promises";
 import type {StructuredDagCompileInput, StructuredDagCompilation} from "../dag/compiler.js";
 import type {GraphCredentialService} from "../graph-credential/service.js";
+import {GraphMcpError} from "../graph/mcp-client.js";
 import type {GraphPlanningMcpPort, GraphRuntimeQueryPort} from "../graph/types.js";
 import type {LiveSourceInput} from "./live-plan.js";
 import {contentHash, createImmutableLivePlan} from "./live-plan.js";
@@ -61,19 +62,27 @@ export class LiveDeploymentService {
           providerCredentialId: selected.id,
         });
       }
-      return await this.repository.persistVersion({
-        workspaceId: input.workspaceId,
-        productId: input.productId,
-        actorUserId: input.actorUserId,
-        sources: admitted,
-        createPlan: (snapshotIds) => createImmutableLivePlan({
-          compilation: input.compilation,
-          dag: input.dag,
-          sources: admitted.map((source) => ({...source, sourceSnapshotId: snapshotIds.get(source.id)!})),
-        }),
-      });
+      try {
+        return await this.repository.persistVersion({
+          workspaceId: input.workspaceId,
+          productId: input.productId,
+          actorUserId: input.actorUserId,
+          sources: admitted,
+          createPlan: (snapshotIds) => createImmutableLivePlan({
+            compilation: input.compilation,
+            dag: input.dag,
+            sources: admitted.map((source) => ({...source, sourceSnapshotId: snapshotIds.get(source.id)!})),
+          }),
+        });
+      } catch (error) {
+        if (error instanceof LiveDeploymentError) throw error;
+        throw new LiveDeploymentError("LIVE_VERSION_PERSIST_FAILED");
+      }
+    } catch (error) {
+      if (error instanceof GraphMcpError) throw new LiveDeploymentError(error.code);
+      throw error;
     } finally {
-      await graph.close();
+      await graph.close().catch(() => undefined);
     }
   }
 

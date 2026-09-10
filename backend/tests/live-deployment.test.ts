@@ -10,7 +10,8 @@ import {compileStructuredDag, type StructuredDagCompileInput} from "../src/modul
 import {contentHash, createImmutableLivePlan} from "../src/modules/deployments/live-plan.js";
 import {executeLivePlan} from "../src/modules/deployments/runtime.js";
 import {LiveDeploymentService} from "../src/modules/deployments/service.js";
-import type {LiveDeploymentRepository} from "../src/modules/deployments/contracts.js";
+import {LiveDeploymentError, type LiveDeploymentRepository} from "../src/modules/deployments/contracts.js";
+import {GraphMcpError} from "../src/modules/graph/mcp-client.js";
 import type {GraphRuntimeQueryPort} from "../src/modules/graph/types.js";
 
 const schemaDocument = `
@@ -89,6 +90,65 @@ function compilationInput(): StructuredDagCompileInput {
     outputSchema: {fields: [{name: "amount", type: "string", nullable: false, unit: null}]},
   };
 }
+
+test("live source admission preserves safe Graph and persistence failure codes", async (t) => {
+  const input = compilationInput();
+  const compilation = compileStructuredDag(input);
+  assert.equal(compilation.status, "passed");
+  if (compilation.status !== "passed") return;
+  const source = {
+    id: "graph-items",
+    displayName: "Items",
+    logicalSubgraphId: "items",
+    manifestIpfsCid: "QmExample",
+    dataNetwork: "eip155:1",
+    queryEntity: "items",
+    fieldBindings: [{fieldPath: "rawAmount", requirementId: "amount"}],
+    auxiliaryFieldBindings: [],
+  };
+  const credentials = {
+    async list() {
+      return [{id: "credential-id", isSelected: true, status: "active"}];
+    },
+    async resolve() {
+      return "graph-api-key";
+    },
+  };
+
+  await t.test("Graph adapter errors retain their bounded provider code", async () => {
+    const service = new LiveDeploymentService(
+      {} as LiveDeploymentRepository,
+      credentials as never,
+      () => ({
+        async getSchema() { throw new GraphMcpError("GRAPH_MCP_TOOL_UNAVAILABLE", "private provider detail"); },
+        async close() {},
+      }) as never,
+      Buffer.alloc(32, 7),
+      "https://data.example/data/v1",
+    );
+    await assert.rejects(
+      service.buildVersion({workspaceId: "workspace", productId: "product", actorUserId: "user", compilation, dag: input.dag, sources: [source]}),
+      (error: unknown) => error instanceof LiveDeploymentError && error.code === "GRAPH_MCP_TOOL_UNAVAILABLE",
+    );
+  });
+
+  await t.test("repository failures are classified without exposing database details", async () => {
+    const repository = {
+      async persistVersion() { throw new Error("private database detail"); },
+    } as Pick<LiveDeploymentRepository, "persistVersion"> as LiveDeploymentRepository;
+    const service = new LiveDeploymentService(
+      repository,
+      credentials as never,
+      () => ({async getSchema() { return schemaDocument; }, async close() {}}) as never,
+      Buffer.alloc(32, 7),
+      "https://data.example/data/v1",
+    );
+    await assert.rejects(
+      service.buildVersion({workspaceId: "workspace", productId: "product", actorUserId: "user", compilation, dag: input.dag, sources: [source]}),
+      (error: unknown) => error instanceof LiveDeploymentError && error.code === "LIVE_VERSION_PERSIST_FAILED",
+    );
+  });
+});
 
 test("immutable live plans compile a schema-correct bounded Graph query", () => {
   const input = compilationInput();

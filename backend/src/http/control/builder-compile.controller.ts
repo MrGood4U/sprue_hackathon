@@ -98,6 +98,25 @@ const compilationBase = {
   edgeCount: z.number().int().nonnegative(),
 };
 
+function sourceAdmissionMessage(code: string): string {
+  if (code === "GRAPH_CREDENTIAL_NOT_SELECTED") {
+    return "Select and validate a The Graph API key before building this live product.";
+  }
+  if (code === "GRAPH_CREDENTIAL_UNAVAILABLE") {
+    return "The selected The Graph API key could not be resolved. Revalidate or replace it before building.";
+  }
+  if (code === "LIVE_SOURCE_BINDING_INVALID") {
+    return "The compiled source nodes do not match the admitted live source definitions.";
+  }
+  if (code === "LIVE_VERSION_PERSIST_FAILED") {
+    return "The live sources passed validation, but Sprue could not persist the immutable product version.";
+  }
+  if (code.startsWith("GRAPH_MCP_")) {
+    return "Sprue could not inspect the live The Graph source through the restricted Graph adapter.";
+  }
+  return "The compiled DAG passed, but its live The Graph sources could not be admitted.";
+}
+
 export const builderCompilationSchema = z.discriminatedUnion("status", [
   z.strictObject({
     ...compilationBase,
@@ -162,9 +181,7 @@ export function compileBuilderDag(service?: ProductService, deployments?: LiveDe
             compiledAt: new Date().toISOString(),
             nodeCount: parsed.data.dag.nodes.length,
             edgeCount: parsed.data.dag.edges.length,
-            issues: [{code, message: code === "GRAPH_CREDENTIAL_NOT_SELECTED"
-              ? "Select and validate a The Graph API key before building this live product."
-              : "The compiled DAG passed, but its live The Graph sources could not be admitted.", nodeId: null, path: "sources"}],
+            issues: [{code, message: sourceAdmissionMessage(code), nodeId: null, path: "sources"}],
           };
         }
       }
