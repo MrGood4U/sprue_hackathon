@@ -161,9 +161,11 @@ test("Builder feature CSS consumes existing tokens", async () => {
 test("Structured DAG inspection keeps long JSON scrollable and exposes copy feedback", async () => {
   const inspector = await readFile(new URL("../src/features/builder/BuilderInspector.jsx", import.meta.url), "utf8");
   const css = await readFile(new URL("../src/features/builder/builder.css", import.meta.url), "utf8");
+  assert.match(inspector, /import "\.\/builder\.css";/);
   assert.match(inspector, /copyText\(serializedValue\)/);
   assert.match(inspector, /aria-live="polite"/);
   assert.match(inspector, /tabIndex=\{0\}/);
+  assert.match(css, /\.builder-inspector-modal \{[^}]*max-height: calc\(100dvh - 48px\);/);
   assert.match(css, /\.builder-inspector \{[^}]*overflow: auto;/);
   assert.match(css, /\.builder-inspector::\-webkit-scrollbar-thumb/);
 });

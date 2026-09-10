@@ -24,7 +24,7 @@
 .template-parameters small { color: var(--color-foreground-secondary); line-height: 1.6; }
 .template-parameters [role="alert"] { color: var(--color-accent-danger); }
 .builder-change { margin-top: 16px; font-size: 12px; line-height: 1.6; color: var(--color-foreground-secondary); }
-.builder-inspector-modal { height: min(780px, calc(100dvh - 48px)); display: grid; grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden; }
+.builder-inspector-modal { height: min(780px, calc(100dvh - 48px)); max-height: calc(100dvh - 48px); display: grid; grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden; }
 .builder-inspector-modal .modal-body { min-height: 0; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; }
 .builder-code-viewer { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; border: 1px solid var(--color-border-default); border-radius: 5px; background: var(--color-background-code); }
 .builder-code-toolbar { min-height: 48px; display: flex; align-items: center; justify-content: flex-end; padding: 7px 9px; border-bottom: 1px solid var(--color-border-default); background: var(--color-background-code); }

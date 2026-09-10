@@ -5,6 +5,7 @@ import { Button } from "../../components/ui/Button.jsx";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
 import { copyText } from "../wallet/copyText.js";
 import { getNodeLabelKey } from "./nodeLabels.js";
+import "./builder.css";
 
 export function BuilderInspector({ selection, draft, onClose }) {
   const { t } = useI18n();
