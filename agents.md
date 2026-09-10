@@ -166,6 +166,8 @@ Before implementing or changing a sponsor integration, consult the corresponding
 
 ## Repository Language Rule
 
+On 2026-09-10, the user approved Sort / Top K as the eighth bounded DAG operator. Its exact version-1 contract is stable multi-key scalar ordering with explicit direction and null placement, an optional positive K capped at 10,000, input-schema preservation, and upstream ordinal as the final tie-breaker. The Builder derives fields from the direct predecessor and exposes keyboard-operable priority controls. No protocol, asset, network, entity, or field name may be hardcoded into this operator.
+
 All text records in this repository must be written in English. This includes source comments, documentation, README files, commit messages, issue or task notes, and other project artifacts.
 
 Runtime localization resources may represent non-English UI copy through escaped Unicode literals so the source record remains English/ASCII while the browser renders the requested language.

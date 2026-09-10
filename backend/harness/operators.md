@@ -1,6 +1,6 @@
 # Query and Operator Contract
 
-Draft 0.3. This proposes the exact bounded language behind "turn intent into operators." It is not a shipped registry. Review H1 before implementing configuration schemas; preserve the approved [canonical spec envelope](../../data-model.md#canonical-data-product-specification).
+Draft 0.5. The generic Filter predicate and Sort / Top K contract described below were approved and implemented on 2026-09-10. The remaining exact executable schemas still require H1 review; preserve the approved [canonical spec envelope](../../data-model.md#canonical-data-product-specification).
 
 ## 1. Compilation Layers
 
@@ -16,27 +16,42 @@ Display names such as "Group by Protocol" are not operator identifiers. The same
 
 ## 2. Confirmed MVP Scope and Proposed Configuration
 
-The human approved these seven operator types on 2026-09-05; their exact configuration and numeric/null schemas remain H1 review work. Each has operatorVersion `1` once implemented. Source is the only network-capable operator; its I/O is performed by the trusted Graph adapter, not an expression evaluator.
+The human approved the original seven operator types on 2026-09-05 and approved Sort / Top K as the eighth type on 2026-09-10. Filter's exact version-2 visual predicate and Sort's exact version-1 contract are approved; the other exact configuration and numeric/null schemas remain H1 review work. Source is the only network-capable operator; its I/O is performed by the trusted Graph adapter, not an expression evaluator.
 
 | Type | Ports | Proposed configuration | Semantics and constraints |
 |---|---|---|---|
 | `source` | No input; rows output | Existing sourceId/queryDocument/variableBindings/pagination; proposed resultPath, rowSchema and window | Fetch a pinned, bounded subgraph query, extract one inspected root collection, validate every row, preserve provenance |
-| `filter` | rows -> rows | `{predicate: Expression}` | Keep rows for which a typed Boolean expression is true; null is not silently truthy; no schema change |
+| `filter` | rows -> rows | `{predicate: {combinator, conditions}}` | Filter already-fetched predecessor rows with typed field conditions; null is explicit; no schema change |
 | `map` | rows -> rows | `{fields: Record<string, Expression>}` | Explicit projection/derivation; output contains only named fields; fields read original input, not earlier sibling assignments |
 | `aggregate` | rows -> rows | `{groupBy: string[], measures: Record<string, Measure>}` | Group on typed keys; count_rows, count_distinct, sum, min and max over declared fields; explicit memory limits |
+| `sort` | rows -> rows | `{orderBy: [{field, direction, nulls}], limit: integer-or-null}` | Stable multi-key scalar sorting; null means full sort and a bounded positive limit means Top K; no schema change |
 | `union` | rows[] -> rows | Proposed `{inputs: string[], sourceDiscriminator?: string}` | Append rows from multiple inputs only after schema-compatible normalization; preserve source lineage when the product semantics require it; reject incompatible fields and unbounded input fan-in |
 | `join` | left rows + right rows -> rows | Proposed `{keys: JoinKey[], type: inner-or-left, cardinality, collisionPolicy, nullPolicy}` | Match two inputs on explicit typed keys; reject implicit many-to-many fan-out, missing keys and unbounded output estimates; exact key/cardinality semantics remain H1 |
 | `output` | rows input; final rows output | `{orderBy: [{field, direction}], nullPolicy: reject_unexpected}` | Validate exact outputSchema, stable total ordering, row/byte bounds; pass final artifact to materializer, not API publication |
 
 The diagram uses `rows -> rows` as port notation, not an arrow field in serialized edges. Canonical edges still use fromNode/fromPort/toNode/toPort. Source/port schema inference must prove each downstream field reference exists and has a compatible type.
 
-GroupBy is initially aggregate configuration, a rolling interval is source window configuration, and Score is a map expression. No separate window/group/score node is required merely because the frontend has a similarly named fixture card. Union and Join are now explicit MVP operators for multiple existing Subgraph results. Sort/top-k, arbitrary window functions, external HTTP enrichment and custom-code operators remain deferred; register them only after semantics, bounds, tests and human scope review.
+GroupBy is initially aggregate configuration, a rolling interval is source window configuration, and Score is a map expression. No separate window/group/score node is required merely because the frontend has a similarly named fixture card. Union and Join are explicit MVP operators for multiple existing Subgraph results. Arbitrary window functions, external HTTP enrichment and custom-code operators remain deferred; register them only after semantics, bounds, tests and human scope review.
 
-Output sorting is for deterministic serving, not an undeclared top-k operation. A requested ranking/top-N transformation remains unsupported until explicitly modeled; transport preview/limit does not change the metric. No silent truncation converts an incomplete aggregate into a successful final output.
+Output sorting remains deterministic serving metadata. Ranking and top-N transformations use an explicit Sort / Top K node; transport preview/limit does not change the metric. No silent truncation converts an incomplete aggregate into a successful final output.
+
+### Approved Generic Filter Contract
+
+Filter version 2 uses one bounded top-level `and` or `or` group with 1 to 32 conditions. Conditions reference scalar fields from the direct predecessor's inferred output schema. Text, ID, address and bytes fields support equality and bounded membership; integer, decimal, timestamp and date fields also support ordered comparison and an inclusive range; Boolean fields support equality; nullable fields additionally support explicit null checks. Membership lists contain 1 to 50 exact scalar values. Integer and decimal literals remain strings so JavaScript number coercion cannot change them.
+
+The Builder must derive field choices and compatible operators from the direct predecessor, preserve a condition that becomes invalid after an upstream schema change, show the error, and prevent confirmation. It must never silently rename or delete the reference. Object, JSON and list fields remain unavailable until a reviewed flatten/explode operator exists.
+
+Filter executes inside Sprue after the Source adapter has fetched and validated bounded rows. It does not rewrite or push predicates into GraphQL in this version. A future optimizer may push an equivalent predicate only after proving semantic equivalence; that optimization cannot change the canonical Filter contract or result.
+
+### Approved Sort / Top K Contract
+
+Sort version 1 accepts one to eight ordered keys. Every key references a scalar field from the direct predecessor output schema and declares `asc` or `desc` plus independent `first` or `last` null placement. Earlier keys have higher priority. When all keys compare equal, the upstream input ordinal is the final tie-breaker, so results are stable and deterministic. The output schema equals the input schema. JSON, object and list values are not sortable in this version.
+
+`limit: null` performs a complete sort. A positive integer from 1 through 10,000 keeps the first K rows after the same ordering. The runtime may use a bounded heap for Top K, but that optimization cannot change ordering or tie behavior. K is never inferred from a transport preview limit, and a configured K without at least one sort key is invalid.
 
 ### Registry Implementation Contract
 
-The confirmed existing-Subgraph boundary applies to every operator. A source queries an already available deployment; no operator or compilation target may create or deploy a Subgraph or Subgraph Composition. Prefer supported source-query filters/projections and existing derived fields only after verifying equivalent semantics. Do not invent query capabilities, silently rewrite accepted versions, or add unnecessary transforms; source and output validation remain required. The runtime supports multiple explicit source entries and the seven-type allowlist, while the source adapter remains responsible for one pinned query per source node.
+The confirmed existing-Subgraph boundary applies to every operator. A source queries an already available deployment; no operator or compilation target may create or deploy a Subgraph or Subgraph Composition. Prefer supported source-query filters/projections and existing derived fields only after verifying equivalent semantics. Do not invent query capabilities, silently rewrite accepted versions, or add unnecessary transforms; source and output validation remain required. The runtime supports multiple explicit source entries and the eight-type allowlist, while the source adapter remains responsible for one pinned query per source node.
 
 Each entry contains configSchema, inputPorts, outputPorts, inferOutputSchema, validateSemantics, estimateResources, and execute, plus type/version and determinism guarantees. Functions are developer-owned code resolved by a frozen registry, never names dynamically imported from a user path. Changes to semantics require a new operatorVersion; do not keep version 1 while changing rounding, null behavior or aggregation meaning.
 
@@ -155,4 +170,4 @@ With no input rows, this grouped metric returns an empty array, not invented zer
 
 Reject unknown types/versions/config fields, duplicate IDs, cycles, disconnected/dead nodes, missing inputs, invalid ports, unreachable output, extra output nodes, unsatisfied field/unit constraints, unbounded expressions, unsupported source semantics, resource excess and inconsistent output schemas. Every accepted node must reach the single output. The first runtime supports DAGs, not loops or recursive feedback edges.
 
-The data-model example uses abbreviated query/config fields for illustration; it is not a complete executable operator schema. This document proposes those missing details under H1, without silently approving executable schemas through model 1.5. The canonical illustration and frontend fixture now show the same seven-node denominator-safe composition. This corrects examples only, not schema approval or a shipped runtime; after H1 approval, publish complete schemas and reject older incompatible shapes explicitly.
+The data-model example uses abbreviated query/config fields for illustration; it is not a complete executable operator schema. Except for the generic Filter predicate and Sort / Top K contract above, this document proposes those missing details under H1 without silently approving executable schemas through model 1.5. The canonical illustration and frontend fixture now show the same seven-node denominator-safe composition.

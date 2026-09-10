@@ -10,6 +10,7 @@ import type {
   SourceDiscoveryPlan,
   SourceEntitySelectionOutput,
   SourceFeasibilityOutput,
+  SourceFeasibilitySelection,
   SourceSelectionOutput,
 } from "./types.js";
 
@@ -336,11 +337,44 @@ function sourceFeasibilityOutput(
       missingFacts: missingNeeds.map((network) => `${network}:required_schema_fields`),
     };
   }
-  const sourceRoles = request.sourceRoles.map((source) => source.role);
   const nodes: FlexibleCompositionIntent["nodes"][number][] = [];
   const connections: FlexibleCompositionIntent["connections"][number][] = [];
-  let currentRole = sourceRoles[0]!;
-  for (let index = 1; index < sourceRoles.length; index += 1) {
+  const validSelections: SourceFeasibilitySelection[] = selections.filter((selection) => selection !== null);
+  const normalizedRoles = request.sourceRoles.map((source) => {
+    const selection = validSelections.find((candidate) => candidate.sourceNeedId === source.sourceNeedId)!;
+    const candidate = request.candidates.find((value) => value.candidateRef === selection.candidateRef)!;
+    const entity = candidate.entities.find((value) => value.queryEntity === selection.queryEntity)!;
+    const inspectedByPath = new Map(entity.fields.map((field) => [field.path, field]));
+    const targetByName = new Map(source.normalizationTargets.map((field) => [field.name, field]));
+    const role = `normalize_${source.sourceNeedId}`;
+    nodes.push({
+      role,
+      operator: "map",
+      operatorVersion: "2",
+      config: {
+        mode: "project",
+        fields: [
+          ...selection.fieldBindings.map((binding) => {
+            const inspected = inspectedByPath.get(binding.fieldPath)!;
+            const target = targetByName.get(binding.requirementId);
+            const expression = target?.type === "date" && inspected.valueType !== "date"
+              ? {op: "utc_date", inputs: [{op: "field", field: binding.fieldPath}]}
+              : {op: "field", field: binding.fieldPath};
+            return {name: binding.requirementId, expression};
+          }),
+          ...selection.auxiliaryFieldBindings.map((binding) => ({
+            name: binding.name,
+            expression: {op: "field", field: binding.fieldPath},
+          })),
+          {name: "data_network", expression: {op: "field", field: "data_network"}},
+        ],
+      },
+    });
+    connections.push({fromRole: source.role, toRole: role, inputRole: "rows"});
+    return role;
+  });
+  let currentRole = normalizedRoles[0]!;
+  for (let index = 1; index < normalizedRoles.length; index += 1) {
     const unionRole = `union_${index + 1}`;
     nodes.push({
       role: unionRole,
@@ -350,7 +384,7 @@ function sourceFeasibilityOutput(
     });
     connections.push(
       {fromRole: currentRole, toRole: unionRole, inputRole: "left"},
-      {fromRole: sourceRoles[index]!, toRole: unionRole, inputRole: "right"},
+      {fromRole: normalizedRoles[index]!, toRole: unionRole, inputRole: "right"},
     );
     currentRole = unionRole;
   }
@@ -364,7 +398,7 @@ function sourceFeasibilityOutput(
   return {
     schemaVersion: 2,
     kind: "source_feasibility",
-    selections: selections.filter((selection) => selection !== null),
+    selections: validSelections,
     composition: {
       schemaVersion: 2,
       kind: "composition_intent",

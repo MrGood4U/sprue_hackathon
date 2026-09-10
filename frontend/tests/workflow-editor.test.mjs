@@ -2,6 +2,19 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { createEditorState, editorReducer } from "../src/features/workflow-editor/editorReducer.js";
+import {
+  deriveFilterInputFields,
+  deriveDirectInputFields,
+  deriveNodeOutputFields,
+  filterOperatorsForField,
+  validateFilterConfig,
+} from "../src/features/workflow-editor/filterModel.js";
+import {
+  editableMapConfig,
+  mapExpressionEditor,
+  validateMapConfig,
+} from "../src/features/workflow-editor/mapModel.js";
+import {createSortConfig, validateSortConfig} from "../src/features/workflow-editor/sortModel.js";
 
 function draftFixture() {
   return {
@@ -11,9 +24,20 @@ function draftFixture() {
       outputSchema: { fields: [{ name: "wallet", type: "address" }] },
       dag: {
         nodes: [
-          { id: "source", type: "source", operatorVersion: "1", config: { sourceKey: "existing-source" } },
-          { id: "map", type: "map", operatorVersion: "1", config: { mapping: { wallet: "account.id" } } },
-          { id: "output", type: "output", operatorVersion: "1", config: { views: ["crossChain"] } },
+          {
+            id: "source",
+            type: "source",
+            operatorVersion: "1",
+            outputSchema: {fields: [{name: "wallet", type: "address", nullable: false, unit: null}]},
+            config: {sourceKey: "existing-source"},
+          },
+          {
+            id: "map",
+            type: "map",
+            operatorVersion: "2",
+            config: {mode: "project", fields: [{name: "wallet", expression: {op: "field", field: "wallet"}}]},
+          },
+          { id: "output", type: "output", operatorVersion: "2", config: { fields: ["wallet"], orderBy: [] } },
         ],
         edges: [
           { fromNode: "source", fromPort: "rows", toNode: "map", toPort: "rows" },
@@ -71,6 +95,208 @@ test("connection rules reject cycles", () => {
     connection: { source: "map", sourceHandle: "rows", target: "source", targetHandle: "rows" },
   });
   assert.equal(next.edges.length, state.edges.length);
+});
+
+test("Filter fields and operators are derived from the direct predecessor output schema", () => {
+  const draft = draftFixture();
+  draft.specification.dag.nodes = [
+    {
+      id: "source",
+      type: "source",
+      operatorVersion: "1",
+      outputSchema: {fields: [
+        {name: "amount", type: "decimal", nullable: false, unit: "USD"},
+        {name: "verified", type: "boolean", nullable: true, unit: null},
+        {name: "nested", type: "json", nullable: false, unit: null},
+      ]},
+      config: {sourceKey: "existing-source"},
+    },
+    {
+      id: "filter",
+      type: "filter",
+      operatorVersion: "2",
+      config: {predicate: {combinator: "and", conditions: [{field: "amount", operator: "gte", value: "10"}]}},
+    },
+    {id: "output", type: "output", operatorVersion: "2", config: {fields: ["amount"], orderBy: []}},
+  ];
+  draft.specification.dag.edges = [
+    {fromNode: "source", fromPort: "rows", toNode: "filter", toPort: "rows"},
+    {fromNode: "filter", fromPort: "rows", toNode: "output", toPort: "rows"},
+  ];
+  const state = createEditorState(draft);
+  const fields = deriveFilterInputFields(state, "filter");
+  assert.deepEqual(fields.map(({name}) => name), ["amount", "verified"]);
+  assert.ok(filterOperatorsForField(fields[0]).includes("between"));
+  assert.ok(filterOperatorsForField(fields[1]).includes("is_null"));
+  assert.equal(validateFilterConfig(state.nodes.find((node) => node.id === "filter").data.node.config, fields).length, 0);
+  assert.equal(state.validation.some((error) => error.nodeId === "filter"), false);
+});
+
+test("Filter keeps a missing upstream field invalid instead of silently changing the condition", () => {
+  const config = {predicate: {combinator: "and", conditions: [{field: "removed_field", operator: "eq", value: "x"}]}};
+  const errors = validateFilterConfig(config, [{name: "current_field", type: "string", nullable: false, unit: null}]);
+  assert.equal(config.predicate.conditions[0].field, "removed_field");
+  assert.equal(errors[0]?.code, "FILTER_FIELD_UNKNOWN");
+});
+
+test("Map reads its direct predecessor schema and preserves Agent-authored field expressions", () => {
+  const draft = draftFixture();
+  draft.specification.dag.nodes = [
+    {
+      id: "source",
+      type: "source",
+      operatorVersion: "1",
+      outputSchema: {fields: [
+        {name: "trade_timestamp", type: "timestamp", nullable: false, unit: null},
+        {name: "token0_symbol", type: "string", nullable: false, unit: null},
+        {name: "token1_symbol", type: "string", nullable: false, unit: null},
+        {name: "trade_amount_usd", type: "decimal", nullable: false, unit: "USD"},
+        {name: "data_network", type: "string", nullable: false, unit: null},
+      ]},
+      config: {sourceKey: "existing-source"},
+    },
+    {
+      id: "filter",
+      type: "filter",
+      operatorVersion: "2",
+      config: {predicate: {combinator: "and", conditions: [{field: "token0_symbol", operator: "eq", value: "AAA"}]}},
+    },
+    {
+      id: "map",
+      type: "map",
+      operatorVersion: "2",
+      config: {
+        mode: "extend",
+        fields: [
+          {name: "network", expression: {op: "field", field: "data_network"}},
+          {name: "trade_date", expression: {op: "utc_date", inputs: [{op: "field", field: "trade_timestamp"}]}},
+        ],
+      },
+    },
+    {id: "output", type: "output", operatorVersion: "2", config: {fields: ["network", "trade_date"], orderBy: []}},
+  ];
+  draft.specification.dag.edges = [
+    {fromNode: "source", fromPort: "rows", toNode: "filter", toPort: "rows"},
+    {fromNode: "filter", fromPort: "rows", toNode: "map", toPort: "rows"},
+    {fromNode: "map", fromPort: "rows", toNode: "output", toPort: "rows"},
+  ];
+  const state = createEditorState(draft);
+  const fields = deriveDirectInputFields(state, "map");
+  const config = state.nodes.find((node) => node.id === "map").data.node.config;
+
+  assert.deepEqual(fields.map(({name}) => name), [
+    "trade_timestamp",
+    "token0_symbol",
+    "token1_symbol",
+    "trade_amount_usd",
+    "data_network",
+  ]);
+  assert.equal(validateMapConfig(config, fields).length, 0);
+  assert.deepEqual(mapExpressionEditor(config.fields[1].expression), {kind: "utc_date", sourceField: "trade_timestamp"});
+  assert.deepEqual(deriveNodeOutputFields(state, "map").slice(-2).map(({name, type}) => [name, type]), [
+    ["network", "string"],
+    ["trade_date", "date"],
+  ]);
+  assert.equal(state.validation.some((error) => error.nodeId === "map"), false);
+
+  const missing = {mode: "project", fields: [{name: "kept", expression: {op: "field", field: "removed_field"}}]};
+  assert.equal(validateMapConfig(missing, fields)[0]?.code, "MAP_SOURCE_FIELD_UNKNOWN");
+  assert.equal(missing.fields[0].expression.field, "removed_field");
+  assert.deepEqual(editableMapConfig({mapping: {kept: "token0_symbol"}}), {
+    mode: "project",
+    fields: [{name: "kept", expression: {op: "field", field: "token0_symbol"}}],
+  });
+});
+
+test("Map exposes exact camel-case and nested Graph field paths from a Source boundary", () => {
+  const draft = draftFixture();
+  draft.specification.dag.nodes = [
+    {
+      id: "source",
+      type: "source",
+      operatorVersion: "1",
+      outputSchema: {fields: [
+        {name: "amountUSD", type: "decimal", nullable: false, unit: null},
+        {name: "pool.token0.symbol", type: "string", nullable: false, unit: null},
+        {name: "data_network", type: "string", nullable: false, unit: null},
+      ]},
+      config: {sourceKey: "existing-source"},
+    },
+    {
+      id: "map",
+      type: "map",
+      operatorVersion: "2",
+      config: {
+        mode: "project",
+        fields: [
+          {name: "volume_usd", expression: {op: "field", field: "amountUSD"}},
+          {name: "token0_symbol", expression: {op: "field", field: "pool.token0.symbol"}},
+        ],
+      },
+    },
+    {id: "output", type: "output", operatorVersion: "2", config: {fields: ["volume_usd", "token0_symbol"], orderBy: []}},
+  ];
+  draft.specification.dag.edges = [
+    {fromNode: "source", fromPort: "rows", toNode: "map", toPort: "rows"},
+    {fromNode: "map", fromPort: "rows", toNode: "output", toPort: "rows"},
+  ];
+
+  const state = createEditorState(draft);
+  const fields = deriveDirectInputFields(state, "map");
+  assert.deepEqual(fields.map(({name}) => name), ["amountUSD", "pool.token0.symbol", "data_network"]);
+  assert.equal(validateMapConfig(state.nodes.find((node) => node.id === "map").data.node.config, fields).length, 0);
+  assert.equal(state.validation.some((error) => error.nodeId === "map"), false);
+});
+
+test("Sort / Top K derives predecessor fields, preserves schema, and validates bounded priorities", () => {
+  const draft = draftFixture();
+  draft.specification.dag.nodes = [
+    {
+      id: "source",
+      type: "source",
+      operatorVersion: "1",
+      outputSchema: {fields: [
+        {name: "score", type: "decimal", nullable: true, unit: "USD"},
+        {name: "created_at", type: "timestamp", nullable: false, unit: null},
+        {name: "details", type: "json", nullable: false, unit: null},
+      ]},
+      config: {sourceKey: "existing-source"},
+    },
+    {
+      id: "sort",
+      type: "sort",
+      operatorVersion: "1",
+      config: {
+        orderBy: [
+          {field: "score", direction: "desc", nulls: "last"},
+          {field: "created_at", direction: "asc", nulls: "last"},
+        ],
+        limit: 25,
+      },
+    },
+    {id: "output", type: "output", operatorVersion: "2", config: {fields: ["score", "created_at"], orderBy: []}},
+  ];
+  draft.specification.dag.edges = [
+    {fromNode: "source", fromPort: "rows", toNode: "sort", toPort: "rows"},
+    {fromNode: "sort", fromPort: "rows", toNode: "output", toPort: "rows"},
+  ];
+  const state = createEditorState(draft);
+  const fields = deriveDirectInputFields(state, "sort");
+  assert.deepEqual(fields.map(({name}) => name), ["score", "created_at"]);
+  assert.deepEqual(deriveNodeOutputFields(state, "sort"), fields);
+  assert.equal(validateSortConfig(state.nodes.find((node) => node.id === "sort").data.node.config, fields).length, 0);
+  assert.equal(state.validation.some((error) => error.nodeId === "sort"), false);
+
+  const defaultConfig = createSortConfig(fields);
+  assert.deepEqual(defaultConfig, {orderBy: [{field: "score", direction: "asc", nulls: "last"}], limit: null});
+  assert.equal(validateSortConfig({...defaultConfig, limit: 10_001}, fields)[0]?.code, "SORT_LIMIT_INVALID");
+  assert.ok(validateSortConfig({
+    orderBy: [
+      {field: "score", direction: "asc", nulls: "last"},
+      {field: "score", direction: "desc", nulls: "first"},
+    ],
+    limit: null,
+  }, fields).some((error) => error.code === "SORT_FIELD_DUPLICATED"));
 });
 
 test("the canvas keeps a larger tokenized dot grid", async () => {

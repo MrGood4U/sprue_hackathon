@@ -16,7 +16,7 @@ export function createEditorState(draft) {
     future: [],
     dirty: false,
     dragSnapshot: false,
-    validation: validateWorkflow(flow.nodes, flow.edges),
+    validation: validateWorkflow(flow.nodes, flow.edges, draft),
   };
 }
 
@@ -25,7 +25,8 @@ function snapshot(state) {
 }
 
 function withDraft(state, nodes, edges) {
-  return { ...state, draft: draftFromFlow(state.draft, nodes, edges), nodes, edges, validation: validateWorkflow(nodes, edges) };
+  const draft = draftFromFlow(state.draft, nodes, edges);
+  return { ...state, draft, nodes, edges, validation: validateWorkflow(nodes, edges, draft) };
 }
 
 function commit(state, nodes, edges) {
@@ -154,12 +155,12 @@ export function editorReducer(state, action) {
     case "undo": {
       const previous = state.history.at(-1);
       if (!previous) return state;
-      return { ...clone(previous), history: state.history.slice(0, -1), future: [snapshot(state), ...state.future], dirty: true, tool: state.tool, selectedNodeId: state.selectedNodeId, selectedEdgeId: state.selectedEdgeId, validation: validateWorkflow(previous.nodes, previous.edges) };
+      return { ...clone(previous), history: state.history.slice(0, -1), future: [snapshot(state), ...state.future], dirty: true, tool: state.tool, selectedNodeId: state.selectedNodeId, selectedEdgeId: state.selectedEdgeId, validation: validateWorkflow(previous.nodes, previous.edges, previous.draft) };
     }
     case "redo": {
       const next = state.future[0];
       if (!next) return state;
-      return { ...clone(next), history: [...state.history, snapshot(state)], future: state.future.slice(1), dirty: true, tool: state.tool, selectedNodeId: state.selectedNodeId, selectedEdgeId: state.selectedEdgeId, validation: validateWorkflow(next.nodes, next.edges) };
+      return { ...clone(next), history: [...state.history, snapshot(state)], future: state.future.slice(1), dirty: true, tool: state.tool, selectedNodeId: state.selectedNodeId, selectedEdgeId: state.selectedEdgeId, validation: validateWorkflow(next.nodes, next.edges, next.draft) };
     }
     default: return state;
   }

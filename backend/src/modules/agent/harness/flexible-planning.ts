@@ -1,4 +1,6 @@
 import type {GraphSemanticValueType} from "../../graph/index.js";
+import {validateFilterPredicate} from "../../dag/filter.js";
+import {validateSortConfig} from "../../dag/sort.js";
 import {HarnessCompileError, sourceRole} from "./compiler.js";
 import type {
   DiscoverySemanticPlan,
@@ -10,6 +12,7 @@ import type {
 } from "./types.js";
 
 const identifierPattern = /^[a-z][a-z0-9_]{0,99}$/;
+const fieldReferencePattern = /^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$/;
 
 interface FieldShape {
   type: GraphSemanticValueType;
@@ -23,15 +26,20 @@ interface FieldShape {
 type RowShape = ReadonlyMap<string, FieldShape>;
 type FieldUsage = Map<string, Set<SourceAuxiliaryFieldPurpose>>;
 
-export interface SourceRoleAuxiliaryFieldShape {
+export interface SourceRoleFieldShape {
   name: string;
   type: GraphSemanticValueType;
   nullable: boolean;
   unit: string | null;
+  origin: string | null;
 }
 
-function auxiliaryOrigin(sourceNeedId: string, name: string): string {
+export function sourceAuxiliaryOrigin(sourceNeedId: string, name: string): string {
   return `${sourceNeedId}:${name}`;
+}
+
+export function sourceRequirementOrigin(sourceNeedId: string, requirementId: string): string {
+  return `${sourceNeedId}:requirement:${requirementId}`;
 }
 
 function mergedOrigins(fields: readonly FieldShape[]): ReadonlySet<string> {
@@ -51,7 +59,7 @@ export const flexibleOperatorRegistry: readonly OperatorSignature[] = [
     operatorVersion: "2",
     inputPorts: ["rows"],
     outputPorts: ["rows"],
-    configContract: "{expression:Expression}; the expression must return Boolean.",
+    configContract: "{predicate:{combinator:'and'|'or',conditions:[{field,operator:'eq'|'ne'|'lt'|'lte'|'gt'|'gte',value:string|boolean}|{field,operator:'in'|'not_in',values:(string|boolean)[]}|{field,operator:'between',values:[string|boolean,string|boolean]}|{field,operator:'is_null'|'is_not_null'}]}}; use only operators valid for the referenced field type. Legacy {expression:Expression} remains accepted.",
   },
   {
     type: "map",
@@ -66,6 +74,13 @@ export const flexibleOperatorRegistry: readonly OperatorSignature[] = [
     inputPorts: ["rows"],
     outputPorts: ["rows"],
     configContract: "{groupBy:string[],measures:[{name,op:'count_rows'|'count_distinct'|'sum'|'min'|'max'|'average',field:string|null}]}",
+  },
+  {
+    type: "sort",
+    operatorVersion: "1",
+    inputPorts: ["rows"],
+    outputPorts: ["rows"],
+    configContract: "{orderBy:[{field,direction:'asc'|'desc',nulls:'first'|'last'}],limit:integer|null}; orderBy priority follows array order, limit null means full stable sort, and limit K means stable top K.",
   },
   {
     type: "union",
@@ -109,6 +124,13 @@ function string(value: unknown, label: string): string {
   return value;
 }
 
+function fieldReference(value: unknown, label: string): string {
+  if (typeof value !== "string" || !fieldReferencePattern.test(value)) {
+    fail("OPERATOR_CONFIG_INVALID", `${label} must be an inspected field path or lowercase identifier`);
+  }
+  return value;
+}
+
 function exactKeys(value: Record<string, unknown>, keys: readonly string[], label: string): void {
   const expected = new Set(keys);
   if (Object.keys(value).some((key) => !expected.has(key)) || keys.some((key) => !(key in value))) {
@@ -138,7 +160,7 @@ function field(
   label: string,
   usage?: {fields: FieldUsage; purpose: SourceAuxiliaryFieldPurpose},
 ): FieldShape {
-  const fieldName = string(name, label);
+  const fieldName = fieldReference(name, label);
   const found = shape.get(fieldName);
   if (!found) fail("EXPRESSION_FIELD_UNKNOWN", `${label} references unavailable field ${fieldName}`);
   if (usage) {
@@ -285,10 +307,24 @@ function outputShape(
 ): RowShape {
   const config = record(configValue, `${operator} config`);
   if (operator === "filter") {
-    exactKeys(config, ["expression"], "Filter config");
     const source = inputs.get("rows")!;
-    const result = expressionType(config.expression, source, {nodes: 0}, {fields: usage, purpose: "filter"});
-    if (result.type !== "boolean") fail("FILTER_EXPRESSION_INVALID", "Filter expression must return Boolean");
+    if ("predicate" in config) {
+      exactKeys(config, ["predicate"], "Filter config");
+      const issues = validateFilterPredicate(config.predicate, [...source].map(([name, shape]) => ({
+        name,
+        type: shape.type,
+        nullable: shape.nullable,
+      })));
+      if (issues.length > 0) fail(issues[0]!.code, issues[0]!.message);
+      const predicate = config.predicate as {conditions: readonly {field: string}[]};
+      for (const condition of predicate.conditions) {
+        field(source, condition.field, "Filter condition", {fields: usage, purpose: "filter"});
+      }
+    } else {
+      exactKeys(config, ["expression"], "Filter config");
+      const result = expressionType(config.expression, source, {nodes: 0}, {fields: usage, purpose: "filter"});
+      if (result.type !== "boolean") fail("FILTER_EXPRESSION_INVALID", "Filter expression must return Boolean");
+    }
     return source;
   }
   if (operator === "map") {
@@ -364,6 +400,20 @@ function outputShape(
           });
     }
     return output;
+  }
+  if (operator === "sort") {
+    exactKeys(config, ["orderBy", "limit"], "Sort config");
+    const source = inputs.get("rows")!;
+    const issues = validateSortConfig(config, [...source].map(([name, shape]) => ({
+      name,
+      type: shape.type,
+      nullable: shape.nullable,
+    })));
+    if (issues.length > 0) fail(issues[0]!.code, issues[0]!.message);
+    for (const ordering of config.orderBy as readonly {field: string}[]) {
+      field(source, ordering.field, "Sort orderBy", {fields: usage, purpose: "sort"});
+    }
+    return source;
   }
   if (operator === "union") {
     exactKeys(config, ["mode", "sourceDiscriminator"], "Union config");
@@ -464,7 +514,7 @@ export function validateFlexibleComposition(
   needs: readonly DiscoverySourceNeed[],
   selections: readonly SourceFeasibilitySelection[],
   limits: {maxNodes: number; maxEdges: number},
-  auxiliaryFieldsByNeed: ReadonlyMap<string, readonly SourceRoleAuxiliaryFieldShape[]> = new Map(),
+  sourceFieldsByNeed: ReadonlyMap<string, readonly SourceRoleFieldShape[]> = new Map(),
 ): void {
   const sourceNodes = needs.map((need) => ({role: sourceRole(need.id), need}));
   const sourceRoles = new Set(sourceNodes.map((source) => source.role));
@@ -478,7 +528,12 @@ export function validateFlexibleComposition(
   if (composition.nodes.filter((node) => node.operator === "output").length !== 1) {
     fail("OUTPUT_CARDINALITY_INVALID", "Composition must contain exactly one Output operator");
   }
-  if (composition.nodes.some((node) => node.operatorVersion !== "2")) fail("OPERATOR_VERSION_INVALID", "Flexible composition requires operator version 2");
+  for (const node of composition.nodes) {
+    const signature = flexibleOperatorRegistry.find((candidate) => candidate.type === node.operator);
+    if (!signature || signature.operatorVersion !== node.operatorVersion) {
+      fail("OPERATOR_VERSION_INVALID", `Operator ${node.operator} requires version ${signature?.operatorVersion ?? "unavailable"}`);
+    }
+  }
 
   const incoming = new Map<string, Map<string, string>>([...nodes.keys()].map((role) => [role, new Map()]));
   const outgoing = new Map<string, Set<string>>([...sourceRoles, ...nodes.keys()].map((role) => [role, new Set()]));
@@ -496,31 +551,37 @@ export function validateFlexibleComposition(
   for (const node of composition.nodes) {
     if (inputPorts(node.operator).some((port) => !incoming.get(node.role)!.has(port))) fail("INPUT_PORT_MISSING", `Operator ${node.role} is missing a required input`);
   }
+  for (const source of sourceNodes) {
+    const targets = [...outgoing.get(source.role)!];
+    const boundary = targets.length === 1 ? nodes.get(targets[0]!) : null;
+    if (
+      !boundary
+      || boundary.operator !== "map"
+      || incoming.get(boundary.role)?.get("rows") !== source.role
+      || boundary.config.mode !== "project"
+    ) {
+      fail(
+        "SOURCE_NORMALIZATION_MAP_REQUIRED",
+        `Source role ${source.role} must connect exclusively to one project-mode Map boundary`,
+      );
+    }
+  }
 
   const shapes = new Map<string, RowShape>();
   const fieldUsage: FieldUsage = new Map();
   for (const {role, need} of sourceNodes) {
-    const selection = selections.find((item) => item.sourceNeedId === need.id)!;
-    const bound = new Set(selection.fieldBindings.map((binding) => binding.requirementId));
     const fields = new Map<string, FieldShape>();
-    for (const requirement of need.fields) {
-      if (bound.has(requirement.id)) fields.set(requirement.id, {
-        type: requirement.expectedType,
-        nullable: requirement.allowNullable,
-        unit: requirement.unit,
+    for (const sourceField of sourceFieldsByNeed.get(need.id) ?? []) {
+      if (fields.has(sourceField.name)) {
+        fail("SOURCE_FIELD_DUPLICATED", `Source role ${role} exposes duplicate inspected field ${sourceField.name}`);
+      }
+      fields.set(sourceField.name, {
+        type: sourceField.type,
+        nullable: sourceField.nullable,
+        unit: sourceField.unit,
         cardinality: false,
         nonZero: false,
-        origins: new Set(),
-      });
-    }
-    for (const auxiliary of auxiliaryFieldsByNeed.get(need.id) ?? []) {
-      fields.set(auxiliary.name, {
-        type: auxiliary.type,
-        nullable: auxiliary.nullable,
-        unit: auxiliary.unit,
-        cardinality: false,
-        nonZero: false,
-        origins: new Set([auxiliaryOrigin(need.id, auxiliary.name)]),
+        origins: sourceField.origin === null ? new Set() : new Set([sourceField.origin]),
       });
     }
     fields.set("data_network", {
@@ -578,8 +639,17 @@ export function validateFlexibleComposition(
   }
 
   for (const selection of selections) {
+    for (const binding of selection.fieldBindings) {
+      const purposes = fieldUsage.get(sourceRequirementOrigin(selection.sourceNeedId, binding.requirementId));
+      if (!purposes?.has("derive")) {
+        fail(
+          "SOURCE_FIELD_NORMALIZATION_MISSING",
+          `Selected source field ${binding.fieldPath} is not consumed by its boundary Map`,
+        );
+      }
+    }
     for (const binding of selection.auxiliaryFieldBindings) {
-      const purposes = fieldUsage.get(auxiliaryOrigin(selection.sourceNeedId, binding.name));
+      const purposes = fieldUsage.get(sourceAuxiliaryOrigin(selection.sourceNeedId, binding.name));
       if (!purposes?.has(binding.purpose)) {
         fail(
           "FEASIBILITY_AUXILIARY_FIELD_UNUSED",

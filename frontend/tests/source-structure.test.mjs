@@ -70,12 +70,17 @@ test("keeps the Dashboard focused on metrics and the product list", async () => 
   assert.match(source, /dashboard\.status === "error"/);
   assert.match(source, /dashboard\.emptyTitle/);
   assert.match(source, /<Trash size=\{17\} \/>/);
+  assert.match(source, /formatMoney\(overview\?\.graphExpenses, locale, t, "USDC"\)/);
+  assert.match(source, /formatMoney\(overview\?\.grossSales, locale, t, "HBAR"\)/);
   assert.match(styles, /\.product-row > span:not\(\.product-cell\):not\(\.product-row-actions\)/);
   assert.match(styles, /\.product-row > \.product-row-actions \{[^}]*display: flex;[^}]*flex-direction: row;/s);
   assert.match(source, /dashboard\.deleteProductTitle/);
   assert.match(source, /await dashboard\.remove\(product\.id\)/);
   assert.match(source, /<Button autoFocus[\s\S]*common\.cancel/);
   assert.match(source, /variant="danger"[\s\S]*dashboard\.deleteProduct/);
+  const deleteActionIndex = source.indexOf('variant="danger"');
+  const cancelActionIndex = source.indexOf("<Button autoFocus", deleteActionIndex);
+  assert.ok(deleteActionIndex >= 0 && cancelActionIndex > deleteActionIndex);
   assert.match(productHeader, /<EditableProductName[\s\S]*titleActivatesEdit/);
   assert.match(productNameEditor, /onBlur=\{\(\) => void commit\(\)\}/);
   assert.match(productNameEditor, /event\.key === "Enter"/);

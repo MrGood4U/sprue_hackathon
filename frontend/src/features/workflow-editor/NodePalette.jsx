@@ -6,6 +6,7 @@ import {
   Funnel,
   GitMerge,
   Stack,
+  SortAscending,
 } from "@phosphor-icons/react";
 import { useState } from "react";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
@@ -16,6 +17,7 @@ const paletteIcons = {
   filter: Funnel,
   map: ArrowsClockwise,
   aggregate: ChartBar,
+  sort: SortAscending,
   union: Stack,
   join: GitMerge,
   output: BracketsCurly,

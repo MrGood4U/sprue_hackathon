@@ -160,7 +160,7 @@ const discoverySemanticPlanSchema = z.object({
 }).strict();
 
 const expressionSchema: z.ZodType<unknown> = z.lazy(() => z.union([
-  z.object({op: z.literal("field"), field: role}).strict(),
+  z.object({op: z.literal("field"), field: fieldPath}).strict(),
   z.object({
     op: z.literal("literal"),
     valueType: semanticValueType,
@@ -184,12 +184,42 @@ const expressionSchema: z.ZodType<unknown> = z.lazy(() => z.union([
   }).strict(),
 ]));
 
+const filterLiteralSchema = z.union([z.string().min(1).max(512), z.boolean()]);
+const filterConditionSchema = z.discriminatedUnion("operator", [
+  z.object({
+    field: role,
+    operator: z.enum(["eq", "ne", "lt", "lte", "gt", "gte"]),
+    value: filterLiteralSchema,
+  }).strict(),
+  z.object({
+    field: role,
+    operator: z.enum(["in", "not_in"]),
+    values: z.array(filterLiteralSchema).min(1).max(50),
+  }).strict(),
+  z.object({
+    field: role,
+    operator: z.literal("between"),
+    values: z.tuple([filterLiteralSchema, filterLiteralSchema]),
+  }).strict(),
+  z.object({
+    field: role,
+    operator: z.enum(["is_null", "is_not_null"]),
+  }).strict(),
+]);
+const filterPredicateSchema = z.object({
+  combinator: z.enum(["and", "or"]),
+  conditions: z.array(filterConditionSchema).min(1).max(32),
+}).strict();
+
 const flexibleNodeSchema = z.discriminatedUnion("operator", [
   z.object({
     role,
     operator: z.literal("filter"),
     operatorVersion: z.literal("2"),
-    config: z.object({expression: expressionSchema}).strict(),
+    config: z.union([
+      z.object({predicate: filterPredicateSchema}).strict(),
+      z.object({expression: expressionSchema}).strict(),
+    ]),
   }).strict(),
   z.object({
     role,
@@ -211,6 +241,19 @@ const flexibleNodeSchema = z.discriminatedUnion("operator", [
         op: z.enum(["count_rows", "count_distinct", "sum", "min", "max", "average"]),
         field: role.nullable(),
       }).strict()).min(1).max(32),
+    }).strict(),
+  }).strict(),
+  z.object({
+    role,
+    operator: z.literal("sort"),
+    operatorVersion: z.literal("1"),
+    config: z.object({
+      orderBy: z.array(z.object({
+        field: role,
+        direction: z.enum(["asc", "desc"]),
+        nulls: z.enum(["first", "last"]),
+      }).strict()).min(1).max(8),
+      limit: z.number().int().min(1).max(10_000).nullable(),
     }).strict(),
   }).strict(),
   z.object({

@@ -1,8 +1,26 @@
-import { X } from "@phosphor-icons/react";
+import { ArrowDown, ArrowUp, Plus, Trash, X } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import { Button, IconButton } from "../../components/ui/Button.jsx";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
+import {
+  conditionValueMode,
+  createFilterCondition,
+  createFilterConfig,
+  deriveDirectInputFields,
+  deriveFilterInputFields,
+  editableFilterConfig,
+  filterOperatorsForField,
+  validateFilterConfig,
+} from "./filterModel.js";
+import {
+  createMapDefinition,
+  editableMapConfig,
+  mapExpressionEditor,
+  mapExpressionForEditor,
+  validateMapConfig,
+} from "./mapModel.js";
 import { getOperator } from "./nodeCatalog.js";
+import {createSortConfig, validateSortConfig} from "./sortModel.js";
 
 function listValue(value) {
   return Array.isArray(value) ? value.join(", ") : "";
@@ -154,21 +172,320 @@ function SourceConfig({ node, draft, update, mode, onModeChange }) {
   );
 }
 
-function FilterConfig({ node, update }) {
-  const { t } = useI18n();
+function nextConditionShape(condition, field, operator) {
+  const base = {field: field?.name ?? condition.field, operator};
+  const mode = conditionValueMode(operator);
+  if (mode === "none") return base;
+  if (mode === "range") {
+    return {...base, values: Array.isArray(condition.values) && condition.values.length === 2 ? condition.values : ["", ""]};
+  }
+  if (mode === "list") {
+    return {...base, values: Array.isArray(condition.values) && condition.values.length > 0 ? condition.values : [""]};
+  }
+  return {
+    ...base,
+    value:
+      field?.type === "boolean"
+        ? typeof condition.value === "boolean"
+          ? condition.value
+          : false
+        : typeof condition.value === "string"
+          ? condition.value
+          : "",
+  };
+}
+
+function FilterValueInput({nodeId, index, condition, field, updateCondition}) {
+  const {t} = useI18n();
+  const mode = conditionValueMode(condition.operator);
+  const inputId = `filter-${nodeId}-value-${index}`;
+  if (mode === "none") return null;
+  if (mode === "range") {
+    return (
+      <div className="workflow-filter-range">
+        <Field id={`${inputId}-minimum`} label={t("workflowEditor.inspector.filterMinimum")}>
+          <input
+            id={`${inputId}-minimum`}
+            type={field?.type === "date" ? "date" : "text"}
+            inputMode={field?.type === "integer" || field?.type === "decimal" ? "decimal" : undefined}
+            value={condition.values?.[0] ?? ""}
+            onChange={(event) => updateCondition({...condition, values: [event.target.value, condition.values?.[1] ?? ""]})}
+          />
+        </Field>
+        <Field id={`${inputId}-maximum`} label={t("workflowEditor.inspector.filterMaximum")}>
+          <input
+            id={`${inputId}-maximum`}
+            type={field?.type === "date" ? "date" : "text"}
+            inputMode={field?.type === "integer" || field?.type === "decimal" ? "decimal" : undefined}
+            value={condition.values?.[1] ?? ""}
+            onChange={(event) => updateCondition({...condition, values: [condition.values?.[0] ?? "", event.target.value]})}
+          />
+        </Field>
+      </div>
+    );
+  }
+  if (mode === "list") {
+    return (
+      <Field id={inputId} label={t("workflowEditor.inspector.filterValues")} hint={t("workflowEditor.inspector.filterValuesHint")}>
+        <input
+          id={inputId}
+          value={(condition.values ?? []).join(", ")}
+          onChange={(event) => updateCondition({...condition, values: event.target.value.split(",").map((value) => value.trim())})}
+        />
+      </Field>
+    );
+  }
+  if (field?.type === "boolean") {
+    return (
+      <Field id={inputId} label={t("workflowEditor.inspector.filterValue")}>
+        <select id={inputId} value={String(condition.value)} onChange={(event) => updateCondition({...condition, value: event.target.value === "true"})}>
+          <option value="true">{t("common.yes")}</option>
+          <option value="false">{t("common.no")}</option>
+        </select>
+      </Field>
+    );
+  }
   return (
-    <Field id={`filter-${node.id}`} label={t("workflowEditor.inspector.window")} hint={t("workflowEditor.inspector.windowHint")}>
-      <select id={`filter-${node.id}`} value={node.config?.window ?? "run.window.completeUtcDays"} onChange={(event) => update({ ...node.config, window: event.target.value })}>
-        <option value="run.window.completeUtcDays">{t("workflowEditor.inspector.completeUtcDays")}</option>
-      </select>
+    <Field id={inputId} label={t("workflowEditor.inspector.filterValue")} hint={field?.type === "timestamp" ? t("workflowEditor.inspector.filterTimestampHint") : null}>
+      <input
+        id={inputId}
+        type={field?.type === "date" ? "date" : "text"}
+        inputMode={field?.type === "integer" || field?.type === "decimal" ? "decimal" : undefined}
+        value={condition.value ?? ""}
+        onChange={(event) => updateCondition({...condition, value: event.target.value})}
+      />
     </Field>
   );
 }
 
-function MapConfig({ node, update }) {
+function FilterConfig({ node, update, fields, errors, legacyExpression, onReplaceLegacy }) {
   const { t } = useI18n();
-  const mapping = node.config?.mapping ?? {};
-  const entries = Object.entries(mapping);
+  if (legacyExpression) {
+    return (
+      <div className="workflow-filter-legacy" role="alert">
+        <strong>{t("workflowEditor.inspector.filterLegacyTitle")}</strong>
+        <p>{t("workflowEditor.inspector.filterLegacyBody")}</p>
+        <Button type="button" onClick={onReplaceLegacy}>{t("workflowEditor.inspector.filterReplace")}</Button>
+      </div>
+    );
+  }
+  const predicate = node.config?.predicate ?? createFilterConfig(fields).predicate;
+  const updateCondition = (index, condition) => {
+    const conditions = predicate.conditions.map((item, candidateIndex) => candidateIndex === index ? condition : item);
+    update({predicate: {...predicate, conditions}});
+  };
+  const removeCondition = (index) => {
+    update({predicate: {...predicate, conditions: predicate.conditions.filter((_, candidateIndex) => candidateIndex !== index)}});
+  };
+  const addCondition = () => {
+    if (fields.length === 0 || predicate.conditions.length >= 32) return;
+    update({predicate: {...predicate, conditions: [...predicate.conditions, createFilterCondition(fields[0])]}});
+  };
+
+  return (
+    <div className="workflow-filter-config">
+      <p className="workflow-inspector-help">{t("workflowEditor.inspector.filterHint")}</p>
+      {fields.length === 0 ? (
+        <div className="workflow-filter-empty" role="status">{t("workflowEditor.inspector.filterNoFields")}</div>
+      ) : (
+        <>
+          <Field id={`filter-${node.id}-combinator`} label={t("workflowEditor.inspector.filterMatch")}>
+            <select
+              id={`filter-${node.id}-combinator`}
+              value={predicate.combinator}
+              onChange={(event) => update({predicate: {...predicate, combinator: event.target.value}})}
+            >
+              <option value="and">{t("workflowEditor.inspector.filterMatchAll")}</option>
+              <option value="or">{t("workflowEditor.inspector.filterMatchAny")}</option>
+            </select>
+          </Field>
+          <div className="workflow-filter-conditions">
+            {predicate.conditions.map((condition, index) => {
+              const field = fields.find((candidate) => candidate.name === condition.field);
+              const operators = field ? filterOperatorsForField(field) : [];
+              const error = errors.find((candidate) => candidate.conditionIndex === index);
+              return (
+                <fieldset className={`workflow-filter-condition${error ? " is-invalid" : ""}`} key={index}>
+                  <legend>{t("workflowEditor.inspector.filterCondition", {number: index + 1})}</legend>
+                  <div className="workflow-filter-condition-header">
+                    <Field id={`filter-${node.id}-field-${index}`} label={t("workflowEditor.inspector.filterField")}>
+                      <select
+                        id={`filter-${node.id}-field-${index}`}
+                        value={condition.field}
+                        aria-invalid={error?.code === "FILTER_FIELD_UNKNOWN" || undefined}
+                        onChange={(event) => {
+                          const nextField = fields.find((candidate) => candidate.name === event.target.value);
+                          const nextOperator = filterOperatorsForField(nextField).includes(condition.operator) ? condition.operator : "eq";
+                          updateCondition(index, nextConditionShape(condition, nextField, nextOperator));
+                        }}
+                      >
+                        {!field && condition.field && <option value={condition.field}>{condition.field} · {t("workflowEditor.inspector.filterMissingField")}</option>}
+                        {fields.map((candidate) => <option value={candidate.name} key={candidate.name}>{candidate.name} · {candidate.type}</option>)}
+                      </select>
+                    </Field>
+                    <Field id={`filter-${node.id}-operator-${index}`} label={t("workflowEditor.inspector.filterOperator")}>
+                      <select
+                        id={`filter-${node.id}-operator-${index}`}
+                        value={condition.operator}
+                        disabled={!field}
+                        onChange={(event) => updateCondition(index, nextConditionShape(condition, field, event.target.value))}
+                      >
+                        {!operators.includes(condition.operator) && <option value={condition.operator}>{condition.operator}</option>}
+                        {operators.map((operator) => (
+                          <option value={operator} key={operator}>{t(`workflowEditor.inspector.filterOperator.${operator}`)}</option>
+                        ))}
+                      </select>
+                    </Field>
+                    <IconButton label={t("workflowEditor.inspector.filterRemove")} onClick={() => removeCondition(index)}>
+                      <Trash size={17} aria-hidden="true" />
+                    </IconButton>
+                  </div>
+                  <FilterValueInput nodeId={node.id} index={index} condition={condition} field={field} updateCondition={(value) => updateCondition(index, value)} />
+                  {error && <p className="workflow-filter-error" role="alert">{t(`workflowEditor.inspector.filterError.${error.code}`)}</p>}
+                </fieldset>
+              );
+            })}
+          </div>
+          <Button type="button" icon={Plus} disabled={predicate.conditions.length >= 32} onClick={addCondition}>
+            {t("workflowEditor.inspector.filterAdd")}
+          </Button>
+        </>
+      )}
+      {errors.some((error) => error.conditionIndex === null) && (
+        <p className="workflow-filter-error" role="alert">
+          {t(`workflowEditor.inspector.filterError.${errors.find((error) => error.conditionIndex === null).code}`)}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function SortConfig({node, update, fields, errors}) {
+  const {t} = useI18n();
+  const config = node.config && Array.isArray(node.config.orderBy)
+    ? node.config
+    : createSortConfig(fields);
+  const orderBy = config.orderBy;
+  const usedFields = new Set(orderBy.map((ordering) => ordering.field));
+  const availableField = fields.find((field) => !usedFields.has(field.name));
+  const updateOrdering = (index, ordering) => {
+    update({...config, orderBy: orderBy.map((item, candidateIndex) => candidateIndex === index ? ordering : item)});
+  };
+  const moveOrdering = (index, offset) => {
+    const nextIndex = index + offset;
+    if (nextIndex < 0 || nextIndex >= orderBy.length) return;
+    const next = [...orderBy];
+    [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+    update({...config, orderBy: next});
+  };
+  const removeOrdering = (index) => {
+    update({...config, orderBy: orderBy.filter((_, candidateIndex) => candidateIndex !== index)});
+  };
+  const addOrdering = () => {
+    if (!availableField || orderBy.length >= 8) return;
+    update({...config, orderBy: [...orderBy, {field: availableField.name, direction: "asc", nulls: "last"}]});
+  };
+
+  return (
+    <div className="workflow-sort-config">
+      <p className="workflow-inspector-help">{t("workflowEditor.inspector.sortHint")}</p>
+      {fields.length === 0 ? (
+        <div className="workflow-sort-empty" role="status">{t("workflowEditor.inspector.sortNoFields")}</div>
+      ) : (
+        <>
+          <div className="workflow-sort-orderings">
+            {orderBy.map((ordering, index) => {
+              const field = fields.find((candidate) => candidate.name === ordering.field);
+              const error = errors.find((candidate) => candidate.orderIndex === index);
+              return (
+                <fieldset className={`workflow-sort-ordering${error ? " is-invalid" : ""}`} key={`${ordering.field}-${index}`}>
+                  <legend>{t("workflowEditor.inspector.sortPriority", {number: index + 1})}</legend>
+                  <div className="workflow-sort-ordering-grid">
+                    <Field id={`sort-${node.id}-field-${index}`} label={t("workflowEditor.inspector.sortField")}>
+                      <select
+                        id={`sort-${node.id}-field-${index}`}
+                        value={ordering.field}
+                        aria-invalid={error?.code === "SORT_FIELD_UNKNOWN" || error?.code === "SORT_FIELD_DUPLICATED" || undefined}
+                        onChange={(event) => updateOrdering(index, {...ordering, field: event.target.value})}
+                      >
+                        {!field && ordering.field && <option value={ordering.field}>{ordering.field} · {t("workflowEditor.inspector.sortMissingField")}</option>}
+                        {fields.map((candidate) => (
+                          <option
+                            value={candidate.name}
+                            key={candidate.name}
+                            disabled={usedFields.has(candidate.name) && candidate.name !== ordering.field}
+                          >
+                            {candidate.name} · {candidate.type}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field id={`sort-${node.id}-direction-${index}`} label={t("workflowEditor.inspector.sortDirection")}>
+                      <select
+                        id={`sort-${node.id}-direction-${index}`}
+                        value={ordering.direction}
+                        onChange={(event) => updateOrdering(index, {...ordering, direction: event.target.value})}
+                      >
+                        <option value="asc">{t("workflowEditor.inspector.sortAscending")}</option>
+                        <option value="desc">{t("workflowEditor.inspector.sortDescending")}</option>
+                      </select>
+                    </Field>
+                    <Field id={`sort-${node.id}-nulls-${index}`} label={t("workflowEditor.inspector.sortNulls")}>
+                      <select
+                        id={`sort-${node.id}-nulls-${index}`}
+                        value={ordering.nulls}
+                        onChange={(event) => updateOrdering(index, {...ordering, nulls: event.target.value})}
+                      >
+                        <option value="last">{t("workflowEditor.inspector.sortNullsLast")}</option>
+                        <option value="first">{t("workflowEditor.inspector.sortNullsFirst")}</option>
+                      </select>
+                    </Field>
+                  </div>
+                  <div className="workflow-sort-ordering-actions">
+                    <IconButton type="button" label={t("workflowEditor.inspector.sortMoveUp")} disabled={index === 0} onClick={() => moveOrdering(index, -1)}>
+                      <ArrowUp size={16} aria-hidden="true" />
+                    </IconButton>
+                    <IconButton type="button" label={t("workflowEditor.inspector.sortMoveDown")} disabled={index === orderBy.length - 1} onClick={() => moveOrdering(index, 1)}>
+                      <ArrowDown size={16} aria-hidden="true" />
+                    </IconButton>
+                    <IconButton type="button" label={t("workflowEditor.inspector.sortRemove")} onClick={() => removeOrdering(index)}>
+                      <Trash size={16} aria-hidden="true" />
+                    </IconButton>
+                  </div>
+                  {error && <p className="workflow-sort-error" role="alert">{t(`workflowEditor.inspector.sortError.${error.code}`)}</p>}
+                </fieldset>
+              );
+            })}
+          </div>
+          <Button type="button" icon={Plus} disabled={!availableField || orderBy.length >= 8} onClick={addOrdering}>
+            {t("workflowEditor.inspector.sortAdd")}
+          </Button>
+        </>
+      )}
+      <Field id={`sort-${node.id}-limit`} label={t("workflowEditor.inspector.sortLimit")} hint={t("workflowEditor.inspector.sortLimitHint")}>
+        <input
+          id={`sort-${node.id}-limit`}
+          type="number"
+          min="1"
+          max="10000"
+          step="1"
+          value={config.limit ?? ""}
+          aria-invalid={errors.some((error) => error.code === "SORT_LIMIT_INVALID") || undefined}
+          placeholder={t("workflowEditor.inspector.sortLimitPlaceholder")}
+          onChange={(event) => update({...config, limit: event.target.value === "" ? null : Number(event.target.value)})}
+        />
+      </Field>
+      {errors.some((error) => error.orderIndex === null) && (
+        <p className="workflow-sort-error" role="alert">
+          {t(`workflowEditor.inspector.sortError.${errors.find((error) => error.orderIndex === null).code}`)}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function MapConfig({node, update, fields, errors}) {
+  const { t } = useI18n();
   if (node.config?.recipe) {
     return (
       <Field id={`map-recipe-${node.id}`} label={t("workflowEditor.inspector.recipe")}>
@@ -176,20 +493,103 @@ function MapConfig({ node, update }) {
       </Field>
     );
   }
+  const config = Array.isArray(node.config?.fields) ? node.config : editableMapConfig(node.config);
+  const definitions = config.fields ?? [];
+  const addDefinition = () => {
+    const definition = createMapDefinition(fields, definitions.map((item) => item.name));
+    if (definition && definitions.length < 32) update({...config, fields: [...definitions, definition]});
+  };
+  const updateDefinition = (index, definition) => {
+    update({...config, fields: definitions.map((item, candidateIndex) => candidateIndex === index ? definition : item)});
+  };
+  const removeDefinition = (index) => {
+    update({...config, fields: definitions.filter((_, candidateIndex) => candidateIndex !== index)});
+  };
   return (
-    <div className="workflow-inspector-section">
-      <span className="workflow-inspector-subtitle">{t("workflowEditor.inspector.mapping")}</span>
+    <div className="workflow-map-config">
       <p className="workflow-inspector-help">{t("workflowEditor.inspector.mappingHint")}</p>
-      {entries.length === 0 && <p className="workflow-inspector-empty">{t("workflowEditor.inspector.noMapping")}</p>}
-      {entries.map(([field, path]) => (
-        <Field key={field} id={`mapping-${node.id}-${field}`} label={field}>
-          <input
-            id={`mapping-${node.id}-${field}`}
-            value={path}
-            onChange={(event) => update({ ...node.config, mapping: { ...mapping, [field]: event.target.value } })}
-          />
-        </Field>
-      ))}
+      <Field id={`map-${node.id}-mode`} label={t("workflowEditor.inspector.mapMode")}>
+        <select id={`map-${node.id}-mode`} value={config.mode} onChange={(event) => update({...config, mode: event.target.value})}>
+          <option value="extend">{t("workflowEditor.inspector.mapModeExtend")}</option>
+          <option value="project">{t("workflowEditor.inspector.mapModeProject")}</option>
+        </select>
+      </Field>
+      <div className="workflow-map-schema" role="group" aria-label={t("workflowEditor.inspector.mapInputSchema")}>
+        <span className="workflow-inspector-subtitle">{t("workflowEditor.inspector.mapInputSchema")}</span>
+        {fields.length === 0 ? (
+          <div className="workflow-map-empty" role="status">{t("workflowEditor.inspector.mapNoFields")}</div>
+        ) : (
+          <ul>
+            {fields.map((field) => <li key={field.name}><code>{field.name}</code><span>{field.type}</span></li>)}
+          </ul>
+        )}
+      </div>
+      <div className="workflow-map-definitions">
+        {definitions.map((definition, index) => {
+          const editorExpression = mapExpressionEditor(definition.expression);
+          const selectedField = fields.find((field) => field.name === editorExpression.sourceField);
+          const error = errors.find((candidate) => candidate.fieldIndex === index);
+          return (
+            <fieldset className={`workflow-map-definition${error ? " is-invalid" : ""}`} key={index}>
+              <legend>{t("workflowEditor.inspector.mapDefinition", {number: index + 1})}</legend>
+              <div className="workflow-map-definition-grid">
+                <Field id={`map-${node.id}-name-${index}`} label={t("workflowEditor.inspector.mapOutputField")}>
+                  <input
+                    id={`map-${node.id}-name-${index}`}
+                    value={definition.name ?? ""}
+                    aria-invalid={error?.code === "MAP_FIELD_NAME_INVALID" || error?.code === "MAP_FIELD_NAME_DUPLICATED" || undefined}
+                    onChange={(event) => updateDefinition(index, {...definition, name: event.target.value})}
+                  />
+                </Field>
+                <Field id={`map-${node.id}-transform-${index}`} label={t("workflowEditor.inspector.mapTransform")}>
+                  <select
+                    id={`map-${node.id}-transform-${index}`}
+                    value={editorExpression.kind}
+                    onChange={(event) => {
+                      const sourceField = editorExpression.sourceField ?? fields[0]?.name ?? "";
+                      updateDefinition(index, {...definition, expression: mapExpressionForEditor(event.target.value, sourceField)});
+                    }}
+                  >
+                    <option value="field">{t("workflowEditor.inspector.mapTransformField")}</option>
+                    <option value="utc_date">{t("workflowEditor.inspector.mapTransformUtcDate")}</option>
+                    {editorExpression.kind === "advanced" && <option value="advanced" disabled>{t("workflowEditor.inspector.mapTransformAdvanced")}</option>}
+                  </select>
+                </Field>
+                <Field id={`map-${node.id}-source-${index}`} label={t("workflowEditor.inspector.mapSourceField")}>
+                  <select
+                    id={`map-${node.id}-source-${index}`}
+                    value={editorExpression.sourceField ?? ""}
+                    disabled={editorExpression.kind === "advanced" || fields.length === 0}
+                    aria-invalid={error?.code === "MAP_SOURCE_FIELD_UNKNOWN" || undefined}
+                    onChange={(event) => updateDefinition(index, {
+                      ...definition,
+                      expression: mapExpressionForEditor(editorExpression.kind, event.target.value),
+                    })}
+                  >
+                    {!selectedField && editorExpression.sourceField && (
+                      <option value={editorExpression.sourceField}>{editorExpression.sourceField} · {t("workflowEditor.inspector.mapMissingField")}</option>
+                    )}
+                    {fields.map((field) => <option value={field.name} key={field.name}>{field.name} · {field.type}</option>)}
+                  </select>
+                </Field>
+                <IconButton type="button" label={t("workflowEditor.inspector.mapRemove")} onClick={() => removeDefinition(index)}>
+                  <Trash size={17} aria-hidden="true" />
+                </IconButton>
+              </div>
+              {editorExpression.kind === "advanced" && <p className="workflow-map-advanced">{t("workflowEditor.inspector.mapAdvancedHint")}</p>}
+              {error && <p className="workflow-map-error" role="alert">{t(`workflowEditor.inspector.mapError.${error.code}`)}</p>}
+            </fieldset>
+          );
+        })}
+      </div>
+      <Button type="button" icon={Plus} disabled={fields.length === 0 || definitions.length >= 32} onClick={addDefinition}>
+        {t("workflowEditor.inspector.mapAdd")}
+      </Button>
+      {errors.some((error) => error.fieldIndex === null) && (
+        <p className="workflow-map-error" role="alert">
+          {t(`workflowEditor.inspector.mapError.${errors.find((error) => error.fieldIndex === null).code}`)}
+        </p>
+      )}
     </div>
   );
 }
@@ -272,10 +672,15 @@ export function NodeInspector({ editor, nodeId, onClose }) {
   const inspectorRef = useRef(null);
   const [draftConfig, setDraftConfig] = useState({});
   const [sourceMode, setSourceMode] = useState("discovered");
+  const [legacyFilterExpression, setLegacyFilterExpression] = useState(false);
 
   useEffect(() => {
     if (nodeId) {
-      setDraftConfig(cloneConfig(node?.config));
+      const editable = node?.type === "filter"
+        ? editableFilterConfig(node?.config)
+        : {config: node?.type === "map" ? editableMapConfig(node?.config) : node?.config, legacyExpression: false};
+      setDraftConfig(cloneConfig(editable.config));
+      setLegacyFilterExpression(editable.legacyExpression);
       setSourceMode("discovered");
     }
   }, [nodeId]);
@@ -314,7 +719,16 @@ export function NodeInspector({ editor, nodeId, onClose }) {
   const operator = getOperator(node.type);
   const draftNode = { ...node, config: draftConfig };
   const update = (config) => setDraftConfig(config);
-  const canConfirm = node.type !== "source" || sourceMode === "discovered";
+  const filterFields = node.type === "filter" ? deriveFilterInputFields(editor, node.id) : [];
+  const filterErrors = node.type === "filter" && !legacyFilterExpression ? validateFilterConfig(draftConfig, filterFields) : [];
+  const sortFields = node.type === "sort" ? deriveDirectInputFields(editor, node.id) : [];
+  const sortErrors = node.type === "sort" ? validateSortConfig(draftConfig, sortFields) : [];
+  const mapFields = node.type === "map" ? deriveDirectInputFields(editor, node.id) : [];
+  const mapErrors = node.type === "map" ? validateMapConfig(draftConfig, mapFields) : [];
+  const canConfirm = (node.type !== "source" || sourceMode === "discovered")
+    && (node.type !== "filter" || (!legacyFilterExpression && filterErrors.length === 0))
+    && (node.type !== "sort" || sortErrors.length === 0)
+    && (node.type !== "map" || mapErrors.length === 0);
   const confirm = () => {
     if (!canConfirm) return;
     editor.updateConfig(node.id, draftConfig);
@@ -358,8 +772,21 @@ export function NodeInspector({ editor, nodeId, onClose }) {
               onModeChange={setSourceMode}
             />
           )}
-          {node.type === "filter" && <FilterConfig node={draftNode} update={update} />}
-          {node.type === "map" && <MapConfig node={draftNode} update={update} />}
+          {node.type === "filter" && (
+            <FilterConfig
+              node={draftNode}
+              update={update}
+              fields={filterFields}
+              errors={filterErrors}
+              legacyExpression={legacyFilterExpression}
+              onReplaceLegacy={() => {
+                setDraftConfig(createFilterConfig(filterFields));
+                setLegacyFilterExpression(false);
+              }}
+            />
+          )}
+          {node.type === "sort" && <SortConfig node={draftNode} update={update} fields={sortFields} errors={sortErrors} />}
+          {node.type === "map" && <MapConfig node={draftNode} update={update} fields={mapFields} errors={mapErrors} />}
           {node.type === "aggregate" && <AggregateConfig node={draftNode} update={update} />}
           {node.type === "union" && <UnionConfig node={draftNode} update={update} />}
           {node.type === "join" && <JoinConfig node={draftNode} update={update} />}

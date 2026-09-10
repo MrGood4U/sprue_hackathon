@@ -15,6 +15,7 @@ export function flowStateFromDraft(draft) {
         operatorVersion: node.operatorVersion,
         config: node.config,
         labelKey: node.labelKey,
+        ...(node.outputSchema ? {outputSchema: node.outputSchema} : {}),
       }) },
     })),
     edges: graph.edges.map((edge) => ({
@@ -74,7 +75,7 @@ export function createOperatorNode(type, id, position) {
     id,
     type: "workflow",
     position,
-    data: { node: { id, type, operatorVersion: "1", config: defaultNodeConfig(type) } },
+    data: { node: { id, type, operatorVersion: type === "filter" || type === "map" ? "2" : "1", config: defaultNodeConfig(type) } },
   };
 }
 
@@ -87,7 +88,14 @@ export function instantiateTemplate(templateId, instanceId, position) {
       id,
       type: "workflow",
       position: { x: position.x + (index % 3) * 210, y: position.y + Math.floor(index / 3) * 150 },
-      data: { node: { id, type: node.type, operatorVersion: "1", config: structuredClone(node.config) } },
+      data: {
+        node: {
+          id,
+          type: node.type,
+          operatorVersion: node.type === "filter" || node.type === "map" ? "2" : "1",
+          config: structuredClone(node.config),
+        },
+      },
     };
   });
   const localIdToId = new Map(template.nodes.map((node) => [`${instanceId}-${node.localId}`, `${instanceId}-${node.localId}`]));

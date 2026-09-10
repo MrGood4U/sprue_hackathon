@@ -24,7 +24,9 @@ import {
 import {
   deriveDiscoverySourceNeeds,
   flexibleOperatorRegistry,
-  type SourceRoleAuxiliaryFieldShape,
+  sourceAuxiliaryOrigin,
+  sourceRequirementOrigin,
+  type SourceRoleFieldShape,
   validateFlexibleComposition,
 } from "./flexible-planning.js";
 import {operatorRegistry} from "./registry.js";
@@ -920,7 +922,7 @@ function validateSourceFeasibility(
   const presented = new Map(presentedCandidates.map((candidate) => [candidate.candidateRef, candidate]));
   const discoveredCandidates = new Map(discovery.candidates.map((candidate) => [candidate.candidateRef, candidate]));
   const seenNeeds = new Set<string>();
-  const auxiliaryFieldsByNeed = new Map<string, readonly SourceRoleAuxiliaryFieldShape[]>();
+  const sourceFieldsByNeed = new Map<string, readonly SourceRoleFieldShape[]>();
   const selected = output.selections.map((selection) => {
     const need = needs.find((candidate) => candidate.id === selection.sourceNeedId);
     const candidate = candidates.get(selection.candidateRef);
@@ -951,12 +953,14 @@ function validateSourceFeasibility(
     const presentedPaths = new Set(presentedEntity.fields.map((field) => field.path));
     const bound = new Set<string>();
     const boundPaths = new Set<string>();
+    const sourceFields = new Map<string, SourceRoleFieldShape>();
     for (const binding of selection.fieldBindings) {
       const requirement = requirements.get(binding.requirementId);
       const inspectedField = fields.get(binding.fieldPath);
       if (
         !requirement
         || bound.has(requirement.id)
+        || boundPaths.has(binding.fieldPath)
         || !presentedPaths.has(binding.fieldPath)
         || !inspectedField
         || !graphTypeCompatible(requirement, inspectedField)
@@ -965,6 +969,13 @@ function validateSourceFeasibility(
       }
       bound.add(requirement.id);
       boundPaths.add(binding.fieldPath);
+      sourceFields.set(binding.fieldPath, {
+        name: binding.fieldPath,
+        type: inspectedField.valueType,
+        nullable: inspectedField.nullable,
+        unit: requirement.unit,
+        origin: sourceRequirementOrigin(need.id, requirement.id),
+      });
     }
     const missing = need.fields.filter((requirement) => requirement.required && !bound.has(requirement.id));
     if (missing.length > 0) {
@@ -973,7 +984,6 @@ function validateSourceFeasibility(
     const auxiliaryNames = new Set<string>();
     const auxiliaryPaths = new Set<string>();
     const reservedNames = new Set([...requirements.keys(), "data_network"]);
-    const auxiliaryFields: SourceRoleAuxiliaryFieldShape[] = [];
     for (const binding of selection.auxiliaryFieldBindings) {
       const inspectedField = fields.get(binding.fieldPath);
       if (
@@ -992,18 +1002,19 @@ function validateSourceFeasibility(
       }
       auxiliaryNames.add(binding.name);
       auxiliaryPaths.add(binding.fieldPath);
-      auxiliaryFields.push({
-        name: binding.name,
+      sourceFields.set(binding.fieldPath, {
+        name: binding.fieldPath,
         type: inspectedField.valueType,
         nullable: inspectedField.nullable,
         unit: null,
+        origin: sourceAuxiliaryOrigin(need.id, binding.name),
       });
     }
-    auxiliaryFieldsByNeed.set(need.id, auxiliaryFields);
+    sourceFieldsByNeed.set(need.id, [...sourceFields.values()]);
     seenNeeds.add(need.id);
     return discoveredCandidate;
   });
-  validateFlexibleComposition(plan, output.composition, needs, output.selections, limits, auxiliaryFieldsByNeed);
+  validateFlexibleComposition(plan, output.composition, needs, output.selections, limits, sourceFieldsByNeed);
   return [...new Set(selected.flatMap((candidate) => candidate.limitations))];
 }
 
@@ -1403,15 +1414,12 @@ export class AgentHarness {
     const sourceRoles = sourceNeeds.map((need) => ({
       role: sourceRole(need.id),
       sourceNeedId: need.id,
-      fields: [
-        ...need.fields.map((field) => ({
+      normalizationTargets: need.fields.map((field) => ({
           name: field.id,
           type: field.expectedType,
           nullable: field.allowNullable,
           unit: field.unit,
         })),
-        {name: "data_network", type: "string" as const, nullable: false, unit: null},
-      ],
     }));
     const candidateEvidence = expandSelectedEntities(discovery, entitySelectionOutput.selections);
     const inspectedFieldCount = candidateEvidence.reduce(
@@ -1471,7 +1479,7 @@ export class AgentHarness {
     emitTrace("source_feasibility", "started", "Model is binding retrieved fields and composing registered operators");
     const feasibilityRequest: SourceFeasibilityModelRequest = {
       stage: "source_feasibility",
-      promptVersion: "7",
+      promptVersion: "8",
       semanticPlan: discoveryPlanningOutput.semanticPlan,
       sourceNeeds,
       candidates: presentedCandidateEvidence,

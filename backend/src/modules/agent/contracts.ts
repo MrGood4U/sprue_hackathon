@@ -54,13 +54,19 @@ export interface AgentBuilderDraft {
       fieldPath: string;
       purpose: "filter" | "join" | "group" | "sort" | "derive" | "output";
     }[];
+    outputSchema: {
+      fields: readonly {name: string; type: string; nullable: boolean; unit: string | null}[];
+    };
     evidenceStatus: "suitable" | "needs_verification";
   }[];
   nodes: readonly {
     id: string;
-    type: "source" | "filter" | "map" | "aggregate" | "union" | "join" | "output";
+    type: "source" | "filter" | "map" | "aggregate" | "sort" | "union" | "join" | "output";
     operatorVersion: "1" | "2";
     config: Readonly<Record<string, unknown>>;
+    outputSchema?: {
+      fields: readonly {name: string; type: string; nullable: boolean; unit: string | null}[];
+    };
   }[];
   edges: readonly {fromNode: string; fromPort: "rows"; toNode: string; toPort: "rows" | "left" | "right"}[];
   outputSchema: {

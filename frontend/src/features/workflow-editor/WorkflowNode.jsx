@@ -7,6 +7,7 @@ import {
   Funnel,
   GitMerge,
   Stack,
+  SortAscending,
 } from "@phosphor-icons/react";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
 import { getOperator } from "./nodeCatalog.js";
@@ -17,6 +18,7 @@ const icons = {
   filter: Funnel,
   map: ArrowsClockwise,
   aggregate: ChartBar,
+  sort: SortAscending,
   union: Stack,
   join: GitMerge,
   output: BracketsCurly,
@@ -25,9 +27,12 @@ const icons = {
 function isConfigured(node) {
   const config = node.config ?? {};
   if (node.type === "source") return Boolean(config.sourceId || config.sourceKey);
-  if (node.type === "filter") return Boolean(config.predicate || config.window);
+  if (node.type === "filter") {
+    return Boolean(config.expression || config.window || (Array.isArray(config.predicate?.conditions) && config.predicate.conditions.length > 0));
+  }
   if (node.type === "map") return Boolean(config.recipe) || Object.keys(config.mapping ?? {}).length > 0;
   if (node.type === "aggregate") return (config.groupBy ?? []).length > 0 || (config.measures ?? []).length > 0;
+  if (node.type === "sort") return Array.isArray(config.orderBy) && config.orderBy.length > 0;
   return true;
 }
 

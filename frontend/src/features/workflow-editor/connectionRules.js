@@ -1,8 +1,13 @@
+import {deriveDirectInputFields, deriveFilterInputFields, validateFilterConfig} from "./filterModel.js";
+import {validateMapConfig} from "./mapModel.js";
+import {validateSortConfig} from "./sortModel.js";
+
 const inputPorts = {
   source: [],
   filter: ["rows"],
   map: ["rows"],
   aggregate: ["rows"],
+  sort: ["rows"],
   union: ["left", "right"],
   join: ["left", "right"],
   output: ["crossChain", "allActivity", "rows"],
@@ -13,6 +18,7 @@ const outputPorts = {
   filter: ["rows"],
   map: ["rows"],
   aggregate: ["rows"],
+  sort: ["rows"],
   union: ["rows"],
   join: ["rows"],
   output: [],
@@ -37,7 +43,7 @@ export function canConnect(connection, nodes, edges) {
   return true;
 }
 
-export function validateWorkflow(nodes, edges) {
+export function validateWorkflow(nodes, edges, draft = null) {
   const errors = [];
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
   const incoming = new Map(nodes.map((node) => [node.id, new Set()]));
@@ -54,7 +60,32 @@ export function validateWorkflow(nodes, edges) {
     const inputPorts = getInputPorts(definition.type);
     const connected = incoming.get(node.id) ?? new Set();
     if (definition.type === "source" && !(definition.config?.sourceId || definition.config?.sourceKey)) errors.push({ code: "SOURCE_CONFIG", nodeId: node.id });
-    if (["filter", "map", "aggregate"].includes(definition.type) && !connected.has("rows")) errors.push({ code: "MISSING_ROWS_INPUT", nodeId: node.id });
+    if (["filter", "map", "aggregate", "sort"].includes(definition.type) && !connected.has("rows")) errors.push({ code: "MISSING_ROWS_INPUT", nodeId: node.id });
+    if (definition.type === "filter" && connected.has("rows") && draft) {
+      const fields = deriveFilterInputFields({nodes, edges, draft}, node.id);
+      if (fields.length === 0) errors.push({code: "FILTER_INPUT_SCHEMA", nodeId: node.id});
+      if (definition.config?.predicate) {
+        for (const issue of validateFilterConfig(definition.config, fields)) {
+          errors.push({code: issue.code, nodeId: node.id});
+        }
+      } else if (!definition.config?.expression && !definition.config?.window) {
+        errors.push({code: "FILTER_CONFIG", nodeId: node.id});
+      }
+    }
+    if (definition.type === "map" && connected.has("rows") && draft) {
+      const fields = deriveDirectInputFields({nodes, edges, draft}, node.id);
+      if (fields.length === 0) errors.push({code: "MAP_INPUT_SCHEMA", nodeId: node.id});
+      for (const issue of validateMapConfig(definition.config, fields)) {
+        errors.push({code: issue.code, nodeId: node.id});
+      }
+    }
+    if (definition.type === "sort" && connected.has("rows") && draft) {
+      const fields = deriveDirectInputFields({nodes, edges, draft}, node.id);
+      if (fields.length === 0) errors.push({code: "SORT_INPUT_SCHEMA", nodeId: node.id});
+      for (const issue of validateSortConfig(definition.config, fields)) {
+        errors.push({code: issue.code, nodeId: node.id});
+      }
+    }
     if (["union", "join"].includes(definition.type) && inputPorts.some((port) => !connected.has(port))) errors.push({ code: "MISSING_BRANCH_INPUT", nodeId: node.id });
     if (definition.type === "output" && connected.size === 0) errors.push({ code: "MISSING_OUTPUT_INPUT", nodeId: node.id });
   }

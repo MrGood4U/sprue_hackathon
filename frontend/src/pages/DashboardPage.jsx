@@ -45,8 +45,8 @@ function formatAtomic(amountAtomic, decimals) {
   return `${negative ? "-" : ""}${whole}${fraction ? `.${fraction}` : ""}`;
 }
 
-function formatMoney(items, locale, t) {
-  if (!items?.length) return t("dashboard.zeroMoney");
+function formatMoney(items, locale, t, emptySymbol) {
+  if (!items?.length) return t("dashboard.zeroMoney", { symbol: emptySymbol });
   if (items.length > 1) return t("dashboard.multipleAssets", { count: items.length });
   const [item] = items;
   const amount = formatAtomic(item.amountAtomic, item.decimals);
@@ -195,14 +195,14 @@ export function DashboardPage({ navigate }) {
         />
         <Metric
           label={t("dashboard.metric.graphSpend")}
-          value={formatMoney(overview?.graphExpenses, locale, t)}
+          value={formatMoney(overview?.graphExpenses, locale, t, "USDC")}
           note={overview && t("dashboard.metric.confirmedLedger")}
           tone="amber"
           loading={dashboard.status === "loading"}
         />
         <Metric
           label={t("dashboard.metric.revenue")}
-          value={formatMoney(overview?.grossSales, locale, t)}
+          value={formatMoney(overview?.grossSales, locale, t, "HBAR")}
           note={overview && t("dashboard.metric.confirmedLedger")}
           tone="green"
           loading={dashboard.status === "loading"}
@@ -306,9 +306,6 @@ export function DashboardPage({ navigate }) {
           onClose={closeDeleteDialog}
           footer={
             <>
-              <Button autoFocus onClick={closeDeleteDialog} disabled={deleteDialog.state === "loading"}>
-                {t("common.cancel")}
-              </Button>
               <Button
                 variant="danger"
                 icon={deleteDialog.state === "loading" ? CircleNotch : Trash}
@@ -318,6 +315,9 @@ export function DashboardPage({ navigate }) {
                 onClick={() => void confirmDeleteProduct()}
               >
                 {t(deleteDialog.state === "loading" ? "dashboard.deletingProduct" : "dashboard.deleteProduct")}
+              </Button>
+              <Button autoFocus onClick={closeDeleteDialog} disabled={deleteDialog.state === "loading"}>
+                {t("common.cancel")}
               </Button>
             </>
           }

@@ -4,6 +4,7 @@
  * Provider field names are supplied by a validated source mapping. The runtime
  * only executes the canonical swap contract and never evaluates generated code.
  */
+import {filterRows} from "./filter.js";
 
 export type ProviderFieldType = "id" | "address" | "decimal" | "timestamp" | "integer" | "string";
 
@@ -297,10 +298,13 @@ export function filterTimestampWindow(rows: readonly CanonicalSwapRow[], startIn
   const start = BigInt(assertIntegerString(startInclusive, "startInclusive"));
   const end = BigInt(assertIntegerString(endExclusive, "endExclusive"));
   if (end <= start) fail("timestamp window endExclusive must be greater than startInclusive");
-  return rows.filter((row) => {
-    const timestamp = BigInt(row.timestamp);
-    return timestamp >= start && timestamp < end;
-  });
+  return filterRows(rows, {
+    combinator: "and",
+    conditions: [
+      {field: "timestamp", operator: "gte", value: start.toString()},
+      {field: "timestamp", operator: "lt", value: end.toString()},
+    ],
+  }, [{name: "timestamp", type: "timestamp", nullable: false}]);
 }
 
 export function aggregateByWalletAndChain(rows: readonly CanonicalSwapRow[]): readonly WalletChainSummary[] {

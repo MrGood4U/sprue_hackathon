@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import test from "node:test";
+import {filterRows, validateFilterPredicate} from "../src/modules/dag/filter.js";
+import {sortRows, validateSortConfig} from "../src/modules/dag/sort.js";
 import {
   type CanonicalSwapField,
   type SourceInput,
@@ -135,6 +137,117 @@ test("decimal arithmetic and volume policy remain exact and deterministic", () =
   assert.equal(sumDecimals(["1.2300", null, "0.000"]), "1.23");
   assert.equal(deriveVolumeUsd({amountInUsd: "0", amountOutUsd: "12.50"}), "12.5");
   assert.equal(deriveVolumeUsd({amountInUsd: null, amountOutUsd: null}), "0");
+});
+
+test("generic Filter evaluates typed conditions without business-field assumptions", () => {
+  const fields = [
+    {name: "amount", type: "decimal" as const, nullable: false},
+    {name: "active", type: "boolean" as const, nullable: false},
+    {name: "label", type: "string" as const, nullable: true},
+  ];
+  const rows = [
+    {amount: "9.99", active: true, label: "alpha"},
+    {amount: "10.00", active: true, label: null},
+    {amount: "1000000000000000000.01", active: false, label: "omega"},
+  ];
+  const filtered = filterRows(rows, {
+    combinator: "and",
+    conditions: [
+      {field: "amount", operator: "gte", value: "10"},
+      {field: "active", operator: "eq", value: true},
+      {field: "label", operator: "is_null"},
+    ],
+  }, fields);
+  assert.deepEqual(filtered, [rows[1]]);
+
+  assert.deepEqual(filterRows(rows, {
+    combinator: "or",
+    conditions: [
+      {field: "label", operator: "in", values: ["alpha", "beta"]},
+      {field: "amount", operator: "between", values: ["1000000000000000000", "1000000000000000001"]},
+    ],
+  }, fields), [rows[0], rows[2]]);
+});
+
+test("generic Filter rejects missing fields and type-incompatible operators before execution", () => {
+  const fields = [{name: "active", type: "boolean" as const, nullable: false}];
+  assert.equal(validateFilterPredicate({
+    combinator: "and",
+    conditions: [{field: "missing", operator: "eq", value: "x"}],
+  }, fields)[0]?.code, "FILTER_FIELD_UNKNOWN");
+  assert.equal(validateFilterPredicate({
+    combinator: "and",
+    conditions: [{field: "active", operator: "gt", value: true}],
+  }, fields)[0]?.code, "FILTER_OPERATOR_INVALID");
+});
+
+test("Sort / Top K applies stable typed ordering without mutating upstream rows", () => {
+  const fields = [
+    {name: "score", type: "decimal" as const, nullable: true},
+    {name: "label", type: "string" as const, nullable: false},
+  ];
+  const rows = [
+    {label: "alpha", score: "2"},
+    {label: "empty", score: null},
+    {label: "first-tie", score: "1000000000000000000.01"},
+    {label: "second-tie", score: "1000000000000000000.01"},
+    {label: "middle", score: "3"},
+  ];
+  const snapshot = structuredClone(rows);
+  const config = {orderBy: [{field: "score", direction: "desc" as const, nulls: "last" as const}], limit: null};
+
+  assert.deepEqual(sortRows(rows, config, fields).map(({label}) => label), ["first-tie", "second-tie", "middle", "alpha", "empty"]);
+  assert.deepEqual(rows, snapshot);
+  assert.deepEqual(sortRows(rows, {...config, limit: 2}, fields).map(({label}) => label), ["first-tie", "second-tie"]);
+  assert.deepEqual(sortRows(rows, {
+    orderBy: [{field: "score", direction: "asc", nulls: "first"}],
+    limit: null,
+  }, fields).map(({label}) => label), ["empty", "alpha", "middle", "first-tie", "second-tie"]);
+  assert.deepEqual(sortRows(rows, {
+    orderBy: [
+      {field: "score", direction: "desc", nulls: "last"},
+      {field: "label", direction: "desc", nulls: "last"},
+    ],
+    limit: null,
+  }, fields).map(({label}) => label), ["second-tie", "first-tie", "middle", "alpha", "empty"]);
+
+  const largerRows = Array.from({length: 100}, (_, index) => ({
+    label: `row-${index}`,
+    score: index % 13 === 0 ? null : String((index * 17) % 29),
+  }));
+  const multiKeyConfig = {
+    orderBy: [
+      {field: "score", direction: "desc" as const, nulls: "last" as const},
+      {field: "label", direction: "asc" as const, nulls: "last" as const},
+    ],
+    limit: null,
+  };
+  assert.deepEqual(
+    sortRows(largerRows, {...multiKeyConfig, limit: 17}, fields),
+    sortRows(largerRows, multiKeyConfig, fields).slice(0, 17),
+  );
+});
+
+test("Sort / Top K rejects unknown, duplicated, structured, and unbounded configuration", () => {
+  const fields = [
+    {name: "score", type: "integer" as const, nullable: false},
+    {name: "details", type: "json" as const, nullable: false},
+  ];
+  assert.equal(validateSortConfig({
+    orderBy: [{field: "missing", direction: "asc", nulls: "last"}],
+    limit: null,
+  }, fields)[0]?.code, "SORT_FIELD_UNKNOWN");
+  assert.ok(validateSortConfig({
+    orderBy: [
+      {field: "score", direction: "asc", nulls: "last"},
+      {field: "score", direction: "desc", nulls: "first"},
+    ],
+    limit: 10_001,
+  }, fields).some((issue) => issue.code === "SORT_FIELD_DUPLICATED"));
+  assert.equal(validateSortConfig({
+    orderBy: [{field: "details", direction: "asc", nulls: "last"}],
+    limit: null,
+  }, fields)[0]?.code, "SORT_FIELD_TYPE_INVALID");
 });
 
 test("Union preserves source lineage and rejects duplicate canonical trade ids", () => {

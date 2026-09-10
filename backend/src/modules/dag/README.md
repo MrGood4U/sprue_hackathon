@@ -1,8 +1,8 @@
 # Dag Module
 
-Own the seven-type source/filter/map/aggregate/union/join/output registry, deterministic compiler and interpreter. H1 exact executable schemas remain unapproved. Semantic templates compile to primitives; no new runtime type or unrestricted code fallback is enabled.
+Own the eight-type source/filter/map/aggregate/sort/union/join/output registry, deterministic compiler and interpreter. The version-2 generic Filter predicate and version-1 Sort / Top K contract are approved and implemented; other H1 exact executable schemas remain unapproved. Semantic templates compile to primitives; no unrestricted code fallback is enabled.
 
-The first runtime slice is implemented in [runtime.ts](runtime.ts). It validates a schema-provided field mapping, normalizes provider rows into the canonical Swap contract, performs exact decimal arithmetic, supports a bounded timestamp window, aggregates by wallet and chain, unions source lineage, and joins one aggregate per wallet across two chains. It is the offline deterministic core for the Cross-chain DEX Trader Footprint MVP.
+The first runtime slice is implemented in [runtime.ts](runtime.ts). It validates a schema-provided field mapping, normalizes provider rows into the canonical Swap contract, performs exact decimal arithmetic, applies the type-checked generic Filter engine from [filter.ts](filter.ts), aggregates by wallet and chain, unions source lineage, and joins one aggregate per wallet across two chains. The pure [Sort / Top K engine](sort.ts) provides stable typed multi-key ordering and bounded Top K selection for the generic DAG path. Filter and Sort operate on already-fetched rows and perform no GraphQL predicate pushdown.
 
 The runtime deliberately does not discover Subgraphs, call Graph MCP, generate GraphQL, schedule jobs, invoke an Agent, authorize wallets, settle x402 payments, or expose HTTP handlers. Those provider and application ports remain outside this pure module. The captured JSON files under [backend/tests/fixtures](../../tests/fixtures) are live-shape samples, not current-window coverage or payment evidence.
 

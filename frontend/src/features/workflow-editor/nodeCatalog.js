@@ -3,6 +3,7 @@ export const operatorCatalog = [
   { type: "filter", labelKey: "workflowEditor.operator.filter", descriptionKey: "workflowEditor.operator.filterDetail" },
   { type: "map", labelKey: "workflowEditor.operator.map", descriptionKey: "workflowEditor.operator.mapDetail" },
   { type: "aggregate", labelKey: "workflowEditor.operator.aggregate", descriptionKey: "workflowEditor.operator.aggregateDetail" },
+  { type: "sort", labelKey: "workflowEditor.operator.sort", descriptionKey: "workflowEditor.operator.sortDetail" },
   { type: "union", labelKey: "workflowEditor.operator.union", descriptionKey: "workflowEditor.operator.unionDetail" },
   { type: "join", labelKey: "workflowEditor.operator.join", descriptionKey: "workflowEditor.operator.joinDetail" },
   { type: "output", labelKey: "workflowEditor.operator.output", descriptionKey: "workflowEditor.operator.outputDetail" },
@@ -14,7 +15,7 @@ export const templateCatalog = [
     labelKey: "workflowEditor.template.filterAggregate",
     descriptionKey: "workflowEditor.template.filterAggregateDetail",
     nodes: [
-      { localId: "filter", type: "filter", config: { predicate: null } },
+      { localId: "filter", type: "filter", config: { predicate: {combinator: "and", conditions: []} } },
       { localId: "aggregate", type: "aggregate", config: { groupBy: [], measures: [] } },
     ],
     edges: [{ fromNode: "filter", fromPort: "rows", toNode: "aggregate", toPort: "rows" }],
@@ -25,9 +26,9 @@ export const templateCatalog = [
     descriptionKey: "workflowEditor.template.crossChainUnionDetail",
     nodes: [
       { localId: "source-left", type: "source", config: { sourceId: "" } },
-      { localId: "map-left", type: "map", config: { mapping: {} } },
+      { localId: "map-left", type: "map", config: { mode: "extend", fields: [] } },
       { localId: "source-right", type: "source", config: { sourceId: "" } },
-      { localId: "map-right", type: "map", config: { mapping: {} } },
+      { localId: "map-right", type: "map", config: { mode: "extend", fields: [] } },
       { localId: "union", type: "union", config: { schema: "canonical_rows" } },
     ],
     edges: [
@@ -50,9 +51,10 @@ export function getTemplate(id) {
 export function defaultNodeConfig(type) {
   switch (type) {
     case "source": return { sourceId: "" };
-    case "filter": return { predicate: null };
-    case "map": return { mapping: {} };
+    case "filter": return { predicate: {combinator: "and", conditions: []} };
+    case "map": return { mode: "extend", fields: [] };
     case "aggregate": return { groupBy: [], measures: [] };
+    case "sort": return { orderBy: [], limit: null };
     case "union": return { schema: "canonical_rows" };
     case "join": return { keys: ["wallet"], type: "inner", cardinality: "one_to_one" };
     case "output": return { orderBy: [] };

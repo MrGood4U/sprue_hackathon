@@ -31,6 +31,13 @@ export const operatorRegistry: readonly OperatorSignature[] = [
     configContract: "{groupBy:['wallet'],measures:['tradeCount','volumeUsd','firstSeenAt','lastSeenAt']}.",
   },
   {
+    type: "sort",
+    operatorVersion: "1",
+    inputPorts: ["rows"],
+    outputPorts: ["rows"],
+    configContract: "{orderBy:[{field,direction:'asc'|'desc',nulls:'first'|'last'}],limit:integer|null}.",
+  },
+  {
     type: "union",
     operatorVersion: "1",
     inputPorts: ["left", "right"],

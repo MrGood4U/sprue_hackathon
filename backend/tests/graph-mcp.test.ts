@@ -1671,6 +1671,19 @@ test("Agent can select inspected fields when no lexical grain or field hint matc
             kind: "composition_intent",
             nodes: [
               {
+                role: "normalize_observations",
+                operator: "map",
+                operatorVersion: "2",
+                config: {
+                  mode: "project",
+                  fields: [
+                    {name: "observation_value", expression: {op: "field", field: "payload.zorb"}},
+                    {name: "observation_kind", expression: {op: "field", field: "payload.flarn"}},
+                    {name: "data_network", expression: {op: "field", field: "data_network"}},
+                  ],
+                },
+              },
+              {
                 role: "filter_observations",
                 operator: "filter",
                 operatorVersion: "2",
@@ -1692,7 +1705,8 @@ test("Agent can select inspected fields when no lexical grain or field hint matc
               },
             ],
             connections: [
-              {fromRole: "source__unknown_observation", toRole: "filter_observations", inputRole: "rows"},
+              {fromRole: "source__unknown_observation", toRole: "normalize_observations", inputRole: "rows"},
+              {fromRole: "normalize_observations", toRole: "filter_observations", inputRole: "rows"},
               {fromRole: "filter_observations", toRole: "output_observations", inputRole: "rows"},
             ],
             templateInstances: [],
@@ -2075,7 +2089,14 @@ test("Agent validates schema-driven time-series fields without a wallet-shaped s
                 role: "derive_day",
                 operator: "map",
                 operatorVersion: "2",
-                config: {mode: "extend", fields: [{name: "day", expression: {op: "utc_date", inputs: [{op: "field", field: "event_time"}]}}]},
+                config: {
+                  mode: "project",
+                  fields: [
+                    {name: "day", expression: {op: "utc_date", inputs: [{op: "field", field: "blockTimestamp"}]}},
+                    {name: "raw_value", expression: {op: "field", field: "amountUSD"}},
+                    {name: "data_network", expression: {op: "field", field: "data_network"}},
+                  ],
+                },
               },
               {
                 role: "daily_statistics",

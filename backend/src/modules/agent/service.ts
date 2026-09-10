@@ -194,6 +194,23 @@ function proposalContent(
     const need = needs.get(selection.sourceNeedId);
     const entity = candidate?.entities.find((value) => value.queryEntity === selection.queryEntity);
     if (!candidate || !need || candidate.status === "incompatible" || !entity) return [];
+    const inspectedFieldByPath = new Map(entity.fields.map((field) => [field.path, field]));
+    const outputFields = new Map<string, {name: string; type: string; nullable: boolean; unit: string | null}>();
+    for (const binding of [...selection.fieldBindings, ...selection.auxiliaryFieldBindings]) {
+      const inspected = inspectedFieldByPath.get(binding.fieldPath);
+      if (inspected) outputFields.set(binding.fieldPath, {
+        name: binding.fieldPath,
+        type: inspected.valueType,
+        nullable: inspected.nullable,
+        unit: null,
+      });
+    }
+    if (!outputFields.has("data_network")) outputFields.set("data_network", {
+      name: "data_network",
+      type: "string",
+      nullable: false,
+      unit: null,
+    });
     return [{
       id: selection.candidateRef,
       sourceNeedId: selection.sourceNeedId,
@@ -205,6 +222,7 @@ function proposalContent(
       queryEntity: selection.queryEntity,
       fieldBindings: selection.fieldBindings,
       auxiliaryFieldBindings: selection.auxiliaryFieldBindings,
+      outputSchema: {fields: [...outputFields.values()]},
       evidenceStatus: candidate.status,
     }];
   });
@@ -223,6 +241,7 @@ function proposalContent(
           fieldBindings: source.fieldBindings,
           auxiliaryFieldBindings: source.auxiliaryFieldBindings,
         },
+        outputSchema: source.outputSchema,
       })),
       ...result.feasibility.composition.nodes.map((node) => ({
         id: node.role,

@@ -4,7 +4,7 @@ Draft 0.3, 2026-09-06. The human approved a small MVP operator scope and the edi
 
 ## 1. One Execution Definition
 
-A semantic template is a developer-owned, versioned compiler recipe, not a runtime operator. The MVP registry contains `source`, `filter`, `map`, `aggregate`, `union`, `join`, and `output`. Grouping is aggregate configuration, a source interval is window configuration, and a derived score is a bounded map expression.
+A semantic template is a developer-owned, versioned compiler recipe, not a runtime operator. The MVP registry contains `source`, `filter`, `map`, `aggregate`, `sort`, `union`, `join`, and `output`. Grouping is aggregate configuration, a source interval is window configuration, a derived score is a bounded map expression, and ranking uses the explicit Sort / Top K operator.
 
 The first presentation reads `Source -> Wallet Activity -> Repeat Activity -> Output`. A template palette can insert the corresponding primitive nodes and edges as one editable working-draft subgraph. Source and Output remain visible; template origin is explanatory metadata and does not constrain edits. A worker executes only the fully expanded, validated primitive DAG and never interprets a template label or downloads a recipe at runtime.
 

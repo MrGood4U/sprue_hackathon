@@ -11,6 +11,7 @@ import {
   HarnessCompileError,
   RemoteEntityEmbeddingRanker,
   RemoteAgentModel,
+  sourceRequirementOrigin,
   testOpenAICompatibleModel,
   validateFlexibleComposition,
 } from "../src/modules/agent/harness/index.js";
@@ -423,6 +424,25 @@ test("flexible validation preserves nominal count units and numerator units for 
     auxiliaryFieldBindings: [],
     rationale: "The inspected entity exposes one row per swap.",
   };
+  const sourceFieldsByNeed = new Map([[
+    "daily_swaps",
+    [
+      {
+        name: "timestamp",
+        type: "integer" as const,
+        nullable: false,
+        unit: null,
+        origin: sourceRequirementOrigin("daily_swaps", "block_timestamp"),
+      },
+      {
+        name: "amountUSD",
+        type: "decimal" as const,
+        nullable: false,
+        unit: "USD",
+        origin: sourceRequirementOrigin("daily_swaps", "swap_amount_usd"),
+      },
+    ],
+  ]]);
   const composition: FlexibleCompositionIntent = {
     schemaVersion: 2,
     kind: "composition_intent",
@@ -432,11 +452,17 @@ test("flexible validation preserves nominal count units and numerator units for 
         operator: "map",
         operatorVersion: "2",
         config: {
-          mode: "extend",
-          fields: [{
-            name: "day",
-            expression: {op: "utc_date", inputs: [{op: "field", field: "block_timestamp"}]},
-          }],
+          mode: "project",
+          fields: [
+            {
+              name: "day",
+              expression: {op: "utc_date", inputs: [{op: "field", field: "timestamp"}]},
+            },
+            {
+              name: "swap_amount_usd",
+              expression: {op: "field", field: "amountUSD"},
+            },
+          ],
         },
       },
       {
@@ -499,6 +525,81 @@ test("flexible validation preserves nominal count units and numerator units for 
     deriveDiscoverySourceNeeds(plan),
     [selection],
     {maxNodes: 12, maxEdges: 24},
+    sourceFieldsByNeed,
+  ));
+
+  const nonProjectBoundary: FlexibleCompositionIntent = {
+    ...composition,
+    nodes: composition.nodes.map((node) => node.role === "derive_day"
+      ? {...node, config: {...node.config, mode: "extend"}}
+      : node),
+  };
+  assert.throws(
+    () => validateFlexibleComposition(
+      plan,
+      nonProjectBoundary,
+      deriveDiscoverySourceNeeds(plan),
+      [selection],
+      {maxNodes: 12, maxEdges: 24},
+      sourceFieldsByNeed,
+    ),
+    (error: unknown) => error instanceof HarnessCompileError
+      && error.code === "SOURCE_NORMALIZATION_MAP_REQUIRED",
+  );
+
+  const inventedSourceAlias: FlexibleCompositionIntent = {
+    ...composition,
+    nodes: composition.nodes.map((node) => node.role === "derive_day"
+      ? {
+          ...node,
+          config: {
+            mode: "project",
+            fields: [{name: "day", expression: {op: "field", field: "block_timestamp"}}],
+          },
+        }
+      : node),
+  };
+  assert.throws(
+    () => validateFlexibleComposition(
+      plan,
+      inventedSourceAlias,
+      deriveDiscoverySourceNeeds(plan),
+      [selection],
+      {maxNodes: 12, maxEdges: 24},
+      sourceFieldsByNeed,
+    ),
+    (error: unknown) => error instanceof HarnessCompileError
+      && error.code === "EXPRESSION_FIELD_UNKNOWN",
+  );
+
+  const sortedComposition: FlexibleCompositionIntent = {
+    ...composition,
+    nodes: [
+      ...composition.nodes.slice(0, -1),
+      {
+        role: "latest_days",
+        operator: "sort",
+        operatorVersion: "1",
+        config: {
+          orderBy: [{field: "day", direction: "desc", nulls: "last"}],
+          limit: 7,
+        },
+      },
+      composition.nodes.at(-1)!,
+    ],
+    connections: [
+      ...composition.connections.slice(0, -1),
+      {fromRole: "daily_average", toRole: "latest_days", inputRole: "rows"},
+      {fromRole: "latest_days", toRole: "daily_output", inputRole: "rows"},
+    ],
+  };
+  assert.doesNotThrow(() => validateFlexibleComposition(
+    plan,
+    sortedComposition,
+    deriveDiscoverySourceNeeds(plan),
+    [selection],
+    {maxNodes: 12, maxEdges: 24},
+    sourceFieldsByNeed,
   ));
 
   const invalidCountUnitPlan: DiscoverySemanticPlan = {
@@ -517,6 +618,7 @@ test("flexible validation preserves nominal count units and numerator units for 
       deriveDiscoverySourceNeeds(invalidCountUnitPlan),
       [selection],
       {maxNodes: 12, maxEdges: 24},
+      sourceFieldsByNeed,
     ),
     (error: unknown) => error instanceof HarnessCompileError
       && error.code === "OUTPUT_SCHEMA_INVALID"
@@ -757,7 +859,7 @@ test("every planning tool schema stays inside the DeepSeek-compatible JSON Schem
   assert.equal(feasibilitySchema.includes('"propertyNames"'), false);
   assert.equal(feasibilitySchema.includes('"auxiliaryFieldBindings"'), true);
   assert.equal(feasibilitySchema.includes('"purpose"'), true);
-  for (const operator of ["filter", "map", "aggregate", "union", "join", "output"]) {
+  for (const operator of ["filter", "map", "aggregate", "sort", "union", "join", "output"]) {
     assert.equal(feasibilitySchema.includes(`\"${operator}\"`), true, `source feasibility omits ${operator}`);
   }
   assert.equal(feasibilitySchema.includes('"$ref"'), true, "typed recursive expressions must remain schema-constrained");

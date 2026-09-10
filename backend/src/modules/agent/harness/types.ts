@@ -377,8 +377,8 @@ export interface SourceFeasibilitySelection {
 
 export interface FlexibleCompositionNode {
   role: string;
-  operator: "filter" | "map" | "aggregate" | "union" | "join" | "output";
-  operatorVersion: "2";
+  operator: "filter" | "map" | "aggregate" | "sort" | "union" | "join" | "output";
+  operatorVersion: "1" | "2";
   config: Readonly<Record<string, unknown>>;
 }
 
@@ -411,14 +411,14 @@ export interface SourceDiscoveryPlanningModelRequest {
 
 export interface SourceFeasibilityModelRequest {
   stage: "source_feasibility";
-  promptVersion: "7";
+  promptVersion: "8";
   semanticPlan: DiscoverySemanticPlan;
   sourceNeeds: readonly DiscoverySourceNeed[];
   candidates: readonly SourceFeasibilityCandidate[];
   sourceRoles: readonly {
     role: string;
     sourceNeedId: string;
-    fields: readonly {name: string; type: GraphSemanticValueType; nullable: boolean; unit: string | null}[];
+    normalizationTargets: readonly {name: string; type: GraphSemanticValueType; nullable: boolean; unit: string | null}[];
   }[];
   operatorRegistry: readonly OperatorSignature[];
   limits: {maxNodes: number; maxEdges: number};
@@ -491,7 +491,7 @@ export interface AgentModelPort {
 }
 
 export interface OperatorSignature {
-  type: "source" | "filter" | "map" | "aggregate" | "union" | "join" | "output";
+  type: "source" | "filter" | "map" | "aggregate" | "sort" | "union" | "join" | "output";
   operatorVersion: "1" | "2";
   inputPorts: readonly string[];
   outputPorts: readonly string[];
