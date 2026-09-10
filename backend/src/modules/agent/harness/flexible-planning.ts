@@ -102,10 +102,10 @@ export const flexibleOperatorRegistry: readonly OperatorSignature[] = [
   },
   {
     type: "output",
-    operatorVersion: "2",
+    operatorVersion: "3",
     inputPorts: ["rows"],
     outputPorts: [],
-    configContract: "{fields:string[],orderBy:[{field,direction:'asc'|'desc'}]}",
+    configContract: "{fields:string[]}; preserves predecessor row order and cannot sort. Use a preceding Sort operator for every requested ordering.",
   },
 ] as const;
 
@@ -645,7 +645,7 @@ function outputShape(
     return output;
   }
   if (operator === "output") {
-    exactKeys(config, ["fields", "orderBy"], "Output config");
+    exactKeys(config, ["fields"], "Output config");
     const source = inputs.get("rows")!;
     const output = new Map<string, FieldShape>();
     const fields = array(config.fields, "Output fields", 32);
@@ -654,15 +654,6 @@ function outputShape(
       const name = string(fieldValue, "Output field");
       if (output.has(name)) fail("OPERATOR_CONFIG_INVALID", `Output field ${name} is duplicated`);
       output.set(name, field(source, name, "Output", {fields: usage, purpose: "output"}));
-    }
-    for (const orderingValue of array(config.orderBy, "Output orderBy", 8)) {
-      const ordering = record(orderingValue, "Output orderBy entry");
-      exactKeys(ordering, ["field", "direction"], "Output orderBy entry");
-      const name = string(ordering.field, "Output orderBy field");
-      if (!output.has(name) || (ordering.direction !== "asc" && ordering.direction !== "desc")) {
-        fail("OPERATOR_CONFIG_INVALID", "Output orderBy references an unavailable field or direction");
-      }
-      field(source, name, "Output orderBy", {fields: usage, purpose: "sort"});
     }
     return output;
   }
@@ -801,6 +792,20 @@ export function validateFlexibleComposition(
   }
   for (const ordering of plan.result.orderBy) {
     if (!finalShape.has(ordering.field)) fail("OUTPUT_SCHEMA_INVALID", `Semantic ordering references unavailable field ${ordering.field}`);
+  }
+  if (plan.result.orderBy.length > 0) {
+    const predecessorRole = incoming.get(outputNode.role)?.get("rows");
+    const predecessor = predecessorRole ? nodes.get(predecessorRole) : null;
+    const configuredOrder = predecessor?.operator === "sort"
+      ? (predecessor.config.orderBy as readonly {field: string; direction: "asc" | "desc"}[])
+      : [];
+    const preservesSemanticOrder = predecessor?.operator === "sort"
+      && configuredOrder.length === plan.result.orderBy.length
+      && configuredOrder.every((item, index) => item.field === plan.result.orderBy[index]?.field
+        && item.direction === plan.result.orderBy[index]?.direction);
+    if (!preservesSemanticOrder) {
+      fail("OUTPUT_ORDER_INVALID", "Semantic result ordering must be implemented by the Sort operator immediately before Output");
+    }
   }
 
   for (const selection of selections) {

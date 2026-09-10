@@ -62,7 +62,7 @@ export interface AgentBuilderDraft {
   nodes: readonly {
     id: string;
     type: "source" | "filter" | "map" | "aggregate" | "sort" | "union" | "join" | "output";
-    operatorVersion: "1" | "2";
+    operatorVersion: "1" | "2" | "3";
     config: Readonly<Record<string, unknown>>;
     outputSchema?: {
       fields: readonly {name: string; type: string; nullable: boolean; unit: string | null}[];

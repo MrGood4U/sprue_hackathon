@@ -88,7 +88,7 @@ test("backend demo runtime returns the harness proposal and cross-chain output",
   assert.equal(state.agent.status, "ready_for_review");
   assert.equal(state.agent.trace.length, 15);
   assert.equal(state.product.draft.specification.schemaVersion, 2);
-  assert.equal(state.product.draft.specification.dag.nodes.length, 9);
+  assert.equal(state.product.draft.specification.dag.nodes.length, 10);
   assert.equal(state.product.draft.referenceResult.length, 1);
   assert.equal(state.product.draft.referenceResult[0]?.combinedVolumeUsd, "456.50");
   assert.equal(state.api.endpoint, "http://127.0.0.1:3001/data/v1/cross-chain-dex-trader-footprint");

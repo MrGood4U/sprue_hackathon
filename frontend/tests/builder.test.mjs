@@ -39,6 +39,16 @@ function evaluateFixture(dag, input) {
     const rows = node.type === "source" ? input : values.get(inputs[0].fromNode);
     assert.equal(inputs.length, node.type === "source" ? 0 : 1);
     if (node.type === "source" || node.type === "output") values.set(node.id, rows);
+    else if (node.type === "sort") {
+      const sorted = [...rows].sort((left, right) => {
+        for (const ordering of node.config.orderBy) {
+          const comparison = String(left[ordering.field]).localeCompare(String(right[ordering.field]));
+          if (comparison !== 0) return ordering.direction === "desc" ? -comparison : comparison;
+        }
+        return 0;
+      });
+      values.set(node.id, node.config.limit === null ? sorted : sorted.slice(0, node.config.limit));
+    }
     else if (node.type === "map") values.set(node.id, rows.map((row) => Object.fromEntries(Object.entries(node.config.fields).map(([key, expr]) => [key, evaluate(expr, row)]))));
     else if (node.type === "aggregate") {
       const groups = new Map();
@@ -62,11 +72,11 @@ function evaluateFixture(dag, input) {
   return values.get("result");
 }
 
-test("sample expansion has seven stable nodes, six real edges and only scoped operator types", () => {
+test("sample expansion has eight stable nodes, seven real edges and only scoped operator types", () => {
   const draft = createDemoDraft();
-  assert.equal(draft.specification.dag.nodes.length, 7);
-  assert.equal(draft.specification.dag.edges.length, 6);
-  for (const node of draft.specification.dag.nodes) assert.ok(["source", "filter", "map", "aggregate", "output"].includes(node.type));
+  assert.equal(draft.specification.dag.nodes.length, 8);
+  assert.equal(draft.specification.dag.edges.length, 7);
+  for (const node of draft.specification.dag.nodes) assert.ok(["source", "filter", "map", "aggregate", "sort", "output"].includes(node.type));
   assert.equal(draft.specification.groups, undefined);
 });
 test("fixture composition keeps one-day wallets in the denominator and counts distinct days", () => {

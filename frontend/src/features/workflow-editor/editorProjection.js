@@ -51,10 +51,8 @@ export function draftFromFlow(baseDraft, nodes, edges) {
     .filter((group) => group.nodeIds.length > 0);
   const outputNodes = nextNodes.filter((node) => node.type === "output");
   const outputId = outputNodes.length === 1 ? outputNodes[0].id : null;
-  const outputConnected = Boolean(outputId && nextEdges.some((edge) => edge.toNode === outputId));
-  const outputViews = outputId ? outputNodes[0].config?.views ?? [] : [];
-  const hasCrossChainPreview = outputViews.length === 0 || outputViews.includes("crossChain");
-  const hasOutputPreview = outputConnected && hasCrossChainPreview;
+  const outputInputs = outputId ? nextEdges.filter((edge) => edge.toNode === outputId) : [];
+  const hasOutputPreview = outputInputs.length === 1 && outputInputs[0].toPort === "rows";
   return {
     ...baseDraft,
     groups: nextGroups,
@@ -75,7 +73,7 @@ export function createOperatorNode(type, id, position) {
     id,
     type: "workflow",
     position,
-    data: { node: { id, type, operatorVersion: type === "filter" || type === "map" ? "2" : "1", config: defaultNodeConfig(type) } },
+    data: { node: { id, type, operatorVersion: type === "output" ? "3" : type === "filter" || type === "map" ? "2" : "1", config: defaultNodeConfig(type) } },
   };
 }
 
@@ -92,7 +90,7 @@ export function instantiateTemplate(templateId, instanceId, position) {
         node: {
           id,
           type: node.type,
-          operatorVersion: node.type === "filter" || node.type === "map" ? "2" : "1",
+          operatorVersion: node.type === "output" ? "3" : node.type === "filter" || node.type === "map" ? "2" : "1",
           config: structuredClone(node.config),
         },
       },

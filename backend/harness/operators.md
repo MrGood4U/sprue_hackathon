@@ -27,13 +27,13 @@ The human approved the original seven operator types on 2026-09-05 and approved 
 | `sort` | rows -> rows | `{orderBy: [{field, direction, nulls}], limit: integer-or-null}` | Stable multi-key scalar sorting; null means full sort and a bounded positive limit means Top K; no schema change |
 | `union` | rows[] -> rows | Proposed `{inputs: string[], sourceDiscriminator?: string}` | Append rows from multiple inputs only after schema-compatible normalization; preserve source lineage when the product semantics require it; reject incompatible fields and unbounded input fan-in |
 | `join` | left rows + right rows -> rows | Proposed `{keys: JoinKey[], type: inner-or-left, cardinality, collisionPolicy, nullPolicy}` | Match two inputs on explicit typed keys; reject implicit many-to-many fan-out, missing keys and unbounded output estimates; exact key/cardinality semantics remain H1 |
-| `output` | rows input; final rows output | `{orderBy: [{field, direction}], nullPolicy: reject_unexpected}` | Validate exact outputSchema, stable total ordering, row/byte bounds; pass final artifact to materializer, not API publication |
+| `output` | exactly one rows input; final rows output | `{fields: string[]}` | Validate and publish the selected final fields while preserving predecessor row order; pass final artifact to materializer, not API publication |
 
 The diagram uses `rows -> rows` as port notation, not an arrow field in serialized edges. Canonical edges still use fromNode/fromPort/toNode/toPort. Source/port schema inference must prove each downstream field reference exists and has a compatible type.
 
 GroupBy is initially aggregate configuration, a rolling interval is source window configuration, and Score is a map expression. No separate window/group/score node is required merely because the frontend has a similarly named fixture card. Union and Join are explicit MVP operators for multiple existing Subgraph results. Arbitrary window functions, external HTTP enrichment and custom-code operators remain deferred; register them only after semantics, bounds, tests and human scope review.
 
-Output sorting remains deterministic serving metadata. Ranking and top-N transformations use an explicit Sort / Top K node; transport preview/limit does not change the metric. No silent truncation converts an incomplete aggregate into a successful final output.
+All result ordering and top-N transformations use an explicit Sort / Top K node. Output has no sorting configuration and preserves the order it receives; transport preview/limit does not change the metric. No silent truncation converts an incomplete aggregate into a successful final output.
 
 ### Approved Generic Filter Contract
 

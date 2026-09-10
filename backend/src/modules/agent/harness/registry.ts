@@ -56,7 +56,7 @@ export const operatorRegistry: readonly OperatorSignature[] = [
     operatorVersion: "1",
     inputPorts: ["rows"],
     outputPorts: [],
-    configContract: "{orderBy:[{field:'wallet',direction:'asc'}]}.",
+    configContract: "{}; preserves the incoming order produced by the required preceding Sort operator.",
   },
 ] as const;
 
@@ -78,9 +78,15 @@ const joinConfig = z.object({
   keys: z.tuple([z.object({left: z.literal("wallet"), right: z.literal("wallet")}).strict()]),
   cardinality: z.literal("one_to_one"),
 }).strict();
-const outputConfig = z.object({
-  orderBy: z.tuple([z.object({field: z.literal("wallet"), direction: z.literal("asc")}).strict()]),
+const sortConfig = z.object({
+  orderBy: z.tuple([z.object({
+    field: z.literal("wallet"),
+    direction: z.literal("asc"),
+    nulls: z.literal("last"),
+  }).strict()]),
+  limit: z.null(),
 }).strict();
+const outputConfig = z.object({}).strict();
 
 export class OperatorConfigError extends Error {
   readonly code = "OPERATOR_CONFIG_INVALID";
@@ -98,11 +104,13 @@ export function validateCompositionNode(node: CompositionNode): void {
       ? z.union([normalizeConfig, computeConfig])
       : node.operator === "aggregate"
         ? aggregateConfig
-        : node.operator === "union"
-          ? unionConfig
-          : node.operator === "join"
-            ? joinConfig
-            : outputConfig;
+        : node.operator === "sort"
+          ? sortConfig
+          : node.operator === "union"
+            ? unionConfig
+            : node.operator === "join"
+              ? joinConfig
+              : outputConfig;
   const result = schema.safeParse(node.config);
   if (!result.success) {
     throw new OperatorConfigError(node.role, result.error.issues[0]?.message ?? "invalid config");

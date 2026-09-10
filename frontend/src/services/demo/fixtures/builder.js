@@ -1,12 +1,12 @@
 // Synthetic compiler illustration only; not the backend registry or a live source.
 const field = (name) => ({ op: "field", path: [name] });
 const literal = (value) => ({ op: "literal", type: "integer", value: String(value) });
-const node = (id, type, config) => ({ id, type, operatorVersion: "1", config });
+const node = (id, type, config, operatorVersion = type === "output" ? "3" : "1") => ({ id, type, operatorVersion, config });
 
 export const nodeLabels = {
   activity: "dag.graphSource", normalize_day: "dag.normalizeDay", wallet_activity: "dag.walletActivity",
   classify_repeat_wallet: "dag.classifyRepeat", protocol_activity: "dag.protocolActivity",
-  compute_ratio: "dag.computeRatio", result: "dag.output",
+  compute_ratio: "dag.computeRatio", sort_protocol: "workflowEditor.operator.sort", result: "dag.output",
 };
 export const defaultParameters = Object.freeze({ windowDays: 30, minimumActiveDays: 2 });
 export const outputSchema = {
@@ -54,7 +54,8 @@ export function createDemoDraft(parameters = defaultParameters) {
     node("classify_repeat_wallet", "map", { fields: { protocol: field("protocol"), isRepeat: { op: "if", args: [{ op: "gte", args: [field("activeDays"), literal(minimumActiveDays)] }, literal(1), literal(0)] } } }),
     node("protocol_activity", "aggregate", { groupBy: ["protocol"], measures: { activeWallets: { op: "count_rows" }, repeatWallets: { op: "sum", field: "isRepeat" } } }),
     node("compute_ratio", "map", { fields: { protocol: field("protocol"), activeWallets: field("activeWallets"), repeatWallets: field("repeatWallets"), repeatShare: { op: "safe_divide", args: [field("repeatWallets"), field("activeWallets")], scale: 6, rounding: "half_even" } } }),
-    node("result", "output", { orderBy: [{ field: "protocol", direction: "asc" }], nullPolicy: "reject_unexpected" }),
+    node("sort_protocol", "sort", { orderBy: [{ field: "protocol", direction: "asc", nulls: "last" }], limit: null }),
+    node("result", "output", { fields: ["protocol", "activeWallets", "repeatWallets", "repeatShare"] }),
   ];
   const edges = nodes.slice(1).map((item, index) => ({ fromNode: nodes[index].id, fromPort: "rows", toNode: item.id, toPort: "rows" }));
   return {
@@ -72,7 +73,7 @@ export function createDemoDraft(parameters = defaultParameters) {
     // Display metadata is outside the canonical spec; no durable provenance/hash claim.
     groups: [
       { id: "template_wallet", templateId: "wallet_activity", templateVersion: "1", labelKey: "dag.walletActivity", nodeIds: ["normalize_day", "wallet_activity"] },
-      { id: "template_repeat", templateId: "repeat_activity", templateVersion: "1", labelKey: "dag.repeatActivity", nodeIds: ["classify_repeat_wallet", "protocol_activity", "compute_ratio"] },
+      { id: "template_repeat", templateId: "repeat_activity", templateVersion: "1", labelKey: "dag.repeatActivity", nodeIds: ["classify_repeat_wallet", "protocol_activity", "compute_ratio", "sort_protocol"] },
     ],
     referenceResult: referenceResult(minimumActiveDays),
   };

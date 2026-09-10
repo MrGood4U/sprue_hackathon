@@ -273,7 +273,7 @@ export interface SourceSelectionOutput {
 
 export interface CompositionNode {
   role: string;
-  operator: "filter" | "map" | "aggregate" | "union" | "join" | "output";
+  operator: "filter" | "map" | "aggregate" | "sort" | "union" | "join" | "output";
   operatorVersion: "1";
   config: Readonly<Record<string, unknown>>;
 }
@@ -378,7 +378,7 @@ export interface SourceFeasibilitySelection {
 export interface FlexibleCompositionNode {
   role: string;
   operator: "filter" | "map" | "aggregate" | "sort" | "union" | "join" | "output";
-  operatorVersion: "1" | "2";
+  operatorVersion: "1" | "2" | "3";
   config: Readonly<Record<string, unknown>>;
 }
 
@@ -411,7 +411,7 @@ export interface SourceDiscoveryPlanningModelRequest {
 
 export interface SourceFeasibilityModelRequest {
   stage: "source_feasibility";
-  promptVersion: "9";
+  promptVersion: "10";
   semanticPlan: DiscoverySemanticPlan;
   sourceNeeds: readonly DiscoverySourceNeed[];
   candidates: readonly SourceFeasibilityCandidate[];
@@ -492,7 +492,7 @@ export interface AgentModelPort {
 
 export interface OperatorSignature {
   type: "source" | "filter" | "map" | "aggregate" | "sort" | "union" | "join" | "output";
-  operatorVersion: "1" | "2";
+  operatorVersion: "1" | "2" | "3";
   inputPorts: readonly string[];
   outputPorts: readonly string[];
   configContract: string;

@@ -458,17 +458,31 @@ This illustration was corrected on 2026-09-05 to retain all active wallets in th
         }
       },
       {
-        "id": "result",
-        "type": "output",
+        "id": "sort_protocol",
+        "type": "sort",
         "operatorVersion": "1",
         "config": {
           "orderBy": [
             {
               "field": "protocol",
-              "direction": "asc"
+              "direction": "asc",
+              "nulls": "last"
             }
           ],
-          "nullPolicy": "reject_unexpected"
+          "limit": null
+        }
+      },
+      {
+        "id": "result",
+        "type": "output",
+        "operatorVersion": "3",
+        "config": {
+          "fields": [
+            "protocol",
+            "activeWallets",
+            "repeatWallets",
+            "repeatShare"
+          ]
         }
       }
     ],
@@ -505,6 +519,12 @@ This illustration was corrected on 2026-09-05 to retain all active wallets in th
       },
       {
         "fromNode": "compute_ratio",
+        "fromPort": "rows",
+        "toNode": "sort_protocol",
+        "toPort": "rows"
+      },
+      {
+        "fromNode": "sort_protocol",
         "fromPort": "rows",
         "toNode": "result",
         "toPort": "rows"

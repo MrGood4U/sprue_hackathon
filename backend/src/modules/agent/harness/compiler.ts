@@ -275,6 +275,11 @@ function validateCompositionShape(
   if (intent.nodes.filter((node) => node.operator === "output").length !== 1) {
     fail("OUTPUT_CARDINALITY_INVALID", "Composition must contain exactly one Output operator");
   }
+  const output = intent.nodes.find((node) => node.operator === "output")!;
+  const sortNodes = intent.nodes.filter((node) => node.operator === "sort");
+  if (sortNodes.length !== 1 || !intent.connections.some((edge) => edge.fromRole === sortNodes[0]!.role && edge.toRole === output.role && edge.inputRole === "rows")) {
+    fail("OUTPUT_ORDER_INVALID", "The wallet ordering must be implemented by one Sort operator immediately before Output");
+  }
   if (intent.nodes.some((node) => node.operator === "filter")) {
     fail("REDUNDANT_FILTER", "The compiled source query already enforces the requested time window");
   }

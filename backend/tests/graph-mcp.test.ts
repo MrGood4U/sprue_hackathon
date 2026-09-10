@@ -1700,8 +1700,8 @@ test("Agent can select inspected fields when no lexical grain or field hint matc
               {
                 role: "output_observations",
                 operator: "output",
-                operatorVersion: "2",
-                config: {fields: ["observation_value"], orderBy: []},
+                operatorVersion: "3",
+                config: {fields: ["observation_value"]},
               },
             ],
             connections: [
@@ -2111,16 +2111,23 @@ test("Agent validates schema-driven time-series fields without a wallet-shaped s
                 },
               },
               {
+                role: "sort_daily_statistics",
+                operator: "sort",
+                operatorVersion: "1",
+                config: {orderBy: [{field: "day", direction: "asc", nulls: "last"}], limit: null},
+              },
+              {
                 role: "output_daily_statistics",
                 operator: "output",
-                operatorVersion: "2",
-                config: {fields: ["day", "total_value", "average_value"], orderBy: [{field: "day", direction: "asc"}]},
+                operatorVersion: "3",
+                config: {fields: ["day", "total_value", "average_value"]},
               },
             ],
             connections: [
               {fromRole: "source__metric_events", toRole: "derive_day", inputRole: "rows"},
               {fromRole: "derive_day", toRole: "daily_statistics", inputRole: "rows"},
-              {fromRole: "daily_statistics", toRole: "output_daily_statistics", inputRole: "rows"},
+              {fromRole: "daily_statistics", toRole: "sort_daily_statistics", inputRole: "rows"},
+              {fromRole: "sort_daily_statistics", toRole: "output_daily_statistics", inputRole: "rows"},
             ],
             templateInstances: [],
           },
@@ -2180,5 +2187,5 @@ test("Agent validates schema-driven time-series fields without a wallet-shaped s
   assert.equal(result.kind, "feasibility");
   if (result.kind !== "feasibility") return;
   assert.deepEqual(result.discoveryPlan.semanticPlan.result.fields.map((field) => field.name), ["day", "total_value", "average_value"]);
-  assert.deepEqual(result.feasibility.composition.nodes.map((node) => node.operator), ["map", "aggregate", "output"]);
+  assert.deepEqual(result.feasibility.composition.nodes.map((node) => node.operator), ["map", "aggregate", "sort", "output"]);
 });

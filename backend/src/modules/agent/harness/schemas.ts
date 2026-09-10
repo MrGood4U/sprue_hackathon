@@ -100,7 +100,7 @@ const compositionIntentSchema = z.object({
   kind: z.literal("composition_intent"),
   nodes: z.array(z.object({
     role,
-    operator: z.enum(["filter", "map", "aggregate", "union", "join", "output"]),
+    operator: z.enum(["filter", "map", "aggregate", "sort", "union", "join", "output"]),
     operatorVersion: z.literal("1"),
     config: z.record(z.string(), z.unknown()),
   }).strict()).min(1).max(12),
@@ -294,10 +294,9 @@ const flexibleNodeSchema = z.discriminatedUnion("operator", [
   z.object({
     role,
     operator: z.literal("output"),
-    operatorVersion: z.literal("2"),
+    operatorVersion: z.literal("3"),
     config: z.object({
       fields: z.array(role).min(1).max(32),
-      orderBy: z.array(z.object({field: role, direction: z.enum(["asc", "desc"])}).strict()).max(8),
     }).strict(),
   }).strict(),
 ]);

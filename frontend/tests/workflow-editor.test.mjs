@@ -25,6 +25,7 @@ import {
   validateAggregateConfig,
 } from "../src/features/workflow-editor/aggregateModel.js";
 import {isNodeConfigured} from "../src/features/workflow-editor/nodeConfiguration.js";
+import {getInputPorts} from "../src/features/workflow-editor/connectionRules.js";
 
 function draftFixture() {
   return {
@@ -47,7 +48,7 @@ function draftFixture() {
             operatorVersion: "2",
             config: {mode: "project", fields: [{name: "wallet", expression: {op: "field", field: "wallet"}}]},
           },
-          { id: "output", type: "output", operatorVersion: "2", config: { fields: ["wallet"], orderBy: [] } },
+          { id: "output", type: "output", operatorVersion: "3", config: { fields: ["wallet"] } },
         ],
         edges: [
           { fromNode: "source", fromPort: "rows", toNode: "map", toPort: "rows" },
@@ -88,6 +89,14 @@ test("removing the output connection marks the draft invalid and clears derived 
   assert.equal(next.draft.specification.outputSchema.fields.length, 0);
   assert.deepEqual(next.draft.referenceResult, []);
   assert.ok(next.validation.some((error) => error.code === "MISSING_OUTPUT_INPUT"));
+});
+
+test("Output exposes one rows input and rejects imported multiple predecessors", () => {
+  assert.deepEqual(getInputPorts("output"), ["rows"]);
+  const draft = draftFixture();
+  draft.specification.dag.edges.push({fromNode: "source", fromPort: "rows", toNode: "output", toPort: "rows"});
+  const state = createEditorState(draft);
+  assert.ok(state.validation.some((error) => error.nodeId === "output" && error.code === "OUTPUT_INPUT_COUNT"));
 });
 
 test("selecting an edge enables selection deletion without deleting its nodes", () => {
@@ -143,7 +152,7 @@ test("Filter fields and operators are derived from the direct predecessor output
       operatorVersion: "2",
       config: {predicate: {combinator: "and", conditions: [{field: "amount", operator: "gte", value: "10"}]}},
     },
-    {id: "output", type: "output", operatorVersion: "2", config: {fields: ["amount"], orderBy: []}},
+    {id: "output", type: "output", operatorVersion: "3", config: {fields: ["amount"]}},
   ];
   draft.specification.dag.edges = [
     {fromNode: "source", fromPort: "rows", toNode: "filter", toPort: "rows"},
@@ -199,7 +208,7 @@ test("Map reads its direct predecessor schema and preserves Agent-authored field
         ],
       },
     },
-    {id: "output", type: "output", operatorVersion: "2", config: {fields: ["network", "trade_date"], orderBy: []}},
+    {id: "output", type: "output", operatorVersion: "3", config: {fields: ["network", "trade_date"]}},
   ];
   draft.specification.dag.edges = [
     {fromNode: "source", fromPort: "rows", toNode: "filter", toPort: "rows"},
@@ -309,7 +318,7 @@ test("Map exposes exact camel-case and nested Graph field paths from a Source bo
         ],
       },
     },
-    {id: "output", type: "output", operatorVersion: "2", config: {fields: ["volume_usd", "token0_symbol"], orderBy: []}},
+    {id: "output", type: "output", operatorVersion: "3", config: {fields: ["volume_usd", "token0_symbol"]}},
   ];
   draft.specification.dag.edges = [
     {fromNode: "source", fromPort: "rows", toNode: "map", toPort: "rows"},
@@ -349,7 +358,7 @@ test("Sort / Top K derives predecessor fields, preserves schema, and validates b
         limit: 25,
       },
     },
-    {id: "output", type: "output", operatorVersion: "2", config: {fields: ["score", "created_at"], orderBy: []}},
+    {id: "output", type: "output", operatorVersion: "3", config: {fields: ["score", "created_at"]}},
   ];
   draft.specification.dag.edges = [
     {fromNode: "source", fromPort: "rows", toNode: "sort", toPort: "rows"},
@@ -401,7 +410,7 @@ test("Aggregate derives predecessor fields and validates structured measures", (
         ],
       },
     },
-    {id: "output", type: "output", operatorVersion: "2", config: {fields: ["network", "trade_count", "volume", "wallet_count"], orderBy: []}},
+    {id: "output", type: "output", operatorVersion: "3", config: {fields: ["network", "trade_count", "volume", "wallet_count"]}},
   ];
   draft.specification.dag.edges = [
     {fromNode: "source", fromPort: "rows", toNode: "aggregate", toPort: "rows"},
@@ -462,7 +471,7 @@ test("Aggregate migrates legacy measure shapes without stringifying objects", ()
       operatorVersion: "1",
       config: {groupBy: [], measures: {volume: {op: "sum", field: "amount"}}},
     },
-    {id: "output", type: "output", operatorVersion: "2", config: {fields: ["volume"], orderBy: []}},
+    {id: "output", type: "output", operatorVersion: "3", config: {fields: ["volume"]}},
   ];
   draft.specification.dag.edges = [
     {fromNode: "source", fromPort: "rows", toNode: "aggregate", toPort: "rows"},

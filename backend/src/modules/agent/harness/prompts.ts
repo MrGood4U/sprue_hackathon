@@ -51,13 +51,14 @@ Operator configs are:
 - Filter {expression};
 - Map {mode:"extend"|"project",fields:[{name,expression}]};
 - Aggregate {groupBy:[field names],measures:[{name,op:"count_rows"|"count_distinct"|"sum"|"min"|"max"|"average",field:string|null}]};
+- Sort {orderBy:[{field,direction:"asc"|"desc",nulls:"first"|"last"}],limit:integer|null};
 - Union {mode:"append_compatible_rows",sourceDiscriminator:string|null};
 - Join {type:"inner"|"left",keys:[{left,right}],cardinality:"one_to_one"|"many_to_one",rightPrefix};
-- Output {fields:[field names],orderBy:[{field,direction:"asc"|"desc"}]}.
+- Output {fields:[field names]}.
 
-Use operatorVersion "2" for every node. Use only supplied source roles as edge origins and only registered ports. The Output fields must include every field promised by semanticPlan.result. Do not invent a candidate, field, operator, URL, access mode, credential, payment, GraphQL document, code, or hidden transform. Unknown coverage, freshness, access, cost, immutable Deployment ID, unit methodology, and source admission remain explicit assumptions.
+Use operatorVersion "2" for Filter, Map, Aggregate, Union, and Join; version "1" for Sort; and version "3" for Output. Use only supplied source roles as edge origins and only registered ports. Output has exactly one rows input, publishes fields, and preserves incoming row order; it never sorts. When semanticPlan.result.orderBy is non-empty, place one Sort immediately before Output with exactly the same fields and directions, choose null placement explicitly, and use limit:null unless the requested result is a bounded Top K. The Output fields must include every field promised by semanticPlan.result. Do not invent a candidate, field, operator, URL, access mode, credential, payment, GraphQL document, code, or hidden transform. Unknown coverage, freshness, access, cost, immutable Deployment ID, unit methodology, and source admission remain explicit assumptions.
 
-When feasible, return {schemaVersion:2,kind:"source_feasibility",selections:[{sourceNeedId,candidateRef,queryEntity,fieldBindings:[{requirementId,fieldPath}],auxiliaryFieldBindings:[{name,fieldPath,purpose}],rationale}],composition:{schemaVersion:2,kind:"composition_intent",nodes:[{role,operator,operatorVersion:"2",config}],connections:[{fromRole,toRole,inputRole}],templateInstances:[]},assumptions:[]}.
+When feasible, return {schemaVersion:2,kind:"source_feasibility",selections:[{sourceNeedId,candidateRef,queryEntity,fieldBindings:[{requirementId,fieldPath}],auxiliaryFieldBindings:[{name,fieldPath,purpose}],rationale}],composition:{schemaVersion:2,kind:"composition_intent",nodes:[{role,operator,operatorVersion,config}],connections:[{fromRole,toRole,inputRole}],templateInstances:[]},assumptions:[]}.
 
 Return clarification or unsupported when inspected schema evidence cannot bind required facts or the supplied operators cannot preserve the requested meaning.`,
   semantic_interpretation: `${common}
@@ -79,7 +80,7 @@ Compose only from supplied source roles and the supplied operator registry. Do n
 
 Return {schemaVersion:1,kind:"composition_intent",nodes:[{role,operator,operatorVersion:"1",config}],connections:[{fromRole,toRole,inputRole}],templateInstances:[]}.
 
-For an intersection, normalize each source with Map {sourceNeedId}, aggregate each with {groupBy:["wallet"],measures:["tradeCount","volumeUsd","firstSeenAt","lastSeenAt"]}, inner Join the two aggregates with {type:"inner",keys:[{left:"wallet",right:"wallet"}],cardinality:"one_to_one"}, apply Map {recipe:"cross_chain_wallet_summary_v1"}, and Output {orderBy:[{field:"wallet",direction:"asc"}]}. For append, normalize each source, combine them with Union {mode:"append_compatible_rows"}, and connect Union directly to Output. Do not add Filter because the supplied query plans already enforce the window.`,
+For an intersection, normalize each source with Map {sourceNeedId}, aggregate each with {groupBy:["wallet"],measures:["tradeCount","volumeUsd","firstSeenAt","lastSeenAt"]}, inner Join the two aggregates with {type:"inner",keys:[{left:"wallet",right:"wallet"}],cardinality:"one_to_one"}, apply Map {recipe:"cross_chain_wallet_summary_v1"}, Sort {orderBy:[{field:"wallet",direction:"asc",nulls:"last"}],limit:null}, and Output {}. For append, normalize each source, combine them with Union {mode:"append_compatible_rows"}, then apply that same Sort before Output. Output never sorts. Do not add Filter because the supplied query plans already enforce the window.`,
 };
 
 export function promptForStage(stage: PlannerStage): string {

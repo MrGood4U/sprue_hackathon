@@ -128,12 +128,14 @@ test("Agent sessions persist real planner input, evidence summary, trace, and re
             composition: {
               nodes: [
                 {role: "join", operator: "join", operatorVersion: "2", config: {type: "inner", keys: [{left: "wallet", right: "wallet"}], cardinality: "one_to_one", rightPrefix: "right_"}},
-                {role: "result", operator: "output", operatorVersion: "2", config: {fields: ["wallet", "trade_count"], orderBy: [{field: "wallet", direction: "asc"}]}},
+                {role: "sort_result", operator: "sort", operatorVersion: "1", config: {orderBy: [{field: "wallet", direction: "asc", nulls: "last"}], limit: null}},
+                {role: "result", operator: "output", operatorVersion: "3", config: {fields: ["wallet", "trade_count"]}},
               ],
               connections: [
                 {fromRole: "source__need_ethereum", toRole: "join", inputRole: "left"},
                 {fromRole: "source__need_arbitrum", toRole: "join", inputRole: "right"},
-                {fromRole: "join", toRole: "result", inputRole: "rows"},
+                {fromRole: "join", toRole: "sort_result", inputRole: "rows"},
+                {fromRole: "sort_result", toRole: "result", inputRole: "rows"},
               ],
             },
           },
@@ -215,7 +217,7 @@ test("Agent sessions persist real planner input, evidence summary, trace, and re
       assert.equal(messages.items[1].contentJson.sourceEvidence.length, 2);
       assert.equal(messages.items[1].contentJson.readyForCompilation, false);
       assert.equal(messages.items[1].contentJson.builderDraft?.status, "requires_source_admission");
-      assert.equal(messages.items[1].contentJson.builderDraft?.nodes.length, 4);
+      assert.equal(messages.items[1].contentJson.builderDraft?.nodes.length, 5);
       assert.deepEqual(messages.items[1].contentJson.builderDraft?.outputSchema.fields.map((field) => field.name), ["wallet", "trade_count"]);
       assert.equal(Number.isInteger(messages.items[1].contentJson.durationMs), true);
       assert.equal(messages.items[1].contentJson.durationMs >= 0, true);

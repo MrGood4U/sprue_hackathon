@@ -501,12 +501,20 @@ test("flexible validation preserves nominal count units and numerator units for 
         },
       },
       {
+        role: "sort_days",
+        operator: "sort",
+        operatorVersion: "1",
+        config: {
+          orderBy: [{field: "day", direction: "asc", nulls: "last"}],
+          limit: null,
+        },
+      },
+      {
         role: "daily_output",
         operator: "output",
-        operatorVersion: "2",
+        operatorVersion: "3",
         config: {
           fields: ["day", "trade_count", "volume_usd", "average_trade_size_usd"],
-          orderBy: [{field: "day", direction: "asc"}],
         },
       },
     ],
@@ -514,7 +522,8 @@ test("flexible validation preserves nominal count units and numerator units for 
       {fromRole: "source__daily_swaps", toRole: "derive_day", inputRole: "rows"},
       {fromRole: "derive_day", toRole: "daily_totals", inputRole: "rows"},
       {fromRole: "daily_totals", toRole: "daily_average", inputRole: "rows"},
-      {fromRole: "daily_average", toRole: "daily_output", inputRole: "rows"},
+      {fromRole: "daily_average", toRole: "sort_days", inputRole: "rows"},
+      {fromRole: "sort_days", toRole: "daily_output", inputRole: "rows"},
     ],
     templateInstances: [],
   };
@@ -572,31 +581,40 @@ test("flexible validation preserves nominal count units and numerator units for 
       && error.code === "EXPRESSION_FIELD_UNKNOWN",
   );
 
-  const sortedComposition: FlexibleCompositionIntent = {
+  const missingSortComposition: FlexibleCompositionIntent = {
     ...composition,
-    nodes: [
-      ...composition.nodes.slice(0, -1),
-      {
-        role: "latest_days",
-        operator: "sort",
-        operatorVersion: "1",
-        config: {
-          orderBy: [{field: "day", direction: "desc", nulls: "last"}],
-          limit: 7,
-        },
-      },
-      composition.nodes.at(-1)!,
-    ],
+    nodes: composition.nodes.filter((node) => node.role !== "sort_days"),
     connections: [
-      ...composition.connections.slice(0, -1),
-      {fromRole: "daily_average", toRole: "latest_days", inputRole: "rows"},
-      {fromRole: "latest_days", toRole: "daily_output", inputRole: "rows"},
+      ...composition.connections.filter((edge) => edge.toRole !== "sort_days" && edge.fromRole !== "sort_days"),
+      {fromRole: "daily_average", toRole: "daily_output", inputRole: "rows"},
     ],
   };
+  assert.throws(
+    () => validateFlexibleComposition(
+      plan,
+      missingSortComposition,
+      deriveDiscoverySourceNeeds(plan),
+      [selection],
+      {maxNodes: 12, maxEdges: 24},
+      sourceFieldsByNeed,
+    ),
+    (error: unknown) => error instanceof HarnessCompileError && error.code === "OUTPUT_ORDER_INVALID",
+  );
+
+  const descendingPlan: DiscoverySemanticPlan = {
+    ...plan,
+    result: {...plan.result, orderBy: [{field: "day", direction: "desc"}]},
+  };
+  const sortedComposition: FlexibleCompositionIntent = {
+    ...composition,
+    nodes: composition.nodes.map((node) => node.role === "sort_days"
+      ? {...node, config: {orderBy: [{field: "day", direction: "desc", nulls: "last"}], limit: 7}}
+      : node),
+  };
   assert.doesNotThrow(() => validateFlexibleComposition(
-    plan,
+    descendingPlan,
     sortedComposition,
-    deriveDiscoverySourceNeeds(plan),
+    deriveDiscoverySourceNeeds(descendingPlan),
     [selection],
     {maxNodes: 12, maxEdges: 24},
     sourceFieldsByNeed,
@@ -636,7 +654,7 @@ test("mock Agent harness executes the non-model cross-chain flow", async () => {
   assert.equal(result.model.calls, 3);
   assert.equal(result.proposal.specification.schemaVersion, 2);
   assert.equal(result.proposal.specification.sources.length, 2);
-  assert.equal(result.proposal.builder.nodes.length, 9);
+  assert.equal(result.proposal.builder.nodes.length, 10);
   assert.equal(result.execution.unionRows.length, 2);
   assert.equal(result.execution.crossChain.length, 1);
   assert.equal(result.execution.crossChain[0]!.combinedTradeCount, 2);

@@ -188,14 +188,16 @@ function compositionFor(
           config: {sourceNeedId: branch.source.sourceNeedId},
         })),
         {role: "union_activity", operator: "union", operatorVersion: "1", config: {mode: "append_compatible_rows"}},
-        {role: "output_activity", operator: "output", operatorVersion: "1", config: {orderBy: [{field: "wallet", direction: "asc"}]}},
+        {role: "sort_activity", operator: "sort", operatorVersion: "1", config: {orderBy: [{field: "wallet", direction: "asc", nulls: "last"}], limit: null}},
+        {role: "output_activity", operator: "output", operatorVersion: "1", config: {}},
       ],
       connections: [
         ...branches.flatMap((branch) => [
           {fromRole: branch.source.role, toRole: branch.normalizeRole, inputRole: "rows" as const},
           {fromRole: branch.normalizeRole, toRole: "union_activity", inputRole: branch.inputRole},
         ]),
-        {fromRole: "union_activity", toRole: "output_activity", inputRole: "rows"},
+        {fromRole: "union_activity", toRole: "sort_activity", inputRole: "rows"},
+        {fromRole: "sort_activity", toRole: "output_activity", inputRole: "rows"},
       ],
       templateInstances: [],
     };
@@ -238,10 +240,16 @@ function compositionFor(
         config: {recipe: "cross_chain_wallet_summary_v1"},
       },
       {
+        role: "sort_footprint",
+        operator: "sort",
+        operatorVersion: "1",
+        config: {orderBy: [{field: "wallet", direction: "asc", nulls: "last"}], limit: null},
+      },
+      {
         role: "output_footprint",
         operator: "output",
         operatorVersion: "1",
-        config: {orderBy: [{field: "wallet", direction: "asc"}]},
+        config: {},
       },
     ],
     connections: [
@@ -251,7 +259,8 @@ function compositionFor(
         {fromRole: branch.aggregateRole, toRole: "join_wallets", inputRole: branch.inputRole},
       ]),
       {fromRole: "join_wallets", toRole: "compute_combined_fields", inputRole: "rows"},
-      {fromRole: "compute_combined_fields", toRole: "output_footprint", inputRole: "rows"},
+      {fromRole: "compute_combined_fields", toRole: "sort_footprint", inputRole: "rows"},
+      {fromRole: "sort_footprint", toRole: "output_footprint", inputRole: "rows"},
     ],
     templateInstances: [],
   };
@@ -388,11 +397,24 @@ function sourceFeasibilityOutput(
     );
     currentRole = unionRole;
   }
+  if (request.semanticPlan.result.orderBy.length > 0) {
+    nodes.push({
+      role: "sort_records",
+      operator: "sort",
+      operatorVersion: "1",
+      config: {
+        orderBy: request.semanticPlan.result.orderBy.map((ordering) => ({...ordering, nulls: "last" as const})),
+        limit: null,
+      },
+    });
+    connections.push({fromRole: currentRole, toRole: "sort_records", inputRole: "rows"});
+    currentRole = "sort_records";
+  }
   nodes.push({
     role: "output_records",
     operator: "output",
-    operatorVersion: "2",
-    config: {fields: ["record_id", "data_network"], orderBy: [{field: "record_id", direction: "asc"}]},
+    operatorVersion: "3",
+    config: {fields: ["record_id", "data_network"]},
   });
   connections.push({fromRole: currentRole, toRole: "output_records", inputRole: "rows"});
   return {

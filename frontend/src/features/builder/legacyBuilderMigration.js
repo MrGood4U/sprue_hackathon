@@ -177,11 +177,68 @@ function migrateFilter(nodes, edges, filterId) {
   };
 }
 
+function normalizedOrdering(orderBy) {
+  if (!Array.isArray(orderBy)) return [];
+  return orderBy.flatMap((ordering) => {
+    if (!ordering || typeof ordering.field !== "string" || !["asc", "desc"].includes(ordering.direction)) return [];
+    return [{field: ordering.field, direction: ordering.direction, nulls: ordering.nulls === "first" ? "first" : "last"}];
+  });
+}
+
+function sameOrdering(left, right) {
+  return left.length === right.length
+    && left.every((ordering, index) => ordering.field === right[index]?.field && ordering.direction === right[index]?.direction);
+}
+
+function uniqueSortId(nodes, outputId) {
+  const used = new Set(nodes.map((node) => node.id));
+  const base = `sort_before_${outputId}`.replace(/[^a-zA-Z0-9_-]+/g, "_");
+  let id = base;
+  let suffix = 2;
+  while (used.has(id)) {
+    id = `${base}_${suffix}`;
+    suffix += 1;
+  }
+  return id;
+}
+
+function migrateOutputs(nodes, edges) {
+  let nextNodes = structuredClone(nodes);
+  let nextEdges = structuredClone(edges).map((edge) => {
+    const target = nextNodes.find((node) => node.id === edge.toNode);
+    return target?.type === "output" ? {...edge, toPort: "rows"} : edge;
+  });
+  for (const output of nextNodes.filter((node) => node.type === "output")) {
+    const ordering = normalizedOrdering(output.config?.orderBy);
+    nextNodes = nextNodes.map((node) => node.id === output.id
+      ? {...node, operatorVersion: "3", config: {fields: Array.isArray(node.config?.fields) ? structuredClone(node.config.fields) : []}}
+      : node);
+    if (ordering.length === 0) continue;
+
+    const incoming = nextEdges.filter((edge) => edge.toNode === output.id);
+    if (incoming.length !== 1) continue;
+    const predecessor = nextNodes.find((node) => node.id === incoming[0].fromNode);
+    if (predecessor?.type === "sort" && sameOrdering(normalizedOrdering(predecessor.config?.orderBy), ordering)) continue;
+
+    const sortId = uniqueSortId(nextNodes, output.id);
+    const outputIndex = nextNodes.findIndex((node) => node.id === output.id);
+    nextNodes.splice(outputIndex, 0, {
+      id: sortId,
+      type: "sort",
+      operatorVersion: "1",
+      config: {orderBy: ordering, limit: null},
+    });
+    nextEdges = nextEdges.map((edge) => edge === incoming[0] ? {...edge, toNode: sortId, toPort: "rows"} : edge);
+    nextEdges.push({fromNode: sortId, fromPort: "rows", toNode: output.id, toPort: "rows"});
+  }
+  return {nodes: nextNodes, edges: nextEdges};
+}
+
 export function migrateLegacyBuilderDraft(nodes, edges) {
   let current = {nodes: structuredClone(nodes), edges: structuredClone(edges)};
   const filterIds = current.nodes.filter((node) => node.type === "filter" && node.config?.expression).map((node) => node.id);
   for (const filterId of filterIds) {
     current = migrateFilter(current.nodes, current.edges, filterId) ?? current;
   }
-  return current;
+  return migrateOutputs(current.nodes, current.edges);
 }

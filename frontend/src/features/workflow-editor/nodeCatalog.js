@@ -57,7 +57,7 @@ export function defaultNodeConfig(type) {
     case "sort": return { orderBy: [], limit: null };
     case "union": return { schema: "canonical_rows" };
     case "join": return { keys: ["wallet"], type: "inner", cardinality: "one_to_one" };
-    case "output": return { orderBy: [] };
+    case "output": return { fields: [] };
     default: return {};
   }
 }

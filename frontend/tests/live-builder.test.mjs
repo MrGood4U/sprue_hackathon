@@ -37,7 +37,7 @@ test("projects the latest durable Agent proposal into an editable non-executable
         }],
         nodes: [
           {id: "source__need_eth", type: "source", operatorVersion: "1", config: {sourceId: "candidate-eth"}},
-          {id: "result", type: "output", operatorVersion: "2", config: {fields: ["amount"]}},
+          {id: "result", type: "output", operatorVersion: "3", config: {fields: ["amount"]}},
         ],
         edges: [{fromNode: "source__need_eth", fromPort: "rows", toNode: "result", toPort: "rows"}],
         outputSchema: {fields: [{name: "amount", type: "decimal", nullable: false, unit: "USD"}]},
@@ -55,6 +55,59 @@ test("projects the latest durable Agent proposal into an editable non-executable
   assert.deepEqual(draft.specification.dag.nodes.map(({id}) => id), ["source__need_eth", "result"]);
   assert.deepEqual(draft.specification.outputSchema.fields.map(({name}) => name), ["amount"]);
   assert.deepEqual(draft.referenceResult, []);
+});
+
+test("migrates legacy Output ordering into one explicit Sort predecessor", () => {
+  const draft = projectAgentBuilderDraft(product, [
+    {id: "user-output-order", role: "user", contentText: "Publish ordered records"},
+    {id: "assistant-output-order", role: "assistant", contentJson: {
+      kind: "proposal",
+      builderDraft: {
+        schemaVersion: 1,
+        status: "requires_source_admission",
+        sources: [{
+          id: "candidate-order",
+          dataNetwork: "eip155:1",
+          displayName: "Ordered source",
+          logicalSubgraphId: "subgraph-order",
+          manifestIpfsCid: "QmOrder",
+          queryEntity: "records",
+          fieldBindings: [{requirementId: "amount", fieldPath: "amountUSD"}],
+          auxiliaryFieldBindings: [],
+          outputSchema: {fields: [{name: "amountUSD", type: "decimal", nullable: false, unit: "USD"}]},
+          evidenceStatus: "suitable",
+        }],
+        nodes: [
+          {id: "source", type: "source", operatorVersion: "1", config: {sourceId: "candidate-order"}},
+          {id: "normalize", type: "map", operatorVersion: "2", config: {mode: "project", fields: [
+            {name: "amount", expression: {op: "field", field: "amountUSD"}},
+          ]}},
+          {id: "result", type: "output", operatorVersion: "2", config: {
+            fields: ["amount"],
+            orderBy: [{field: "amount", direction: "desc"}],
+          }},
+        ],
+        edges: [
+          {fromNode: "source", fromPort: "rows", toNode: "normalize", toPort: "rows"},
+          {fromNode: "normalize", fromPort: "rows", toNode: "result", toPort: "crossChain"},
+        ],
+        outputSchema: {fields: [{name: "amount", type: "decimal", nullable: false, unit: "USD"}]},
+        refreshPolicy: {mode: "manual", timezone: "UTC"},
+      },
+    }},
+  ]);
+
+  const output = draft.specification.dag.nodes.find((node) => node.id === "result");
+  const sort = draft.specification.dag.nodes.find((node) => node.type === "sort");
+  assert.equal(output.operatorVersion, "3");
+  assert.deepEqual(output.config, {fields: ["amount"]});
+  assert.deepEqual(sort.config, {orderBy: [{field: "amount", direction: "desc", nulls: "last"}], limit: null});
+  assert.ok(draft.specification.dag.edges.some((edge) => edge.fromNode === "normalize" && edge.toNode === sort.id && edge.toPort === "rows"));
+  assert.ok(draft.specification.dag.edges.some((edge) => edge.fromNode === sort.id && edge.toNode === "result" && edge.toPort === "rows"));
+  assert.deepEqual(
+    createEditorState(draft).validation.filter((issue) => issue.nodeId === sort.id || issue.nodeId === "result"),
+    [],
+  );
 });
 
 test("recovers predecessor fields for historical Agent drafts that predate source output schemas", () => {
@@ -92,7 +145,7 @@ test("recovers predecessor fields for historical Agent drafts that predate sourc
             expression: {op: "utc_date", inputs: [{op: "field", field: "observed_at"}]},
           }]}},
           {id: "aggregate", type: "aggregate", operatorVersion: "2", config: {groupBy: ["category_code"], measures: [{name: "total", op: "sum", field: "metric_value"}]}},
-          {id: "output", type: "output", operatorVersion: "2", config: {fields: ["category_code", "total"], orderBy: []}},
+          {id: "output", type: "output", operatorVersion: "3", config: {fields: ["category_code", "total"]}},
         ],
         edges: [
           {fromNode: "source", fromPort: "rows", toNode: "filter", toPort: "rows"},
@@ -185,7 +238,7 @@ test("migrates nested legacy Filter expressions without protocol or asset assump
             name: "observed_date",
             expression: {op: "utc_date", inputs: [{op: "field", field: "observed_at"}]},
           }]}},
-          {id: "output", type: "output", operatorVersion: "2", config: {fields: ["observed_date"], orderBy: []}},
+          {id: "output", type: "output", operatorVersion: "3", config: {fields: ["observed_date"]}},
         ],
         edges: [
           {fromNode: "source", fromPort: "rows", toNode: "pair_filter", toPort: "rows"},

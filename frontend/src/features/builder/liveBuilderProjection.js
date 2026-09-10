@@ -282,7 +282,7 @@ export function projectAgentBuilderDraft(product, messages) {
 }
 
 export function builderDraftCacheKey(workspaceId, productId) {
-  return `sprue.builder-draft.v4:${workspaceId}:${productId}`;
+  return `sprue.builder-draft.v5:${workspaceId}:${productId}`;
 }
 
 export function browserSessionStorage() {

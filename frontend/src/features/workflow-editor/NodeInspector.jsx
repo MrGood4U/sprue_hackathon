@@ -896,21 +896,22 @@ function JoinConfig({ node, update }) {
   );
 }
 
-function OutputConfig({ node, update }) {
+function OutputConfig({ node, fields }) {
   const { t } = useI18n();
-  const order = node.config?.orderBy?.[0] ?? {field: "wallet", direction: "asc"};
+  const selected = Array.isArray(node.config?.fields) && node.config.fields.length > 0
+    ? new Set(node.config.fields)
+    : null;
+  const publishedFields = selected ? fields.filter((field) => selected.has(field.name)) : fields;
   return (
-    <>
-      <Field id={`output-order-field-${node.id}`} label={t("workflowEditor.inspector.orderField")}>
-        <input id={`output-order-field-${node.id}`} value={order.field} onChange={(event) => update({...node.config, orderBy: [{...order, field: event.target.value}]})} />
-      </Field>
-      <Field id={`output-order-direction-${node.id}`} label={t("workflowEditor.inspector.orderDirection")}>
-        <select id={`output-order-direction-${node.id}`} value={order.direction} onChange={(event) => update({...node.config, orderBy: [{...order, direction: event.target.value}]})}>
-          <option value="asc">asc</option>
-          <option value="desc">desc</option>
-        </select>
-      </Field>
-    </>
+    <div className="workflow-map-schema">
+      <p className="workflow-inspector-help">{t("workflowEditor.inspector.outputHint")}</p>
+      <span className="workflow-inspector-subtitle">{t("workflowEditor.inspector.outputFields")}</span>
+      {publishedFields.length > 0 ? (
+        <ul>
+          {publishedFields.map((field) => <li key={field.name}><code>{field.name}</code><span>{field.type}</span></li>)}
+        </ul>
+      ) : <p className="workflow-inspector-empty">{t("workflowEditor.inspector.outputNoFields")}</p>}
+    </div>
   );
 }
 
@@ -987,6 +988,7 @@ export function NodeInspector({ editor, nodeId, onClose }) {
   const mapErrors = node.type === "map" ? validateMapConfig(draftConfig, mapFields) : [];
   const aggregateFields = node.type === "aggregate" ? deriveDirectInputFields(editor, node.id) : [];
   const aggregateErrors = node.type === "aggregate" ? validateAggregateConfig(draftConfig, aggregateFields) : [];
+  const outputFields = node.type === "output" ? deriveDirectInputFields(editor, node.id) : [];
   const canConfirm = (node.type !== "source" || sourceMode === "discovered")
     && (node.type !== "filter" || (!legacyFilterExpression && filterErrors.length === 0))
     && (node.type !== "sort" || sortErrors.length === 0)
@@ -1053,7 +1055,7 @@ export function NodeInspector({ editor, nodeId, onClose }) {
           {node.type === "aggregate" && <AggregateConfig node={draftNode} update={update} fields={aggregateFields} errors={aggregateErrors} />}
           {node.type === "union" && <UnionConfig node={draftNode} update={update} />}
           {node.type === "join" && <JoinConfig node={draftNode} update={update} />}
-          {node.type === "output" && <OutputConfig node={draftNode} update={update} />}
+          {node.type === "output" && <OutputConfig node={draftNode} fields={outputFields} />}
         </div>
         <div className="workflow-inspector-actions">
           <Button type="button" onClick={onClose}>{t("common.cancel")}</Button>

@@ -11,7 +11,7 @@ const inputPorts = {
   sort: ["rows"],
   union: ["left", "right"],
   join: ["left", "right"],
-  output: ["crossChain", "allActivity", "rows"],
+  output: ["rows"],
 };
 
 const outputPorts = {
@@ -39,6 +39,7 @@ export function canConnect(connection, nodes, edges) {
   if (!source || !target || source.id === target.id) return false;
   if (!getOutputPorts(source.data.node.type).includes(connection.sourceHandle ?? "rows")) return false;
   if (!getInputPorts(target.data.node.type).includes(connection.targetHandle ?? "rows")) return false;
+  if (target.data.node.type === "output" && edges.some((edge) => edge.target === target.id)) return false;
   if (edges.some((edge) => edge.target === target.id && edge.targetHandle === (connection.targetHandle ?? "rows"))) return false;
   if (createsCycle(connection, nodes, edges)) return false;
   return true;
@@ -48,12 +49,14 @@ export function validateWorkflow(nodes, edges, draft = null) {
   const errors = [];
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
   const incoming = new Map(nodes.map((node) => [node.id, new Set()]));
+  const incomingCounts = new Map(nodes.map((node) => [node.id, 0]));
   const outputNodes = nodes.filter((node) => node.data.node.type === "output");
 
   if (outputNodes.length !== 1) errors.push({ code: "OUTPUT_COUNT", nodeId: null });
   for (const edge of edges) {
     const targets = incoming.get(edge.target);
     if (targets) targets.add(edge.targetHandle ?? "rows");
+    if (incomingCounts.has(edge.target)) incomingCounts.set(edge.target, incomingCounts.get(edge.target) + 1);
     if (!nodeById.has(edge.source) || !nodeById.has(edge.target)) errors.push({ code: "MISSING_EDGE_NODE", nodeId: edge.target });
   }
   for (const node of nodes) {
@@ -94,7 +97,8 @@ export function validateWorkflow(nodes, edges, draft = null) {
       }
     }
     if (["union", "join"].includes(definition.type) && inputPorts.some((port) => !connected.has(port))) errors.push({ code: "MISSING_BRANCH_INPUT", nodeId: node.id });
-    if (definition.type === "output" && connected.size === 0) errors.push({ code: "MISSING_OUTPUT_INPUT", nodeId: node.id });
+    if (definition.type === "output" && (incomingCounts.get(node.id) ?? 0) === 0) errors.push({ code: "MISSING_OUTPUT_INPUT", nodeId: node.id });
+    if (definition.type === "output" && (incomingCounts.get(node.id) ?? 0) > 1) errors.push({ code: "OUTPUT_INPUT_COUNT", nodeId: node.id });
   }
   if (hasCycle(nodes, edges)) errors.push({ code: "CYCLE", nodeId: null });
   return errors;
