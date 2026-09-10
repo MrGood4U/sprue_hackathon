@@ -491,3 +491,11 @@ test("hand mode keeps the grab cursor over every canvas element", async () => {
   assert.match(styles, /\.workflow-canvas-pan \.react-flow__pane,[\s\S]*?\.workflow-canvas-pan \.react-flow__pane \* \{\s*cursor: grab !important;/);
   assert.match(styles, /\.workflow-canvas-pan \.react-flow__pane:active,[\s\S]*?\.workflow-canvas-pan \.react-flow__pane:active \* \{\s*cursor: grabbing !important;/);
 });
+
+test("operator inspectors use the shared token-colored scrollbar", async () => {
+  const styles = await readFile(new URL("../src/features/workflow-editor/workflow-editor.css", import.meta.url), "utf8");
+  assert.match(styles, /\.workflow-node-inspector \{[\s\S]*?scrollbar-width: thin;/);
+  assert.match(styles, /\.workflow-node-inspector::\-webkit-scrollbar-thumb \{[\s\S]*?border-radius: 999px;/);
+  assert.match(styles, /\.workflow-node-inspector::\-webkit-scrollbar-thumb:hover/);
+  assert.match(styles, /\.workflow-node-inspector::\-webkit-scrollbar-button \{[\s\S]*?display: none;/);
+});

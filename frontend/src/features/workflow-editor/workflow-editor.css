@@ -337,12 +337,47 @@
   align-content: start;
   width: min(520px, calc(100vw - 48px));
   max-width: 520px;
-  max-height: min(720px, calc(100vh - 48px));
+  max-height: min(720px, calc(100dvh - 48px));
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-accent-agent) 42%, var(--color-foreground-tertiary)) transparent;
   border: 1px solid var(--modal-border);
   border-radius: var(--modal-radius);
   background: var(--modal-background);
   box-shadow: var(--modal-shadow);
+}
+
+.workflow-node-inspector::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.workflow-node-inspector::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.workflow-node-inspector::-webkit-scrollbar-thumb {
+  min-height: 44px;
+  border: 3px solid var(--modal-background);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent-agent) 42%, var(--color-foreground-tertiary));
+}
+
+.workflow-node-inspector::-webkit-scrollbar-thumb:hover {
+  border-width: 2px;
+  background: color-mix(in srgb, var(--color-accent-agent) 72%, var(--color-foreground-tertiary));
+}
+
+.workflow-node-inspector::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.workflow-node-inspector::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 .workflow-node-inspector:focus {
