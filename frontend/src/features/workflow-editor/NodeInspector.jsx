@@ -1258,7 +1258,7 @@ function UnionConfig({ node, update }) {
   const { t } = useI18n();
   return (
     <Field id={`union-mode-${node.id}`} label={t("workflowEditor.inspector.unionMode")}>
-      <select id={`union-mode-${node.id}`} value={node.config?.mode ?? "append_compatible_rows"} onChange={(event) => update({mode: event.target.value})}>
+      <select id={`union-mode-${node.id}`} value={node.config?.mode ?? "append_compatible_rows"} onChange={(event) => update({...node.config, mode: event.target.value})}>
         <option value="append_compatible_rows">append_compatible_rows</option>
       </select>
     </Field>

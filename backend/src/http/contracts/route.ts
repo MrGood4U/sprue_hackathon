@@ -37,6 +37,7 @@ export interface RouteDefinition {
     | "agent-trace-events-list"
     | "agent-messages-submit"
     | "agent-planning-cancel"
+    | "builder-compile"
     | "graph-sources-search"
     | "graph-sources-validate";
   idempotency: boolean;

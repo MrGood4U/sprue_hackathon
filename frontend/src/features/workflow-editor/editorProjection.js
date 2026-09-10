@@ -2,6 +2,21 @@ import { MarkerType } from "@xyflow/react";
 import { projectGraph } from "../builder/graphView.js";
 import { defaultNodeConfig, getTemplate } from "./nodeCatalog.js";
 
+const currentOperatorVersions = {
+  source: "1",
+  filter: "2",
+  map: "2",
+  aggregate: "2",
+  sort: "1",
+  union: "2",
+  join: "2",
+  output: "3",
+};
+
+function operatorVersion(type) {
+  return currentOperatorVersions[type] ?? "1";
+}
+
 export function flowStateFromDraft(draft) {
   const graph = projectGraph(draft.specification.dag, []);
   return {
@@ -73,7 +88,7 @@ export function createOperatorNode(type, id, position) {
     id,
     type: "workflow",
     position,
-    data: { node: { id, type, operatorVersion: type === "output" ? "3" : type === "filter" || type === "map" ? "2" : "1", config: defaultNodeConfig(type) } },
+    data: { node: { id, type, operatorVersion: operatorVersion(type), config: defaultNodeConfig(type) } },
   };
 }
 
@@ -90,7 +105,7 @@ export function instantiateTemplate(templateId, instanceId, position) {
         node: {
           id,
           type: node.type,
-          operatorVersion: node.type === "output" ? "3" : node.type === "filter" || node.type === "map" ? "2" : "1",
+          operatorVersion: operatorVersion(node.type),
           config: structuredClone(node.config),
         },
       },

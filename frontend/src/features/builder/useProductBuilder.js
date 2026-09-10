@@ -3,9 +3,10 @@ import {useAuth} from "../auth/AuthProvider.jsx";
 import {loadAgentMessages, resolveProduct} from "../agent/agentData.js";
 import {latestRunMessages} from "../agent/latestRunMessages.js";
 import {listAgentSessions} from "../../services/api/agent.js";
-import {updateProduct} from "../../services/api/products.js";
+import {compileProductDag, updateProduct} from "../../services/api/products.js";
 import {searchGraphSources, validateGraphSource} from "../../services/api/graph-sources.js";
 import {browserSessionStorage, projectAgentBuilderDraft, readCachedBuilderDraft} from "./liveBuilderProjection.js";
+import {createBuilderCompilationInput} from "./builderCompilation.js";
 import {useProductCache} from "../products/ProductCacheProvider.jsx";
 
 export function useProductBuilder(productRef) {
@@ -69,5 +70,14 @@ export function useProductBuilder(productRef) {
     signal,
   }), [scope]);
 
-  return {...state, workspaceId, refresh, rename, searchSources, validateSource};
+  const compileDraft = useCallback(async (draft, signal) => {
+    if (!state.product) throw new Error("PRODUCT_NOT_LOADED");
+    return compileProductDag(
+      state.product.id,
+      createBuilderCompilationInput(draft),
+      {...await scope(), signal},
+    );
+  }, [scope, state.product]);
+
+  return {...state, workspaceId, refresh, rename, searchSources, validateSource, compileDraft};
 }

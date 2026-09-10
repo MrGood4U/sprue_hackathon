@@ -452,7 +452,7 @@ test("HTTP framework boundaries through real local sockets", async (t) => {
       },
     );
     await t.test(
-      "product metadata routes are live while unimplemented build commands stay unavailable",
+      "product metadata and structured DAG compilation routes are live",
       async () => {
         assert.equal(
           (
@@ -536,19 +536,37 @@ test("HTTP framework boundaries through real local sockets", async (t) => {
           { method: "PATCH", headers: jsonHeaders, body: "{}" },
         );
         assert.equal(patch.status, 428);
-        assert.equal(
-          (
-            await call(
-              `/api/v1/workspaces/${workspace}/products/${user}/build-preflight`,
-              {
-                method: "POST",
-                headers: { ...auth, "Content-Type": "application/json" },
-                body: "{}",
+        const compiled = await call(
+          `/api/v1/workspaces/${workspace}/products/${product.id}/build-preflight`,
+          {
+            method: "POST",
+            headers: { ...auth, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              schemaVersion: 1,
+              dag: {
+                nodes: [
+                  {id: "source_rows", type: "source", operatorVersion: "1", config: {sourceId: "graph:source"}, outputSchema: {fields: [
+                    {name: "amount_usd", type: "decimal", nullable: false, unit: "USD"},
+                  ]}},
+                  {id: "normalize_rows", type: "map", operatorVersion: "2", config: {mode: "project", fields: [
+                    {name: "amount_usd", expression: {op: "field", field: "amount_usd"}},
+                  ]}},
+                  {id: "final_output", type: "output", operatorVersion: "3", config: {fields: ["amount_usd"]}},
+                ],
+                edges: [
+                  {fromNode: "source_rows", fromPort: "rows", toNode: "normalize_rows", toPort: "rows"},
+                  {fromNode: "normalize_rows", fromPort: "rows", toNode: "final_output", toPort: "rows"},
+                ],
               },
-            )
-          ).status,
-          503,
+              outputSchema: {fields: [{name: "amount_usd", type: "decimal", nullable: false, unit: "USD"}]},
+            }),
+          },
         );
+        assert.equal(compiled.status, 200);
+        const compiledBody = await compiled.json();
+        assert.equal(compiledBody.meta.dataSource, "live");
+        assert.equal(compiledBody.data.status, "passed");
+        assert.match(compiledBody.data.compilationHash, /^[0-9a-f]{64}$/);
       },
     );
     await t.test("Builder Graph source lookup is authenticated and workspace scoped", async () => {

@@ -39,6 +39,10 @@ import {
   builderSourceValidateInputSchema,
   builderSourceValidationSchema,
 } from "../graph/builder-source.controller.js";
+import {
+  builderCompilationSchema,
+  builderCompileInputSchema,
+} from "../control/builder-compile.controller.js";
 export function openApiDocument() {
   const paths: Record<string, Record<string, unknown>> = {};
   for (const route of routeCatalog) {
@@ -130,6 +134,8 @@ export function openApiDocument() {
                               ? "BuilderSourceSearchResult"
                               : route.implementation === "graph-sources-validate"
                                 ? "BuilderSourceValidation"
+                                : route.implementation === "builder-compile"
+                                  ? "BuilderCompilation"
         : ["me", "bootstrap"].includes(route.implementation)
           ? "Bootstrap"
           : route.implementation === "app-config"
@@ -155,6 +161,8 @@ export function openApiDocument() {
                       ? "Authorized durable Agent conversation, sanitized planning evidence, or terminal command"
                       : route.implementation.startsWith("graph-sources-")
                         ? "Authorized live The Graph metadata discovery or schema verification"
+                        : route.implementation === "builder-compile"
+                          ? "Authorized read-only structured DAG compilation result"
                     : "Actual server configuration; unsupported capabilities remain disabled",
         content: {
           "application/json": {
@@ -218,7 +226,8 @@ export function openApiDocument() {
       route.implementation === "agent-messages-submit" ||
       route.implementation === "agent-planning-cancel" ||
       route.implementation === "graph-sources-search" ||
-      route.implementation === "graph-sources-validate"
+      route.implementation === "graph-sources-validate" ||
+      route.implementation === "builder-compile"
     ) {
       operation.requestBody = {
         required: true,
@@ -234,8 +243,10 @@ export function openApiDocument() {
                     ? {$ref: "#/components/schemas/AgentMessageInput"}
                   : route.implementation === "graph-sources-search"
                     ? {$ref: "#/components/schemas/BuilderSourceSearchInput"}
-                    : route.implementation === "graph-sources-validate"
+                  : route.implementation === "graph-sources-validate"
                       ? {$ref: "#/components/schemas/BuilderSourceValidateInput"}
+                    : route.implementation === "builder-compile"
+                      ? {$ref: "#/components/schemas/BuilderCompileInput"}
                 : route.implementation === "wallet-hedera-create" ||
               route.implementation === "agent-planning-cancel" ||
               route.implementation === "graph-credentials-validate" ||
@@ -321,6 +332,8 @@ export function openApiDocument() {
         BuilderSourceSearchResult: z.toJSONSchema(builderSourceSearchResultSchema),
         BuilderSourceValidateInput: z.toJSONSchema(builderSourceValidateInputSchema),
         BuilderSourceValidation: z.toJSONSchema(builderSourceValidationSchema),
+        BuilderCompileInput: z.toJSONSchema(builderCompileInputSchema),
+        BuilderCompilation: z.toJSONSchema(builderCompilationSchema),
         DemoEnvelope: {
           type: "object",
           description: "A server-generated evaluator demo projection or action result.",

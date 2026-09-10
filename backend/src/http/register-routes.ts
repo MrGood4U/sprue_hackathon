@@ -47,6 +47,7 @@ import {
   submitAgentMessage,
 } from "./agent/agent.controller.js";
 import {searchBuilderSources, validateBuilderSource} from "./graph/builder-source.controller.js";
+import {compileBuilderDag} from "./control/builder-compile.controller.js";
 export interface RouteDependencies {
   config: AppConfig;
   verifier: IdentityVerifier;
@@ -167,10 +168,12 @@ export function registerRoutes(app: Express, deps: RouteDependencies) {
                                                     ? submitAgentMessage(deps.agents)
                                           : route.implementation === "agent-planning-cancel"
                                                       ? cancelAgentPlanning(deps.agents)
-                                                    : route.implementation === "graph-sources-search"
+                                                  : route.implementation === "graph-sources-search"
                                                       ? searchBuilderSources(deps.builderSources)
                                                       : route.implementation === "graph-sources-validate"
                                                         ? validateBuilderSource(deps.builderSources)
+                                                        : route.implementation === "builder-compile"
+                                                          ? compileBuilderDag(deps.products)
               : () => {
                   throw new AppError("CAPABILITY_NOT_IMPLEMENTED");
                 };

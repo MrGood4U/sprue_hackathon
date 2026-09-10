@@ -26,10 +26,10 @@ export const templateCatalog = [
     descriptionKey: "workflowEditor.template.crossChainUnionDetail",
     nodes: [
       { localId: "source-left", type: "source", config: { sourceId: "" } },
-      { localId: "map-left", type: "map", config: { mode: "extend", fields: [] } },
+      { localId: "map-left", type: "map", config: { mode: "project", fields: [] } },
       { localId: "source-right", type: "source", config: { sourceId: "" } },
-      { localId: "map-right", type: "map", config: { mode: "extend", fields: [] } },
-      { localId: "union", type: "union", config: { schema: "canonical_rows" } },
+      { localId: "map-right", type: "map", config: { mode: "project", fields: [] } },
+      { localId: "union", type: "union", config: { mode: "append_compatible_rows", sourceDiscriminator: null } },
     ],
     edges: [
       { fromNode: "source-left", fromPort: "rows", toNode: "map-left", toPort: "rows" },
@@ -55,8 +55,8 @@ export function defaultNodeConfig(type) {
     case "map": return { mode: "extend", fields: [] };
     case "aggregate": return { groupBy: [], measures: [] };
     case "sort": return { orderBy: [], limit: null };
-    case "union": return { schema: "canonical_rows" };
-    case "join": return { keys: ["wallet"], type: "inner", cardinality: "one_to_one" };
+    case "union": return { mode: "append_compatible_rows", sourceDiscriminator: null };
+    case "join": return { keys: [], type: "inner", cardinality: "one_to_one", rightPrefix: "right_" };
     case "output": return { fields: [] };
     default: return {};
   }

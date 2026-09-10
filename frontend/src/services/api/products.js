@@ -102,6 +102,38 @@ function assertDeletion(value, productId) {
   return value;
 }
 
+function assertCompilationIssue(value) {
+  if (
+    typeof value?.code !== "string" ||
+    typeof value?.message !== "string" ||
+    !(value?.nodeId === null || typeof value?.nodeId === "string") ||
+    !(value?.path === null || typeof value?.path === "string")
+  ) throw new Error("INVALID_PRODUCT_API_RESPONSE");
+  return value;
+}
+
+function assertCompilation(value) {
+  if (
+    value?.schemaVersion !== 1 ||
+    !["passed", "failed"].includes(value?.status) ||
+    typeof value?.compiledAt !== "string" ||
+    !Number.isSafeInteger(value?.nodeCount) ||
+    !Number.isSafeInteger(value?.edgeCount) ||
+    !Array.isArray(value?.issues)
+  ) throw new Error("INVALID_PRODUCT_API_RESPONSE");
+  value.issues.forEach(assertCompilationIssue);
+  if (value.status === "failed") {
+    if (value.issues.length < 1) throw new Error("INVALID_PRODUCT_API_RESPONSE");
+    return value;
+  }
+  if (
+    value.issues.length !== 0 ||
+    !/^[0-9a-f]{64}$/.test(value?.compilationHash ?? "") ||
+    !Array.isArray(value?.outputSchema?.fields)
+  ) throw new Error("INVALID_PRODUCT_API_RESPONSE");
+  return value;
+}
+
 export async function listProducts({
   apiBaseUrl: configuredBaseUrl,
   fetchImpl = globalThis.fetch,
@@ -179,6 +211,29 @@ export async function getProduct(productId, {
   );
   const body = await readLiveResponse(response);
   return assertProduct(body.data, true);
+}
+
+export async function compileProductDag(productId, input, {
+  apiBaseUrl: configuredBaseUrl,
+  fetchImpl = globalThis.fetch,
+  signal,
+  ...options
+} = {}) {
+  if (!uuidPattern.test(productId ?? "")) throw new Error("INVALID_PRODUCT_ID");
+  const response = await fetchImpl(
+    endpoint(configuredBaseUrl, options, `products/${productId}/build-preflight`),
+    {
+      method: "POST",
+      credentials: "omit",
+      redirect: "error",
+      cache: "no-store",
+      headers: headers(options, {"Content-Type": "application/json"}),
+      body: JSON.stringify(input),
+      signal: requestSignal(signal, 30_000),
+    },
+  );
+  const body = await readLiveResponse(response);
+  return assertCompilation(body.data);
 }
 
 export async function createProduct(input, {

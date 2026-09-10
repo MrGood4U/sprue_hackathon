@@ -8,6 +8,7 @@ import {
   testDemoModelProfile,
 } from "../src/services/api/demo-runtime.js";
 import {
+  compileProductDag,
   createProduct,
   deleteProduct,
   getWorkspaceOverview,
@@ -286,6 +287,35 @@ test("product dashboard client uses only authenticated live workspace records", 
     ...creatorScope,
   });
   assert.equal(deleted.productId, product.id);
+});
+
+test("Builder compilation client submits the structured DAG to the authenticated live endpoint", async () => {
+  const input = {
+    schemaVersion: 1,
+    dag: {nodes: [], edges: []},
+    outputSchema: {fields: []},
+  };
+  const result = await compileProductDag(product.id, input, {
+    apiBaseUrl: "https://api.example.test",
+    ...creatorScope,
+    fetchImpl: async (url, options) => {
+      assert.equal(url, `https://api.example.test/api/v1/workspaces/${workspaceId}/products/${product.id}/build-preflight`);
+      assert.equal(options.method, "POST");
+      assert.equal(options.headers.Authorization, "Bearer creator-token");
+      assert.equal(options.headers["Content-Type"], "application/json");
+      assert.deepEqual(JSON.parse(options.body), input);
+      return liveResponse({
+        schemaVersion: 1,
+        status: "failed",
+        compiledAt: "2026-09-11T00:00:00.000Z",
+        nodeCount: 0,
+        edgeCount: 0,
+        issues: [{code: "DAG_NODE_COUNT_INVALID", message: "DAG is empty.", nodeId: null, path: null}],
+      });
+    },
+  });
+  assert.equal(result.status, "failed");
+  assert.equal(result.issues[0].code, "DAG_NODE_COUNT_INVALID");
 });
 
 test("Builder source client performs authenticated live Graph search and schema verification", async () => {

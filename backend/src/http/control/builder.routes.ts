@@ -1,5 +1,5 @@
 import type { RouteDefinition } from "../contracts/route.js";
-// Implemented product metadata routes and reserved Builder operations mirror docs/api/products-builder.md.
+// Implemented product and Builder routes mirror docs/api/products-builder.md.
 export const builderRoutes: readonly RouteDefinition[] = [
   {
     method: "POST",
@@ -258,7 +258,7 @@ export const builderRoutes: readonly RouteDefinition[] = [
     operationId:
       "postApiV1WorkspacesWorkspaceIdProductsProductIdBuildPreflight",
     audience: "creator",
-    implementation: "reserved",
+    implementation: "builder-compile",
     idempotency: false,
     ifMatch: false,
   },

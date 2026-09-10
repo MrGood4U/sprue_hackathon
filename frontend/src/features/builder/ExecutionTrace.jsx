@@ -18,6 +18,8 @@ export function ExecutionTrace({ buildState, onBuild, onOpenDag, onSaveDraft, ca
         <Button
           variant="primary"
           icon={buildState === "building" ? ArrowsClockwise : ArrowRight}
+          className={buildState === "building" ? "builder-build-button is-building" : "builder-build-button"}
+          aria-busy={buildState === "building"}
           disabled={buildState === "building" || buildDisabled}
           onClick={onBuild}
         >

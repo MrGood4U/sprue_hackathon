@@ -10,6 +10,7 @@ import {createEditorState} from "../src/features/workflow-editor/editorReducer.j
 import {deriveFilterInputFields} from "../src/features/workflow-editor/filterModel.js";
 import {productRefFromPath} from "../src/features/products/productRoute.js";
 import {createProductCache} from "../src/features/products/productCache.js";
+import {createBuilderCompilationInput} from "../src/features/builder/builderCompilation.js";
 
 const product = {id: "product-1", slug: "live-product", originalIntent: "Stored intent"};
 
@@ -308,4 +309,49 @@ test("preserves the resolved product name across tabs without exposing another w
 
   cache.forget(workspaceId, renamed);
   assert.equal(cache.read(workspaceId, product.slug), null);
+});
+
+test("serializes only the layout-free structured DAG for backend compilation", () => {
+  const input = createBuilderCompilationInput({specification: {
+    dag: {
+      nodes: [{
+        id: "source_rows",
+        type: "source",
+        operatorVersion: "1",
+        position: {x: 120, y: 40},
+        config: {sourceId: "graph:source"},
+        outputSchema: {fields: [{
+          name: "amountUSD",
+          type: "decimal",
+          nullable: false,
+          unit: "USD",
+          origin: {provider: "graph"},
+        }]},
+      }],
+      edges: [{
+        id: "visible-edge",
+        fromNode: "source_rows",
+        fromPort: "rows",
+        toNode: "normalize_rows",
+        toPort: "rows",
+        animated: true,
+      }],
+    },
+    outputSchema: {fields: [{name: "amount_usd", type: "decimal", nullable: false, unit: "USD", label: "Volume"}]},
+  }});
+
+  assert.deepEqual(input, {
+    schemaVersion: 1,
+    dag: {
+      nodes: [{
+        id: "source_rows",
+        type: "source",
+        operatorVersion: "1",
+        config: {sourceId: "graph:source"},
+        outputSchema: {fields: [{name: "amountUSD", type: "decimal", nullable: false, unit: "USD"}]},
+      }],
+      edges: [{fromNode: "source_rows", fromPort: "rows", toNode: "normalize_rows", toPort: "rows"}],
+    },
+    outputSchema: {fields: [{name: "amount_usd", type: "decimal", nullable: false, unit: "USD"}]},
+  });
 });

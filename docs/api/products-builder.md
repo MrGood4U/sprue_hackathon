@@ -115,7 +115,7 @@ A template-parameter edit follows the existing proposal/new-version workflow. Ru
 
 | Method | Path | Input | Success | Model ownership |
 |---|---|---|---|---|
-| POST | `W/products/{productId}/build-preflight` | `{versionId, expectedSpecHash}`; read-only, key optional | 200 `BuildPreflight` | Read current ownership/source/access/budget/configuration; no reservation or payment |
+| POST | `W/products/{productId}/build-preflight` | `{schemaVersion:1, dag:{nodes,edges}, outputSchema:{fields}}`; read-only, key omitted | 200 `BuilderCompilation` | Compile the current editable Structured DAG; no persistence, source admission, query execution, reservation, or payment |
 | POST | `W/products/{productId}/runs` | `StartRunInput` | 202 `CommandAccepted` with execution_run subject | execution_runs + transactional queue dispatch |
 | GET | `W/runs/{runId}` | None | 200 `RunDetail` | Logical run + current attempt, not a process-local timer |
 | POST | `W/runs/{runId}/cancel` | `{}` | 202 `CommandAccepted` or 409 if non-cancellable | Stop future work at safe boundaries; preserve submitted payments |
@@ -135,6 +135,8 @@ A template-parameter edit follows the existing proposal/new-version workflow. Ru
 `RunSummary = {id, productId, versionId, runType, status, failureCode: string | null, queuedAt, startedAt: Timestamp | null, finishedAt: Timestamp | null}`. `RunDetail` adds `{specHash, runtimeVersion, operatorRegistryHash, deploymentId: Id | null, currentAttemptId: Id | null, traceStreamId, metrics: {sourceRows: Count | null, outputRows: Count | null, durationMs: Count | null} | null, materializationId: Id | null, blockers: Blocker[], actions: {canCancel, canResume, canRetry}, paymentReconciliationRequired: boolean}`.
 
 Actions are backend-computed hints rechecked by the command handler. Unknown duration/row totals are null rather than fabricated zeroes. No percent-complete field is promised for a DAG whose source pagination is not yet known. Build readiness is separate from deployment health.
+
+`BuilderCompilation` is a discriminated result. A pass returns `{schemaVersion:1,status:"passed",compiledAt,nodeCount,edgeCount,compilationHash,outputSchema,issues:[]}`. A semantic failure returns `{schemaVersion:1,status:"failed",compiledAt,nodeCount,edgeCount,issues:[{code,message,nodeId,path}]}` with at most 32 safe deterministic issues. Malformed transport still uses the standard 400 envelope. The compiler checks bounded node and edge counts, unique identifiers, registered operator versions, typed ports, required/exclusive inputs, one Output, acyclicity, full reachability, the exclusive Source-to-project-Map boundary, source and predecessor schemas, Filter/Map/Aggregate/Sort/Union/Join/Output contracts, and the declared output schema. The SHA-256 compilation hash covers a canonicalized, layout-free successful input and derived output. It is evidence of this read-only preflight only and is not a durable version or executable artifact.
 
 `RunAttempt = {id, attemptNo, status, startedAt: Timestamp | null, heartbeatAt: Timestamp | null, finishedAt: Timestamp | null, errorCode: string | null}`. Queue job IDs and worker internals stay server-side. `NodeRun = {id, attemptId, nodeId, operatorType, operatorVersion, status, startedAt: Timestamp | null, finishedAt: Timestamp | null, metrics: object | null, error: ErrorDetail | null, artifacts: [{direction, portName, ordinal, artifactId}]}`. metrics is a validated counts/duration projection, not arbitrary provider output.
 

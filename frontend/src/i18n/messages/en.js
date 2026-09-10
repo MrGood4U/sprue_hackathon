@@ -551,6 +551,12 @@ export const en = {
   "builder.runtimePreview": "Runtime result",
   "builder.runtimePreviewUnavailable": "No runtime result exists yet. This planning draft has not passed source admission or backend compilation.",
   "builder.sourceAdmissionRequired": "Backend build becomes available after source admission and executable compilation.",
+  "builder.compilationEyebrow": "Backend compilation",
+  "builder.compilationFailed": "The DAG could not be compiled",
+  "builder.compilationFailedDetail": "The canvas was left unchanged. Resolve the issues below, then run the backend build again.",
+  "builder.compilationNode": "Node {{nodeId}}",
+  "builder.compilationRequestFailed": "Sprue could not reach or verify the backend compiler. Check the service and try again.",
+  "builder.returnToBuilder": "Return to Builder",
   "builder.planningDraftDetail": "Read-only planning detail",
 
   "dag.workflowLabel": "Generated data workflow",
