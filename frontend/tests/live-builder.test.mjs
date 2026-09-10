@@ -87,7 +87,10 @@ test("recovers predecessor fields for historical Agent drafts that predate sourc
             {op: "eq", inputs: [{op: "field", field: "category_code"}, {op: "literal", value: "included", valueType: "string"}]},
             {op: "gte", inputs: [{op: "utc_date", inputs: [{op: "field", field: "observed_at"}]}, {op: "literal", value: "2026-01-01", valueType: "date"}]},
           ]}}},
-          {id: "map", type: "map", operatorVersion: "2", config: {mode: "extend", fields: []}},
+          {id: "map", type: "map", operatorVersion: "2", config: {mode: "extend", fields: [{
+            name: "observed_date",
+            expression: {op: "utc_date", inputs: [{op: "field", field: "observed_at"}]},
+          }]}},
           {id: "aggregate", type: "aggregate", operatorVersion: "2", config: {groupBy: ["category_code"], measures: [{name: "total", op: "sum", field: "metric_value"}]}},
           {id: "output", type: "output", operatorVersion: "2", config: {fields: ["category_code", "total"], orderBy: []}},
         ],
@@ -113,13 +116,99 @@ test("recovers predecessor fields for historical Agent drafts that predate sourc
   assert.deepEqual(draft.specification.dag.nodes[0].outputSchema.fields, sourceFields);
 
   const editor = createEditorState(draft);
+  assert.equal(editor.nodes.find((node) => node.id === "map").data.node.config.mode, "project");
   assert.deepEqual(deriveFilterInputFields(editor, "filter").map(({name}) => name), [
     "observed_at",
     "category_code",
     "metric_value",
     "data_network",
+    "observed_date",
   ]);
+  assert.deepEqual(editor.nodes.find((node) => node.id === "filter").data.node.config, {
+    predicate: {
+      combinator: "and",
+      conditions: [
+        {field: "category_code", operator: "eq", value: "included"},
+        {field: "observed_date", operator: "gte", value: "2026-01-01"},
+      ],
+    },
+  });
+  assert.equal(editor.edges.some((edge) => edge.source === "source" && edge.target === "map"), true);
+  assert.equal(editor.edges.some((edge) => edge.source === "map" && edge.target === "filter"), true);
+  assert.equal(editor.edges.some((edge) => edge.source === "filter" && edge.target === "aggregate"), true);
   assert.equal(editor.validation.some((issue) => issue.nodeId === "filter" && issue.code === "FILTER_INPUT_SCHEMA"), false);
+});
+
+test("migrates nested legacy Filter expressions without protocol or asset assumptions", () => {
+  const pairMatch = {op: "or", inputs: [
+    {op: "and", inputs: [
+      {op: "eq", inputs: [{op: "field", field: "left_symbol"}, {op: "literal", value: "AAA", valueType: "string"}]},
+      {op: "eq", inputs: [{op: "field", field: "right_symbol"}, {op: "literal", value: "BBB", valueType: "string"}]},
+    ]},
+    {op: "and", inputs: [
+      {op: "eq", inputs: [{op: "field", field: "left_symbol"}, {op: "literal", value: "BBB", valueType: "string"}]},
+      {op: "eq", inputs: [{op: "field", field: "right_symbol"}, {op: "literal", value: "AAA", valueType: "string"}]},
+    ]},
+  ]};
+  const draft = projectAgentBuilderDraft(product, [
+    {id: "user-pair", role: "user", contentText: "Compare a pair"},
+    {id: "assistant-pair", role: "assistant", contentJson: {
+      kind: "proposal",
+      builderDraft: {
+        schemaVersion: 1,
+        status: "requires_source_admission",
+        sources: [{
+          id: "candidate-pair",
+          dataNetwork: "eip155:1",
+          displayName: "Pair source",
+          logicalSubgraphId: "subgraph-pair",
+          manifestIpfsCid: "QmPair",
+          queryEntity: "events",
+          fieldBindings: [
+            {requirementId: "left_symbol", fieldPath: "asset0.symbol"},
+            {requirementId: "right_symbol", fieldPath: "asset1.symbol"},
+            {requirementId: "observed_at", fieldPath: "timestamp"},
+          ],
+          auxiliaryFieldBindings: [],
+          evidenceStatus: "suitable",
+        }],
+        nodes: [
+          {id: "source", type: "source", operatorVersion: "1", config: {sourceId: "candidate-pair"}},
+          {id: "pair_filter", type: "filter", operatorVersion: "2", config: {expression: {op: "and", inputs: [
+            pairMatch,
+            {op: "gte", inputs: [
+              {op: "utc_date", inputs: [{op: "field", field: "observed_at"}]},
+              {op: "literal", value: "2026-01-01", valueType: "date"},
+            ]},
+          ]}}},
+          {id: "normalize", type: "map", operatorVersion: "2", config: {mode: "extend", fields: [{
+            name: "observed_date",
+            expression: {op: "utc_date", inputs: [{op: "field", field: "observed_at"}]},
+          }]}},
+          {id: "output", type: "output", operatorVersion: "2", config: {fields: ["observed_date"], orderBy: []}},
+        ],
+        edges: [
+          {fromNode: "source", fromPort: "rows", toNode: "pair_filter", toPort: "rows"},
+          {fromNode: "pair_filter", fromPort: "rows", toNode: "normalize", toPort: "rows"},
+          {fromNode: "normalize", fromPort: "rows", toNode: "output", toPort: "rows"},
+        ],
+        outputSchema: {fields: [{name: "observed_date", type: "date", nullable: false, unit: null}]},
+        refreshPolicy: {mode: "manual", timezone: "UTC"},
+      },
+    }},
+  ]);
+
+  const filter = draft.specification.dag.nodes.find((node) => node.id === "pair_filter");
+  const map = draft.specification.dag.nodes.find((node) => node.id === "normalize");
+  assert.equal("expression" in filter.config, false);
+  assert.deepEqual(filter.config.predicate.conditions, [
+    {field: "pair_filter_match", operator: "eq", value: true},
+    {field: "observed_date", operator: "gte", value: "2026-01-01"},
+  ]);
+  assert.deepEqual(map.config.fields.find((field) => field.name === "pair_filter_match").expression, pairMatch);
+  assert.equal(JSON.stringify(draft).includes("WETH"), false);
+  assert.equal(JSON.stringify(draft).includes("USDC"), false);
+  assert.equal(createEditorState(draft).validation.length, 0);
 });
 
 test("uses an empty manual draft after a failed Agent run instead of demo data", () => {

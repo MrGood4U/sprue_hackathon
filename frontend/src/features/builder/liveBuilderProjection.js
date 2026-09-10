@@ -1,4 +1,5 @@
 import {projectGraph} from "./graphView.js";
+import {migrateLegacyBuilderDraft} from "./legacyBuilderMigration.js";
 
 function emptyOutputSchema(fields = []) {
   return {type: "array", items: {type: "object"}, fields: structuredClone(fields)};
@@ -231,6 +232,11 @@ export function projectAgentBuilderDraft(product, messages) {
 
   const builder = content.builderDraft;
   const sourceFieldsById = new Map(builder.sources.map((source) => [source.id, inferLegacySourceFields(builder, source)]));
+  const projectedNodes = builder.nodes.map((node) => {
+    const sourceFields = node.type === "source" ? sourceFieldsById.get(node.config?.sourceId ?? node.config?.sourceKey) : null;
+    return structuredClone(sourceFields ? {...node, outputSchema: {fields: sourceFields}} : node);
+  });
+  const migratedGraph = migrateLegacyBuilderDraft(projectedNodes, builder.edges);
   const draft = {
     origin: {kind: "agent", originKey, resultKind},
     parameters: {},
@@ -257,11 +263,8 @@ export function projectAgentBuilderDraft(product, messages) {
         },
       })),
       dag: {
-        nodes: builder.nodes.map((node) => {
-          const sourceFields = node.type === "source" ? sourceFieldsById.get(node.config?.sourceId ?? node.config?.sourceKey) : null;
-          return structuredClone(sourceFields ? {...node, outputSchema: {fields: sourceFields}} : node);
-        }),
-        edges: structuredClone(builder.edges),
+        nodes: migratedGraph.nodes,
+        edges: migratedGraph.edges,
       },
       outputSchema: emptyOutputSchema(builder.outputSchema.fields),
       refreshPolicy: structuredClone(builder.refreshPolicy),
@@ -279,7 +282,7 @@ export function projectAgentBuilderDraft(product, messages) {
 }
 
 export function builderDraftCacheKey(workspaceId, productId) {
-  return `sprue.builder-draft.v3:${workspaceId}:${productId}`;
+  return `sprue.builder-draft.v4:${workspaceId}:${productId}`;
 }
 
 export function browserSessionStorage() {

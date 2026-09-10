@@ -157,6 +157,10 @@ frontend/src/features/workflow-editor/
 - Mobile or native desktop editor layouts.
 - Unbounded graphs, loops, implicit joins, or hidden schema coercion.
 
+## Historical Projection Migration
+
+Durable Agent proposals are immutable audit records, so compatibility upgrades occur only in their editable Builder projection. When an older Filter expression can be represented without changing its meaning, direct comparisons reuse existing Map-derived fields, remaining Boolean terms become explicit Map outputs, and the Filter receives the current structured predicate shape. Historical Source-to-Filter-to-Map chains move to Source-to-Map-to-Filter only after both migrated configurations validate. Unsupported expressions remain unchanged, and a versioned browser-session cache prevents stale projected drafts from hiding a successful upgrade.
+
 ## Verification
 
 - Pure graph tests cover insertion, namespaced template IDs, move-only changes, add/remove/reconnect, cycle detection, port compatibility, Join and Union rules, and undo/redo.
