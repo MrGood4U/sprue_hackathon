@@ -635,5 +635,7 @@ test("combined Map expressions reveal a bounded editable JSON surface with inlin
   assert.match(inspector, /mapExpressionFieldNames\(definition\.expression\)/);
   assert.match(inspector, /function parseAdvancedMapExpression[\s\S]*?<textarea/);
   assert.match(inspector, /disabled=\{Boolean\(advancedDraft\?\.error\) \|\| !advancedDraft\?\.expression\}/);
+  assert.match(styles, /\.workflow-map-definition-grid \{[\s\S]*?align-items: start;/);
+  assert.match(styles, /\.workflow-map-definition-grid \.icon-button \{[\s\S]*?align-self: start;[\s\S]*?margin-top: 22px;/);
   assert.match(styles, /\.workflow-map-expression-editor textarea \{[\s\S]*?max-height: 360px;[\s\S]*?scrollbar-width: thin;/);
 });

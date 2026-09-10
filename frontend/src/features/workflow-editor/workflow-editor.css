@@ -571,7 +571,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr) minmax(0, 1.25fr) 34px;
   gap: 8px;
-  align-items: end;
+  align-items: start;
 }
 
 .workflow-map-definition-grid.is-advanced {
@@ -579,8 +579,10 @@
 }
 
 .workflow-map-definition-grid .icon-button {
+  align-self: start;
   width: 34px;
   height: 34px;
+  margin-top: 22px;
   color: var(--color-foreground-secondary);
 }
 
@@ -956,6 +958,7 @@
 
   .workflow-map-definition-grid .icon-button {
     justify-self: end;
+    margin-top: 0;
   }
 
   .workflow-map-advanced-header {
