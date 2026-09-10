@@ -65,6 +65,30 @@ test("structured DAG compiler enforces the source boundary Map and declared outp
   assert.equal(outputResult.issues[0]?.code, "OUTPUT_SCHEMA_INVALID");
 });
 
+test("structured DAG compiler accepts generic Map unit annotations and rejects relabeling known units", () => {
+  const annotated = validDag();
+  const source = annotated.dag.nodes.find((node) => node.id === "source_rows")!;
+  const map = annotated.dag.nodes.find((node) => node.id === "normalize_rows")!;
+  source.outputSchema = {fields: [{name: "amount_usd", type: "decimal", nullable: false, unit: null}]};
+  map.config = {mode: "project", fields: [
+    {name: "amount_usd", expression: {op: "field", field: "amount_usd"}, unit: "kWh"},
+  ]};
+  annotated.outputSchema = {fields: [{name: "amount_usd", type: "decimal", nullable: false, unit: "kWh"}]};
+
+  const result = compileStructuredDag(annotated);
+  assert.equal(result.status, "passed");
+  if (result.status === "passed") assert.equal(result.outputSchema.fields[0]?.unit, "kWh");
+
+  const conflicting = validDag();
+  const conflictingMap = conflicting.dag.nodes.find((node) => node.id === "normalize_rows")!;
+  conflictingMap.config = {mode: "project", fields: [
+    {name: "amount_usd", expression: {op: "field", field: "amount_usd"}, unit: "HBAR"},
+  ]};
+  const conflict = compileStructuredDag(conflicting);
+  assert.equal(conflict.status, "failed");
+  if (conflict.status === "failed") assert.equal(conflict.issues[0]?.code, "MAP_UNIT_CONFLICT");
+});
+
 test("structured DAG compiler requires exact declared output types", () => {
   const base = validDag();
   const mismatchedOutput = {...base, outputSchema: {fields: [

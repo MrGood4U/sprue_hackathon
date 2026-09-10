@@ -13,6 +13,7 @@ import {
   defaultMapFallbackValue,
   editableMapConfig,
   formatMapExpression,
+  inferMapDefinitionField,
   inspectMapExpression,
   mapExpressionEditor,
   mapExpressionFieldNames,
@@ -329,8 +330,21 @@ test("Map reads its direct predecessor schema and preserves Agent-authored field
   assert.equal(missing.fields[0].expression.field, "removed_field");
   assert.deepEqual(editableMapConfig({mapping: {kept: "token0_symbol"}}), {
     mode: "project",
-    fields: [{name: "kept", expression: {op: "field", field: "token0_symbol"}}],
+    fields: [{name: "kept", expression: {op: "field", field: "token0_symbol"}, unit: null}],
   });
+});
+
+test("Map applies arbitrary unit metadata without field-name assumptions", () => {
+  const fields = [{name: "reading", type: "decimal", nullable: false, unit: null}];
+  const definition = {name: "normalized_reading", expression: {op: "field", field: "reading"}, unit: "kWh"};
+  assert.equal(validateMapConfig({mode: "project", fields: [definition]}, fields).length, 0);
+  assert.equal(inferMapDefinitionField(definition, fields).unit, "kWh");
+
+  const known = [{name: "reading", type: "decimal", nullable: false, unit: "HBAR"}];
+  assert.equal(
+    validateMapConfig({mode: "project", fields: [{...definition, unit: "kWh"}]}, known)[0]?.code,
+    "MAP_UNIT_CONFLICT",
+  );
 });
 
 test("Map exposes type-aware conversions and round-trips progressively disclosed editor expressions", () => {

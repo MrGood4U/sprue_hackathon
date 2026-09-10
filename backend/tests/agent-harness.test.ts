@@ -438,7 +438,7 @@ test("flexible validation preserves nominal count units and numerator units for 
         name: "amountUSD",
         type: "decimal" as const,
         nullable: false,
-        unit: "USD",
+        unit: null,
         origin: sourceRequirementOrigin("daily_swaps", "swap_amount_usd"),
       },
     ],
@@ -457,10 +457,12 @@ test("flexible validation preserves nominal count units and numerator units for 
             {
               name: "day",
               expression: {op: "utc_date", inputs: [{op: "field", field: "timestamp"}]},
+              unit: null,
             },
             {
               name: "swap_amount_usd",
               expression: {op: "field", field: "amountUSD"},
+              unit: "USD",
             },
           ],
         },
@@ -484,9 +486,9 @@ test("flexible validation preserves nominal count units and numerator units for 
         config: {
           mode: "project",
           fields: [
-            {name: "day", expression: {op: "field", field: "day"}},
-            {name: "trade_count", expression: {op: "field", field: "trade_count"}},
-            {name: "volume_usd", expression: {op: "field", field: "volume_usd"}},
+            {name: "day", expression: {op: "field", field: "day"}, unit: null},
+            {name: "trade_count", expression: {op: "field", field: "trade_count"}, unit: null},
+            {name: "volume_usd", expression: {op: "field", field: "volume_usd"}, unit: null},
             {
               name: "average_trade_size_usd",
               expression: {
@@ -496,6 +498,7 @@ test("flexible validation preserves nominal count units and numerator units for 
                   {op: "field", field: "trade_count"},
                 ],
               },
+              unit: null,
             },
           ],
         },
@@ -537,6 +540,32 @@ test("flexible validation preserves nominal count units and numerator units for 
     sourceFieldsByNeed,
   ));
 
+  const unsupportedUnit: FlexibleCompositionIntent = {
+    ...composition,
+    nodes: composition.nodes.map((node) => node.role === "derive_day" && node.operator === "map"
+      ? {
+          ...node,
+          config: {
+            ...node.config,
+            fields: (node.config.fields as readonly {name: string; expression: unknown; unit: string | null}[]).map((definition) => definition.name === "swap_amount_usd"
+              ? {...definition, unit: "HBAR"}
+              : definition),
+          },
+        }
+      : node),
+  };
+  assert.throws(
+    () => validateFlexibleComposition(
+      plan,
+      unsupportedUnit,
+      deriveDiscoverySourceNeeds(plan),
+      [selection],
+      {maxNodes: 12, maxEdges: 24},
+      sourceFieldsByNeed,
+    ),
+    (error: unknown) => error instanceof HarnessCompileError && error.code === "MAP_UNIT_UNSUPPORTED",
+  );
+
   const nonProjectBoundary: FlexibleCompositionIntent = {
     ...composition,
     nodes: composition.nodes.map((node) => node.role === "derive_day"
@@ -563,7 +592,7 @@ test("flexible validation preserves nominal count units and numerator units for 
           ...node,
           config: {
             mode: "project",
-            fields: [{name: "day", expression: {op: "field", field: "block_timestamp"}}],
+            fields: [{name: "day", expression: {op: "field", field: "block_timestamp"}, unit: null}],
           },
         }
       : node),

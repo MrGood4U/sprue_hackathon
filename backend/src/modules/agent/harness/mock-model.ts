@@ -369,13 +369,14 @@ function sourceFeasibilityOutput(
             const expression = target?.type === "date" && inspected.valueType !== "date"
               ? {op: "utc_date", inputs: [{op: "field", field: binding.fieldPath}]}
               : {op: "field", field: binding.fieldPath};
-            return {name: binding.requirementId, expression};
+            return {name: binding.requirementId, expression, unit: target?.unit ?? null};
           }),
           ...selection.auxiliaryFieldBindings.map((binding) => ({
             name: binding.name,
             expression: {op: "field", field: binding.fieldPath},
+            unit: null,
           })),
-          {name: "data_network", expression: {op: "field", field: "data_network"}},
+          {name: "data_network", expression: {op: "field", field: "data_network"}, unit: null},
         ],
       },
     });

@@ -236,7 +236,7 @@ export function projectAgentBuilderDraft(product, messages) {
     const sourceFields = node.type === "source" ? sourceFieldsById.get(node.config?.sourceId ?? node.config?.sourceKey) : null;
     return structuredClone(sourceFields ? {...node, outputSchema: {fields: sourceFields}} : node);
   });
-  const migratedGraph = migrateLegacyBuilderDraft(projectedNodes, builder.edges);
+  const migratedGraph = migrateLegacyBuilderDraft(projectedNodes, builder.edges, builder.outputSchema.fields);
   const draft = {
     origin: {kind: "agent", originKey, resultKind},
     parameters: {},
@@ -282,7 +282,7 @@ export function projectAgentBuilderDraft(product, messages) {
 }
 
 export function builderDraftCacheKey(workspaceId, productId) {
-  return `sprue.builder-draft.v5:${workspaceId}:${productId}`;
+  return `sprue.builder-draft.v6:${workspaceId}:${productId}`;
 }
 
 export function browserSessionStorage() {

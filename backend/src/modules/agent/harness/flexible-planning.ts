@@ -17,6 +17,7 @@ const integerLiteralPattern = /^-?(?:0|[1-9]\d*)$/;
 const decimalLiteralPattern = /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/;
 const dateLiteralPattern = /^\d{4}-\d{2}-\d{2}$/;
 const zonedTimestampPattern = /^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/i;
+const controlCharacterPattern = /[\u0000-\u001f\u007f]/;
 
 interface FieldShape {
   type: GraphSemanticValueType;
@@ -70,7 +71,7 @@ export const flexibleOperatorRegistry: readonly OperatorSignature[] = [
     operatorVersion: "2",
     inputPorts: ["rows"],
     outputPorts: ["rows"],
-    configContract: "{mode:'extend'|'project',fields:[{name,expression:Expression}]}",
+    configContract: "{mode:'extend'|'project',fields:[{name,expression:Expression,unit:string|null}]}; unit is semantic metadata, not a numeric conversion. Use null to inherit the expression unit.",
   },
   {
     type: "aggregate",
@@ -170,6 +171,29 @@ function exactKeys(value: Record<string, unknown>, keys: readonly string[], labe
   if (Object.keys(value).some((key) => !expected.has(key)) || keys.some((key) => !(key in value))) {
     fail("OPERATOR_CONFIG_INVALID", `${label} must contain exactly ${keys.join(", ")}`);
   }
+}
+
+function mapUnit(
+  value: unknown,
+  inferred: FieldShape,
+  expectedUnitsByOrigin: ReadonlyMap<string, string | null>,
+): FieldShape {
+  if (value === null) return inferred;
+  if (typeof value !== "string") fail("MAP_UNIT_INVALID", "Map output unit must be a string or null");
+  const unit = value.trim();
+  if (unit.length < 1 || unit.length > 40 || controlCharacterPattern.test(unit)) {
+    fail("MAP_UNIT_INVALID", "Map output unit must contain 1 to 40 printable characters");
+  }
+  if (inferred.unit !== null && inferred.unit !== unit) {
+    fail("MAP_UNIT_CONFLICT", `Map output unit ${unit} conflicts with inferred unit ${inferred.unit}`);
+  }
+  if (inferred.unit === null) {
+    const originUnits = [...inferred.origins].map((origin) => expectedUnitsByOrigin.get(origin));
+    if (originUnits.length === 0 || originUnits.some((originUnit) => originUnit !== unit)) {
+      fail("MAP_UNIT_UNSUPPORTED", `Map output unit ${unit} is not supported by the mapped source requirements`);
+    }
+  }
+  return {...inferred, unit};
 }
 
 function compatible(left: GraphSemanticValueType, right: GraphSemanticValueType): boolean {
@@ -469,6 +493,7 @@ function outputShape(
   configValue: Readonly<Record<string, unknown>>,
   inputs: ReadonlyMap<string, RowShape>,
   usage: FieldUsage,
+  expectedUnitsByOrigin: ReadonlyMap<string, string | null>,
 ): RowShape {
   const config = record(configValue, `${operator} config`);
   if (operator === "filter") {
@@ -502,11 +527,12 @@ function outputShape(
     const seen = new Set<string>();
     for (const definitionValue of definitions) {
       const definition = record(definitionValue, "Map field");
-      exactKeys(definition, ["name", "expression"], "Map field");
+      exactKeys(definition, ["name", "expression", "unit"], "Map field");
       const name = string(definition.name, "Map field name");
       if (seen.has(name)) fail("OPERATOR_CONFIG_INVALID", `Map field ${name} is duplicated`);
       seen.add(name);
-      output.set(name, expressionType(definition.expression, source, {nodes: 0}, {fields: usage, purpose: "derive"}));
+      const inferred = expressionType(definition.expression, source, {nodes: 0}, {fields: usage, purpose: "derive"});
+      output.set(name, mapUnit(definition.unit, inferred, expectedUnitsByOrigin));
     }
     return output;
   }
@@ -725,6 +751,12 @@ export function validateFlexibleComposition(
 
   const shapes = new Map<string, RowShape>();
   const fieldUsage: FieldUsage = new Map();
+  const expectedUnitsByOrigin = new Map<string, string | null>();
+  for (const need of needs) {
+    for (const requirement of need.fields) {
+      expectedUnitsByOrigin.set(sourceRequirementOrigin(need.id, requirement.id), requirement.unit);
+    }
+  }
   for (const {role, need} of sourceNodes) {
     const fields = new Map<string, FieldShape>();
     for (const sourceField of sourceFieldsByNeed.get(need.id) ?? []) {
@@ -767,7 +799,7 @@ export function validateFlexibleComposition(
         const node = nodes.get(next)!;
         const inputs = new Map<string, RowShape>();
         for (const [port, previous] of incoming.get(next)!) inputs.set(port, shapes.get(previous)!);
-        shapes.set(next, outputShape(node.operator, node.config, inputs, fieldUsage));
+        shapes.set(next, outputShape(node.operator, node.config, inputs, fieldUsage, expectedUnitsByOrigin));
         queue.push(next);
       }
     }

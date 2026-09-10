@@ -49,7 +49,7 @@ Use to_timestamp only for an ISO-8601 string. Epoch integers require the explici
 
 Operator configs are:
 - Filter {expression};
-- Map {mode:"extend"|"project",fields:[{name,expression}]};
+- Map {mode:"extend"|"project",fields:[{name,expression,unit:string|null}]}. unit is semantic metadata, not a value conversion: use null to inherit a known expression unit, or copy the applicable declared semantic source unit exactly when the inspected provider schema has no unit metadata. Never infer a unit from a field name, protocol, asset, network, or provider convention;
 - Aggregate {groupBy:[field names],measures:[{name,op:"count_rows"|"count_distinct"|"sum"|"min"|"max"|"average",field:string|null}]};
 - Sort {orderBy:[{field,direction:"asc"|"desc",nulls:"first"|"last"}],limit:integer|null};
 - Union {mode:"append_compatible_rows",sourceDiscriminator:string|null};

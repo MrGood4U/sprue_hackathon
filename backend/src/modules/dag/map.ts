@@ -11,6 +11,7 @@ export interface MapFieldDefinition {
 export interface MapOutputDefinition {
   name: string;
   expression: unknown;
+  unit?: string | null;
 }
 
 export interface MapConfig {
@@ -40,6 +41,7 @@ const decimalPattern = /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 const zonedTimestampPattern = /^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/i;
 const forbiddenPathSegments = new Set(["__proto__", "prototype", "constructor"]);
+const controlCharacterPattern = /[\u0000-\u001f\u007f]/;
 const scalarTypes = new Set<GraphSemanticValueType>([
   "boolean", "string", "id", "address", "bytes", "integer", "decimal", "timestamp", "date", "json",
 ]);
@@ -236,6 +238,22 @@ export function inferMapExpressionField(expression: unknown, inputFields: readon
   return inferExpression(expression, new Map(inputFields.map((field) => [field.name, field])), {nodes: 0});
 }
 
+export function applyMapUnitAnnotation(
+  inferred: MapFieldDefinition,
+  annotation: unknown,
+): MapFieldDefinition {
+  if (annotation === undefined || annotation === null) return {...inferred, unit: inferred.unit ?? null};
+  if (typeof annotation !== "string") throw new Error("Map output unit must be a string or null");
+  const unit = annotation.trim();
+  if (unit.length < 1 || unit.length > 40 || controlCharacterPattern.test(unit)) {
+    throw new Error("Map output unit must contain 1 to 40 printable characters");
+  }
+  if (inferred.unit !== undefined && inferred.unit !== null && inferred.unit !== unit) {
+    throw new Error(`Map output unit ${unit} conflicts with inferred unit ${inferred.unit}`);
+  }
+  return {...inferred, unit};
+}
+
 export function validateMapConfig(value: unknown, inputFields: readonly MapFieldDefinition[]): readonly MapValidationIssue[] {
   if (!isRecord(value) || !hasExactKeys(value, ["mode", "fields"]) || (value.mode !== "extend" && value.mode !== "project") || !Array.isArray(value.fields)) {
     return [{fieldIndex: null, code: "MAP_CONFIG_INVALID", message: "Map config must contain exactly mode and fields"}];
@@ -246,7 +264,11 @@ export function validateMapConfig(value: unknown, inputFields: readonly MapField
   const issues: MapValidationIssue[] = [];
   const names = new Set<string>();
   for (const [fieldIndex, candidate] of value.fields.entries()) {
-    if (!isRecord(candidate) || !hasExactKeys(candidate, ["name", "expression"]) || typeof candidate.name !== "string" || !outputNamePattern.test(candidate.name)) {
+    const validKeys = isRecord(candidate)
+      && Object.keys(candidate).every((key) => ["name", "expression", "unit"].includes(key))
+      && Object.prototype.hasOwnProperty.call(candidate, "name")
+      && Object.prototype.hasOwnProperty.call(candidate, "expression");
+    if (!isRecord(candidate) || !validKeys || typeof candidate.name !== "string" || !outputNamePattern.test(candidate.name)) {
       issues.push({fieldIndex, code: "MAP_FIELD_NAME_INVALID", message: "Map output field name is invalid"});
       continue;
     }
@@ -256,12 +278,19 @@ export function validateMapConfig(value: unknown, inputFields: readonly MapField
     }
     names.add(candidate.name);
     try {
-      inferMapExpressionField(candidate.expression, inputFields);
+      applyMapUnitAnnotation(inferMapExpressionField(candidate.expression, inputFields), candidate.unit);
     } catch (error) {
+      const message = error instanceof Error ? error.message : "Map expression is invalid";
       issues.push({
         fieldIndex,
-        code: error instanceof Error && error.message.includes("not available") ? "MAP_SOURCE_FIELD_UNKNOWN" : "MAP_EXPRESSION_INVALID",
-        message: error instanceof Error ? error.message : "Map expression is invalid",
+        code: message.includes("not available")
+          ? "MAP_SOURCE_FIELD_UNKNOWN"
+          : message.includes("conflicts with inferred unit")
+            ? "MAP_UNIT_CONFLICT"
+            : message.startsWith("Map output unit")
+              ? "MAP_UNIT_INVALID"
+              : "MAP_EXPRESSION_INVALID",
+        message,
       });
     }
   }

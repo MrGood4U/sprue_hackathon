@@ -242,7 +242,11 @@ const flexibleNodeSchema = z.discriminatedUnion("operator", [
     operatorVersion: z.literal("2"),
     config: z.object({
       mode: z.enum(["extend", "project"]),
-      fields: z.array(z.object({name: role, expression: expressionSchema}).strict()).min(1).max(32),
+      fields: z.array(z.object({
+        name: role,
+        expression: expressionSchema,
+        unit: boundedText(40).nullable(),
+      }).strict()).min(1).max(32),
     }).strict(),
   }).strict(),
   z.object({

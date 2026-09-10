@@ -11,6 +11,7 @@ import {deriveFilterInputFields} from "../src/features/workflow-editor/filterMod
 import {productRefFromPath} from "../src/features/products/productRoute.js";
 import {createProductCache} from "../src/features/products/productCache.js";
 import {createBuilderCompilationInput} from "../src/features/builder/builderCompilation.js";
+import {migrateLegacyBuilderDraft} from "../src/features/builder/legacyBuilderMigration.js";
 
 const product = {id: "product-1", slug: "live-product", originalIntent: "Stored intent"};
 
@@ -102,12 +103,47 @@ test("migrates legacy Output ordering into one explicit Sort predecessor", () =>
   const sort = draft.specification.dag.nodes.find((node) => node.type === "sort");
   assert.equal(output.operatorVersion, "3");
   assert.deepEqual(output.config, {fields: ["amount"]});
+  assert.equal(draft.specification.dag.nodes.find((node) => node.id === "normalize").config.fields[0].unit, "USD");
   assert.deepEqual(sort.config, {orderBy: [{field: "amount", direction: "desc", nulls: "last"}], limit: null});
   assert.ok(draft.specification.dag.edges.some((edge) => edge.fromNode === "normalize" && edge.toNode === sort.id && edge.toPort === "rows"));
   assert.ok(draft.specification.dag.edges.some((edge) => edge.fromNode === sort.id && edge.toNode === "result" && edge.toPort === "rows"));
   assert.deepEqual(
     createEditorState(draft).validation.filter((issue) => issue.nodeId === sort.id || issue.nodeId === "result"),
     [],
+  );
+});
+
+test("restores legacy Map units through aggregate and union lineage without naming assumptions", () => {
+  const branch = (suffix) => [
+    {id: `source_${suffix}`, type: "source", operatorVersion: "1", config: {sourceId: suffix}},
+    {id: `map_${suffix}`, type: "map", operatorVersion: "2", config: {mode: "project", fields: [
+      {name: "reading", expression: {op: "field", field: "provider_value"}},
+    ]}},
+    {id: `aggregate_${suffix}`, type: "aggregate", operatorVersion: "2", config: {
+      groupBy: [],
+      measures: [{name: "total_reading", op: "sum", field: "reading"}],
+    }},
+  ];
+  const nodes = [
+    ...branch("left"),
+    ...branch("right"),
+    {id: "combined", type: "union", operatorVersion: "2", config: {mode: "append_compatible_rows", sourceDiscriminator: null}},
+    {id: "result", type: "output", operatorVersion: "3", config: {fields: ["total_reading"]}},
+  ];
+  const edges = [
+    {fromNode: "source_left", fromPort: "rows", toNode: "map_left", toPort: "rows"},
+    {fromNode: "map_left", fromPort: "rows", toNode: "aggregate_left", toPort: "rows"},
+    {fromNode: "aggregate_left", fromPort: "rows", toNode: "combined", toPort: "left"},
+    {fromNode: "source_right", fromPort: "rows", toNode: "map_right", toPort: "rows"},
+    {fromNode: "map_right", fromPort: "rows", toNode: "aggregate_right", toPort: "rows"},
+    {fromNode: "aggregate_right", fromPort: "rows", toNode: "combined", toPort: "right"},
+    {fromNode: "combined", fromPort: "rows", toNode: "result", toPort: "rows"},
+  ];
+
+  const migrated = migrateLegacyBuilderDraft(nodes, edges, [{name: "total_reading", unit: "kWh"}]);
+  assert.deepEqual(
+    migrated.nodes.filter((node) => node.type === "map").map((node) => node.config.fields[0].unit),
+    ["kWh", "kWh"],
   );
 });
 

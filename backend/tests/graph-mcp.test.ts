@@ -1677,9 +1677,9 @@ test("Agent can select inspected fields when no lexical grain or field hint matc
                 config: {
                   mode: "project",
                   fields: [
-                    {name: "observation_value", expression: {op: "field", field: "payload.zorb"}},
-                    {name: "observation_kind", expression: {op: "field", field: "payload.flarn"}},
-                    {name: "data_network", expression: {op: "field", field: "data_network"}},
+                    {name: "observation_value", expression: {op: "field", field: "payload.zorb"}, unit: null},
+                    {name: "observation_kind", expression: {op: "field", field: "payload.flarn"}, unit: null},
+                    {name: "data_network", expression: {op: "field", field: "data_network"}, unit: null},
                   ],
                 },
               },
@@ -2092,9 +2092,9 @@ test("Agent validates schema-driven time-series fields without a wallet-shaped s
                 config: {
                   mode: "project",
                   fields: [
-                    {name: "day", expression: {op: "utc_date", inputs: [{op: "field", field: "blockTimestamp"}]}},
-                    {name: "raw_value", expression: {op: "field", field: "amountUSD"}},
-                    {name: "data_network", expression: {op: "field", field: "data_network"}},
+                    {name: "day", expression: {op: "utc_date", inputs: [{op: "field", field: "blockTimestamp"}]}, unit: null},
+                    {name: "raw_value", expression: {op: "field", field: "amountUSD"}, unit: "USD"},
+                    {name: "data_network", expression: {op: "field", field: "data_network"}, unit: null},
                   ],
                 },
               },

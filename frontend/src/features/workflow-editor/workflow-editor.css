@@ -586,6 +586,10 @@
   color: var(--color-foreground-secondary);
 }
 
+.workflow-map-unit input {
+  font-family: var(--typography-family-code);
+}
+
 .workflow-map-empty {
   padding: 10px;
   border: 1px solid var(--color-border-default);

@@ -21,6 +21,7 @@ const unaryOperations = new Set([
 const binaryOperations = new Set(["eq", "ne", "lt", "lte", "gt", "gte", "add", "subtract", "multiply", "safe_divide"]);
 const variadicOperations = new Set(["and", "or", "concat", "coalesce"]);
 const editorUnaryOperations = new Set([...unaryOperations].filter((operation) => operation !== "not"));
+const controlCharacterPattern = /[\u0000-\u001f\u007f]/;
 
 const transformDefinitions = [
   {kind: "field", group: "basic", accepts: () => true},
@@ -200,6 +201,20 @@ export function inferMapExpressionField(expression, inputFields) {
   return inspectMapExpression(expression, inputFields).field ?? null;
 }
 
+function applyMapUnitAnnotation(field, annotation) {
+  if (!field) return null;
+  if (annotation === undefined || annotation === null) return {...field, unit: field.unit ?? null};
+  if (typeof annotation !== "string") return null;
+  const unit = annotation.trim();
+  if (unit.length < 1 || unit.length > 40 || controlCharacterPattern.test(unit)) return null;
+  if (field.unit != null && field.unit !== unit) return null;
+  return {...field, unit};
+}
+
+export function inferMapDefinitionField(definition, inputFields) {
+  return applyMapUnitAnnotation(inferMapExpressionField(definition?.expression, inputFields), definition?.unit);
+}
+
 export function inspectMapExpression(expression, inputFields) {
   return expressionResult(expression, new Map(inputFields.map((field) => [field.name, {...field, type: normalizeType(field.type)}])));
 }
@@ -257,6 +272,7 @@ export function editableMapConfig(config) {
       fields: Object.entries(config.mapping).map(([name, sourceField]) => ({
         name,
         expression: {op: "field", field: sourceField},
+        unit: null,
       })),
     };
   }
@@ -343,7 +359,7 @@ export function createMapDefinition(inputFields, existingNames = []) {
     name = `${base}_${suffix}`;
     suffix += 1;
   }
-  return {name, expression: {op: "field", field: source.name}};
+  return {name, expression: {op: "field", field: source.name}, unit: null};
 }
 
 export function validateMapConfig(config, inputFields) {
@@ -368,6 +384,16 @@ export function validateMapConfig(config, inputFields) {
     }
     const result = expressionResult(definition?.expression, inputByName);
     if (result.error) errors.push({fieldIndex, code: result.error});
+    if (definition?.unit !== undefined && definition.unit !== null) {
+      if (typeof definition.unit !== "string"
+        || definition.unit.trim().length < 1
+        || definition.unit.trim().length > 40
+        || controlCharacterPattern.test(definition.unit.trim())) {
+        errors.push({fieldIndex, code: "MAP_UNIT_INVALID"});
+      } else if (result.field?.unit != null && result.field.unit !== definition.unit.trim()) {
+        errors.push({fieldIndex, code: "MAP_UNIT_CONFLICT"});
+      }
+    }
   });
   return errors;
 }

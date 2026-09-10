@@ -1,4 +1,4 @@
-import {inferMapExpressionField} from "./mapModel.js";
+import {inferMapDefinitionField} from "./mapModel.js";
 import {editableAggregateConfig} from "./aggregateModel.js";
 
 const scalarTypes = new Set(["boolean", "string", "id", "address", "bytes", "integer", "decimal", "timestamp", "date"]);
@@ -165,7 +165,7 @@ export function deriveNodeOutputFields(editor, nodeId, seen = new Set()) {
     if (Array.isArray(node.config?.fields)) {
       const projected = node.config.mode === "extend" ? [...input] : [];
       for (const definition of node.config.fields) {
-        const inferred = inferMapExpressionField(definition.expression, input);
+        const inferred = inferMapDefinitionField(definition, input);
         if (inferred) projected.push({...inferred, name: definition.name});
       }
       return uniqueFields(projected);

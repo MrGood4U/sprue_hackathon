@@ -1,7 +1,7 @@
 import {createHash} from "node:crypto";
 import type {GraphSemanticValueType} from "../graph/types.js";
 import {validateFilterPredicate} from "./filter.js";
-import {inferMapExpressionField, validateMapConfig} from "./map.js";
+import {applyMapUnitAnnotation, inferMapExpressionField, validateMapConfig} from "./map.js";
 import {validateSortConfig} from "./sort.js";
 
 export type StructuredDagNodeType = "source" | "filter" | "map" | "aggregate" | "sort" | "union" | "join" | "output";
@@ -228,10 +228,13 @@ function deriveNodeShape(node: StructuredDagNode, inputs: ReadonlyMap<string, Ro
     const source = requireInput(inputs, "rows", node);
     const issues = validateMapConfig(node.config, [...source.values()]);
     if (issues[0]) fail(issues[0].code, issues[0].message, node.id, `dag.nodes.${node.id}.config.fields`);
-    const config = node.config as unknown as {mode: "extend" | "project"; fields: readonly {name: string; expression: unknown}[]};
+    const config = node.config as unknown as {mode: "extend" | "project"; fields: readonly {name: string; expression: unknown; unit?: string | null}[]};
     const output = config.mode === "extend" ? new Map(source) : new Map<string, StructuredDagField>();
     for (const definition of config.fields) {
-      const inferred = inferMapExpressionField(definition.expression, [...source.values()]);
+      const inferred = applyMapUnitAnnotation(
+        inferMapExpressionField(definition.expression, [...source.values()]),
+        definition.unit,
+      );
       output.set(definition.name, {name: definition.name, type: inferred.type, nullable: inferred.nullable, unit: inferred.unit ?? null});
     }
     return output;

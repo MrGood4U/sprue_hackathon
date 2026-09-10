@@ -1,5 +1,5 @@
 import {validateFilterConfig} from "../workflow-editor/filterModel.js";
-import {inferMapExpressionField, validateMapConfig} from "../workflow-editor/mapModel.js";
+import {inferMapDefinitionField, validateMapConfig} from "../workflow-editor/mapModel.js";
 
 const comparisonOperators = new Set(["eq", "ne", "lt", "lte", "gt", "gte"]);
 const identifierPattern = /^[a-z][a-z0-9_]{0,99}$/;
@@ -86,7 +86,7 @@ function projectModeConfig(config, inputFields) {
     fields: [
       ...inputFields
         .filter((field) => !overwritten.has(field.name))
-        .map((field) => ({name: field.name, expression: {op: "field", field: field.name}})),
+        .map((field) => ({name: field.name, expression: {op: "field", field: field.name}, unit: field.unit ?? null})),
       ...definitions,
     ],
   };
@@ -94,7 +94,7 @@ function projectModeConfig(config, inputFields) {
 
 function outputFields(config, inputFields) {
   return config.fields.flatMap((definition) => {
-    const field = inferMapExpressionField(definition.expression, inputFields);
+    const field = inferMapDefinitionField(definition, inputFields);
     return field ? [{...field, name: definition.name}] : [];
   });
 }
@@ -234,11 +234,82 @@ function migrateOutputs(nodes, edges) {
   return {nodes: nextNodes, edges: nextEdges};
 }
 
-export function migrateLegacyBuilderDraft(nodes, edges) {
+function annotateLegacyMapUnits(nodes, edges, outputSchemaFields) {
+  const contracts = Array.isArray(outputSchemaFields)
+    ? outputSchemaFields.filter((field) => typeof field?.name === "string" && typeof field?.unit === "string" && field.unit.trim())
+    : [];
+  if (contracts.length === 0) return {nodes, edges};
+
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+  const incoming = (nodeId, port = "rows") => edges
+    .filter((edge) => edge.toNode === nodeId && (edge.toPort ?? "rows") === port)
+    .map((edge) => edge.fromNode);
+  const queue = nodes
+    .filter((node) => node.type === "output")
+    .flatMap((node) => contracts.map((field) => ({nodeId: node.id, field: field.name, unit: field.unit.trim()})));
+  const visited = new Set();
+  const annotations = new Map();
+
+  while (queue.length > 0) {
+    const item = queue.shift();
+    const visitKey = `${item.nodeId}\u0000${item.field}\u0000${item.unit}`;
+    if (visited.has(visitKey)) continue;
+    visited.add(visitKey);
+    const node = nodeById.get(item.nodeId);
+    if (!node) continue;
+
+    if (["output", "sort", "filter"].includes(node.type)) {
+      for (const predecessor of incoming(node.id)) queue.push({...item, nodeId: predecessor});
+      continue;
+    }
+    if (node.type === "union") {
+      for (const port of ["left", "right"]) {
+        for (const predecessor of incoming(node.id, port)) queue.push({...item, nodeId: predecessor});
+      }
+      continue;
+    }
+    if (node.type === "aggregate") {
+      const sourceField = Array.isArray(node.config?.groupBy) && node.config.groupBy.includes(item.field)
+        ? item.field
+        : node.config?.measures?.find((measure) => measure?.name === item.field && !["count_rows", "count_distinct"].includes(measure.op))?.field;
+      if (typeof sourceField === "string") {
+        for (const predecessor of incoming(node.id)) queue.push({...item, nodeId: predecessor, field: sourceField});
+      }
+      continue;
+    }
+    if (node.type === "map") {
+      const definition = node.config?.fields?.find((candidate) => candidate?.name === item.field);
+      if (definition) {
+        const key = `${node.id}\u0000${item.field}`;
+        const units = annotations.get(key) ?? new Set();
+        units.add(item.unit);
+        annotations.set(key, units);
+      } else if (node.config?.mode === "extend") {
+        for (const predecessor of incoming(node.id)) queue.push({...item, nodeId: predecessor});
+      }
+    }
+  }
+
+  const nextNodes = nodes.map((node) => {
+    if (node.type !== "map" || !Array.isArray(node.config?.fields)) return node;
+    let changed = false;
+    const fields = node.config.fields.map((definition) => {
+      const units = annotations.get(`${node.id}\u0000${definition?.name}`);
+      if (!units || units.size !== 1 || definition.unit != null) return definition;
+      changed = true;
+      return {...definition, unit: [...units][0]};
+    });
+    return changed ? {...node, config: {...node.config, fields}} : node;
+  });
+  return {nodes: nextNodes, edges};
+}
+
+export function migrateLegacyBuilderDraft(nodes, edges, outputSchemaFields = []) {
   let current = {nodes: structuredClone(nodes), edges: structuredClone(edges)};
   const filterIds = current.nodes.filter((node) => node.type === "filter" && node.config?.expression).map((node) => node.id);
   for (const filterId of filterIds) {
     current = migrateFilter(current.nodes, current.edges, filterId) ?? current;
   }
-  return migrateOutputs(current.nodes, current.edges);
+  current = migrateOutputs(current.nodes, current.edges);
+  return annotateLegacyMapUnits(current.nodes, current.edges, outputSchemaFields);
 }

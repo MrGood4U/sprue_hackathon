@@ -931,6 +931,25 @@ function MapConfig({node, update, fields, errors, onPendingChange}) {
                   <Trash size={17} aria-hidden="true" />
                 </IconButton>
               </div>
+              <div className="workflow-map-unit">
+                <Field
+                  id={`map-${node.id}-unit-${index}`}
+                  label={t("workflowEditor.inspector.mapUnit")}
+                  hint={t("workflowEditor.inspector.mapUnitHint")}
+                >
+                  <input
+                    id={`map-${node.id}-unit-${index}`}
+                    value={definition.unit ?? ""}
+                    maxLength="40"
+                    placeholder={expressionInspection.field?.unit ?? t("workflowEditor.inspector.mapUnitPlaceholder")}
+                    aria-invalid={["MAP_UNIT_INVALID", "MAP_UNIT_CONFLICT"].includes(error?.code) || undefined}
+                    onChange={(event) => updateDefinition(index, {
+                      ...definition,
+                      unit: event.target.value === "" ? null : event.target.value,
+                    })}
+                  />
+                </Field>
+              </div>
               {editorExpression.kind === "concat" && (
                 <Field id={`map-${node.id}-secondary-${index}`} label={t("workflowEditor.inspector.mapSecondSourceField")}>
                   <select
