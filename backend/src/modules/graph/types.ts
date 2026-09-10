@@ -156,6 +156,24 @@ export interface GraphInspectedField {
   list: boolean;
 }
 
+export interface GraphSourceQueryPlan {
+  schemaVersion: 1;
+  operationName: "SprueLiveSource";
+  document: string;
+  pagination: {
+    kind: "id_cursor";
+    cursorField: "id";
+    pageSize: number;
+    maxRequests: number;
+    maxRows: number;
+  };
+  pushedOperations: readonly {
+    nodeRole: string;
+    operator: "map" | "filter" | "sort";
+    description: string;
+  }[];
+}
+
 export interface GraphSchemaEntityInspection {
   queryEntity: string;
   entityType: string;

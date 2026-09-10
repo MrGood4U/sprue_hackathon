@@ -251,7 +251,9 @@ export function projectAgentBuilderDraft(product, messages) {
         adapterVersion: "planning",
         dataNetwork: source.dataNetwork,
         queryEntity: source.queryEntity,
+        queryPlan: structuredClone(source.queryPlan ?? null),
         fieldBindings: structuredClone(source.fieldBindings),
+        auxiliaryFieldBindings: structuredClone(source.auxiliaryFieldBindings ?? []),
         outputSchema: emptyOutputSchema(sourceFieldsById.get(source.id)),
         evidenceStatus: source.evidenceStatus,
         displayName: source.displayName,
@@ -282,7 +284,7 @@ export function projectAgentBuilderDraft(product, messages) {
 }
 
 export function builderDraftCacheKey(workspaceId, productId) {
-  return `sprue.builder-draft.v6:${workspaceId}:${productId}`;
+  return `sprue.builder-draft.v7:${workspaceId}:${productId}`;
 }
 
 export function browserSessionStorage() {

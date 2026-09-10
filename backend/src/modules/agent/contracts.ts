@@ -1,4 +1,5 @@
 import type {AgentDebugSink, AgentTraceSink, HarnessExplorationResult, HarnessTraceEvent} from "./harness/types.js";
+import type {GraphSourceQueryPlan} from "../graph/types.js";
 
 export type AgentSessionStatus = "active" | "completed" | "abandoned";
 export type AgentCommandStatus =
@@ -54,6 +55,7 @@ export interface AgentBuilderDraft {
       fieldPath: string;
       purpose: "filter" | "join" | "group" | "sort" | "derive" | "output";
     }[];
+    queryPlan: GraphSourceQueryPlan;
     outputSchema: {
       fields: readonly {name: string; type: string; nullable: boolean; unit: string | null}[];
     };

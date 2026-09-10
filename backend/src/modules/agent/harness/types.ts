@@ -4,6 +4,7 @@ import type {
   GraphFieldRequirement,
   GraphInspectedField,
   GraphSemanticValueType,
+  GraphSourceQueryPlan,
   GraphSourceDiscoveryResult,
 } from "../../graph/index.js";
 
@@ -372,6 +373,7 @@ export interface SourceFeasibilitySelection {
   queryEntity: string;
   fieldBindings: readonly SourceFieldBinding[];
   auxiliaryFieldBindings: readonly SourceAuxiliaryFieldBinding[];
+  queryPlan: GraphSourceQueryPlan;
   rationale: string;
 }
 
@@ -411,7 +413,7 @@ export interface SourceDiscoveryPlanningModelRequest {
 
 export interface SourceFeasibilityModelRequest {
   stage: "source_feasibility";
-  promptVersion: "11";
+  promptVersion: "12";
   semanticPlan: DiscoverySemanticPlan;
   sourceNeeds: readonly DiscoverySourceNeed[];
   candidates: readonly SourceFeasibilityCandidate[];

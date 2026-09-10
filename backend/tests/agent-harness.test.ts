@@ -422,6 +422,13 @@ test("flexible validation preserves nominal count units and numerator units for 
       {requirementId: "swap_amount_usd", fieldPath: "amountUSD"},
     ],
     auxiliaryFieldBindings: [],
+    queryPlan: {
+      schemaVersion: 1,
+      operationName: "SprueLiveSource",
+      document: "query SprueLiveSource($first: Int!, $cursor: ID!) { swaps(first: $first, orderBy: id, orderDirection: asc, where: { id_gt: $cursor }) { id amountUSD timestamp } }",
+      pagination: {kind: "id_cursor", cursorField: "id", pageSize: 500, maxRequests: 20, maxRows: 10_000},
+      pushedOperations: [{nodeRole: "derive_day", operator: "map", description: "Project inspected source fields."}],
+    },
     rationale: "The inspected entity exposes one row per swap.",
   };
   const sourceFieldsByNeed = new Map([[

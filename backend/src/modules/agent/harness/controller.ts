@@ -5,6 +5,7 @@ import {
   type GraphInspectedField,
   type GraphSchemaEntityInspection,
   type GraphSemanticValueType,
+  validateGraphSourceQueryPlan,
   type GraphSourceDiscoveryPort,
   type GraphSourceDiscoveryRequest,
   type GraphSourceDiscoveryResult,
@@ -404,6 +405,10 @@ function compactFeasibilityEntity(
     ordered.push(field);
   };
 
+  // The live runtime owns cursor pagination, so the model must always see the
+  // provider id scalar even when it is not a semantic output requirement.
+  addPath("id");
+
   // Give every semantic requirement its strongest inspected alternative first.
   for (const binding of bindings) addPath(binding.fieldPaths[0]);
   // Preserve row-local scalar context before less direct relationship paths.
@@ -493,6 +498,7 @@ function embeddedFeasibilityEntity(
     includedPaths.add(path);
     orderedPaths.push(path);
   };
+  addPath("id");
   const semanticGroups = need.fields.map((requirement) =>
     (scoreGroups.get(requirement.id) ?? [])
       .slice(0, maxEmbeddedAlternativesPerRequirement)
@@ -923,6 +929,7 @@ function validateSourceFeasibility(
   const discoveredCandidates = new Map(discovery.candidates.map((candidate) => [candidate.candidateRef, candidate]));
   const seenNeeds = new Set<string>();
   const sourceFieldsByNeed = new Map<string, readonly SourceRoleFieldShape[]>();
+  const queryPredicatesByNeed = new Map<string, boolean>();
   const selected = output.selections.map((selection) => {
     const need = needs.find((candidate) => candidate.id === selection.sourceNeedId);
     const candidate = candidates.get(selection.candidateRef);
@@ -1010,10 +1017,95 @@ function validateSourceFeasibility(
         origin: sourceAuxiliaryOrigin(need.id, binding.name),
       });
     }
+    try {
+      const validatedQuery = validateGraphSourceQueryPlan(selection.queryPlan, {
+        queryEntity: selection.queryEntity,
+        selectedPaths: [...boundPaths, ...auxiliaryPaths],
+      });
+      queryPredicatesByNeed.set(need.id, validatedQuery.hasAdditionalPredicates);
+    } catch {
+      fail(
+        "Feasibility Source query is not a bounded query over the selected inspected fields",
+        "FEASIBILITY_SOURCE_QUERY_INVALID",
+      );
+    }
     sourceFieldsByNeed.set(need.id, [...sourceFields.values()]);
     seenNeeds.add(need.id);
     return discoveredCandidate;
   });
+  const compositionNodes = new Map(output.composition.nodes.map((node) => [node.role, node]));
+  for (const selection of output.selections) {
+    const sourceOutput = output.composition.connections.find((connection) =>
+      connection.fromRole === sourceRole(selection.sourceNeedId));
+    const boundaryMap = sourceOutput ? compositionNodes.get(sourceOutput.toRole) : undefined;
+    if (!boundaryMap || boundaryMap.operator !== "map") {
+      fail("Feasibility Source query has no matching boundary Map", "FEASIBILITY_SOURCE_PUSHDOWN_INVALID");
+    }
+    const pushdownReachable = new Set<string>();
+    const queue = [boundaryMap.role];
+    while (queue.length > 0) {
+      const role = queue.shift()!;
+      if (pushdownReachable.has(role)) continue;
+      const node = compositionNodes.get(role);
+      if (!node || !new Set(["map", "filter", "sort"]).has(node.operator)) continue;
+      pushdownReachable.add(role);
+      for (const edge of output.composition.connections.filter((connection) => connection.fromRole === role)) {
+        queue.push(edge.toRole);
+      }
+    }
+    const seenPushdowns = new Set<string>();
+    for (const pushed of selection.queryPlan.pushedOperations) {
+      const node = compositionNodes.get(pushed.nodeRole);
+      if (!node || node.operator !== pushed.operator || !pushdownReachable.has(node.role) || seenPushdowns.has(pushed.nodeRole)) {
+        fail(
+          "Feasibility Source query references an unknown, mismatched, or duplicate pushed operator",
+          "FEASIBILITY_SOURCE_PUSHDOWN_INVALID",
+        );
+      }
+      if (pushed.operator === "sort") {
+        const orderBy = Array.isArray(node.config.orderBy) ? node.config.orderBy : [];
+        const ordering = orderBy[0];
+        const mappedFields = Array.isArray(boundaryMap.config.fields) ? boundaryMap.config.fields : [];
+        const mappedId = ordering && typeof ordering === "object" && ordering !== null
+          ? mappedFields.find((definition) => {
+            if (typeof definition !== "object" || definition === null) return false;
+            const field = definition as {name?: unknown; expression?: unknown};
+            const expression = typeof field.expression === "object" && field.expression !== null
+              ? field.expression as {op?: unknown; field?: unknown}
+              : null;
+            return field.name === (ordering as {field?: unknown}).field
+              && expression?.op === "field"
+              && expression.field === "id";
+          })
+          : undefined;
+        if (
+          orderBy.length !== 1
+          || (ordering as {direction?: unknown} | undefined)?.direction !== "asc"
+          || node.config.limit !== null
+          || !mappedId
+        ) {
+          fail(
+            "Feasibility Source query can push Sort only when it is the ascending mapped provider id order",
+            "FEASIBILITY_SOURCE_PUSHDOWN_INVALID",
+          );
+        }
+      }
+      seenPushdowns.add(pushed.nodeRole);
+    }
+    if (!selection.queryPlan.pushedOperations.some((item) => item.operator === "map" && item.nodeRole === boundaryMap.role)) {
+      fail(
+        "Feasibility Source query must declare its field projection Map pushdown",
+        "FEASIBILITY_SOURCE_PUSHDOWN_INVALID",
+      );
+    }
+    const declaresFilterPushdown = selection.queryPlan.pushedOperations.some((item) => item.operator === "filter");
+    if (declaresFilterPushdown !== queryPredicatesByNeed.get(selection.sourceNeedId)) {
+      fail(
+        "Feasibility Source query filter metadata does not match its Graph where predicates",
+        "FEASIBILITY_SOURCE_PUSHDOWN_INVALID",
+      );
+    }
+  }
   validateFlexibleComposition(plan, output.composition, needs, output.selections, limits, sourceFieldsByNeed);
   return [...new Set(selected.flatMap((candidate) => candidate.limitations))];
 }
@@ -1479,7 +1571,7 @@ export class AgentHarness {
     emitTrace("source_feasibility", "started", "Model is binding retrieved fields and composing registered operators");
     const feasibilityRequest: SourceFeasibilityModelRequest = {
       stage: "source_feasibility",
-      promptVersion: "11",
+      promptVersion: "12",
       semanticPlan: discoveryPlanningOutput.semanticPlan,
       sourceNeeds,
       candidates: presentedCandidateEvidence,

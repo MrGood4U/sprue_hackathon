@@ -653,3 +653,15 @@ test("combined Map expressions reveal a bounded editable JSON surface with inlin
   assert.match(styles, /\.workflow-map-definition-grid \.icon-button \{[\s\S]*?align-self: start;[\s\S]*?margin-top: 22px;/);
   assert.match(styles, /\.workflow-map-expression-editor textarea \{[\s\S]*?max-height: 360px;[\s\S]*?scrollbar-width: thin;/);
 });
+
+test("Source inspector exposes the Agent-authored GraphQL with bounded scrolling and copy feedback", async () => {
+  const inspector = await readFile(new URL("../src/features/workflow-editor/NodeInspector.jsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../src/features/workflow-editor/workflow-editor.css", import.meta.url), "utf8");
+
+  assert.match(inspector, /queryPlan\.document/);
+  assert.match(inspector, /queryPlan\.pushedOperations\.map/);
+  assert.match(inspector, /node\.config\?\.queryPlan \?\? selected\?\.queryPlan \?\? null/);
+  assert.match(inspector, /await copyText\(queryPlan\.document\)/);
+  assert.match(inspector, /aria-live="polite"/);
+  assert.match(styles, /\.workflow-source-query-code \{[\s\S]*?max-height: min\(280px, 34dvh\);[\s\S]*?overflow: auto;/);
+});

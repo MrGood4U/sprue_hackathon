@@ -306,6 +306,24 @@ function sourceEntitySelectionOutput(
   };
 }
 
+function graphQuerySelection(paths: readonly string[]): string {
+  type Tree = Map<string, Tree>;
+  const root: Tree = new Map();
+  for (const path of [...new Set(["id", ...paths])]) {
+    let branch = root;
+    for (const segment of path.split(".")) {
+      const next = branch.get(segment) ?? new Map<string, Tree>();
+      branch.set(segment, next);
+      branch = next;
+    }
+  }
+  const render = (tree: Tree): string => [...tree]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([name, children]) => children.size === 0 ? name : `${name} { ${render(children)} }`)
+    .join(" ");
+  return render(root);
+}
+
 function sourceFeasibilityOutput(
   request: Extract<AgentModelRequest, {stage: "source_feasibility"}>,
 ): SourceFeasibilityOutput {
@@ -325,12 +343,26 @@ function sourceFeasibilityOutput(
       const fieldPath = entity.suggestedBindings.find((binding) => binding.requirementId === requirement.id)?.fieldPaths[0];
       return fieldPath ? [{requirementId: requirement.id, fieldPath}] : [];
     });
+    const cursorGraphType = entity.fields.find((field) => field.path === "id")?.graphType.replace(/[\[\]!]/g, "");
+    const cursorType = new Set(["ID", "String", "Bytes"]).has(cursorGraphType ?? "") ? cursorGraphType : "ID";
+    const selectedPaths = fieldBindings.map((binding) => binding.fieldPath);
     return {
       sourceNeedId: need.id,
       candidateRef: candidate.candidateRef,
       queryEntity: entity.queryEntity,
       fieldBindings,
       auxiliaryFieldBindings: [],
+      queryPlan: {
+        schemaVersion: 1 as const,
+        operationName: "SprueLiveSource" as const,
+        document: `query SprueLiveSource($first: Int!, $cursor: ${cursorType}!) { ${entity.queryEntity}(first: $first, orderBy: id, orderDirection: asc, where: { id_gt: $cursor }) { ${graphQuerySelection(selectedPaths)} } }`,
+        pagination: {kind: "id_cursor" as const, cursorField: "id" as const, pageSize: 500, maxRequests: 20, maxRows: 10_000},
+        pushedOperations: [{
+          nodeRole: `normalize_${need.id}`,
+          operator: "map" as const,
+          description: "Select only the inspected provider fields consumed by the boundary Map.",
+        }],
+      },
       rationale: `The inspected entity binds every required semantic field for ${need.dataNetwork}.`,
     };
   });

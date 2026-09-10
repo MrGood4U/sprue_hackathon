@@ -18,6 +18,7 @@ export function createBuilderCompilationInput(draft) {
       manifestIpfsCid: source.manifestIpfsCid ?? source.target?.manifestIpfsCid ?? null,
       dataNetwork: source.dataNetwork,
       queryEntity: source.queryEntity,
+      ...(source.queryPlan ? {queryPlan: structuredClone(source.queryPlan)} : {}),
       fieldBindings: structuredClone(source.fieldBindings ?? []),
       auxiliaryFieldBindings: structuredClone(source.auxiliaryFieldBindings ?? []),
     })),

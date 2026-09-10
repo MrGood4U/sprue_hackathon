@@ -1664,6 +1664,13 @@ test("Agent can select inspected fields when no lexical grain or field hint matc
             queryEntity: "obscuras",
             fieldBindings: [{requirementId: "observation_value", fieldPath: "payload.zorb"}],
             auxiliaryFieldBindings: [{name: "observation_kind", fieldPath: "payload.flarn", purpose: auxiliaryPurpose}],
+            queryPlan: {
+              schemaVersion: 1,
+              operationName: "SprueLiveSource",
+              document: "query SprueLiveSource($first: Int!, $cursor: ID!) { obscuras(first: $first, orderBy: id, orderDirection: asc, where: { id_gt: $cursor }) { id payload { flarn zorb } } }",
+              pagination: {kind: "id_cursor", cursorField: "id", pageSize: 500, maxRequests: 20, maxRows: 10_000},
+              pushedOperations: [{nodeRole: "normalize_observations", operator: "map", description: "Project inspected observation fields."}],
+            },
             rationale: "The inspected provider field has the required scalar type and requested meaning.",
           }],
           composition: {
@@ -2079,6 +2086,13 @@ test("Agent validates schema-driven time-series fields without a wallet-shaped s
               {requirementId: "raw_value", fieldPath: "amountUSD"},
             ],
             auxiliaryFieldBindings: [],
+            queryPlan: {
+              schemaVersion: 1,
+              operationName: "SprueLiveSource",
+              document: "query SprueLiveSource($first: Int!, $cursor: ID!) { metricEvents(first: $first, orderBy: id, orderDirection: asc, where: { id_gt: $cursor }) { id amountUSD blockTimestamp } }",
+              pagination: {kind: "id_cursor", cursorField: "id", pageSize: 500, maxRequests: 20, maxRows: 10_000},
+              pushedOperations: [{nodeRole: "derive_day", operator: "map", description: "Project inspected metric fields."}],
+            },
             rationale: "Both semantic fields are present on the inspected entity.",
           }],
           composition: {

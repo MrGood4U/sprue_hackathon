@@ -63,6 +63,24 @@ const auxiliarySourceBindingSchema = z.union([
   }),
 ]);
 
+const sourceQueryPlanSchema = z.strictObject({
+  schemaVersion: z.literal(1),
+  operationName: z.literal("SprueLiveSource"),
+  document: z.string().trim().min(1).max(20_000),
+  pagination: z.strictObject({
+    kind: z.literal("id_cursor"),
+    cursorField: z.literal("id"),
+    pageSize: z.number().int().min(1).max(1_000),
+    maxRequests: z.number().int().min(1).max(20),
+    maxRows: z.number().int().min(1).max(10_000),
+  }),
+  pushedOperations: z.array(z.strictObject({
+    nodeRole: z.string().regex(/^[a-z][a-z0-9_]{0,99}$/),
+    operator: z.enum(["map", "filter", "sort"]),
+    description: z.string().trim().min(1).max(500),
+  })).min(1).max(12),
+});
+
 const liveSourceSchema = z.strictObject({
   id: z.string().min(1).max(256),
   displayName: z.string().trim().min(1).max(300),
@@ -70,6 +88,7 @@ const liveSourceSchema = z.strictObject({
   manifestIpfsCid: z.string().min(1).max(256),
   dataNetwork: z.string().min(1).max(100),
   queryEntity: z.string().regex(/^[_A-Za-z][_0-9A-Za-z]*$/),
+  queryPlan: sourceQueryPlanSchema.nullable().optional(),
   fieldBindings: z.array(sourceBindingSchema).max(64),
   auxiliaryFieldBindings: z.array(auxiliarySourceBindingSchema).max(64),
 });

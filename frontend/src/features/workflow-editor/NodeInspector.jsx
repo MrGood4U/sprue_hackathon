@@ -1,7 +1,8 @@
-import { ArrowDown, ArrowUp, CheckCircle, Plus, Trash, X } from "@phosphor-icons/react";
+import { ArrowDown, ArrowUp, Check, CheckCircle, Copy, Plus, Trash, WarningCircle, X } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import { Button, IconButton } from "../../components/ui/Button.jsx";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
+import {copyText} from "../wallet/copyText.js";
 import {
   conditionValueMode,
   createFilterCondition,
@@ -119,17 +120,39 @@ function SourceConfig({ node, draft, update, mode, onModeChange, sourceDiscovery
   const [validatedCandidate, setValidatedCandidate] = useState(null);
   const [queryEntity, setQueryEntity] = useState("");
   const [errorCode, setErrorCode] = useState(null);
+  const [queryCopyStatus, setQueryCopyStatus] = useState("idle");
   const requestRef = useRef(null);
   const sources = draft.specification.sources ?? [];
   const sourceId = node.config?.sourceId ?? node.config?.sourceKey ?? "";
   const selected = sources.find((source) => source.id === sourceId);
+  const queryPlan = node.config?.queryPlan ?? selected?.queryPlan ?? null;
 
   const selectSource = (value) => {
     const { sourceKey: _legacySourceKey, ...config } = node.config ?? {};
-    update({ ...config, sourceId: value, queryPlan: value === sourceId ? config.queryPlan : null });
+    const source = sources.find((item) => item.id === value);
+    update({
+      ...config,
+      sourceId: value,
+      queryEntity: source?.queryEntity ?? config.queryEntity,
+      fieldBindings: structuredClone(source?.fieldBindings ?? config.fieldBindings ?? []),
+      auxiliaryFieldBindings: structuredClone(source?.auxiliaryFieldBindings ?? config.auxiliaryFieldBindings ?? []),
+      queryPlan: value === sourceId ? config.queryPlan : structuredClone(source?.queryPlan ?? null),
+    });
   };
 
   useEffect(() => () => requestRef.current?.abort(), []);
+  useEffect(() => setQueryCopyStatus("idle"), [queryPlan?.document]);
+
+  const copyQuery = async () => {
+    if (!queryPlan?.document || queryCopyStatus === "copying") return;
+    setQueryCopyStatus("copying");
+    try {
+      await copyText(queryPlan.document);
+      setQueryCopyStatus("copied");
+    } catch {
+      setQueryCopyStatus("failed");
+    }
+  };
 
   const resetLookup = () => {
     requestRef.current?.abort();
@@ -253,21 +276,73 @@ function SourceConfig({ node, draft, update, mode, onModeChange, sourceDiscovery
       </div>
 
       {mode === "discovered" ? (
-        <Field id={`source-${node.id}`} label={t("workflowEditor.inspector.source")} hint={t("workflowEditor.inspector.sourceHint")}>
-          <select id={`source-${node.id}`} value={sourceId} onChange={(event) => selectSource(event.target.value)}>
-            <option value="">{t("workflowEditor.inspector.selectSource")}</option>
-            {sources.map((source) => (
-              <option key={source.id} value={source.id}>{source.id} · {source.target?.logicalSubgraphId ?? source.kind ?? "subgraph"}</option>
-            ))}
-          </select>
-          {selected && (
-            <div className="workflow-inspector-evidence">
-              {selected.target?.logicalSubgraphId ?? selected.id}
-              <br />
-              {selected.dataNetwork ?? t("workflowEditor.inspector.existingSourceEvidence")}
+        <div className="workflow-source-discovered">
+          <Field id={`source-${node.id}`} label={t("workflowEditor.inspector.source")} hint={t("workflowEditor.inspector.sourceHint")}>
+            <select id={`source-${node.id}`} value={sourceId} onChange={(event) => selectSource(event.target.value)}>
+              <option value="">{t("workflowEditor.inspector.selectSource")}</option>
+              {sources.map((source) => (
+                <option key={source.id} value={source.id}>{source.id} · {source.target?.logicalSubgraphId ?? source.kind ?? "subgraph"}</option>
+              ))}
+            </select>
+            {selected && (
+              <div className="workflow-inspector-evidence">
+                {selected.target?.logicalSubgraphId ?? selected.id}
+                <br />
+                {selected.dataNetwork ?? t("workflowEditor.inspector.existingSourceEvidence")}
+              </div>
+            )}
+          </Field>
+          {sourceId && (queryPlan ? (
+            <section className="workflow-source-query" aria-labelledby={`source-query-title-${node.id}`}>
+              <div className="workflow-source-query-header">
+                <div>
+                  <span className="workflow-inspector-subtitle" id={`source-query-title-${node.id}`}>{t("workflowEditor.inspector.graphqlQuery")}</span>
+                  <small>{t("workflowEditor.inspector.graphqlQueryAgentAuthored")}</small>
+                </div>
+                <IconButton
+                  label={t(queryCopyStatus === "copied"
+                    ? "workflowEditor.inspector.graphqlCopied"
+                    : queryCopyStatus === "failed"
+                      ? "workflowEditor.inspector.graphqlRetryCopy"
+                      : "workflowEditor.inspector.graphqlCopy")}
+                  disabled={queryCopyStatus === "copying"}
+                  onClick={copyQuery}
+                >
+                  {queryCopyStatus === "copied" ? <Check size={17} aria-hidden="true" />
+                    : queryCopyStatus === "failed" ? <WarningCircle size={17} aria-hidden="true" />
+                      : <Copy size={17} aria-hidden="true" />}
+                </IconButton>
+              </div>
+              <pre className="workflow-source-query-code" tabIndex="0"><code>{queryPlan.document}</code></pre>
+              <div className="workflow-source-query-meta">
+                <span>{t("workflowEditor.inspector.graphqlPagination", {
+                  pageSize: queryPlan.pagination.pageSize,
+                  maxRows: queryPlan.pagination.maxRows,
+                })}</span>
+                <span className={`workflow-source-query-copy is-${queryCopyStatus}`} role="status" aria-live="polite">
+                  {queryCopyStatus === "copied" ? t("workflowEditor.inspector.graphqlCopied")
+                    : queryCopyStatus === "failed" ? t("workflowEditor.inspector.graphqlCopyFailed") : ""}
+                </span>
+              </div>
+              <div className="workflow-source-pushdowns">
+                <span className="workflow-inspector-subtitle">{t("workflowEditor.inspector.graphqlPushdowns")}</span>
+                <ul>
+                  {queryPlan.pushedOperations.map((operation) => (
+                    <li key={`${operation.nodeRole}:${operation.operator}`}>
+                      <code>{operation.operator}</code>
+                      <span>{operation.nodeRole}</span>
+                      <p>{operation.description}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </section>
+          ) : (
+            <div className="workflow-source-query-empty" role="status">
+              {t("workflowEditor.inspector.graphqlQueryUnavailable")}
             </div>
-          )}
-        </Field>
+          ))}
+        </div>
       ) : (
         <div className="workflow-source-add">
           <p className="workflow-inspector-help">{t("workflowEditor.inspector.addExistingHint")}</p>

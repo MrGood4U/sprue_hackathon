@@ -33,6 +33,13 @@ test("projects the latest durable Agent proposal into an editable non-executable
           logicalSubgraphId: "subgraph-eth",
           manifestIpfsCid: "QmEth",
           queryEntity: "swaps",
+          queryPlan: {
+            schemaVersion: 1,
+            operationName: "SprueLiveSource",
+            document: "query SprueLiveSource($first: Int!, $cursor: ID!) { swaps(first: $first, orderBy: id, orderDirection: asc, where: { id_gt: $cursor }) { id amountUSD } }",
+            pagination: {kind: "id_cursor", cursorField: "id", pageSize: 500, maxRequests: 20, maxRows: 10000},
+            pushedOperations: [{nodeRole: "normalize", operator: "map", description: "Project amount."}],
+          },
           fieldBindings: [{requirementId: "amount", fieldPath: "amountUSD"}],
           outputSchema: {fields: [{name: "amount", type: "decimal", nullable: false, unit: "USD"}]},
           evidenceStatus: "suitable",
@@ -52,6 +59,7 @@ test("projects the latest durable Agent proposal into an editable non-executable
   assert.equal(draft.origin.originKey, "assistant-1");
   assert.equal(draft.specification.intent.summary, "Compare swaps across two networks");
   assert.equal(draft.specification.sources[0].queryEntity, "swaps");
+  assert.match(draft.specification.sources[0].queryPlan.document, /query SprueLiveSource/);
   assert.deepEqual(draft.specification.sources[0].fieldBindings, [{requirementId: "amount", fieldPath: "amountUSD"}]);
   assert.deepEqual(draft.specification.sources[0].outputSchema.fields.map(({name}) => name), ["amount", "data_network"]);
   assert.deepEqual(draft.specification.dag.nodes.map(({id}) => id), ["source__need_eth", "result"]);
@@ -409,4 +417,31 @@ test("serializes only the layout-free structured DAG for backend compilation", (
     },
     outputSchema: {fields: [{name: "amount_usd", type: "decimal", nullable: false, unit: "USD"}]},
   });
+});
+
+test("preserves an Agent-authored source query plan in backend compilation input", () => {
+  const queryPlan = {
+    schemaVersion: 1,
+    operationName: "SprueLiveSource",
+    document: "query SprueLiveSource($first: Int!, $cursor: ID!) { swaps(first: $first, orderBy: id, orderDirection: asc, where: { id_gt: $cursor }) { id amountUSD } }",
+    pagination: {kind: "id_cursor", cursorField: "id", pageSize: 500, maxRequests: 20, maxRows: 10_000},
+    pushedOperations: [{nodeRole: "normalize", operator: "map", description: "Project amount."}],
+  };
+  const input = createBuilderCompilationInput({specification: {
+    sources: [{
+      id: "graph:source",
+      displayName: "Verified source",
+      target: {logicalSubgraphId: "source-id", manifestIpfsCid: "QmSource"},
+      dataNetwork: "eip155:1",
+      queryEntity: "swaps",
+      queryPlan,
+      fieldBindings: [],
+      auxiliaryFieldBindings: [],
+    }],
+    dag: {nodes: [], edges: []},
+    outputSchema: {fields: []},
+  }});
+
+  assert.deepEqual(input.sources[0].queryPlan, queryPlan);
+  assert.notEqual(input.sources[0].queryPlan, queryPlan);
 });

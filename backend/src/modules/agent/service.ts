@@ -222,6 +222,7 @@ function proposalContent(
       queryEntity: selection.queryEntity,
       fieldBindings: selection.fieldBindings,
       auxiliaryFieldBindings: selection.auxiliaryFieldBindings,
+      queryPlan: selection.queryPlan,
       outputSchema: {fields: [...outputFields.values()]},
       evidenceStatus: candidate.status,
     }];
@@ -240,6 +241,7 @@ function proposalContent(
           queryEntity: source.queryEntity,
           fieldBindings: source.fieldBindings,
           auxiliaryFieldBindings: source.auxiliaryFieldBindings,
+          queryPlan: source.queryPlan,
         },
         outputSchema: source.outputSchema,
       })),

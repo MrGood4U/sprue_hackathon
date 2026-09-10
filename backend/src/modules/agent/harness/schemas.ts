@@ -329,6 +329,23 @@ const sourceDiscoveryPlanSchema = z.object({
 
 const graphCandidateRef = z.string().max(160).regex(/^graph:[A-Za-z0-9._:-]{1,120}:[a-f0-9]{20}$/);
 const queryEntity = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]{0,99}$/);
+const graphQueryPlanSchema = z.object({
+  schemaVersion: z.literal(1),
+  operationName: z.literal("SprueLiveSource"),
+  document: z.string().trim().min(1).max(20_000),
+  pagination: z.object({
+    kind: z.literal("id_cursor"),
+    cursorField: z.literal("id"),
+    pageSize: z.number().int().min(1).max(1_000),
+    maxRequests: z.number().int().min(1).max(20),
+    maxRows: z.number().int().min(1).max(10_000),
+  }).strict(),
+  pushedOperations: z.array(z.object({
+    nodeRole: role,
+    operator: z.enum(["map", "filter", "sort"]),
+    description: boundedText(500),
+  }).strict()).min(1).max(12),
+}).strict();
 const sourceEntitySelectionSchema = z.object({
   schemaVersion: z.literal(1),
   kind: z.literal("source_entity_selection"),
@@ -356,6 +373,7 @@ const sourceFeasibilitySchema = z.object({
       fieldPath,
       purpose: z.enum(["filter", "join", "group", "sort", "derive", "output"]),
     }).strict()).max(16),
+    queryPlan: graphQueryPlanSchema,
     rationale: boundedText(1000),
   }).strict()).min(1).max(4),
   composition: flexibleCompositionIntentSchema,

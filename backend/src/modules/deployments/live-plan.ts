@@ -1,11 +1,13 @@
 import {createHash} from "node:crypto";
-import {buildASTSchema, getNamedType, isInputObjectType, isObjectType, Kind, parse} from "graphql";
+import {buildASTSchema, getNamedType, isInputObjectType, isObjectType, Kind, parse, validate} from "graphql";
 import type {GraphQLField, GraphQLNamedType, GraphQLObjectType, GraphQLSchema} from "graphql";
 import type {
   StructuredDagCompileInput,
   StructuredDagCompilation,
   StructuredDagField,
 } from "../dag/compiler.js";
+import {validateGraphSourceQueryPlan} from "../graph/query-plan.js";
+import type {GraphSourceQueryPlan} from "../graph/types.js";
 
 export interface LiveSourceBinding {
   fieldPath: string;
@@ -27,6 +29,7 @@ export interface LiveSourceInput {
   dataNetwork: string;
   queryEntity: string;
   queryEntityType?: string | null;
+  queryPlan?: GraphSourceQueryPlan | null;
   fieldBindings: readonly LiveSourceBinding[];
   auxiliaryFieldBindings: readonly LiveAuxiliarySourceBinding[];
 }
@@ -39,6 +42,7 @@ export interface LiveSourceProjection {
 export interface CompiledLiveSource extends LiveSourceInput {
   projections: readonly LiveSourceProjection[];
   queryDocument: string;
+  pushedOperations: GraphSourceQueryPlan["pushedOperations"];
   initialCursor: string;
   pageSize: number;
   maxRequests: number;
@@ -223,6 +227,27 @@ export function compileLiveQuery(
   };
 }
 
+export function compileAuthoredLiveQuery(
+  source: LiveSourceInput,
+  schemaDocument: string,
+  selectedPaths: readonly string[],
+  plan: GraphSourceQueryPlan,
+): {document: string; initialCursor: string} {
+  const schema = buildGraphSchema(schemaDocument);
+  const entity = sourceObject(source, schema, selectedPaths);
+  validateSelectedPaths(entity, selectedPaths);
+  const cursor = liveCursor(source, schema, entity);
+  const authored = validateGraphSourceQueryPlan(plan, {queryEntity: source.queryEntity, selectedPaths});
+  if (authored.cursorType !== cursor.type) {
+    throw new Error(`Agent-authored cursor type ${authored.cursorType} does not match inspected type ${cursor.type}`);
+  }
+  if (schema.getQueryType()) {
+    const issues = validate(schema, parse(plan.document, {maxTokens: 5_000}));
+    if (issues.length > 0) throw new Error(`Agent-authored Graph query is incompatible with the inspected schema: ${issues[0]!.message}`);
+  }
+  return {document: plan.document, initialCursor: cursor.initial};
+}
+
 function collectExpressionFields(value: unknown, fields: Set<string>): void {
   if (!record(value)) return;
   if (value.op === "field" && typeof value.field === "string") fields.add(value.field);
@@ -280,7 +305,10 @@ export function createImmutableLivePlan(input: {
       },
       sources: input.sources.map((source) => {
         const projections = sourceProjections(source, input.dag);
-        const query = compileLiveQuery(source, source.schemaDocument, projections.map((item) => item.fieldPath));
+        const selectedPaths = projections.map((item) => item.fieldPath);
+        const query = source.queryPlan
+          ? compileAuthoredLiveQuery(source, source.schemaDocument, selectedPaths, source.queryPlan)
+          : compileLiveQuery(source, source.schemaDocument, selectedPaths);
         return {
           id: source.id,
           displayName: source.displayName,
@@ -302,10 +330,11 @@ export function createImmutableLivePlan(input: {
             gatewayEnvironment: "mainnet" as const,
           },
           queryDocument: query.document,
+          pushedOperations: source.queryPlan?.pushedOperations ?? [],
           initialCursor: query.initialCursor,
-          pageSize: 500,
-          maxRequests: 20,
-          maxRows: 10_000,
+          pageSize: source.queryPlan?.pagination.pageSize ?? 500,
+          maxRequests: source.queryPlan?.pagination.maxRequests ?? 20,
+          maxRows: source.queryPlan?.pagination.maxRows ?? 10_000,
         };
       }),
       dag: input.dag,

@@ -17,7 +17,7 @@ import type {GraphRuntimeQueryPort} from "../src/modules/graph/types.js";
 const schemaDocument = `
   enum OrderDirection { asc desc }
   enum Item_orderBy { id }
-  input Item_filter { id_gt: ID }
+  input Item_filter { id_gt: ID rawAmount_gt: String }
   type Item { id: ID!, rawAmount: String! }
   type Query {
     items(first: Int, orderBy: Item_orderBy, orderDirection: OrderDirection, where: Item_filter): [Item!]!
@@ -261,6 +261,79 @@ test("immutable live plans compile a schema-correct bounded Graph query", () => 
   assert.equal(plan.sources[0]!.access.mode, "customer_api_key");
   assert.deepEqual(plan.sources[0]!.projections, [{fieldPath: "rawAmount", outputPath: "amount"}]);
   assert.equal("schemaDocument" in plan.sources[0]!, false);
+});
+
+test("immutable live plans preserve an Agent-authored GraphQL pushdown verbatim", () => {
+  const input = compilationInput();
+  const compilation = compileStructuredDag(input);
+  assert.equal(compilation.status, "passed");
+  if (compilation.status !== "passed") return;
+  const document = "query SprueLiveSource($first: Int!, $cursor: ID!) { items(first: $first, orderBy: id, orderDirection: asc, where: { id_gt: $cursor, rawAmount_gt: \"10\" }) { id rawAmount } }";
+  const plan = createImmutableLivePlan({
+    compilation,
+    dag: input.dag,
+    sources: [{
+      id: "graph-items",
+      displayName: "Items",
+      logicalSubgraphId: "items",
+      manifestIpfsCid: "QmExample",
+      dataNetwork: "ethereum-mainnet",
+      queryEntity: "items",
+      queryPlan: {
+        schemaVersion: 1,
+        operationName: "SprueLiveSource",
+        document,
+        pagination: {kind: "id_cursor", cursorField: "id", pageSize: 250, maxRequests: 8, maxRows: 2_000},
+        pushedOperations: [{nodeRole: "map", operator: "map", description: "Project the required provider field."}],
+      },
+      fieldBindings: [{fieldPath: "rawAmount", requirementId: "amount"}],
+      auxiliaryFieldBindings: [],
+      providerCredentialId: "credential-id",
+      sourceSnapshotId: "snapshot-id",
+      schemaDocument,
+    }],
+  });
+
+  assert.equal(plan.sources[0]!.queryDocument, document);
+  assert.equal(plan.sources[0]!.pageSize, 250);
+  assert.equal(plan.sources[0]!.maxRequests, 8);
+  assert.equal(plan.sources[0]!.maxRows, 2_000);
+  assert.deepEqual(plan.sources[0]!.pushedOperations, [{
+    nodeRole: "map",
+    operator: "map",
+    description: "Project the required provider field.",
+  }]);
+});
+
+test("immutable live plans reject Agent-authored GraphQL outside selected provider fields", () => {
+  const input = compilationInput();
+  const compilation = compileStructuredDag(input);
+  assert.equal(compilation.status, "passed");
+  if (compilation.status !== "passed") return;
+  assert.throws(() => createImmutableLivePlan({
+    compilation,
+    dag: input.dag,
+    sources: [{
+      id: "graph-items",
+      displayName: "Items",
+      logicalSubgraphId: "items",
+      manifestIpfsCid: "QmExample",
+      dataNetwork: "ethereum-mainnet",
+      queryEntity: "items",
+      queryPlan: {
+        schemaVersion: 1,
+        operationName: "SprueLiveSource",
+        document: "query SprueLiveSource($first: Int!, $cursor: ID!) { items(first: $first, orderBy: id, orderDirection: asc, where: { id_gt: $cursor }) { id rawAmount undeclared } }",
+        pagination: {kind: "id_cursor", cursorField: "id", pageSize: 500, maxRequests: 20, maxRows: 10_000},
+        pushedOperations: [{nodeRole: "map", operator: "map", description: "Project fields."}],
+      },
+      fieldBindings: [{fieldPath: "rawAmount", requirementId: "amount"}],
+      auxiliaryFieldBindings: [],
+      providerCredentialId: "credential-id",
+      sourceSnapshotId: "snapshot-id",
+      schemaDocument,
+    }],
+  }), (error: unknown) => error instanceof LivePlanCompilationError);
 });
 
 test("immutable live plans accept The Graph schema built-ins without weakening SDL validation", () => {
