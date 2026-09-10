@@ -1,4 +1,4 @@
-import {useRef, useState} from "react";
+import {useEffect, useRef, useState} from "react";
 import {Check, Copy, Database, DownloadSimple, FileCode, Key, Play, RocketLaunch, SpinnerGap, TerminalWindow, WarningCircle} from "@phosphor-icons/react";
 import {ProductHeader} from "../components/product/ProductHeader.jsx";
 import {Button, IconButton} from "../components/ui/Button.jsx";
@@ -8,6 +8,7 @@ import {Modal} from "../components/ui/Modal.jsx";
 import {useProductDelivery} from "../features/delivery/useProductDelivery.js";
 import {executeLiveProduct} from "../services/api/delivery.js";
 import {productRefFromPath} from "../features/products/productRoute.js";
+import {copyText} from "../features/wallet/copyText.js";
 import {useI18n} from "../i18n/I18nProvider.jsx";
 
 function blockerText(t, blocker) {
@@ -47,6 +48,8 @@ function LoadedApiPage({delivery, productRef, navigate}) {
   const [alias, setAlias] = useState("");
   const [deployState, setDeployState] = useState({status: "idle", error: null});
   const [issuedKey, setIssuedKey] = useState(null);
+  const [apiKeyCopyStatus, setApiKeyCopyStatus] = useState("idle");
+  const apiKeyCopyTimer = useRef(null);
   const [apiKey, setApiKey] = useState("");
   const [requestState, setRequestState] = useState({status: "idle", body: null, error: null});
   const [exportState, setExportState] = useState({status: "idle", error: null});
@@ -55,6 +58,8 @@ function LoadedApiPage({delivery, productRef, navigate}) {
   const requestUrl = contract && parameter ? `${contract.endpointUrl}?${parameter.name}=${limitIsValid ? parsedLimit : parameter.default}` : null;
   const fields = contract ? fieldRows(contract.responseSchema.outputSchema) : [];
   const statusTone = api.readiness === "available" ? "green" : api.readiness === "deploying" ? "violet" : "amber";
+
+  useEffect(() => () => window.clearTimeout(apiKeyCopyTimer.current), []);
 
   const copyEndpoint = async () => {
     if (!contract?.endpointUrl) return;
@@ -69,6 +74,7 @@ function LoadedApiPage({delivery, productRef, navigate}) {
       deployIdempotencyKey.current ??= `sprue-deploy-${globalThis.crypto.randomUUID()}`;
       const result = await delivery.deploy(alias.trim(), deployIdempotencyKey.current);
       setIssuedKey(result.apiKey);
+      setApiKeyCopyStatus("idle");
       setApiKey(result.apiKey.apiKey);
       deployIdempotencyKey.current = null;
       setDeployOpen(false);
@@ -76,6 +82,19 @@ function LoadedApiPage({delivery, productRef, navigate}) {
     } catch (error) {
       setDeployState({status: "error", error});
     }
+  };
+
+  const copyApiKey = async () => {
+    if (!issuedKey?.apiKey) return;
+    window.clearTimeout(apiKeyCopyTimer.current);
+    setApiKeyCopyStatus("copying");
+    try {
+      await copyText(issuedKey.apiKey);
+      setApiKeyCopyStatus("copied");
+    } catch {
+      setApiKeyCopyStatus("failed");
+    }
+    apiKeyCopyTimer.current = window.setTimeout(() => setApiKeyCopyStatus("idle"), 4000);
   };
 
   const downloadExport = async () => {
@@ -137,7 +156,7 @@ function LoadedApiPage({delivery, productRef, navigate}) {
       </div>}
     </main>
     {deployOpen && <Modal title={t(contract ? "api.redeployTitle" : "api.deployTitle")} eyebrow={t("api.hostedRuntime")} width="520px" onClose={() => deployState.status !== "loading" && setDeployOpen(false)} footer={<><Button disabled={deployState.status === "loading"} onClick={() => setDeployOpen(false)}>{t("common.cancel")}</Button><Button variant="primary" icon={deployState.status === "loading" ? SpinnerGap : RocketLaunch} className={deployState.status === "loading" ? "is-loading" : ""} disabled={deployState.status === "loading"} onClick={submitDeployment}>{t(deployState.status === "loading" ? "api.deploying" : "api.confirmDeploy")}</Button></>}><p className="modal-copy">{t("api.deployDetail")}</p><Field htmlFor="deployment-alias" label={t("api.alias")} hint={t("api.aliasHint")}><input id="deployment-alias" value={alias} placeholder={product.id} onChange={(event) => { deployIdempotencyKey.current = null; setAlias(event.target.value); }} /></Field>{deployState.status === "error" && <div className="inline-notice"><WarningCircle size={18} /><span>{t("api.deployFailed")}: {deployState.error?.message}</span></div>}</Modal>}
-    {issuedKey && <Modal title={t("api.keyIssuedTitle")} eyebrow={t("api.keyIssuedEyebrow")} width="560px" onClose={() => setIssuedKey(null)} footer={<Button variant="primary" onClick={() => setIssuedKey(null)}>{t("common.done")}</Button>}><div className="inline-notice"><Key size={18} /><span>{t("api.keyIssuedWarning")}</span></div><div className="api-key-value"><code>{issuedKey.apiKey}</code><IconButton label={t("api.copyApiKey")} onClick={() => navigator.clipboard?.writeText(issuedKey.apiKey)}><Copy size={18} /></IconButton></div><p className="modal-copy">{t("api.keyIssuedDetail")}</p></Modal>}
+    {issuedKey && <Modal title={t("api.keyIssuedTitle")} eyebrow={t("api.keyIssuedEyebrow")} width="560px" onClose={() => setIssuedKey(null)} footer={<Button variant="primary" onClick={() => setIssuedKey(null)}>{t("common.done")}</Button>}><div className="inline-notice"><Key size={18} /><span>{t("api.keyIssuedWarning")}</span></div><div className={`api-key-value is-${apiKeyCopyStatus}`}><code>{issuedKey.apiKey}</code><IconButton label={t(apiKeyCopyStatus === "copied" ? "api.apiKeyCopied" : apiKeyCopyStatus === "failed" ? "api.retryCopyApiKey" : "api.copyApiKey")} disabled={apiKeyCopyStatus === "copying"} onClick={copyApiKey}>{apiKeyCopyStatus === "copied" ? <Check size={18} /> : apiKeyCopyStatus === "failed" ? <WarningCircle size={18} /> : <Copy size={18} />}</IconButton></div><span className={`api-key-copy-feedback is-${apiKeyCopyStatus}`} role="status" aria-live="polite">{apiKeyCopyStatus === "copied" ? t("api.apiKeyCopied") : apiKeyCopyStatus === "failed" ? t("api.apiKeyCopyFailed") : ""}</span><p className="modal-copy">{t("api.keyIssuedDetail")}</p></Modal>}
   </>;
 }
 

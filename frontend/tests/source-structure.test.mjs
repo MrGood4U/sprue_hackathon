@@ -100,6 +100,9 @@ test("keeps the API page focused on request and response formats", async () => {
   assert.match(source, /fieldRows\(contract\.responseSchema\.outputSchema\)/);
   assert.match(source, /contract\.exampleBody/);
   assert.match(source, /useProductDelivery\(productRef\)/);
+  assert.match(source, /await copyText\(issuedKey\.apiKey\)/);
+  assert.match(source, /role="status" aria-live="polite"/);
+  assert.match(source, /api\.apiKeyCopyFailed/);
   assert.doesNotMatch(source, /useDemoRuntime|useRequestTest|responseExample|mock-chip/);
   assert.match(deliveryHook, /getProductDelivery/);
   assert.match(deliveryApi, /meta\?\.dataSource !== "live"/);
