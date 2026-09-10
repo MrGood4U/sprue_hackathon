@@ -108,6 +108,12 @@ function sourceAdmissionMessage(code: string): string {
   if (code === "LIVE_SOURCE_BINDING_INVALID") {
     return "The compiled source nodes do not match the admitted live source definitions.";
   }
+  if (code === "LIVE_SOURCE_SCHEMA_INVALID") {
+    return "A live The Graph schema is incompatible with the compiled source query or selected provider fields.";
+  }
+  if (code === "LIVE_SOURCE_QUERY_ENTITY_INVALID") {
+    return "The selected The Graph collection no longer resolves to one exact live entity type.";
+  }
   if (code === "LIVE_VERSION_PERSIST_FAILED") {
     return "The live sources passed validation, but Sprue could not persist the immutable product version.";
   }

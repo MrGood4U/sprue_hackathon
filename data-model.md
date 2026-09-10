@@ -2,11 +2,11 @@
 
 ## Status
 
-Version: 1.16
+Version: 1.17
 
 Date: 2026-09-11
 
-Stage: Approved MVP design baseline. Version 1.16 permits an admitted live Graph source to pin the exact manifest IPFS CID used by the restricted Graph MCP runtime. Version 1.15 activated the live hosted-runtime profile: a successful Builder compilation persists one immutable, hash-bound executable product version, and every accepted data API request executes that fixed plan against fresh The Graph responses. Compiled plans and provider metadata may be cached; source result rows and final response rows are not reused between requests. Version 1.14 added recoverable product tombstones. Earlier version history remains recorded below. Delegated spending, x402 settlement, and mainnet capability remain unverified.
+Stage: Approved MVP design baseline. Version 1.17 requires each admitted live Graph source to pin the exact runtime-introspected collection-to-entity-type binding used to compile its immutable query, including when the provider SDL omits the Query root. Version 1.16 permits an admitted live Graph source to pin the exact manifest IPFS CID used by the restricted Graph MCP runtime. Version 1.15 activated the live hosted-runtime profile: a successful Builder compilation persists one immutable, hash-bound executable product version, and every accepted data API request executes that fixed plan against fresh The Graph responses. Compiled plans and provider metadata may be cached; source result rows and final response rows are not reused between requests. Version 1.14 added recoverable product tombstones. Earlier version history remains recorded below. Delegated spending, x402 settlement, and mainnet capability remain unverified.
 
 This document is the source of truth for Sprue's MVP domain model, PostgreSQL persistence model, lifecycle rules, financial separation, and runtime records. It translates the product and architecture decisions in [agents.md](agents.md), [plan.md](plan.md), and [project-structure.md](project-structure.md) into an implementation-ready model.
 
@@ -1091,6 +1091,7 @@ Constraints and indexes:
 - Index `(workspace_id, provider, source_kind, status)` and `(provider, logical_source_id)`.
 - Provider identifiers, schema, network, and discovery facts are immutable after validation; a changed schema or resolved deployment creates another snapshot.
 - A live MVP product source must pin an immutable `deployment_id` or `manifest_ipfs_cid` target that was validated against the selected runtime adapter. A moving `subgraph_id` target can be used for discovery or preview, but moving it into a live version requires resolving and validating an immutable deployment or manifest snapshot.
+- A live source entry must also pin its selected Graph query collection and exact runtime entity type. If source SDL omits the Query root, Builder admission resolves this pair through Sprue's fixed, read-only Query-root introspection document; it must not guess among entity types that happen to expose similar fields.
 - The MVP accepts only `source_kind = 'subgraph'` with `schema_format = 'graphql_sdl'`. Substreams or other Graph products require an explicit model and adapter revision rather than reuse of GraphQL fields by assumption.
 - Schema documents are public provider metadata but remain size-bounded to 5 MiB. They contain no endpoint credentials.
 

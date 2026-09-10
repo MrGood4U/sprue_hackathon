@@ -1,6 +1,6 @@
 import {createHash} from "node:crypto";
-import {buildSchema, getNamedType, isInputObjectType, isObjectType} from "graphql";
-import type {GraphQLField, GraphQLNamedType, GraphQLObjectType} from "graphql";
+import {buildASTSchema, getNamedType, isInputObjectType, isObjectType, Kind, parse} from "graphql";
+import type {GraphQLField, GraphQLNamedType, GraphQLObjectType, GraphQLSchema} from "graphql";
 import type {
   StructuredDagCompileInput,
   StructuredDagCompilation,
@@ -26,6 +26,7 @@ export interface LiveSourceInput {
   manifestIpfsCid: string;
   dataNetwork: string;
   queryEntity: string;
+  queryEntityType?: string | null;
   fieldBindings: readonly LiveSourceBinding[];
   auxiliaryFieldBindings: readonly LiveAuxiliarySourceBinding[];
 }
@@ -68,6 +69,23 @@ export interface ImmutableLivePlan {
 
 const graphName = /^[_A-Za-z][_0-9A-Za-z]*$/;
 const fieldPath = /^[_A-Za-z][_0-9A-Za-z]*(?:\.[_A-Za-z][_0-9A-Za-z]*)*$/;
+const graphSchemaPrelude = parse(`
+  scalar BigInt
+  scalar BigDecimal
+  scalar Bytes
+  directive @entity(immutable: Boolean, timeseries: Boolean) on OBJECT
+  directive @derivedFrom(field: String!) on FIELD_DEFINITION
+`);
+
+export class LivePlanCompilationError extends Error {
+  readonly cause: unknown;
+
+  constructor(cause: unknown) {
+    super("The immutable live plan could not be compiled");
+    this.name = "LivePlanCompilationError";
+    this.cause = cause;
+  }
+}
 
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -83,6 +101,34 @@ export function canonicalJson(value: unknown): string {
 
 export function contentHash(value: unknown): string {
   return createHash("sha256").update(canonicalJson(value)).digest("hex");
+}
+
+function buildGraphSchema(schemaDocument: string): GraphQLSchema {
+  const providerDocument = parse(schemaDocument, {maxTokens: 100_000});
+  const providerScalars = new Set(providerDocument.definitions
+    .filter((definition) => definition.kind === Kind.SCALAR_TYPE_DEFINITION)
+    .map((definition) => definition.name.value));
+  const providerDirectives = new Set(providerDocument.definitions
+    .filter((definition) => definition.kind === Kind.DIRECTIVE_DEFINITION)
+    .map((definition) => definition.name.value));
+  const missingGraphDefinitions = graphSchemaPrelude.definitions.filter((definition) => {
+    if (definition.kind === Kind.SCALAR_TYPE_DEFINITION) return !providerScalars.has(definition.name.value);
+    if (definition.kind === Kind.DIRECTIVE_DEFINITION) return !providerDirectives.has(definition.name.value);
+    return false;
+  });
+  return buildASTSchema({
+    kind: Kind.DOCUMENT,
+    definitions: [...missingGraphDefinitions, ...providerDocument.definitions],
+  });
+}
+
+export function declaredLiveQueryEntityType(
+  source: Pick<LiveSourceInput, "queryEntity">,
+  schemaDocument: string,
+): string | null {
+  const listField = buildGraphSchema(schemaDocument).getQueryType()?.getFields()[source.queryEntity];
+  const listed = listField ? getNamedType(listField.type) : null;
+  return listed && isObjectType(listed) ? listed.name : null;
 }
 
 function querySelection(paths: readonly string[]): string {
@@ -106,13 +152,16 @@ function querySelection(paths: readonly string[]): string {
 
 function sourceObject(
   source: LiveSourceInput,
-  schemaDocument: string,
+  schema: GraphQLSchema,
   selectedPaths: readonly string[],
 ): GraphQLObjectType | null {
-  const schema = buildSchema(schemaDocument);
   const listField = schema.getQueryType()?.getFields()[source.queryEntity];
   const listed = listField ? getNamedType(listField.type) : null;
   if (listed && isObjectType(listed)) return listed;
+  if (source.queryEntityType) {
+    const pinned = schema.getType(source.queryEntityType);
+    return pinned && isObjectType(pinned) ? pinned : null;
+  }
   const topLevelFields = new Set(selectedPaths.map((path) => path.split(".")[0]!));
   const candidates = Object.values(schema.getTypeMap()).filter((type): type is GraphQLObjectType => {
     if (!isObjectType(type) || type.name.startsWith("__")) return false;
@@ -142,10 +191,9 @@ function validateSelectedPaths(entity: GraphQLObjectType | null, selectedPaths: 
 
 function liveCursor(
   source: LiveSourceInput,
-  schemaDocument: string,
+  schema: GraphQLSchema,
   entity: GraphQLObjectType | null,
 ): {type: string; initial: string} {
-  const schema = buildSchema(schemaDocument);
   const listField = schema.getQueryType()?.getFields()[source.queryEntity];
   const whereType = listField?.args.find((argument) => argument.name === "where")?.type;
   const filter = whereType ? getNamedType(whereType) : null;
@@ -164,10 +212,11 @@ export function compileLiveQuery(
   selectedPaths: readonly string[],
 ): {document: string; initialCursor: string} {
   if (!graphName.test(source.queryEntity)) throw new Error(`Query entity ${source.queryEntity} is invalid`);
-  const entity = sourceObject(source, schemaDocument, selectedPaths);
+  const schema = buildGraphSchema(schemaDocument);
+  const entity = sourceObject(source, schema, selectedPaths);
   validateSelectedPaths(entity, selectedPaths);
   const selection = querySelection(["id", ...selectedPaths]);
-  const cursor = liveCursor(source, schemaDocument, entity);
+  const cursor = liveCursor(source, schema, entity);
   return {
     document: `query SprueLiveSource($first: Int!, $cursor: ${cursor.type}!) { ${source.queryEntity}(first: $first, orderBy: id, orderDirection: asc, where: { id_gt: $cursor }) { ${selection} } _meta { deployment block { number hash timestamp } hasIndexingErrors } }`,
     initialCursor: cursor.initial,
@@ -220,44 +269,50 @@ export function createImmutableLivePlan(input: {
   dag: StructuredDagCompileInput["dag"];
   sources: readonly (LiveSourceInput & {providerCredentialId: string; sourceSnapshotId: string; schemaDocument: string})[];
 }): ImmutableLivePlan {
-  return {
-    schemaVersion: 2,
-    runtimeVersion: "dag-live-v1",
-    compiler: {
-      name: "structured-dag",
-      version: "1",
-      compilationHash: input.compilation.compilationHash,
-    },
-    sources: input.sources.map((source) => {
-      const projections = sourceProjections(source, input.dag);
-      const query = compileLiveQuery(source, source.schemaDocument, projections.map((item) => item.fieldPath));
-      return {
-        id: source.id,
-        displayName: source.displayName,
-        logicalSubgraphId: source.logicalSubgraphId,
-        manifestIpfsCid: source.manifestIpfsCid,
-        dataNetwork: source.dataNetwork,
-        queryEntity: source.queryEntity,
-        fieldBindings: source.fieldBindings,
-        auxiliaryFieldBindings: source.auxiliaryFieldBindings,
-        projections,
-        providerCredentialId: source.providerCredentialId,
-        sourceSnapshotId: source.sourceSnapshotId,
-        adapterVersion: "graph-mcp-live-v1" as const,
-        access: {
-          mode: "customer_api_key" as const,
+  try {
+    return {
+      schemaVersion: 2,
+      runtimeVersion: "dag-live-v1",
+      compiler: {
+        name: "structured-dag",
+        version: "1",
+        compilationHash: input.compilation.compilationHash,
+      },
+      sources: input.sources.map((source) => {
+        const projections = sourceProjections(source, input.dag);
+        const query = compileLiveQuery(source, source.schemaDocument, projections.map((item) => item.fieldPath));
+        return {
+          id: source.id,
+          displayName: source.displayName,
+          logicalSubgraphId: source.logicalSubgraphId,
+          manifestIpfsCid: source.manifestIpfsCid,
+          dataNetwork: source.dataNetwork,
+          queryEntity: source.queryEntity,
+          queryEntityType: source.queryEntityType ?? null,
+          fieldBindings: source.fieldBindings,
+          auxiliaryFieldBindings: source.auxiliaryFieldBindings,
+          projections,
           providerCredentialId: source.providerCredentialId,
-          spendingPolicyId: null,
-          gatewayEnvironment: "mainnet" as const,
-        },
-        queryDocument: query.document,
-        initialCursor: query.initialCursor,
-        pageSize: 500,
-        maxRequests: 20,
-        maxRows: 10_000,
-      };
-    }),
-    dag: input.dag,
-    outputSchema: input.compilation.outputSchema,
-  };
+          sourceSnapshotId: source.sourceSnapshotId,
+          adapterVersion: "graph-mcp-live-v1" as const,
+          access: {
+            mode: "customer_api_key" as const,
+            providerCredentialId: source.providerCredentialId,
+            spendingPolicyId: null,
+            gatewayEnvironment: "mainnet" as const,
+          },
+          queryDocument: query.document,
+          initialCursor: query.initialCursor,
+          pageSize: 500,
+          maxRequests: 20,
+          maxRows: 10_000,
+        };
+      }),
+      dag: input.dag,
+      outputSchema: input.compilation.outputSchema,
+    };
+  } catch (error) {
+    if (error instanceof LivePlanCompilationError) throw error;
+    throw new LivePlanCompilationError(error);
+  }
 }

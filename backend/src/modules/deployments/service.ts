@@ -3,13 +3,13 @@ import {readFile} from "node:fs/promises";
 import type {StructuredDagCompileInput, StructuredDagCompilation} from "../dag/compiler.js";
 import type {GraphCredentialService} from "../graph-credential/service.js";
 import {GraphMcpError} from "../graph/mcp-client.js";
-import type {GraphPlanningMcpPort, GraphRuntimeQueryPort} from "../graph/types.js";
+import type {GraphPlanningMcpPort, GraphRuntimeQueryPort, GraphRuntimeSchemaPort} from "../graph/types.js";
 import type {LiveSourceInput} from "./live-plan.js";
-import {contentHash, createImmutableLivePlan} from "./live-plan.js";
+import {contentHash, createImmutableLivePlan, declaredLiveQueryEntityType, LivePlanCompilationError} from "./live-plan.js";
 import {executeLivePlan} from "./runtime.js";
 import {LiveDeploymentError, type AdmittedLiveSource, type LiveDeploymentRepository} from "./contracts.js";
 
-export type GraphLiveClient = GraphPlanningMcpPort & GraphRuntimeQueryPort;
+export type GraphLiveClient = GraphPlanningMcpPort & GraphRuntimeQueryPort & GraphRuntimeSchemaPort;
 
 export class LiveDeploymentService {
   constructor(
@@ -55,8 +55,21 @@ export class LiveDeploymentService {
       const admitted: AdmittedLiveSource[] = [];
       for (const source of input.sources) {
         const schemaDocument = await graph.getSchema({type: "ipfs_hash", id: source.manifestIpfsCid}, input.signal);
+        let queryEntityType: string | null;
+        try {
+          queryEntityType = declaredLiveQueryEntityType(source, schemaDocument);
+        } catch (error) {
+          throw new LivePlanCompilationError(error);
+        }
+        if (!queryEntityType) {
+          const queryFields = await graph.getRuntimeQueryFields(source.manifestIpfsCid, input.signal);
+          queryEntityType = queryFields.find((field) =>
+            field.name === source.queryEntity && field.list)?.entityType ?? null;
+        }
+        if (!queryEntityType) throw new LiveDeploymentError("LIVE_SOURCE_QUERY_ENTITY_INVALID");
         admitted.push({
           ...source,
+          queryEntityType,
           schemaDocument,
           schemaHash: createHash("sha256").update(schemaDocument).digest("hex"),
           providerCredentialId: selected.id,
@@ -76,10 +89,12 @@ export class LiveDeploymentService {
         });
       } catch (error) {
         if (error instanceof LiveDeploymentError) throw error;
+        if (error instanceof LivePlanCompilationError) throw new LiveDeploymentError("LIVE_SOURCE_SCHEMA_INVALID");
         throw new LiveDeploymentError("LIVE_VERSION_PERSIST_FAILED");
       }
     } catch (error) {
       if (error instanceof GraphMcpError) throw new LiveDeploymentError(error.code);
+      if (error instanceof LivePlanCompilationError) throw new LiveDeploymentError("LIVE_SOURCE_SCHEMA_INVALID");
       throw error;
     } finally {
       await graph.close().catch(() => undefined);

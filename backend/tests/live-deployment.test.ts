@@ -7,7 +7,7 @@ import {tmpdir} from "node:os";
 import {join} from "node:path";
 import test from "node:test";
 import {compileStructuredDag, type StructuredDagCompileInput} from "../src/modules/dag/compiler.js";
-import {contentHash, createImmutableLivePlan} from "../src/modules/deployments/live-plan.js";
+import {contentHash, createImmutableLivePlan, LivePlanCompilationError} from "../src/modules/deployments/live-plan.js";
 import {executeLivePlan} from "../src/modules/deployments/runtime.js";
 import {LiveDeploymentService} from "../src/modules/deployments/service.js";
 import {LiveDeploymentError, type LiveDeploymentRepository} from "../src/modules/deployments/contracts.js";
@@ -19,6 +19,25 @@ const schemaDocument = `
   enum Item_orderBy { id }
   input Item_filter { id_gt: ID }
   type Item { id: ID!, rawAmount: String! }
+  type Query {
+    items(first: Int, orderBy: Item_orderBy, orderDirection: OrderDirection, where: Item_filter): [Item!]!
+  }
+`;
+
+const graphDialectSchemaDocument = `
+  enum OrderDirection { asc desc }
+  enum Item_orderBy { id }
+  input Item_filter { id_gt: Bytes }
+  type Related @entity {
+    id: Bytes!
+    items: [Item!]! @derivedFrom(field: "related")
+  }
+  type Item @entity(immutable: true) {
+    id: Bytes!
+    rawAmount: BigDecimal!
+    createdAt: BigInt!
+    related: Related!
+  }
   type Query {
     items(first: Int, orderBy: Item_orderBy, orderDirection: OrderDirection, where: Item_filter): [Item!]!
   }
@@ -148,6 +167,69 @@ test("live source admission preserves safe Graph and persistence failure codes",
       (error: unknown) => error instanceof LiveDeploymentError && error.code === "LIVE_VERSION_PERSIST_FAILED",
     );
   });
+
+  await t.test("invalid source schemas are distinguished from storage failures", async () => {
+    const repository = {
+      async persistVersion(request: Parameters<LiveDeploymentRepository["persistVersion"]>[0]) {
+        return request.createPlan(new Map([["graph-items", "snapshot-id"]])) as never;
+      },
+    } as Pick<LiveDeploymentRepository, "persistVersion"> as LiveDeploymentRepository;
+    const service = new LiveDeploymentService(
+      repository,
+      credentials as never,
+      () => ({
+        async getSchema() {
+          return `${schemaDocument}\ntype Unsupported @providerOnly { id: ID! }`;
+        },
+        async close() {},
+      }) as never,
+      Buffer.alloc(32, 7),
+      "https://data.example/data/v1",
+    );
+    await assert.rejects(
+      service.buildVersion({workspaceId: "workspace", productId: "product", actorUserId: "user", compilation, dag: input.dag, sources: [source]}),
+      (error: unknown) => error instanceof LiveDeploymentError && error.code === "LIVE_SOURCE_SCHEMA_INVALID",
+    );
+  });
+
+  await t.test("runtime introspection pins the exact entity type when provider SDL omits Query", async () => {
+    const persistedPlans: ReturnType<typeof createImmutableLivePlan>[] = [];
+    const repository = {
+      async persistVersion(request: Parameters<LiveDeploymentRepository["persistVersion"]>[0]) {
+        const plan = request.createPlan(new Map([["graph-items", "snapshot-id"]]));
+        persistedPlans.push(plan);
+        return {id: "version-id", versionNo: 1, specHash: contentHash(plan)};
+      },
+    } as Pick<LiveDeploymentRepository, "persistVersion"> as LiveDeploymentRepository;
+    const service = new LiveDeploymentService(
+      repository,
+      credentials as never,
+      () => ({
+        async getSchema() {
+          return graphDialectSchemaDocument.replace(/\s*type Query \{[\s\S]*?\n  \}\n/, "\n");
+        },
+        async getRuntimeQueryFields() {
+          return [{name: "items", entityType: "Item", list: true}];
+        },
+        async close() {},
+      }) as never,
+      Buffer.alloc(32, 7),
+      "https://data.example/data/v1",
+    );
+
+    await service.buildVersion({
+      workspaceId: "workspace",
+      productId: "product",
+      actorUserId: "user",
+      compilation,
+      dag: input.dag,
+      sources: [source],
+    });
+    assert.equal(persistedPlans.length, 1);
+    const persistedPlan = persistedPlans[0]!;
+    assert.equal(persistedPlan.sources[0]!.queryEntityType, "Item");
+    assert.match(persistedPlan.sources[0]!.queryDocument, /\$cursor: Bytes!/);
+  });
 });
 
 test("immutable live plans compile a schema-correct bounded Graph query", () => {
@@ -179,6 +261,42 @@ test("immutable live plans compile a schema-correct bounded Graph query", () => 
   assert.equal(plan.sources[0]!.access.mode, "customer_api_key");
   assert.deepEqual(plan.sources[0]!.projections, [{fieldPath: "rawAmount", outputPath: "amount"}]);
   assert.equal("schemaDocument" in plan.sources[0]!, false);
+});
+
+test("immutable live plans accept The Graph schema built-ins without weakening SDL validation", () => {
+  const input = compilationInput();
+  const compilation = compileStructuredDag(input);
+  assert.equal(compilation.status, "passed");
+  if (compilation.status !== "passed") return;
+  const source = {
+    id: "graph-items",
+    displayName: "Items",
+    logicalSubgraphId: "items",
+    manifestIpfsCid: "QmExample",
+    dataNetwork: "ethereum-mainnet",
+    queryEntity: "items",
+    fieldBindings: [{fieldPath: "rawAmount", requirementId: "amount"}],
+    auxiliaryFieldBindings: [],
+    providerCredentialId: "credential-id",
+    sourceSnapshotId: "snapshot-id",
+  };
+
+  const plan = createImmutableLivePlan({
+    compilation,
+    dag: input.dag,
+    sources: [{...source, queryEntityType: "Item", schemaDocument: graphDialectSchemaDocument}],
+  });
+  assert.match(plan.sources[0]!.queryDocument, /\$cursor: Bytes!/);
+  assert.equal(plan.sources[0]!.initialCursor, "0x");
+
+  assert.throws(
+    () => createImmutableLivePlan({
+      compilation,
+      dag: input.dag,
+      sources: [{...source, schemaDocument: `${schemaDocument}\ntype Unsupported @providerOnly { id: ID! }`}],
+    }),
+    (error: unknown) => error instanceof LivePlanCompilationError,
+  );
 });
 
 test("live plans preserve exact nested Graph paths while accepting sources added without semantic bindings", async () => {
