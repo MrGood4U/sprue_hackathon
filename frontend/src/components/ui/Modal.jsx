@@ -3,7 +3,7 @@ import { X } from "@phosphor-icons/react";
 import { IconButton } from "./Button.jsx";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
 
-export function Modal({ title, eyebrow, children, footer, onClose, width = "520px" }) {
+export function Modal({ title, eyebrow, children, footer, onClose, width = "520px", className = "" }) {
   const { t } = useI18n();
 
   useEffect(() => {
@@ -15,7 +15,7 @@ export function Modal({ title, eyebrow, children, footer, onClose, width = "520p
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
       <section
-        className="modal"
+        className={`modal ${className}`.trim()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"

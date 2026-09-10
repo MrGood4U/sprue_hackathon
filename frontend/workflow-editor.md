@@ -84,7 +84,7 @@ The output schema is recalculated from the final reachable Output node. A previe
 
 The bottom action bar exposes `Save draft`, `Structured DAG`, and `Run backend build`. `Save draft` is currently an explicit demo-mode boundary: it is enabled only for a valid dirty draft and reports that durable persistence is not connected. It must be replaced by the reviewed durable version command before it can claim a save.
 
-The Structured DAG action reads the current canonical working draft. Layout coordinates are excluded from the execution JSON unless the user is explicitly viewing layout details.
+The Structured DAG action reads the current canonical working draft. Layout coordinates are excluded from the execution JSON unless the user is explicitly viewing layout details. Its modal keeps the heading, explanation, and footer fixed while the long JSON document scrolls in a bounded, keyboard-focusable code viewer with a token-colored scrollbar. A top-right copy action copies the complete structured document and exposes accessible success or failure feedback.
 
 ## State Contract
 
