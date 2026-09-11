@@ -94,10 +94,10 @@ function compilationInput(): StructuredDagCompileInput {
     dag: {
       nodes: [
         {id: "source", type: "source", operatorVersion: "1", config: {sourceId: "graph-items"}, outputSchema: {fields: [
-          {name: "amount", type: "string", nullable: false, unit: null},
+          {name: "rawAmount", type: "string", nullable: false, unit: null},
         ]}},
         {id: "map", type: "map", operatorVersion: "2", config: {mode: "project", fields: [
-          {name: "amount", expression: {op: "field", field: "amount"}},
+          {name: "amount", expression: {op: "field", field: "rawAmount"}},
         ]}},
         {id: "output", type: "output", operatorVersion: "3", config: {fields: ["amount"]}},
       ],
@@ -259,7 +259,7 @@ test("immutable live plans compile a schema-correct bounded Graph query", () => 
   assert.match(plan.sources[0]!.queryDocument, /where: \{ id_gt: \$cursor \}/);
   assert.equal(plan.sources[0]!.initialCursor, "");
   assert.equal(plan.sources[0]!.access.mode, "customer_api_key");
-  assert.deepEqual(plan.sources[0]!.projections, [{fieldPath: "rawAmount", outputPath: "amount"}]);
+  assert.deepEqual(plan.sources[0]!.projections, [{fieldPath: "rawAmount", outputPath: "rawAmount"}]);
   assert.equal("schemaDocument" in plan.sources[0]!, false);
 });
 
@@ -305,17 +305,23 @@ test("immutable live plans preserve an Agent-authored GraphQL pushdown verbatim"
   }]);
 });
 
-test("live plans project bound fields directly from Source after a fully pushed Map", async () => {
+test("live plans preserve provider paths until the explicit Map executes", async () => {
   const input: StructuredDagCompileInput = {
     schemaVersion: 1,
     dag: {
       nodes: [
         {id: "source", type: "source", operatorVersion: "1", config: {sourceId: "graph-items"}, outputSchema: {fields: [
-          {name: "amount", type: "string", nullable: false, unit: null},
+          {name: "rawAmount", type: "string", nullable: false, unit: null},
+        ]}},
+        {id: "map", type: "map", operatorVersion: "2", config: {mode: "project", fields: [
+          {name: "amount", expression: {op: "field", field: "rawAmount"}},
         ]}},
         {id: "output", type: "output", operatorVersion: "3", config: {fields: ["amount"]}},
       ],
-      edges: [{fromNode: "source", fromPort: "rows", toNode: "output", toPort: "rows"}],
+      edges: [
+        {fromNode: "source", fromPort: "rows", toNode: "map", toPort: "rows"},
+        {fromNode: "map", fromPort: "rows", toNode: "output", toPort: "rows"},
+      ],
     },
     outputSchema: {fields: [{name: "amount", type: "string", nullable: false, unit: null}]},
   };
@@ -340,7 +346,7 @@ test("live plans project bound fields directly from Source after a fully pushed 
     }],
   });
 
-  assert.deepEqual(plan.sources[0]!.projections, [{fieldPath: "rawAmount", outputPath: "amount"}]);
+  assert.deepEqual(plan.sources[0]!.projections, [{fieldPath: "rawAmount", outputPath: "rawAmount"}]);
   const result = await executeLivePlan(plan, async () => ({
     async executeStaticQuery() {
       return {data: {items: [{id: "row-1", rawAmount: "12.5"}]}, errors: []};

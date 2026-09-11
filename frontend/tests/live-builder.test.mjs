@@ -61,8 +61,15 @@ test("projects the latest durable Agent proposal into an editable non-executable
   assert.equal(draft.specification.sources[0].queryEntity, "swaps");
   assert.match(draft.specification.sources[0].queryPlan.document, /query SprueLiveSource/);
   assert.deepEqual(draft.specification.sources[0].fieldBindings, [{requirementId: "amount", fieldPath: "amountUSD"}]);
-  assert.deepEqual(draft.specification.sources[0].outputSchema.fields.map(({name}) => name), ["amount", "data_network"]);
-  assert.deepEqual(draft.specification.dag.nodes.map(({id}) => id), ["source__need_eth", "result"]);
+  assert.deepEqual(draft.specification.sources[0].outputSchema.fields.map(({name}) => name), ["amountUSD", "data_network"]);
+  const boundaryMap = draft.specification.dag.nodes.find((node) => node.type === "map");
+  assert.deepEqual(boundaryMap.config, {mode: "project", fields: [{
+    name: "amount",
+    expression: {op: "field", field: "amountUSD"},
+    unit: "USD",
+  }]});
+  assert.ok(draft.specification.dag.edges.some((edge) => edge.fromNode === "source__need_eth" && edge.toNode === boundaryMap.id));
+  assert.ok(draft.specification.dag.edges.some((edge) => edge.fromNode === boundaryMap.id && edge.toNode === "result"));
   assert.deepEqual(draft.specification.outputSchema.fields.map(({name}) => name), ["amount"]);
   assert.deepEqual(draft.referenceResult, []);
 });
@@ -206,24 +213,27 @@ test("recovers predecessor fields for historical Agent drafts that predate sourc
 
   const sourceFields = draft.specification.sources[0].outputSchema.fields;
   assert.deepEqual(sourceFields.map(({name, type}) => [name, type]), [
-    ["observed_at", "timestamp"],
-    ["category_code", "string"],
-    ["metric_value", "decimal"],
+    ["record.when", "timestamp"],
+    ["record.kind", "string"],
+    ["record.measure", "decimal"],
     ["data_network", "string"],
   ]);
   assert.deepEqual(draft.specification.dag.nodes[0].outputSchema.fields, sourceFields);
 
   const editor = createEditorState(draft);
-  assert.equal(editor.nodes.find((node) => node.id === "map").data.node.config.mode, "extend");
+  assert.equal(editor.nodes.find((node) => node.id === "map").data.node.config.mode, "project");
   assert.deepEqual(
     editor.nodes.find((node) => node.id === "map").data.node.config.fields.map((field) => field.name),
-    ["observed_date"],
+    ["observed_at", "category_code", "metric_value", "observed_date"],
+  );
+  assert.deepEqual(
+    editor.nodes.find((node) => node.id === "map").data.node.config.fields.slice(0, 3).map((field) => field.expression.field),
+    ["record.when", "record.kind", "record.measure"],
   );
   assert.deepEqual(deriveFilterInputFields(editor, "filter").map(({name}) => name), [
     "observed_at",
     "category_code",
     "metric_value",
-    "data_network",
     "observed_date",
   ]);
   assert.deepEqual(editor.nodes.find((node) => node.id === "filter").data.node.config, {
@@ -307,7 +317,19 @@ test("migrates nested legacy Filter expressions without protocol or asset assump
     {field: "pair_filter_match", operator: "eq", value: true},
     {field: "observed_date", operator: "gte", value: "2026-01-01"},
   ]);
-  assert.deepEqual(map.config.fields.find((field) => field.name === "pair_filter_match").expression, pairMatch);
+  assert.deepEqual(map.config.fields.find((field) => field.name === "pair_filter_match").expression, {
+    ...pairMatch,
+    inputs: pairMatch.inputs.map((branch) => ({
+      ...branch,
+      inputs: branch.inputs.map((comparison) => ({
+        ...comparison,
+        inputs: [
+          {...comparison.inputs[0], field: comparison.inputs[0].field === "left_symbol" ? "asset0.symbol" : "asset1.symbol"},
+          comparison.inputs[1],
+        ],
+      })),
+    })),
+  });
   assert.equal(JSON.stringify(draft).includes("WETH"), false);
   assert.equal(JSON.stringify(draft).includes("USDC"), false);
   assert.equal(createEditorState(draft).validation.length, 0);

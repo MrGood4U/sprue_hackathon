@@ -68,26 +68,31 @@ function draft(residualField = true): AgentBuilderDraft {
   };
 }
 
-test("Agent pushdown leaves only residual Map work and removes a fully pushed Filter", () => {
+test("Agent pushdown keeps the complete explicit Map and removes a fully pushed Filter", () => {
   const result = residualizeAgentPushdowns(draft());
 
   assert.deepEqual(result.sources[0]!.outputSchema.fields.map((field) => [field.name, field.unit]), [
-    ["amount", "USD"], ["kind", null], ["data_network", null],
+    ["rawAmount", null], ["rawKind", null], ["data_network", null],
   ]);
   const map = result.nodes.find((node) => node.id === "normalize");
-  assert.deepEqual(map?.config, {mode: "extend", fields: [
+  assert.deepEqual(map?.config, {mode: "project", fields: [
+    {name: "amount", expression: {op: "field", field: "rawAmount"}, unit: "USD"},
+    {name: "kind", expression: {op: "field", field: "rawKind"}, unit: null},
     {name: "network", expression: {op: "field", field: "data_network"}, unit: null},
   ]});
   assert.equal(result.nodes.some((node) => node.id === "positive"), false);
   assert.equal(result.edges.some((edge) => edge.fromNode === "normalize" && edge.toNode === "output"), true);
 });
 
-test("Agent pushdown removes a Map whose complete work moved into Source", () => {
+test("Agent pushdown never hides field mapping inside Source", () => {
   const result = residualizeAgentPushdowns(draft(false));
 
-  assert.equal(result.nodes.some((node) => node.id === "normalize"), false);
+  assert.equal(result.nodes.some((node) => node.id === "normalize"), true);
   assert.equal(result.nodes.some((node) => node.id === "positive"), false);
-  assert.deepEqual(result.edges, [{fromNode: "source__rows", fromPort: "rows", toNode: "output", toPort: "rows"}]);
+  assert.deepEqual(result.edges, [
+    {fromNode: "source__rows", fromPort: "rows", toNode: "normalize", toPort: "rows"},
+    {fromNode: "normalize", fromPort: "rows", toNode: "output", toPort: "rows"},
+  ]);
 });
 
 test("Filter pushdown requires exact predicate equivalence through direct Map bindings", () => {

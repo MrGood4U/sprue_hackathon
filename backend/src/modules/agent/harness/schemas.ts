@@ -344,7 +344,7 @@ const graphQueryPlanSchema = z.object({
     nodeRole: role,
     operator: z.enum(["map", "filter", "sort"]),
     description: boundedText(500),
-  }).strict()).min(1).max(12),
+  }).strict()).max(12),
 }).strict();
 const sourceEntitySelectionSchema = z.object({
   schemaVersion: z.literal(1),

@@ -10,23 +10,6 @@ type MutableNode = {
 
 type MutableEdge = {fromNode: string; fromPort: "rows"; toNode: string; toPort: "rows" | "left" | "right"};
 
-function record(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function fieldReference(value: unknown): string | null {
-  return record(value) && value.op === "field" && typeof value.field === "string" ? value.field : null;
-}
-
-function rewriteExpression(value: unknown, aliases: ReadonlyMap<string, string>): unknown {
-  if (!record(value)) return value;
-  if (value.op === "field" && typeof value.field === "string") {
-    return {...value, field: aliases.get(value.field) ?? value.field};
-  }
-  if (!Array.isArray(value.inputs)) return value;
-  return {...value, inputs: value.inputs.map((input) => rewriteExpression(input, aliases))};
-}
-
 function removeUnaryNode(nodes: MutableNode[], edges: MutableEdge[], nodeId: string): boolean {
   const incoming = edges.filter((edge) => edge.toNode === nodeId && edge.toPort === "rows");
   if (incoming.length !== 1) return false;
@@ -43,8 +26,9 @@ function removeUnaryNode(nodes: MutableNode[], edges: MutableEdge[], nodeId: str
 
 /**
  * Converts the validated, full semantic composition into the residual Builder DAG.
- * Provider selection and direct field binding move into Source. Only transformations
- * that are not represented by the authored Source query remain as operators.
+ * Provider filtering and ordering may move into Source after exact validation.
+ * Field binding and flattening deliberately remain visible in the project-mode Map
+ * immediately after Source, even when GraphQL selects the corresponding raw paths.
  */
 export function residualizeAgentPushdowns(draft: AgentBuilderDraft): AgentBuilderDraft {
   const sources = structuredClone(draft.sources) as unknown as AgentBuilderDraft["sources"][number][];
@@ -54,60 +38,8 @@ export function residualizeAgentPushdowns(draft: AgentBuilderDraft): AgentBuilde
   for (const source of sources) {
     const sourceNode = nodes.find((node) => node.type === "source" && node.config.sourceId === source.id);
     if (!sourceNode) continue;
-    const providerAliases = new Map<string, string>([
-      ...source.fieldBindings.map((binding) => [binding.fieldPath, binding.requirementId] as const),
-      ...source.auxiliaryFieldBindings.map((binding) => [binding.fieldPath, binding.name] as const),
-      ["data_network", "data_network"] as const,
-    ]);
-    const aliases = new Map(providerAliases);
-    for (const name of aliases.values()) aliases.set(name, name);
-
     const operations = source.queryPlan?.pushedOperations;
     if (!Array.isArray(operations)) continue;
-    const mapRoles = operations
-      .filter((operation) => operation.operator === "map")
-      .map((operation) => operation.nodeRole);
-    for (const role of mapRoles) {
-      const map = nodes.find((node) => node.id === role && node.type === "map");
-      if (!map || !Array.isArray(map.config.fields)) continue;
-      const retained: Record<string, unknown>[] = [];
-      const movedUnits = new Map<string, string | null>();
-      for (const candidate of map.config.fields) {
-        if (!record(candidate) || typeof candidate.name !== "string") {
-          retained.push(candidate as Record<string, unknown>);
-          continue;
-        }
-        const input = fieldReference(candidate.expression);
-        const alias = input ? aliases.get(input) : null;
-        if (alias === candidate.name) {
-          movedUnits.set(alias, typeof candidate.unit === "string" ? candidate.unit : null);
-          continue;
-        }
-        retained.push({...candidate, expression: rewriteExpression(candidate.expression, aliases)});
-      }
-
-      const sourceFieldByName = new Map(source.outputSchema.fields.map((field) => [field.name, field]));
-      const projectedFields = [...providerAliases.entries()].flatMap(([providerPath, outputName]) => {
-        const field = sourceFieldByName.get(providerPath) ?? sourceFieldByName.get(outputName);
-        if (!field) return [];
-        return [{...field, name: outputName, unit: movedUnits.get(outputName) ?? field.unit}];
-      });
-      const dataNetwork = sourceFieldByName.get("data_network") ?? {
-        name: "data_network", type: "string", nullable: false, unit: null,
-      };
-      const uniqueFields = new Map(projectedFields.map((field) => [field.name, field]));
-      uniqueFields.set("data_network", dataNetwork);
-      const outputSchema = {fields: [...uniqueFields.values()]};
-      source.outputSchema = outputSchema;
-      sourceNode.outputSchema = structuredClone(outputSchema);
-
-      if (retained.length === 0) {
-        removeUnaryNode(nodes, edges, map.id);
-      } else {
-        map.config = {mode: "extend", fields: retained};
-      }
-    }
-
     for (const operation of operations) {
       if (operation.operator === "filter" || operation.operator === "sort") {
         const node = nodes.find((candidate) => candidate.id === operation.nodeRole && candidate.type === operation.operator);

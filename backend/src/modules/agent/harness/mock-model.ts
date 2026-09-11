@@ -357,11 +357,7 @@ function sourceFeasibilityOutput(
         operationName: "SprueLiveSource" as const,
         document: `query SprueLiveSource($first: Int!, $cursor: ${cursorType}!) { ${entity.queryEntity}(first: $first, orderBy: id, orderDirection: asc, where: { id_gt: $cursor }) { ${graphQuerySelection(selectedPaths)} } }`,
         pagination: {kind: "id_cursor" as const, cursorField: "id" as const, pageSize: 500, maxRequests: 20, maxRows: 10_000},
-        pushedOperations: [{
-          nodeRole: `normalize_${need.id}`,
-          operator: "map" as const,
-          description: "Select only the inspected provider fields consumed by the boundary Map.",
-        }],
+          pushedOperations: [],
       },
       rationale: `The inspected entity binds every required semantic field for ${need.dataNetwork}.`,
     };

@@ -659,7 +659,7 @@ test("Source inspector exposes the Agent-authored GraphQL with bounded scrolling
   const styles = await readFile(new URL("../src/features/workflow-editor/workflow-editor.css", import.meta.url), "utf8");
 
   assert.match(inspector, /queryPlan\.document/);
-  assert.match(inspector, /queryPlan\.pushedOperations\.map/);
+  assert.match(inspector, /operation\.operator === "filter" \|\| operation\.operator === "sort"/);
   assert.match(inspector, /node\.config\?\.queryPlan \?\? selected\?\.queryPlan \?\? null/);
   assert.match(inspector, /await copyText\(queryPlan\.document\)/);
   assert.match(inspector, /aria-live="polite"/);

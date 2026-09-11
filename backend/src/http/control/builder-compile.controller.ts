@@ -78,7 +78,7 @@ const sourceQueryPlanSchema = z.strictObject({
     nodeRole: z.string().regex(/^[a-z][a-z0-9_]{0,99}$/),
     operator: z.enum(["map", "filter", "sort"]),
     description: z.string().trim().min(1).max(500),
-  })).min(1).max(12),
+  })).max(12),
 });
 
 const liveSourceSchema = z.strictObject({

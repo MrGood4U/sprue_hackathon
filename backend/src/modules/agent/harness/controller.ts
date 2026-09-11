@@ -1093,12 +1093,6 @@ function validateSourceFeasibility(
       }
       seenPushdowns.add(pushed.nodeRole);
     }
-    if (!selection.queryPlan.pushedOperations.some((item) => item.operator === "map" && item.nodeRole === boundaryMap.role)) {
-      fail(
-        "Feasibility Source query must declare its field projection Map pushdown",
-        "FEASIBILITY_SOURCE_PUSHDOWN_INVALID",
-      );
-    }
     const declaresFilterPushdown = selection.queryPlan.pushedOperations.some((item) => item.operator === "filter");
     if (declaresFilterPushdown !== queryPredicatesByNeed.get(selection.sourceNeedId)) {
       fail(

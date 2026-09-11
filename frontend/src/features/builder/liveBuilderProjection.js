@@ -188,7 +188,31 @@ function inferLegacySourceFields(builder, source) {
       }
     }
   }
-  return [...fields.values()].map((field) => ({...field, type: field.type ?? "string"}));
+  const bindings = [
+    ...(source.fieldBindings ?? sourceNode?.config?.fieldBindings ?? []).map((binding) => ({
+      semanticName: binding.requirementId,
+      fieldPath: binding.fieldPath,
+    })),
+    ...(source.auxiliaryFieldBindings ?? sourceNode?.config?.auxiliaryFieldBindings ?? []).map((binding) => ({
+      semanticName: binding.name,
+      fieldPath: binding.fieldPath,
+    })),
+  ].filter((binding) => typeof binding.semanticName === "string" && typeof binding.fieldPath === "string");
+  const semanticNames = new Set(bindings.map((binding) => binding.semanticName));
+  const providerFields = new Map();
+  for (const binding of bindings) {
+    const inferred = fields.get(binding.fieldPath) ?? fields.get(binding.semanticName);
+    addLegacyField(providerFields, {
+      ...(inferred ?? {type: null, nullable: false}),
+      name: binding.fieldPath,
+      unit: null,
+    });
+  }
+  for (const field of fields.values()) {
+    if (!semanticNames.has(field.name)) addLegacyField(providerFields, field);
+  }
+  addLegacyField(providerFields, {name: "data_network", type: "string", nullable: false, unit: null});
+  return [...providerFields.values()].map((field) => ({...field, type: field.type ?? "string"}));
 }
 
 function manualDraft(product, intent, originKey, resultKind) {
@@ -232,9 +256,20 @@ export function projectAgentBuilderDraft(product, messages) {
 
   const builder = content.builderDraft;
   const sourceFieldsById = new Map(builder.sources.map((source) => [source.id, inferLegacySourceFields(builder, source)]));
+  const sourceById = new Map(builder.sources.map((source) => [source.id, source]));
   const projectedNodes = builder.nodes.map((node) => {
-    const sourceFields = node.type === "source" ? sourceFieldsById.get(node.config?.sourceId ?? node.config?.sourceKey) : null;
-    return structuredClone(sourceFields ? {...node, outputSchema: {fields: sourceFields}} : node);
+    const sourceId = node.config?.sourceId ?? node.config?.sourceKey;
+    const sourceFields = node.type === "source" ? sourceFieldsById.get(sourceId) : null;
+    const source = sourceById.get(sourceId);
+    return structuredClone(sourceFields ? {
+      ...node,
+      config: {
+        ...node.config,
+        fieldBindings: source?.fieldBindings ?? node.config?.fieldBindings ?? [],
+        auxiliaryFieldBindings: source?.auxiliaryFieldBindings ?? node.config?.auxiliaryFieldBindings ?? [],
+      },
+      outputSchema: {fields: sourceFields},
+    } : node);
   });
   const migratedGraph = migrateLegacyBuilderDraft(projectedNodes, builder.edges, builder.outputSchema.fields);
   const draft = {
@@ -284,7 +319,7 @@ export function projectAgentBuilderDraft(product, messages) {
 }
 
 export function builderDraftCacheKey(workspaceId, productId) {
-  return `sprue.builder-draft.v8:${workspaceId}:${productId}`;
+  return `sprue.builder-draft.v9:${workspaceId}:${productId}`;
 }
 
 export function browserSessionStorage() {

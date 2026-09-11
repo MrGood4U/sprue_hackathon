@@ -126,6 +126,8 @@ function SourceConfig({ node, draft, update, mode, onModeChange, sourceDiscovery
   const sourceId = node.config?.sourceId ?? node.config?.sourceKey ?? "";
   const selected = sources.find((source) => source.id === sourceId);
   const queryPlan = node.config?.queryPlan ?? selected?.queryPlan ?? null;
+  const pushedOperations = (queryPlan?.pushedOperations ?? [])
+    .filter((operation) => operation.operator === "filter" || operation.operator === "sort");
 
   const selectSource = (value) => {
     const { sourceKey: _legacySourceKey, ...config } = node.config ?? {};
@@ -324,10 +326,10 @@ function SourceConfig({ node, draft, update, mode, onModeChange, sourceDiscovery
                     : queryCopyStatus === "failed" ? t("workflowEditor.inspector.graphqlCopyFailed") : ""}
                 </span>
               </div>
-              <div className="workflow-source-pushdowns">
+              {pushedOperations.length > 0 && <div className="workflow-source-pushdowns">
                 <span className="workflow-inspector-subtitle">{t("workflowEditor.inspector.graphqlPushdowns")}</span>
                 <ul>
-                  {queryPlan.pushedOperations.map((operation) => (
+                  {pushedOperations.map((operation) => (
                     <li key={`${operation.nodeRole}:${operation.operator}`}>
                       <code>{operation.operator}</code>
                       <span>{operation.nodeRole}</span>
@@ -335,7 +337,7 @@ function SourceConfig({ node, draft, update, mode, onModeChange, sourceDiscovery
                     </li>
                   ))}
                 </ul>
-              </div>
+              </div>}
             </section>
           ) : (
             <div className="workflow-source-query-empty" role="status">

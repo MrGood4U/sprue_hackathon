@@ -75,10 +75,45 @@ function inlineProjectedFields(expression, definitions, sourceNames) {
   return inputs.every(Boolean) ? {...structuredClone(expression), inputs} : null;
 }
 
-function projectModeConfig(config, inputFields) {
+function normalizationAliases(sourceConfig) {
+  return new Map([
+    ...(sourceConfig?.fieldBindings ?? []).flatMap((binding) =>
+      typeof binding?.requirementId === "string" && typeof binding?.fieldPath === "string"
+        ? [[binding.requirementId, binding.fieldPath]]
+        : []),
+    ...(sourceConfig?.auxiliaryFieldBindings ?? []).flatMap((binding) =>
+      typeof binding?.name === "string" && typeof binding?.fieldPath === "string"
+        ? [[binding.name, binding.fieldPath]]
+        : []),
+  ]);
+}
+
+function rewriteBoundFieldReferences(expression, aliases) {
+  if (!expression || typeof expression !== "object" || Array.isArray(expression)) return expression;
+  if (expression.op === "field" && typeof expression.field === "string") {
+    return {...expression, field: aliases.get(expression.field) ?? expression.field};
+  }
+  if (!Array.isArray(expression.inputs)) return structuredClone(expression);
+  return {...structuredClone(expression), inputs: expression.inputs.map((input) => rewriteBoundFieldReferences(input, aliases))};
+}
+
+function projectModeConfig(config, inputFields, sourceConfig) {
   if (!config || !Array.isArray(config.fields) || !["extend", "project"].includes(config.mode)) return null;
-  const definitions = structuredClone(config.fields);
-  if (config.mode === "project") return {mode: "project", fields: definitions};
+  const aliases = normalizationAliases(sourceConfig);
+  const definitions = config.fields.map((definition) => ({
+    ...structuredClone(definition),
+    expression: rewriteBoundFieldReferences(definition?.expression, aliases),
+  }));
+  const byName = new Map(definitions.map((definition) => [definition?.name, definition]));
+  const explicitBindings = [...aliases].flatMap(([name, providerPath]) => {
+    if (!identifierPattern.test(name) || byName.has(name)) return [];
+    return [{name, expression: {op: "field", field: providerPath}, unit: null}];
+  });
+  if (config.mode === "project") return {mode: "project", fields: [...explicitBindings, ...definitions]};
+  const hasDeclaredBindings = aliases.size > 0;
+  if (hasDeclaredBindings) {
+    return {mode: "project", fields: [...explicitBindings, ...definitions]};
+  }
   const overwritten = new Set(definitions.map((definition) => definition?.name));
   if (inputFields.some((field) => !identifierPattern.test(field.name))) return null;
   return {
@@ -98,6 +133,43 @@ function outputFields(config, inputFields) {
     const field = inferMapDefinitionField(definition, inputFields);
     return field ? [{...field, name: definition.name}] : [];
   })];
+}
+
+function uniqueBoundaryMapId(nodes, sourceId) {
+  const used = new Set(nodes.map((node) => node.id));
+  const normalized = `normalize_${sourceId}`.replace(/[^a-zA-Z0-9_-]+/g, "_");
+  let id = normalized;
+  let suffix = 2;
+  while (used.has(id)) {
+    id = `${normalized}_${suffix}`;
+    suffix += 1;
+  }
+  return id;
+}
+
+function ensureExplicitSourceMaps(nodes, edges) {
+  let nextNodes = structuredClone(nodes);
+  let nextEdges = structuredClone(edges);
+  for (const source of nextNodes.filter((node) => node.type === "source")) {
+    const outgoing = nextEdges.filter((edge) => edge.fromNode === source.id);
+    if (outgoing.length !== 1) continue;
+    const target = nextNodes.find((node) => node.id === outgoing[0].toNode);
+    if (target?.type === "map" && nextEdges.filter((edge) => edge.toNode === target.id).length === 1) {
+      const config = projectModeConfig(target.config, source.outputSchema?.fields ?? [], source.config);
+      if (config) nextNodes = nextNodes.map((node) => node.id === target.id ? {...node, operatorVersion: "2", config} : node);
+      continue;
+    }
+    const config = projectModeConfig({mode: "extend", fields: []}, source.outputSchema?.fields ?? [], source.config);
+    if (!config || config.fields.length === 0) continue;
+    const id = uniqueBoundaryMapId(nextNodes, source.id);
+    nextNodes.push({id, type: "map", operatorVersion: "2", config});
+    nextEdges = [
+      ...nextEdges.filter((edge) => edge !== outgoing[0]),
+      {...outgoing[0], toNode: id, toPort: "rows"},
+      {fromNode: id, fromPort: "rows", toNode: outgoing[0].toNode, toPort: outgoing[0].toPort ?? "rows"},
+    ];
+  }
+  return {nodes: nextNodes, edges: nextEdges};
 }
 
 function migrateFilter(nodes, edges, filterId) {
@@ -127,15 +199,10 @@ function migrateFilter(nodes, edges, filterId) {
   const inputFields = source?.outputSchema?.fields ?? [];
   if (!map || !source || inputFields.length === 0) return null;
 
-  const mapConfig = map.config?.mode === "extend" && Array.isArray(map.config?.fields)
-    ? {mode: "extend", fields: structuredClone(map.config.fields)}
-    : projectModeConfig(map.config, inputFields);
+  const mapConfig = projectModeConfig(map.config, inputFields, source.config);
   if (!mapConfig) return null;
   const definitions = mapConfig.fields;
-  const outputNames = new Set([
-    ...(mapConfig.mode === "extend" ? inputFields.map((field) => field.name) : []),
-    ...definitions.map((definition) => definition.name),
-  ]);
+  const outputNames = new Set(definitions.map((definition) => definition.name));
   const sourceNames = new Set(inputFields.map((field) => field.name));
   const combinator = ["and", "or"].includes(filter.config.expression.op) ? filter.config.expression.op : "and";
   const terms = ["and", "or"].includes(filter.config.expression.op)
@@ -145,13 +212,13 @@ function migrateFilter(nodes, edges, filterId) {
 
   const conditions = [];
   for (const [index, term] of terms.entries()) {
-    const direct = conditionFromExpression(term, definitions, outputNames);
+    const expression = inlineProjectedFields(term, definitions, sourceNames);
+    if (!expression) return null;
+    const direct = conditionFromExpression(expression, definitions, outputNames);
     if (direct) {
       conditions.push(direct);
       continue;
     }
-    const expression = reorder ? structuredClone(term) : inlineProjectedFields(term, definitions, sourceNames);
-    if (!expression) return null;
     const name = uniqueFieldName(filter.id, outputNames, index);
     outputNames.add(name);
     definitions.push({name, expression});
@@ -181,82 +248,6 @@ function migrateFilter(nodes, edges, filterId) {
       ...mapOutgoing.map((edge) => ({...edge, fromNode: filter.id, fromPort: "rows"})),
     ],
   };
-}
-
-function queryPlanAliases(source) {
-  const providerAliases = new Map([
-    ...(source.config?.fieldBindings ?? []).map((binding) => [binding.fieldPath, binding.requirementId]),
-    ...(source.config?.auxiliaryFieldBindings ?? []).map((binding) => [binding.fieldPath, binding.name]),
-    ["data_network", "data_network"],
-  ]);
-  const aliases = new Map(providerAliases);
-  for (const name of [...aliases.values()]) aliases.set(name, name);
-  return {aliases, providerAliases};
-}
-
-function rewritePushedFieldReferences(expression, aliases) {
-  if (!expression || typeof expression !== "object" || Array.isArray(expression)) return expression;
-  if (expression.op === "field" && typeof expression.field === "string") {
-    return {...expression, field: aliases.get(expression.field) ?? expression.field};
-  }
-  if (!Array.isArray(expression.inputs)) return expression;
-  return {...expression, inputs: expression.inputs.map((input) => rewritePushedFieldReferences(input, aliases))};
-}
-
-function removeUnaryNode(nodes, edges, nodeId) {
-  const incoming = edges.filter((edge) => edge.toNode === nodeId && (edge.toPort ?? "rows") === "rows");
-  if (incoming.length !== 1) return {nodes, edges};
-  const outgoing = edges.filter((edge) => edge.fromNode === nodeId);
-  return {
-    nodes: nodes.filter((node) => node.id !== nodeId),
-    edges: [
-      ...edges.filter((edge) => edge.toNode !== nodeId && edge.fromNode !== nodeId),
-      ...outgoing.map((edge) => ({...edge, fromNode: incoming[0].fromNode, fromPort: "rows"})),
-    ],
-  };
-}
-
-function residualizeQueryPushdowns(nodes, edges) {
-  let current = {nodes, edges};
-  for (const sourceId of current.nodes.filter((node) => node.type === "source").map((node) => node.id)) {
-    let source = current.nodes.find((node) => node.id === sourceId);
-    const operations = source?.config?.queryPlan?.pushedOperations;
-    if (!source || !Array.isArray(operations)) continue;
-    const {aliases, providerAliases} = queryPlanAliases(source);
-    const mapRoles = operations.filter((operation) => operation?.operator === "map").map((operation) => operation.nodeRole);
-    for (const role of mapRoles) {
-      const map = current.nodes.find((node) => node.id === role && node.type === "map");
-      if (!map || !Array.isArray(map.config?.fields)) continue;
-      const retained = map.config.fields.flatMap((definition) => {
-        const input = definition?.expression?.op === "field" ? definition.expression.field : null;
-        if (typeof definition?.name === "string" && typeof input === "string" && aliases.get(input) === definition.name) return [];
-        return [{...definition, expression: rewritePushedFieldReferences(definition?.expression, aliases)}];
-      });
-      const sourceFields = source.outputSchema?.fields ?? [];
-      const projected = new Map();
-      for (const [providerPath, outputName] of providerAliases) {
-        const field = sourceFields.find((candidate) => candidate.name === providerPath || candidate.name === outputName);
-        if (field) projected.set(outputName, {...field, name: outputName});
-      }
-      const dataNetwork = sourceFields.find((field) => field.name === "data_network")
-        ?? {name: "data_network", type: "string", nullable: false, unit: null};
-      projected.set("data_network", dataNetwork);
-      current = {
-        ...current,
-        nodes: current.nodes.map((node) => node.id === source.id
-          ? {...node, outputSchema: {fields: [...projected.values()]}}
-          : node.id === map.id
-            ? {...node, config: {mode: "extend", fields: retained}}
-            : node),
-      };
-      source = current.nodes.find((node) => node.id === sourceId);
-      if (retained.length === 0) current = removeUnaryNode(current.nodes, current.edges, map.id);
-    }
-    // Historical query-plan metadata predated deterministic semantic-equivalence
-    // checks. Only the backend may remove Filter or Sort nodes after proving a
-    // complete pushdown; the browser must not trust an old marker by itself.
-  }
-  return current;
 }
 
 function normalizedOrdering(orderBy) {
@@ -388,11 +379,13 @@ function annotateLegacyMapUnits(nodes, edges, outputSchemaFields) {
 
 export function migrateLegacyBuilderDraft(nodes, edges, outputSchemaFields = []) {
   let current = {nodes: structuredClone(nodes), edges: structuredClone(edges)};
-  const filterIds = current.nodes.filter((node) => node.type === "filter" && node.config?.expression).map((node) => node.id);
-  for (const filterId of filterIds) {
+  for (const filterId of current.nodes.filter((node) => node.type === "filter" && node.config?.expression).map((node) => node.id)) {
+    current = migrateFilter(current.nodes, current.edges, filterId) ?? current;
+  }
+  current = ensureExplicitSourceMaps(current.nodes, current.edges);
+  for (const filterId of current.nodes.filter((node) => node.type === "filter" && node.config?.expression).map((node) => node.id)) {
     current = migrateFilter(current.nodes, current.edges, filterId) ?? current;
   }
   current = migrateOutputs(current.nodes, current.edges);
-  current = residualizeQueryPushdowns(current.nodes, current.edges);
   return annotateLegacyMapUnits(current.nodes, current.edges, outputSchemaFields);
 }

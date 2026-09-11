@@ -248,6 +248,12 @@ export function compileAuthoredLiveQuery(
   return {document: plan.document, initialCursor: cursor.initial};
 }
 
+function collectExpressionFields(value: unknown, fields: Set<string>): void {
+  if (!record(value)) return;
+  if (value.op === "field" && typeof value.field === "string") fields.add(value.field);
+  if (Array.isArray(value.inputs)) value.inputs.forEach((input) => collectExpressionFields(input, fields));
+}
+
 function sourceProjections(
   source: LiveSourceInput,
   dag: StructuredDagCompileInput["dag"],
@@ -255,30 +261,28 @@ function sourceProjections(
   const sourceNode = dag.nodes.find((node) => node.type === "source"
     && String(node.config.sourceId ?? node.config.sourceKey ?? "") === source.id);
   if (!sourceNode?.outputSchema) throw new Error(`Source ${source.id} has no compiled output schema`);
-  const available = new Set(sourceNode.outputSchema.fields.map((field) => field.name));
-  const boundProjections: LiveSourceProjection[] = [
-    ...source.fieldBindings.map((binding) => ({
-      fieldPath: binding.fieldPath,
-      outputPath: available.has(binding.requirementId) ? binding.requirementId : binding.fieldPath,
-    })),
-    ...source.auxiliaryFieldBindings.map((binding) => ({
-      fieldPath: binding.fieldPath,
-      outputPath: available.has(binding.name ?? binding.requirementId ?? "")
-        ? (binding.name ?? binding.requirementId ?? binding.fieldPath)
-        : binding.fieldPath,
-    })),
-  ];
-  const projections = boundProjections.length > 0
-    ? boundProjections
-    : sourceNode.outputSchema.fields
-      .filter((field) => field.name !== "data_network")
-      .map((field) => ({fieldPath: field.name, outputPath: field.name}));
-  for (const projection of projections) {
-    if (!fieldPath.test(projection.fieldPath) || !available.has(projection.outputPath)) {
-      throw new Error(`Source field ${projection.outputPath} has no valid provider projection`);
-    }
+  const outgoing = dag.edges.filter((edge) => edge.fromNode === sourceNode.id);
+  if (outgoing.length !== 1) throw new Error(`Source ${source.id} does not have one normalization Map`);
+  const map = dag.nodes.find((node) => node.id === outgoing[0]!.toNode && node.type === "map");
+  if (!map || map.config.mode !== "project" || !Array.isArray(map.config.fields)) {
+    throw new Error(`Source ${source.id} does not have one project-mode normalization Map`);
   }
-  if (projections.length === 0) throw new Error(`Source ${source.id} does not project a provider field`);
+
+  const referenced = new Set<string>();
+  map.config.fields.forEach((definition) => {
+    if (record(definition)) collectExpressionFields(definition.expression, referenced);
+  });
+  const available = new Set(sourceNode.outputSchema.fields.map((field) => field.name));
+  const projections: LiveSourceProjection[] = [];
+  for (const providerPath of [...referenced].sort()) {
+    if (providerPath === "data_network") continue;
+    if (!available.has(providerPath)) throw new Error(`Normalization Map references unavailable source field ${providerPath}`);
+    if (!fieldPath.test(providerPath)) throw new Error(`Source field ${providerPath} has no valid provider path`);
+    projections.push({fieldPath: providerPath, outputPath: providerPath});
+  }
+  if (projections.length === 0 && !referenced.has("data_network")) {
+    throw new Error(`Source ${source.id} normalization does not consume a provider field`);
+  }
   return projections;
 }
 
