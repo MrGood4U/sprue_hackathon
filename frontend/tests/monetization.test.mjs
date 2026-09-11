@@ -13,6 +13,12 @@ test("hackathon monetization keeps the full price with the creator and omits fee
   assert.match(page, /useProductDelivery\(productRef\)/);
   assert.match(page, /delivery\.publish\(/);
   assert.match(page, /delivery\.retire\(/);
+  assert.match(page, /className="monetize-heading-actions"/);
+  assert.match(page, /setPublishOpen\(true\)/);
+  assert.match(page, /monetize\.stopDeployment/);
+  assert.match(page, /className="x402-publish-modal"/);
+  assert.doesNotMatch(page, /monetize-grid|settlement-preview|settlement-amount|settlement-flow/);
+  assert.equal(page.match(/<section className="panel/g)?.length, 2);
   assert.match(delivery, /export function publishX402/);
   assert.match(delivery, /export function retireX402/);
   assert.doesNotMatch(page, /useDemoRuntime|setPublished|simulationNotice|demoPublished/);
