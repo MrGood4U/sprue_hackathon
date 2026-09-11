@@ -12,6 +12,8 @@ import {
   graphMcpPlanningTools,
   graphNetworksRegistryVersion,
   graphSubgraphNetworkCatalog,
+  inspectGraphSchema,
+  validateGraphSourceQueryPlan,
 } from "../src/modules/graph/index.js";
 import type {
   GraphMcpPlanningTool,
@@ -72,6 +74,253 @@ const swapNeedContract = {
   ],
   constraints: [],
 } as const;
+
+test("Graph schema inspection exposes only formal provider-authored aggregations", () => {
+  const inspection = inspectGraphSchema(`
+    scalar Int8
+    scalar Timestamp
+    scalar BigDecimal
+    directive @entity(timeseries: Boolean) on OBJECT
+    directive @aggregation(intervals: [String!]!, source: String!) on OBJECT
+    directive @aggregate(fn: String!, arg: String, cumulative: Boolean) on FIELD_DEFINITION
+    type SwapData @entity(timeseries: true) { id: Int8!, timestamp: Timestamp!, pool: String!, amountUSD: BigDecimal! }
+    type SwapStats @aggregation(intervals: ["hour", "day"], source: "SwapData") {
+      id: Int8!
+      timestamp: Timestamp!
+      pool: String!
+      tradeCount: Int8! @aggregate(fn: "count")
+      volumeUSD: BigDecimal! @aggregate(fn: "sum", arg: "amountUSD")
+    }
+    type DailyAggregate @entity { id: ID!, value: BigDecimal! }
+    type Query { swapData: [SwapData!]!, swapStats: [SwapStats!]!, dailyAggregates: [DailyAggregate!]! }
+  `);
+  const timeseries = inspection.entities.find((entity) => entity.queryEntity === "swapData");
+  const aggregate = inspection.entities.find((entity) => entity.queryEntity === "swapStats");
+  assert.equal(timeseries?.entityKind, "timeseries");
+  assert.equal(timeseries?.fields.find((field) => field.path === "timestamp")?.valueType, "timestamp");
+  assert.equal(aggregate?.entityKind, "aggregation");
+  assert.equal(inspection.entities.find((entity) => entity.queryEntity === "dailyAggregates")?.entityKind, "entity");
+  assert.deepEqual(aggregate?.aggregation, {
+    sourceEntity: "SwapData",
+    intervals: ["hour", "day"],
+    dimensions: ["pool"],
+    measures: [
+      {fieldPath: "tradeCount", fn: "count", arg: null, cumulative: false},
+      {fieldPath: "volumeUSD", fn: "sum", arg: "amountUSD", cumulative: false},
+    ],
+  });
+
+  const plan = {
+    schemaVersion: 1 as const,
+    operationName: "SprueLiveSource" as const,
+    document: "query SprueLiveSource($first: Int!, $cursor: Int8!) { swapStats(first: $first, interval: \"day\", orderBy: id, orderDirection: asc, where: { id_gt: $cursor }) { id timestamp tradeCount volumeUSD } }",
+    pagination: {kind: "id_cursor" as const, cursorField: "id" as const, pageSize: 1_000, maxRequests: 20, maxRows: 10_000},
+    runtimeWindow: null,
+    aggregation: {sourceEntity: "SwapData", interval: "day" as const},
+    pushedOperations: [],
+  };
+  assert.equal(validateGraphSourceQueryPlan(plan, {
+    queryEntity: "swapStats",
+    selectedPaths: ["timestamp", "tradeCount", "volumeUSD"],
+  }).cursorType, "Int8");
+  assert.throws(() => validateGraphSourceQueryPlan({...plan, aggregation: null}, {
+    queryEntity: "swapStats",
+    selectedPaths: ["timestamp", "tradeCount", "volumeUSD"],
+  }), /raw entity query cannot declare an aggregate interval/);
+});
+
+test("Agent accepts a verified prebuilt aggregation and skips raw entity fallback", async () => {
+  const candidateRef = "graph:aggregate:aaaaaaaaaaaaaaaaaaaa";
+  const discovery = {
+    schemaVersion: 1 as const,
+    provider: "the_graph" as const,
+    gatewayEnvironment: "mainnet" as const,
+    searchedNeeds: 1,
+    searchCalls: 1,
+    inspectedSchemas: 1,
+    candidates: [{
+      candidateRef,
+      sourceNeedId: "ethereum_swaps",
+      discoveryMethod: "keyword" as const,
+      logicalSubgraphId: "uniswap",
+      manifestIpfsCid: "QmAggregate",
+      displayName: "Uniswap Ethereum",
+      reportedNetwork: null,
+      networkEvidence: "display_name" as const,
+      totalQueryCount30d: 100,
+      queryActivityEvidence: "observed" as const,
+      schemaHash: `sha256:${"a".repeat(64)}`,
+      schemaBytes: 1000,
+      entities: [{
+        queryEntity: "swapStats",
+        entityType: "SwapStats",
+        entityKind: "aggregation" as const,
+        aggregation: {
+          sourceEntity: "SwapData",
+          intervals: ["day" as const],
+          dimensions: [],
+          measures: [
+            {fieldPath: "tradeCount", fn: "count" as const, arg: null, cumulative: false},
+            {fieldPath: "volumeUSD", fn: "sum" as const, arg: "amountUSD", cumulative: false},
+          ],
+        },
+        fields: [
+          {path: "id", graphType: "Int8", valueType: "integer" as const, nullable: false, list: false},
+          {path: "timestamp", graphType: "Timestamp", valueType: "timestamp" as const, nullable: false, list: false},
+          {path: "tradeCount", graphType: "Int8", valueType: "integer" as const, nullable: false, list: false},
+          {path: "volumeUSD", graphType: "BigDecimal", valueType: "decimal" as const, nullable: false, list: false},
+        ],
+        suggestedBindings: [
+          {requirementId: "bucket", fieldPaths: ["timestamp"]},
+          {requirementId: "trade_count", fieldPaths: ["tradeCount"]},
+          {requirementId: "volume_usd", fieldPaths: ["volumeUSD"]},
+        ],
+        matchedRequirements: ["bucket", "trade_count", "volume_usd"],
+        grainHint: "matched" as const,
+      }],
+      status: "suitable" as const,
+      score: 100,
+      limitations: [],
+    }],
+    limits: {maxSearchCallsPerNeed: 3, maxSearchResultsPerCall: 10, maxSchemaInspectionsPerNeed: 10},
+  };
+  const calls: string[] = [];
+  const model = {
+    async complete(request: AgentModelRequest) {
+      calls.push(request.stage);
+      if (request.stage === "source_discovery_planning") return {
+        provider: "mock" as const,
+        model: "aggregate-planner",
+        output: {
+          schemaVersion: 3,
+          kind: "source_discovery_plan",
+          semanticPlan: {
+            schemaVersion: 3,
+            kind: "semantic_plan",
+            summary: "Daily swap totals",
+            sourceRequirements: [{
+              id: "ethereum_swaps",
+              dataNetwork: "eip155:1",
+              protocol: {name: "Uniswap", version: null},
+              assets: [],
+              description: "Swap activity",
+              grain: "swap_event",
+              fields: [{id: "record_id", description: "Swap id", expectedType: "id", unit: null, required: true, allowNullable: false, hints: ["id"]}],
+              preAggregated: {
+                grain: "daily_swap_totals",
+                fields: [
+                  {id: "bucket", description: "Daily bucket", expectedType: "timestamp", unit: null, required: true, allowNullable: false, hints: ["timestamp"], acceptedFunctions: ["dimension"]},
+                  {id: "trade_count", description: "Swap count", expectedType: "integer", unit: null, required: true, allowNullable: false, hints: ["tradeCount"], acceptedFunctions: ["count"]},
+                  {id: "volume_usd", description: "USD volume", expectedType: "decimal", unit: "USD", required: true, allowNullable: false, hints: ["volumeUSD"], acceptedFunctions: ["sum"]},
+                ],
+              },
+              constraints: [],
+            }],
+            result: {
+              description: "Daily swap totals",
+              grain: "network_day",
+              fields: [
+                {name: "data_network", description: "Network", type: "string", unit: null, nullable: false},
+                {name: "bucket", description: "Daily bucket", type: "timestamp", unit: null, nullable: false},
+                {name: "trade_count", description: "Swap count", type: "integer", unit: null, nullable: false},
+                {name: "volume_usd", description: "USD volume", type: "decimal", unit: "USD", nullable: false},
+              ],
+              orderBy: [],
+            },
+            window: null,
+            refresh: {mode: "manual", timezone: "UTC"},
+            assumptions: [],
+            unresolved: [],
+          },
+          searches: [{sourceNeedId: "ethereum_swaps", keywords: ["Uniswap"]}],
+        },
+      };
+      if (request.stage === "aggregate_selection") return {
+        provider: "mock" as const,
+        model: "aggregate-planner",
+        output: {
+          schemaVersion: 1,
+          kind: "aggregate_selection",
+          decisions: [{
+            sourceNeedId: "ethereum_swaps",
+            decision: "use",
+            candidateRef,
+            queryEntity: "swapStats",
+            interval: "day",
+            fieldBindings: [
+              {requirementId: "bucket", fieldPath: "timestamp"},
+              {requirementId: "trade_count", fieldPath: "tradeCount"},
+              {requirementId: "volume_usd", fieldPath: "volumeUSD"},
+            ],
+            rationale: "The provider-authored daily aggregation exactly matches the requested measures.",
+          }],
+          assumptions: [],
+        },
+      };
+      if (request.stage === "source_feasibility") return {
+        provider: "mock" as const,
+        model: "aggregate-planner",
+        output: {
+          schemaVersion: 2,
+          kind: "source_feasibility",
+          selections: [{
+            sourceNeedId: "ethereum_swaps",
+            candidateRef,
+            queryEntity: "swapStats",
+            fieldBindings: [
+              {requirementId: "bucket", fieldPath: "timestamp"},
+              {requirementId: "trade_count", fieldPath: "tradeCount"},
+              {requirementId: "volume_usd", fieldPath: "volumeUSD"},
+            ],
+            auxiliaryFieldBindings: [],
+            queryPlan: {
+              schemaVersion: 1,
+              operationName: "SprueLiveSource",
+              document: "query SprueLiveSource($first: Int!, $cursor: Int8!) { swapStats(first: $first, interval: \"day\", orderBy: id, orderDirection: asc, where: { id_gt: $cursor }) { id timestamp tradeCount volumeUSD } }",
+              pagination: {kind: "id_cursor", cursorField: "id", pageSize: 1000, maxRequests: 20, maxRows: 10000},
+              runtimeWindow: null,
+              aggregation: {sourceEntity: "SwapData", interval: "day"},
+              pushedOperations: [],
+            },
+            rationale: "Use the selected provider aggregation.",
+          }],
+          composition: {
+            schemaVersion: 2,
+            kind: "composition_intent",
+            nodes: [
+              {role: "normalize_ethereum_swaps", operator: "map", operatorVersion: "2", config: {mode: "project", fields: [
+                {name: "bucket", expression: {op: "field", field: "timestamp"}, unit: null},
+                {name: "trade_count", expression: {op: "field", field: "tradeCount"}, unit: null},
+                {name: "volume_usd", expression: {op: "field", field: "volumeUSD"}, unit: "USD"},
+                {name: "data_network", expression: {op: "field", field: "data_network"}, unit: null},
+              ]}},
+              {role: "output_totals", operator: "output", operatorVersion: "3", config: {fields: ["data_network", "bucket", "trade_count", "volume_usd"]}},
+            ],
+            connections: [
+              {fromRole: "source__ethereum_swaps", toRole: "normalize_ethereum_swaps", inputRole: "rows"},
+              {fromRole: "normalize_ethereum_swaps", toRole: "output_totals", inputRole: "rows"},
+            ],
+            templateInstances: [],
+          },
+          assumptions: [],
+        },
+      };
+      throw new Error(`Unexpected stage ${request.stage}`);
+    },
+  };
+  const trace: HarnessTraceEvent[] = [];
+  const result = await new AgentHarness(model, undefined, {async discover() { return discovery; }}).explore({
+    intent: "Return daily Uniswap swap count and USD volume.",
+    availableNetworks: [{dataNetwork: "eip155:1", label: "Ethereum"}],
+  }, undefined, (event) => trace.push(event));
+  assert.equal(result.kind, "feasibility");
+  assert.deepEqual(calls, ["source_discovery_planning", "aggregate_selection", "source_feasibility"]);
+  assert.match(trace.find((event) => event.stage === "semantic_entity_retrieval" && event.status === "passed")?.summary ?? "", /not needed/);
+  if (result.kind === "feasibility") {
+    assert.equal(result.sourceNeeds[0]?.grain, "daily_swap_totals");
+    assert.deepEqual(result.feasibility.selections[0]?.queryPlan.aggregation, {sourceEntity: "SwapData", interval: "day"});
+  }
+});
 
 test("Graph network catalog is the complete pinned Subgraphs-service projection", () => {
   assert.equal(graphNetworksRegistryVersion, "0.7.119");

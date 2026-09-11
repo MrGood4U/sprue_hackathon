@@ -51,6 +51,7 @@ export type LogEvent =
       event: "agent_debug";
       stage:
         | "source_discovery_planning"
+        | "aggregate_selection"
         | "graph_source_discovery"
         | "semantic_entity_retrieval"
         | "semantic_field_retrieval"

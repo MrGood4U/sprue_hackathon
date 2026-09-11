@@ -7,6 +7,8 @@ const stageDefinitions = [
   ["source_discovery_planning", "agent.stage.discoveryPlan", "agent.stage.discoveryPlanDetail"],
   ["source_needs", "agent.stage.sourceNeeds", "agent.stage.sourceNeedsDetail"],
   ["graph_source_discovery", "agent.stage.graphDiscovery", "agent.stage.graphDiscoveryDetail"],
+  ["aggregate_schema_retrieval", "agent.stage.aggregateRetrieval", "agent.stage.aggregateRetrievalDetail"],
+  ["aggregate_selection", "agent.stage.aggregateSelection", "agent.stage.aggregateSelectionDetail"],
   ["semantic_entity_retrieval", "agent.stage.semanticRetrieval", "agent.stage.semanticRetrievalDetail"],
   ["source_entity_selection", "agent.stage.entitySelection", "agent.stage.entitySelectionDetail"],
   ["semantic_field_retrieval", "agent.stage.semanticFieldRetrieval", "agent.stage.semanticFieldRetrievalDetail"],

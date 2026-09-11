@@ -121,6 +121,9 @@ const discoveryFieldRequirementSchema = z.object({
   allowNullable: z.boolean(),
   hints: z.array(z.string().trim().min(1).max(80).regex(/^[A-Za-z0-9_.-]+$/)).min(1).max(8),
 }).strict();
+const preAggregatedFieldRequirementSchema = discoveryFieldRequirementSchema.extend({
+  acceptedFunctions: z.array(z.enum(["dimension", "sum", "count", "min", "max", "first", "last"])).min(1).max(7),
+}).strict();
 
 const discoverySemanticPlanSchema = z.object({
   schemaVersion: z.literal(3),
@@ -140,6 +143,10 @@ const discoverySemanticPlanSchema = z.object({
     description: boundedText(1000),
     grain: boundedText(200),
     fields: z.array(discoveryFieldRequirementSchema).min(1).max(32),
+    preAggregated: z.object({
+      grain: boundedText(200),
+      fields: z.array(preAggregatedFieldRequirementSchema).min(1).max(32),
+    }).strict().optional(),
     constraints: z.array(boundedText(1000)).max(16),
   }).strict()).min(1).max(4),
   result: z.object({
@@ -363,6 +370,10 @@ const graphQueryPlanSchema = z.object({
     endVariable: z.literal("windowEnd"),
     valueEncoding: z.literal("unix_seconds"),
   }).strict().nullable(),
+  aggregation: z.object({
+    sourceEntity: queryEntity,
+    interval: z.enum(["hour", "day"]),
+  }).strict().nullable().optional(),
   pushedOperations: z.array(z.object({
     nodeRole: role,
     operator: z.enum(["filter", "sort"]),
@@ -378,6 +389,27 @@ const sourceEntitySelectionSchema = z.object({
     queryEntity,
     rationale: boundedText(1000),
   }).strict()).min(1).max(4),
+  assumptions: z.array(boundedText(1000)).max(16),
+}).strict();
+const aggregateSelectionSchema = z.object({
+  schemaVersion: z.literal(1),
+  kind: z.literal("aggregate_selection"),
+  decisions: z.array(z.discriminatedUnion("decision", [
+    z.object({
+      sourceNeedId: role,
+      decision: z.literal("use"),
+      candidateRef: graphCandidateRef,
+      queryEntity,
+      interval: z.enum(["hour", "day"]),
+      fieldBindings: z.array(z.object({requirementId: role, fieldPath}).strict()).min(1).max(32),
+      rationale: boundedText(1000),
+    }).strict(),
+    z.object({
+      sourceNeedId: role,
+      decision: z.literal("fallback"),
+      rationale: boundedText(1000),
+    }).strict(),
+  ])).min(1).max(4),
   assumptions: z.array(boundedText(1000)).max(16),
 }).strict();
 const sourceFeasibilitySchema = z.object({
@@ -418,6 +450,11 @@ const sourceEntitySelectionOutputSchema = z.discriminatedUnion("kind", [
   clarificationSchema,
   unsupportedSchema,
 ]);
+const aggregateSelectionOutputSchema = z.discriminatedUnion("kind", [
+  aggregateSelectionSchema,
+  clarificationSchema,
+  unsupportedSchema,
+]);
 const sourceFeasibilityOutputSchema = z.discriminatedUnion("kind", [
   sourceFeasibilitySchema,
   clarificationSchema,
@@ -427,6 +464,8 @@ const sourceFeasibilityOutputSchema = z.discriminatedUnion("kind", [
 export function jsonSchemaForStage(stage: PlannerStage): Readonly<Record<string, unknown>> {
   const schema = stage === "source_discovery_planning"
     ? sourceDiscoveryPlanningOutputSchema
+    : stage === "aggregate_selection"
+      ? aggregateSelectionOutputSchema
     : stage === "source_entity_selection"
       ? sourceEntitySelectionOutputSchema
       : stage === "source_feasibility"
@@ -507,6 +546,10 @@ export function parseSourceDiscoveryPlanning(output: unknown): SourceDiscoveryPl
 
 export function parseSourceEntitySelection(output: unknown): SourceEntitySelectionOutput {
   return parse("source_entity_selection", sourceEntitySelectionOutputSchema, output);
+}
+
+export function parseAggregateSelection(output: unknown): import("./types.js").AggregateSelectionOutput {
+  return parse("aggregate_selection", aggregateSelectionOutputSchema, output);
 }
 
 export function parseSourceFeasibility(output: unknown): SourceFeasibilityOutput {

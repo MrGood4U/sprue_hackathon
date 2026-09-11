@@ -43,7 +43,7 @@ export interface CompiledLiveSource extends LiveSourceInput {
   projections: readonly LiveSourceProjection[];
   queryDocument: string;
   runtimeWindow: GraphSourceQueryPlan["runtimeWindow"];
-  runtimeWindowVariableType: "BigInt" | "Int" | "String" | null;
+  runtimeWindowVariableType: "BigInt" | "Int" | "Int8" | "String" | "Timestamp" | null;
   pushedOperations: GraphSourceQueryPlan["pushedOperations"];
   initialCursor: string;
   pageSize: number;
@@ -78,9 +78,13 @@ const graphName = /^[_A-Za-z][_0-9A-Za-z]*$/;
 const fieldPath = /^[_A-Za-z][_0-9A-Za-z]*(?:\.[_A-Za-z][_0-9A-Za-z]*)*$/;
 const graphSchemaPrelude = parse(`
   scalar BigInt
+  scalar Int8
   scalar BigDecimal
   scalar Bytes
+  scalar Timestamp
   directive @entity(immutable: Boolean, timeseries: Boolean) on OBJECT
+  directive @aggregation(intervals: [String!]!, source: String!) on OBJECT
+  directive @aggregate(fn: String!, arg: String, cumulative: Boolean) on FIELD_DEFINITION
   directive @derivedFrom(field: String!) on FIELD_DEFINITION
 `);
 
@@ -207,10 +211,10 @@ function liveCursor(
   const cursorField = filter && isInputObjectType(filter) ? filter.getFields().id_gt : null;
   let cursorType = cursorField ? String(cursorField.type).replace(/!$/, "") : "";
   if (!cursorType && entity) cursorType = String(entity.getFields().id?.type ?? "").replace(/[\[\]!]/g, "");
-  if (!new Set(["ID", "String", "Bytes"]).has(cursorType)) {
+  if (!new Set(["ID", "String", "Bytes", "Int8", "BigInt", "Int"]).has(cursorType)) {
     throw new Error(`Query entity ${source.queryEntity} does not expose a supported id_gt cursor`);
   }
-  return {type: cursorType, initial: cursorType === "Bytes" ? "0x" : ""};
+  return {type: cursorType, initial: cursorType === "Bytes" ? "0x" : new Set(["Int8", "BigInt", "Int"]).has(cursorType) ? "0" : ""};
 }
 
 export function compileLiveQuery(
@@ -236,7 +240,7 @@ export function compileAuthoredLiveQuery(
   schemaDocument: string,
   selectedPaths: readonly string[],
   plan: GraphSourceQueryPlan,
-): {document: string; initialCursor: string; runtimeWindowVariableType: "BigInt" | "Int" | "String" | null} {
+): {document: string; initialCursor: string; runtimeWindowVariableType: "BigInt" | "Int" | "Int8" | "String" | "Timestamp" | null} {
   const schema = buildGraphSchema(schemaDocument);
   const entity = sourceObject(source, schema, selectedPaths);
   validateSelectedPaths(entity, selectedPaths);

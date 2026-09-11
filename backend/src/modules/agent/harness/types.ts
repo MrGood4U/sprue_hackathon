@@ -1,6 +1,7 @@
 import type {CanonicalSwapField, CrossChainTraderFootprintResult, SourceInput} from "../../dag/runtime.js";
 import type {
   GraphDiscoveredSourceCandidate,
+  GraphAggregationInspection,
   GraphFieldRequirement,
   GraphInspectedField,
   GraphSemanticValueType,
@@ -118,6 +119,7 @@ export type AgentDebugSink = (event: AgentDebugEvent) => void;
 
 export type PlannerStage =
   | "source_discovery_planning"
+  | "aggregate_selection"
   | "source_entity_selection"
   | "source_feasibility"
   | "semantic_interpretation"
@@ -176,6 +178,13 @@ export interface DiscoverySourceRequirement {
   description: string;
   grain: string;
   fields: readonly GraphFieldRequirement[];
+  /** Optional semantic contract that a provider-authored @aggregation may satisfy instead of raw rows. */
+  preAggregated?: {
+    grain: string;
+    fields: readonly (GraphFieldRequirement & {
+      acceptedFunctions: readonly ("dimension" | "sum" | "count" | "min" | "max" | "first" | "last")[];
+    })[];
+  };
   constraints: readonly string[];
 }
 
@@ -307,6 +316,8 @@ export interface SourceFeasibilityCandidate {
   entities: readonly {
     queryEntity: string;
     entityType: string;
+    entityKind: "entity" | "timeseries" | "aggregation";
+    aggregation: GraphAggregationInspection | null;
     fieldCount: number;
     omittedFieldCount: number;
     fields: readonly GraphInspectedField[];
@@ -330,6 +341,8 @@ export interface SourceEntitySelectionCandidate {
   entities: readonly {
     queryEntity: string;
     entityType: string;
+    entityKind: "entity" | "timeseries" | "aggregation";
+    aggregation: GraphAggregationInspection | null;
     fieldCount: number;
     semanticSimilarity: number | null;
     rankingEvidence: "embedding" | "deterministic";
@@ -354,6 +367,31 @@ export interface SourceEntitySelectionPlan {
 }
 
 export type SourceEntitySelectionOutput = SourceEntitySelectionPlan | PlannerClarification | PlannerUnsupported;
+
+export interface AggregateSelectionUse {
+  sourceNeedId: string;
+  decision: "use";
+  candidateRef: string;
+  queryEntity: string;
+  interval: "hour" | "day";
+  fieldBindings: readonly SourceFieldBinding[];
+  rationale: string;
+}
+
+export interface AggregateSelectionFallback {
+  sourceNeedId: string;
+  decision: "fallback";
+  rationale: string;
+}
+
+export interface AggregateSelectionPlan {
+  schemaVersion: 1;
+  kind: "aggregate_selection";
+  decisions: readonly (AggregateSelectionUse | AggregateSelectionFallback)[];
+  assumptions: readonly string[];
+}
+
+export type AggregateSelectionOutput = AggregateSelectionPlan | PlannerClarification | PlannerUnsupported;
 
 export interface SourceFieldBinding {
   requirementId: string;
@@ -405,7 +443,7 @@ export type SourceFeasibilityOutput = SourceFeasibilityPlan | PlannerClarificati
 
 export interface SourceDiscoveryPlanningModelRequest {
   stage: "source_discovery_planning";
-  promptVersion: "6";
+  promptVersion: "7";
   planningAnchorAt: string;
   intent: string;
   availableNetworks: readonly {dataNetwork: string; label: string}[];
@@ -415,7 +453,7 @@ export interface SourceDiscoveryPlanningModelRequest {
 
 export interface SourceFeasibilityModelRequest {
   stage: "source_feasibility";
-  promptVersion: "13";
+  promptVersion: "14";
   planningAnchorAt: string;
   semanticPlan: DiscoverySemanticPlan;
   sourceNeeds: readonly DiscoverySourceNeed[];
@@ -432,11 +470,21 @@ export interface SourceFeasibilityModelRequest {
 
 export interface SourceEntitySelectionModelRequest {
   stage: "source_entity_selection";
-  promptVersion: "3";
+  promptVersion: "4";
   planningAnchorAt: string;
   semanticPlan: DiscoverySemanticPlan;
   sourceNeeds: readonly DiscoverySourceNeed[];
   candidates: readonly SourceEntitySelectionCandidate[];
+  repair?: ModelRepairDirective;
+}
+
+export interface AggregateSelectionModelRequest {
+  stage: "aggregate_selection";
+  promptVersion: "1";
+  planningAnchorAt: string;
+  semanticPlan: DiscoverySemanticPlan;
+  sourceNeeds: readonly DiscoverySourceNeed[];
+  candidates: readonly SourceFeasibilityCandidate[];
   repair?: ModelRepairDirective;
 }
 
@@ -483,6 +531,7 @@ export interface DagCompositionModelRequest {
 
 export type AgentModelRequest =
   | SourceDiscoveryPlanningModelRequest
+  | AggregateSelectionModelRequest
   | SourceEntitySelectionModelRequest
   | SourceFeasibilityModelRequest
   | SemanticModelRequest
@@ -627,6 +676,7 @@ export interface HarnessTraceEvent {
     | PlannerStage
     | "source_needs"
     | "graph_source_discovery"
+    | "aggregate_schema_retrieval"
     | "semantic_entity_retrieval"
     | "semantic_field_retrieval"
     | "feasibility_validation"

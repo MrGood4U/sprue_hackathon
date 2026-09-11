@@ -42,6 +42,7 @@ import {
 import {
   HarnessSchemaError,
   parseCompositionIntent,
+  parseAggregateSelection,
   parseSourceDiscoveryPlanning,
   parseSourceEntitySelection,
   parseSourceFeasibility,
@@ -63,6 +64,9 @@ import type {
   HarnessTraceEvent,
   DiscoverySemanticPlan,
   DiscoverySourceNeed,
+  AggregateSelectionModelRequest,
+  AggregateSelectionPlan,
+  AggregateSelectionUse,
   ModelRepairDirective,
   PlannerClarification,
   PlannerUnsupported,
@@ -218,6 +222,12 @@ function validateSourceDiscoveryPlan(
     }
     if (!need.fields.some((field) => field.required)) {
       fail(`Source requirement ${need.id} must identify at least one required field`, "SEMANTIC_FIELDS_INVALID");
+    }
+    if (need.preAggregated) {
+      if (new Set(need.preAggregated.fields.map((field) => field.id)).size !== need.preAggregated.fields.length
+        || !need.preAggregated.fields.some((field) => field.required)) {
+        fail(`Source requirement ${need.id} has an invalid pre-aggregated contract`, "SEMANTIC_AGGREGATE_FIELDS_INVALID");
+      }
     }
     const assetKeys = need.assets.map((asset) => `${asset.symbol.toLowerCase()}\u0000${asset.networkAssetId?.toLowerCase() ?? ""}`);
     if (new Set(assetKeys).size !== assetKeys.length) {
@@ -410,6 +420,15 @@ function compactFeasibilityEntity(
   // provider id scalar even when it is not a semantic output requirement.
   addPath("id");
 
+  // Formal aggregate dimensions and measures are the trusted capability
+  // surface. Preserve them before legacy/raw binding suggestions so aggregate
+  // assessment does not depend on an unrelated raw-entity ranking.
+  if (entity.aggregation) {
+    addPath("timestamp");
+    for (const path of entity.aggregation.dimensions) addPath(path);
+    for (const measure of entity.aggregation.measures) addPath(measure.fieldPath);
+  }
+
   // Give every semantic requirement its strongest inspected alternative first.
   for (const binding of bindings) addPath(binding.fieldPaths[0]);
   // Preserve row-local scalar context before less direct relationship paths.
@@ -448,6 +467,8 @@ function compactFeasibilityEntity(
   return {
     queryEntity: entity.queryEntity,
     entityType: entity.entityType,
+    entityKind: entity.entityKind ?? "entity",
+    aggregation: entity.aggregation ?? null,
     fieldCount: entity.fields.length,
     omittedFieldCount: entity.fields.length - fields.length,
     fields,
@@ -521,6 +542,8 @@ function embeddedFeasibilityEntity(
   return {
     queryEntity: entity.queryEntity,
     entityType: entity.entityType,
+    entityKind: entity.entityKind ?? "entity",
+    aggregation: entity.aggregation ?? null,
     fieldCount: entity.fields.length,
     omittedFieldCount: entity.fields.length - fields.length,
     fields,
@@ -586,6 +609,7 @@ async function entitySelectionCandidates(
   emitEmbeddingProgress?: (
     progress: EntityEmbeddingProgress & {sourceNeedNumber: number; sourceNeedCount: number},
   ) => void,
+  entityKinds: readonly GraphSchemaEntityInspection["entityKind"][] = ["entity", "timeseries", "aggregation"],
 ): Promise<{
   candidates: readonly SourceEntitySelectionCandidate[];
   embeddedEntityCount: number;
@@ -595,7 +619,9 @@ async function entitySelectionCandidates(
   let embeddedEntityCount = 0;
   let embeddingBatchCount = 0;
   for (const [needIndex, need] of needs.entries()) {
-    const inspected = discovery.candidates.filter((candidate) => candidate.sourceNeedId === need.id && candidate.entities.length > 0);
+    const inspected = discovery.candidates
+      .filter((candidate) => candidate.sourceNeedId === need.id && candidate.entities.some((entity) => entityKinds.includes(entity.entityKind ?? "entity")))
+      .map((candidate) => ({...candidate, entities: candidate.entities.filter((entity) => entityKinds.includes(entity.entityKind ?? "entity"))}));
     const selectable = inspected.filter((candidate) => candidate.status === "suitable");
     const candidatePool = selectable.length > 0 ? selectable : inspected;
     const deterministicCandidates = candidatePool.map((candidate) => ({
@@ -689,6 +715,8 @@ async function entitySelectionCandidates(
         entities: selectedEntities.map((entity) => ({
           queryEntity: entity.queryEntity,
           entityType: entity.entityType,
+          entityKind: entity.entityKind ?? "entity",
+          aggregation: entity.aggregation ?? null,
           fieldCount: entity.fields.length,
           semanticSimilarity: semanticScores.has(entityScoreKey(candidate.candidateRef, entity.queryEntity))
             ? Number(semanticScores.get(entityScoreKey(candidate.candidateRef, entity.queryEntity))!.toFixed(6))
@@ -760,6 +788,8 @@ function expandSelectedEntities(
       entities: [{
         queryEntity: entity.queryEntity,
         entityType: entity.entityType,
+        entityKind: entity.entityKind ?? "entity",
+        aggregation: entity.aggregation ?? null,
         fieldCount: entity.fields.length,
         omittedFieldCount: 0,
         fields: entity.fields,
@@ -769,6 +799,95 @@ function expandSelectedEntities(
       }],
     };
   });
+}
+
+function preAggregatedNeed(need: DiscoverySourceNeed): DiscoverySourceNeed | null {
+  if (!need.preAggregated) return null;
+  return {
+    ...need,
+    grain: need.preAggregated.grain,
+    fields: need.preAggregated.fields,
+  };
+}
+
+function expandCandidateEntities(
+  discovery: GraphSourceDiscoveryResult,
+  candidates: readonly SourceEntitySelectionCandidate[],
+  needs: readonly DiscoverySourceNeed[],
+): readonly SourceFeasibilityCandidate[] {
+  const needsById = new Map(needs.map((need) => [need.id, need]));
+  const discoveredByRef = new Map(discovery.candidates.map((candidate) => [candidate.candidateRef, candidate]));
+  return candidates.map((candidate) => {
+    const discovered = discoveredByRef.get(candidate.candidateRef);
+    const need = needsById.get(candidate.sourceNeedId);
+    if (!discovered || !need) fail("Aggregate candidate could not be expanded from trusted discovery evidence", "AGGREGATE_SELECTION_EXPANSION_INVALID");
+    const selectedNames = new Set(candidate.entities.map((entity) => entity.queryEntity));
+    return {
+      candidateRef: discovered.candidateRef,
+      sourceNeedId: discovered.sourceNeedId,
+      logicalSubgraphId: discovered.logicalSubgraphId,
+      manifestIpfsCid: discovered.manifestIpfsCid,
+      networkEvidence: discovered.networkEvidence,
+      totalQueryCount30d: discovered.totalQueryCount30d,
+      queryActivityEvidence: discovered.queryActivityEvidence,
+      schemaHash: discovered.schemaHash,
+      status: discovered.status,
+      entities: discovered.entities
+        .filter((entity) => selectedNames.has(entity.queryEntity))
+        .map((entity) => compactFeasibilityEntity(entity, need)),
+    };
+  });
+}
+
+function validateAggregateSelection(
+  output: AggregateSelectionPlan,
+  needs: readonly DiscoverySourceNeed[],
+  candidates: readonly SourceFeasibilityCandidate[],
+): readonly AggregateSelectionUse[] {
+  if (output.decisions.length !== needs.length) {
+    fail("Aggregate selection must decide every aggregate-capable source need", "AGGREGATE_SELECTION_SOURCE_NEED_UNSATISFIED");
+  }
+  const needsById = new Map(needs.map((need) => [need.id, need]));
+  const candidatesByRef = new Map(candidates.map((candidate) => [candidate.candidateRef, candidate]));
+  const seen = new Set<string>();
+  const accepted: AggregateSelectionUse[] = [];
+  for (const decision of output.decisions) {
+    const need = needsById.get(decision.sourceNeedId);
+    if (!need || seen.has(need.id)) fail("Aggregate selection contains an unknown or duplicate source need", "AGGREGATE_SELECTION_SOURCE_NEED_INVALID");
+    seen.add(need.id);
+    if (decision.decision === "fallback") continue;
+    const candidate = candidatesByRef.get(decision.candidateRef);
+    const entity = candidate?.entities.find((item) => item.queryEntity === decision.queryEntity);
+    if (!candidate || candidate.sourceNeedId !== need.id || candidate.status !== "suitable" || !entity?.aggregation || entity.entityKind !== "aggregation") {
+      fail("Aggregate selection referenced evidence that is not a suitable formal aggregation", "AGGREGATE_SELECTION_CANDIDATE_INVALID");
+    }
+    if (!entity.aggregation.intervals.includes(decision.interval)) {
+      fail("Aggregate selection used an interval absent from the provider directive", "AGGREGATE_SELECTION_INTERVAL_INVALID");
+    }
+    const fields = new Map(entity.fields.map((field) => [field.path, field]));
+    const requirements = new Map(need.fields.map((requirement) => [requirement.id, requirement]));
+    const dimensions = new Set(["timestamp", ...entity.aggregation.dimensions]);
+    const measures = new Map(entity.aggregation.measures.map((measure) => [measure.fieldPath, measure.fn]));
+    const bound = new Set<string>();
+    for (const binding of decision.fieldBindings) {
+      const requirement = requirements.get(binding.requirementId);
+      const field = fields.get(binding.fieldPath);
+      const functions = new Set<string>((requirement as {acceptedFunctions?: readonly string[]} | undefined)?.acceptedFunctions ?? []);
+      const measure = measures.get(binding.fieldPath);
+      const functionMatches = dimensions.has(binding.fieldPath)
+        ? functions.has("dimension")
+        : measure !== undefined && functions.has(measure);
+      if (!requirement || !field || field.list || bound.has(requirement.id) || !graphTypeCompatible(requirement, field) || !functionMatches) {
+        fail("Aggregate field binding is incompatible with its declared dimension or measure", "AGGREGATE_SELECTION_FIELD_BINDING_INVALID");
+      }
+      bound.add(requirement.id);
+    }
+    if (need.fields.some((requirement) => requirement.required && !bound.has(requirement.id))) {
+      fail("Aggregate selection omitted a required pre-aggregated field", "AGGREGATE_SELECTION_FIELD_BINDING_MISSING");
+    }
+    accepted.push(decision);
+  }
+  return accepted;
 }
 
 function compactFeasibilityCandidates(
@@ -1019,6 +1138,22 @@ function validateSourceFeasibility(
       });
     }
     try {
+      const queryAggregation = selection.queryPlan.aggregation ?? null;
+      if (entity.entityKind === "aggregation") {
+        if (
+          !entity.aggregation
+          || !queryAggregation
+          || queryAggregation.sourceEntity !== entity.aggregation.sourceEntity
+          || !entity.aggregation.intervals.includes(queryAggregation.interval)
+        ) {
+          fail(
+            "Feasibility aggregate query does not match the inspected provider aggregation directive",
+            "FEASIBILITY_SOURCE_AGGREGATION_INVALID",
+          );
+        }
+      } else if (queryAggregation) {
+        fail("Feasibility raw entity query declared aggregate metadata", "FEASIBILITY_SOURCE_AGGREGATION_INVALID");
+      }
       const validatedQuery = validateGraphSourceQueryPlan(selection.queryPlan, {
         queryEntity: selection.queryEntity,
         selectedPaths: [...boundPaths, ...auxiliaryPaths],
@@ -1173,7 +1308,7 @@ export class AgentHarness {
     } = {
       maxSources: 4,
       maxNetworkCatalogEntries: 128,
-      maxModelCalls: 4,
+      maxModelCalls: 5,
       maxIntentLength: 8000,
       maxProposalBytes: 1_048_576,
       maxNodes: 12,
@@ -1283,7 +1418,7 @@ export class AgentHarness {
     };
     const modelResult = () => ({...modelIdentity!, calls: modelCalls});
     const parseWithRepair = async <T>(
-      modelRequest: SourceDiscoveryPlanningModelRequest | SourceEntitySelectionModelRequest | SourceFeasibilityModelRequest,
+      modelRequest: SourceDiscoveryPlanningModelRequest | AggregateSelectionModelRequest | SourceEntitySelectionModelRequest | SourceFeasibilityModelRequest,
       response: AgentModelResponse,
       parser: (output: unknown) => T,
       reservedModelCalls: number,
@@ -1350,7 +1485,7 @@ export class AgentHarness {
     emitTrace("source_discovery_planning", "started", "Model is deriving bounded semantic requirements and Subgraph search keywords");
     const discoveryPlanningRequest: SourceDiscoveryPlanningModelRequest = {
       stage: "source_discovery_planning",
-      promptVersion: "6",
+      promptVersion: "7",
       planningAnchorAt,
       intent,
       availableNetworks: request.availableNetworks,
@@ -1361,7 +1496,7 @@ export class AgentHarness {
       discoveryPlanningRequest,
       discoveryPlanningResponse,
       parseSourceDiscoveryPlanning,
-      2,
+      3,
     );
     if (parsedDiscoveryPlanningOutput.kind === "clarification") {
       emitTrace("source_discovery_planning", "passed", "Search planning requires creator clarification");
@@ -1451,91 +1586,158 @@ export class AgentHarness {
       candidates: discovery.candidates,
     });
 
+    const aggregateNeeds = sourceNeeds.map(preAggregatedNeed).filter((need): need is DiscoverySourceNeed => need !== null);
+    emitTrace("aggregate_schema_retrieval", "started", "Retrieving only formal provider-authored aggregation entities");
+    const aggregateRetrieval = aggregateNeeds.length > 0
+      ? await entitySelectionCandidates(
+          discovery,
+          aggregateNeeds,
+          this.embeddingRanker,
+          signal,
+          (event) => this.emitDebug(event),
+          undefined,
+          ["aggregation"],
+        )
+      : {candidates: [], embeddedEntityCount: 0, embeddingBatchCount: 0};
+    const aggregateEvidence = expandCandidateEntities(discovery, aggregateRetrieval.candidates, aggregateNeeds);
+    const aggregateEntityCount = aggregateEvidence.reduce((count, candidate) => count + candidate.entities.length, 0);
     emitTrace(
-      "semantic_entity_retrieval",
-      "started",
-      this.embeddingRanker
-        ? "Preparing inspected schema entities for semantic retrieval"
-        : "Embedding retrieval is disabled; preparing deterministic schema relevance ranking",
-    );
-    const entityRetrieval = await entitySelectionCandidates(
-      discovery,
-      sourceNeeds,
-      this.embeddingRanker,
-      signal,
-      (event) => this.emitDebug(event),
-      (progress) => {
-        if (progress.phase === "batch_started") {
-          emitTrace(
-            "semantic_entity_retrieval",
-            "started",
-            `Generating embedding batch ${progress.batchNumber}/${progress.batchCount} for source need ${progress.sourceNeedNumber}/${progress.sourceNeedCount} (${progress.entityCount} inspected entities)`,
-          );
-        } else if (progress.phase === "similarity_started") {
-          emitTrace(
-            "semantic_entity_retrieval",
-            "started",
-            `Computing cosine similarity for ${progress.entityCount} entities in source need ${progress.sourceNeedNumber}/${progress.sourceNeedCount}`,
-          );
-        }
-      },
-    );
-    const selectionCandidates = entityRetrieval.candidates;
-    const retainedEntityCount = selectionCandidates.reduce((count, candidate) => count + candidate.entities.length, 0);
-    emitTrace(
-      "semantic_entity_retrieval",
+      "aggregate_schema_retrieval",
       "passed",
-      this.embeddingRanker
-        ? `Embedded ${entityRetrieval.embeddedEntityCount} inspected entities in ${entityRetrieval.embeddingBatchCount} ${entityRetrieval.embeddingBatchCount === 1 ? "batch" : "batches"} and retained ${retainedEntityCount} compact candidates`
-        : `Ranked inspected entities deterministically and retained ${retainedEntityCount} compact candidates`,
+      aggregateNeeds.length === 0
+        ? "The intent has no semantics-preserving pre-aggregated alternative"
+        : `Retained ${aggregateEntityCount} formal aggregation candidates for ${aggregateNeeds.length} source needs`,
     );
-    emitTrace(
-      "source_entity_selection",
-      "started",
-      "Model is selecting one inspected entity for each source need from the retrieved compact evidence",
-    );
-    const entitySelectionRequest: SourceEntitySelectionModelRequest = {
-      stage: "source_entity_selection",
-      promptVersion: "3",
-      planningAnchorAt,
-      semanticPlan: discoveryPlanningOutput.semanticPlan,
-      sourceNeeds,
-      candidates: selectionCandidates,
+
+    let aggregateSelection: AggregateSelectionPlan = {
+      schemaVersion: 1,
+      kind: "aggregate_selection",
+      decisions: aggregateNeeds.map((need) => ({
+        sourceNeedId: need.id,
+        decision: "fallback",
+        rationale: "No formal provider aggregation candidate was available.",
+      })),
+      assumptions: [],
     };
-    const entitySelectionResponse = await invoke(entitySelectionRequest);
-    const entitySelectionOutput = await parseWithRepair(
-      entitySelectionRequest,
-      entitySelectionResponse,
-      parseSourceEntitySelection,
-      1,
-    );
-    if (entitySelectionOutput.kind === "clarification") {
-      this.emitDebug({stage: "source_entity_selection", outcome: "clarification"});
-      emitTrace("source_entity_selection", "passed", "Entity selection requires creator clarification");
-      return {kind: "clarification", clarification: entitySelectionOutput, trace, model: modelResult()};
+    emitTrace("aggregate_selection", "started", aggregateEntityCount > 0
+      ? "Model is assessing prebuilt aggregation fit from bounded directive evidence"
+      : "No formal aggregation candidate requires model assessment");
+    if (aggregateEntityCount > 0) {
+      const aggregateRequest: AggregateSelectionModelRequest = {
+        stage: "aggregate_selection",
+        promptVersion: "1",
+        planningAnchorAt,
+        semanticPlan: discoveryPlanningOutput.semanticPlan,
+        sourceNeeds: aggregateNeeds,
+        candidates: aggregateEvidence,
+      };
+      const parsed = await parseWithRepair(
+        aggregateRequest,
+        await invoke(aggregateRequest),
+        parseAggregateSelection,
+        2,
+      );
+      if (parsed.kind === "clarification") {
+        emitTrace("aggregate_selection", "passed", "Aggregate assessment requires creator clarification");
+        return {kind: "clarification", clarification: parsed, trace, model: modelResult()};
+      }
+      if (parsed.kind === "unsupported") {
+        emitTrace("aggregate_selection", "passed", "Aggregate assessment found the requested operation unsupported");
+        return {kind: "unsupported", unsupported: parsed, discovery, trace, model: modelResult()};
+      }
+      aggregateSelection = parsed;
     }
-    if (entitySelectionOutput.kind === "unsupported") {
-      this.emitDebug({stage: "source_entity_selection", outcome: "unsupported", code: entitySelectionOutput.code});
-      emitTrace("source_entity_selection", "passed", "No supplied existing Subgraph entity satisfies every source need");
-      return {kind: "unsupported", unsupported: entitySelectionOutput, discovery, trace, model: modelResult()};
-    }
+    let acceptedAggregates: readonly AggregateSelectionUse[];
     try {
-      validateSourceEntitySelection(entitySelectionOutput, sourceNeeds, selectionCandidates);
+      acceptedAggregates = validateAggregateSelection(aggregateSelection, aggregateNeeds, aggregateEvidence);
     } catch (error) {
       this.emitDebug({
-        stage: "source_entity_selection",
+        stage: "aggregate_selection",
         phase: "semantic_validation_failed",
         callNumber: modelCalls,
         validationCode: diagnosticErrorCode(error),
         validationMessage: diagnosticErrorMessage(error),
-        ...modelOutputShape(entitySelectionOutput),
+        ...modelOutputShape(aggregateSelection),
       });
       throw error;
     }
-    this.emitDebug({stage: "source_entity_selection", outcome: "selection", selectionCount: entitySelectionOutput.selections.length});
-    emitTrace("source_entity_selection", "passed", `Selected ${entitySelectionOutput.selections.length} query entities from compact schema evidence`);
+    emitTrace("aggregate_selection", "passed", `Accepted ${acceptedAggregates.length} provider aggregation selections; remaining source needs will use raw fallback`);
 
-    const sourceRoles = sourceNeeds.map((need) => ({
+    const acceptedByNeed = new Map(acceptedAggregates.map((selection) => [selection.sourceNeedId, selection]));
+    const effectiveSourceNeeds = sourceNeeds.map((need) => acceptedByNeed.has(need.id) ? preAggregatedNeed(need)! : need);
+    const fallbackNeeds = sourceNeeds.filter((need) => !acceptedByNeed.has(need.id));
+    emitTrace("semantic_entity_retrieval", "started", fallbackNeeds.length > 0
+      ? this.embeddingRanker
+        ? "Preparing raw and timeseries entities for fallback semantic retrieval"
+        : "Embedding retrieval is disabled; preparing deterministic raw-entity fallback ranking"
+      : "Every source need is covered by a validated provider aggregation");
+    const entityRetrieval = fallbackNeeds.length > 0
+      ? await entitySelectionCandidates(
+          discovery,
+          fallbackNeeds,
+          this.embeddingRanker,
+          signal,
+          (event) => this.emitDebug(event),
+          (progress) => {
+            if (progress.phase === "batch_started") {
+              emitTrace("semantic_entity_retrieval", "started", `Generating embedding batch ${progress.batchNumber}/${progress.batchCount} for source need ${progress.sourceNeedNumber}/${progress.sourceNeedCount} (${progress.entityCount} inspected entities)`);
+            } else if (progress.phase === "similarity_started") {
+              emitTrace("semantic_entity_retrieval", "started", `Computing cosine similarity for ${progress.entityCount} entities in source need ${progress.sourceNeedNumber}/${progress.sourceNeedCount}`);
+            }
+          },
+          ["entity", "timeseries"],
+        )
+      : {candidates: [], embeddedEntityCount: 0, embeddingBatchCount: 0};
+    const selectionCandidates = entityRetrieval.candidates;
+    const retainedEntityCount = selectionCandidates.reduce((count, candidate) => count + candidate.entities.length, 0);
+    emitTrace("semantic_entity_retrieval", "passed", fallbackNeeds.length === 0
+      ? "Raw-entity fallback was not needed"
+      : this.embeddingRanker
+        ? `Embedded ${entityRetrieval.embeddedEntityCount} inspected entities in ${entityRetrieval.embeddingBatchCount} ${entityRetrieval.embeddingBatchCount === 1 ? "batch" : "batches"} and retained ${retainedEntityCount} compact candidates`
+        : `Ranked inspected entities deterministically and retained ${retainedEntityCount} compact candidates`);
+
+    let rawSelections: SourceEntitySelectionPlan["selections"] = [];
+    emitTrace("source_entity_selection", "started", fallbackNeeds.length > 0
+      ? "Model is selecting one raw fallback entity for each uncovered source need"
+      : "No raw fallback entity requires model selection");
+    if (fallbackNeeds.length > 0) {
+      const entitySelectionRequest: SourceEntitySelectionModelRequest = {
+        stage: "source_entity_selection",
+        promptVersion: "4",
+        planningAnchorAt,
+        semanticPlan: discoveryPlanningOutput.semanticPlan,
+        sourceNeeds: fallbackNeeds,
+        candidates: selectionCandidates,
+      };
+      const parsed = await parseWithRepair(entitySelectionRequest, await invoke(entitySelectionRequest), parseSourceEntitySelection, 1);
+      if (parsed.kind === "clarification") {
+        emitTrace("source_entity_selection", "passed", "Fallback entity selection requires creator clarification");
+        return {kind: "clarification", clarification: parsed, trace, model: modelResult()};
+      }
+      if (parsed.kind === "unsupported") {
+        emitTrace("source_entity_selection", "passed", "No supplied raw entity satisfies every fallback source need");
+        return {kind: "unsupported", unsupported: parsed, discovery, trace, model: modelResult()};
+      }
+      validateSourceEntitySelection(parsed, fallbackNeeds, selectionCandidates);
+      rawSelections = parsed.selections;
+      this.emitDebug({stage: "source_entity_selection", outcome: "selection", selectionCount: parsed.selections.length});
+    }
+    const aggregateEntitySelections: SourceEntitySelectionPlan["selections"] = acceptedAggregates.map((selection) => ({
+      sourceNeedId: selection.sourceNeedId,
+      candidateRef: selection.candidateRef,
+      queryEntity: selection.queryEntity,
+      rationale: selection.rationale,
+    }));
+    const allSelections = [...aggregateEntitySelections, ...rawSelections];
+    const entitySelectionOutput: SourceEntitySelectionPlan = {
+      schemaVersion: 1,
+      kind: "source_entity_selection",
+      selections: effectiveSourceNeeds.map((need) => allSelections.find((selection) => selection.sourceNeedId === need.id)!),
+      assumptions: aggregateSelection.assumptions,
+    };
+    emitTrace("source_entity_selection", "passed", `Locked ${acceptedAggregates.length} aggregate and ${rawSelections.length} raw entity selections`);
+
+    const sourceRoles = effectiveSourceNeeds.map((need) => ({
       role: sourceRole(need.id),
       sourceNeedId: need.id,
       normalizationTargets: need.fields.map((field) => ({
@@ -1559,7 +1761,7 @@ export class AgentHarness {
     );
     const fieldRetrieval = await retrieveSelectedEntityFields(
       candidateEvidence,
-      sourceNeeds,
+      effectiveSourceNeeds,
       discovery,
       this.embeddingRanker,
       signal,
@@ -1603,10 +1805,10 @@ export class AgentHarness {
     emitTrace("source_feasibility", "started", "Model is binding retrieved fields and composing registered operators");
     const feasibilityRequest: SourceFeasibilityModelRequest = {
       stage: "source_feasibility",
-      promptVersion: "13",
+      promptVersion: "14",
       planningAnchorAt,
       semanticPlan: discoveryPlanningOutput.semanticPlan,
-      sourceNeeds,
+      sourceNeeds: effectiveSourceNeeds,
       candidates: presentedCandidateEvidence,
       sourceRoles,
       operatorRegistry: flexibleOperatorRegistry,
@@ -1615,7 +1817,7 @@ export class AgentHarness {
     const feasibilityResponse = await invoke(feasibilityRequest);
     let feasibilityOutput = await parseWithRepair(feasibilityRequest, feasibilityResponse, parseSourceFeasibility, 0);
     if (feasibilityOutput.kind === "unsupported") {
-      const counterEvidence = unsupportedSourceEvidenceConflict(feasibilityOutput, sourceNeeds, presentedCandidateEvidence);
+      const counterEvidence = unsupportedSourceEvidenceConflict(feasibilityOutput, effectiveSourceNeeds, presentedCandidateEvidence);
       if (counterEvidence.length > 0) {
         if (repairCalls > 0 || modelCalls >= this.limits.maxModelCalls) {
           fail("Model unsupported claim conflicts with inspected source evidence", "FEASIBILITY_UNSUPPORTED_EVIDENCE_CONFLICT");
@@ -1636,7 +1838,7 @@ export class AgentHarness {
         });
         feasibilityOutput = parseSourceFeasibility(repaired.output);
         if (feasibilityOutput.kind === "unsupported"
-          && unsupportedSourceEvidenceConflict(feasibilityOutput, sourceNeeds, presentedCandidateEvidence).length > 0) {
+          && unsupportedSourceEvidenceConflict(feasibilityOutput, effectiveSourceNeeds, presentedCandidateEvidence).length > 0) {
           fail("Model repeated an unsupported claim that conflicts with inspected source evidence", "FEASIBILITY_UNSUPPORTED_EVIDENCE_CONFLICT");
         }
       }
@@ -1654,12 +1856,24 @@ export class AgentHarness {
     this.emitDebug({stage: "source_feasibility", outcome: "feasibility", selectionCount: feasibilityOutput.selections.length});
     emitTrace("source_feasibility", "passed", "Model proposed discovered source choices and a registered operator composition");
 
+    for (const accepted of acceptedAggregates) {
+      const selected = feasibilityOutput.selections.find((selection) => selection.sourceNeedId === accepted.sourceNeedId);
+      const expected = accepted.fieldBindings.map((binding) => `${binding.requirementId}\u0000${binding.fieldPath}`).sort();
+      const actual = selected?.fieldBindings.map((binding) => `${binding.requirementId}\u0000${binding.fieldPath}`).sort() ?? [];
+      if (selected?.candidateRef !== accepted.candidateRef
+        || selected.queryEntity !== accepted.queryEntity
+        || expected.length !== actual.length
+        || expected.some((binding, index) => binding !== actual[index])) {
+        fail("Feasibility changed a deterministically admitted aggregate selection", "FEASIBILITY_AGGREGATE_SELECTION_CHANGED");
+      }
+    }
+
     let blockers: readonly string[];
     try {
       blockers = validateSourceFeasibility(
         feasibilityOutput,
         discoveryPlanningOutput.semanticPlan,
-        sourceNeeds,
+        effectiveSourceNeeds,
         discovery,
         candidateEvidence,
         presentedCandidateEvidence,
@@ -1682,7 +1896,7 @@ export class AgentHarness {
       kind: "feasibility",
       readyForCompilation: false,
       discoveryPlan: discoveryPlanningOutput,
-      sourceNeeds,
+      sourceNeeds: effectiveSourceNeeds,
       discovery,
       entitySelection: entitySelectionOutput,
       feasibility: feasibilityOutput,

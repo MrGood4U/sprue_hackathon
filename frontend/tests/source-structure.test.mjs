@@ -213,9 +213,13 @@ test("keeps Agent Planner on live durable services without a demo fallback", asy
   assert.match(styles, /\.agent-chat::\-webkit-scrollbar-button, \.agent-progress-panel::\-webkit-scrollbar-button \{[^}]*display: none;/s);
   assert.match(elapsedHook, /clearInterval\(intervalId\)/);
   assert.match(progress, /CircleNotch className="agent-trace-spinner"/);
+  assert.match(progress, /aggregate_schema_retrieval/);
+  assert.match(progress, /aggregate_selection/);
   assert.match(progress, /semantic_entity_retrieval/);
   assert.match(progress, /semantic_field_retrieval/);
   assert.match(stepCards, /event\.summary/);
+  assert.match(stepCards, /aggregate_schema_retrieval/);
+  assert.match(stepCards, /aggregate_selection/);
   assert.match(stepCards, /semantic_entity_retrieval/);
   assert.match(stepCards, /semantic_field_retrieval/);
   assert.match(stepCards, /agent\.status\.\$\{state\}/);

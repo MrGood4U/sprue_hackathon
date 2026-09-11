@@ -2,6 +2,8 @@ import {createHash} from "node:crypto";
 import {
   Kind,
   parse,
+  valueFromASTUntyped,
+  type DirectiveNode,
   type FieldDefinitionNode,
   type ObjectTypeDefinitionNode,
   type ObjectTypeExtensionNode,
@@ -10,6 +12,7 @@ import {
 import {z} from "zod";
 import type {
   GraphDeploymentActivity,
+  GraphAggregationInspection,
   GraphDiscoveredSourceCandidate,
   GraphFieldRequirement,
   GraphInspectedField,
@@ -161,8 +164,9 @@ function graphValueType(name: string): GraphSemanticValueType {
   if (name === "Boolean") return "boolean";
   if (name === "ID") return "id";
   if (name === "Bytes") return "bytes";
-  if (name === "Int" || name === "BigInt") return "integer";
+  if (name === "Int" || name === "Int8" || name === "BigInt") return "integer";
   if (name === "Float" || name === "BigDecimal") return "decimal";
+  if (name === "Timestamp") return "timestamp";
   if (name === "String") return "string";
   return "json";
 }
@@ -271,10 +275,49 @@ interface ParsedSchemaInspection {
   entities: readonly {
     queryEntity: string;
     entityType: string;
+    entityKind: "entity" | "timeseries" | "aggregation";
+    aggregation: GraphAggregationInspection | null;
     fields: readonly GraphInspectedField[];
   }[];
   queryEntitySource: "source_sdl" | "runtime_introspection";
   requiresRuntimeIntrospection: boolean;
+}
+
+function directiveArgument(directive: DirectiveNode | undefined, name: string): unknown {
+  const value = directive?.arguments?.find((argument) => argument.name.value === name)?.value;
+  return value ? valueFromASTUntyped(value) : undefined;
+}
+
+function aggregationMetadata(
+  definition: ObjectTypeDefinitionNode | ObjectTypeExtensionNode,
+): GraphAggregationInspection | null {
+  const directive = definition.directives?.find((item) => item.name.value === "aggregation");
+  if (!directive) return null;
+  const sourceEntity = directiveArgument(directive, "source");
+  const rawIntervals = directiveArgument(directive, "intervals");
+  if (typeof sourceEntity !== "string" || !Array.isArray(rawIntervals)) return null;
+  const intervals = rawIntervals.filter((value): value is "hour" | "day" => value === "hour" || value === "day");
+  if (intervals.length === 0) return null;
+  const measures: GraphAggregationInspection["measures"][number][] = [];
+  const dimensions: string[] = [];
+  for (const field of definition.fields ?? []) {
+    if (field.name.value === "id" || field.name.value === "timestamp") continue;
+    const aggregate = field.directives?.find((item) => item.name.value === "aggregate");
+    if (!aggregate) {
+      dimensions.push(field.name.value);
+      continue;
+    }
+    const fn = directiveArgument(aggregate, "fn");
+    if (!new Set(["sum", "count", "min", "max", "first", "last"]).has(String(fn))) continue;
+    const arg = directiveArgument(aggregate, "arg");
+    measures.push({
+      fieldPath: field.name.value,
+      fn: fn as GraphAggregationInspection["measures"][number]["fn"],
+      arg: typeof arg === "string" ? arg.slice(0, 1000) : null,
+      cumulative: directiveArgument(aggregate, "cumulative") === true,
+    });
+  }
+  return {sourceEntity, intervals: [...new Set(intervals)], dimensions, measures};
 }
 
 export function inspectGraphSchema(
@@ -284,7 +327,8 @@ export function inspectGraphSchema(
   const document = parse(sdl, {maxTokens: 100_000});
   const objectFields = new Map<string, FieldDefinitionNode[]>();
   const entityTypes = new Set<string>();
-  const leafTypes = new Set(["ID", "String", "Boolean", "Int", "Float", "BigInt", "BigDecimal", "Bytes"]);
+  const entityKinds = new Map<string, {kind: "entity" | "timeseries" | "aggregation"; aggregation: GraphAggregationInspection | null}>();
+  const leafTypes = new Set(["ID", "String", "Boolean", "Int", "Int8", "Float", "BigInt", "BigDecimal", "Bytes", "Timestamp"]);
   for (const definition of document.definitions) {
     if (definition.kind === Kind.SCALAR_TYPE_DEFINITION || definition.kind === Kind.ENUM_TYPE_DEFINITION) {
       leafTypes.add(definition.name.value);
@@ -295,8 +339,13 @@ export function inspectGraphSchema(
     const existing = objectFields.get(objectDefinition.name.value) ?? [];
     existing.push(...(objectDefinition.fields ?? []));
     objectFields.set(objectDefinition.name.value, existing);
-    if (objectDefinition.directives?.some((directive) => directive.name.value === "entity")) {
+    const entityDirective = objectDefinition.directives?.find((directive) => directive.name.value === "entity");
+    const aggregation = aggregationMetadata(objectDefinition);
+    if (entityDirective || aggregation) {
       entityTypes.add(objectDefinition.name.value);
+      entityKinds.set(objectDefinition.name.value, aggregation
+        ? {kind: "aggregation", aggregation}
+        : {kind: directiveArgument(entityDirective, "timeseries") === true ? "timeseries" : "entity", aggregation: null});
     }
   }
   const queryFields = objectFields.get("Query") ?? [];
@@ -318,7 +367,8 @@ export function inspectGraphSchema(
   const inspections = queryEntities.map(({queryEntity, entityType}) => {
     const fields = [...new Map(collectFields(entityType, objectFields, leafTypes).map((field) => [field.path, field])).values()]
       .sort((left, right) => left.path.localeCompare(right.path));
-    return {queryEntity, entityType, fields};
+    const metadata = entityKinds.get(entityType) ?? {kind: "entity" as const, aggregation: null};
+    return {queryEntity, entityType, entityKind: metadata.kind, aggregation: metadata.aggregation, fields};
   });
   return {
     entities: inspections.sort((left, right) =>
@@ -330,11 +380,11 @@ export function inspectGraphSchema(
 }
 
 function bindRequirements(
-  entities: readonly {queryEntity: string; entityType: string; fields: readonly GraphInspectedField[]}[],
+  entities: readonly {queryEntity: string; entityType: string; entityKind: "entity" | "timeseries" | "aggregation"; aggregation: GraphAggregationInspection | null; fields: readonly GraphInspectedField[]}[],
   need: GraphSourceDiscoveryNeed,
 ): readonly GraphSchemaEntityInspection[] {
   const requirements = need.fields;
-  return entities.map(({queryEntity, entityType, fields}) => {
+  return entities.map(({queryEntity, entityType, entityKind, aggregation, fields}) => {
     const scoredBindings = requirements.map((requirement) => ({
       requirementId: requirement.id,
       fields: fields
@@ -350,6 +400,8 @@ function bindRequirements(
     return {
       queryEntity,
       entityType,
+      entityKind,
+      aggregation,
       fields,
       suggestedBindings,
       matchedRequirements: requirements
@@ -362,6 +414,22 @@ function bindRequirements(
       || Number(right.grainHint === "matched") - Number(left.grainHint === "matched")
       || right.fields.length - left.fields.length
       || left.queryEntity.localeCompare(right.queryEntity));
+}
+
+function boundedEntityEvidence(entities: readonly GraphSchemaEntityInspection[]): readonly GraphSchemaEntityInspection[] {
+  const selected = [
+    ...entities.filter((entity) => entity.entityKind === "aggregation").slice(0, 4),
+    ...entities.filter((entity) => entity.entityKind !== "aggregation").slice(0, 4),
+  ];
+  const seen = new Set(selected.map((entity) => entity.queryEntity));
+  for (const entity of entities) {
+    if (selected.length >= 8) break;
+    if (!seen.has(entity.queryEntity)) {
+      selected.push(entity);
+      seen.add(entity.queryEntity);
+    }
+  }
+  return selected;
 }
 
 function networkEvidence(
@@ -559,7 +627,7 @@ export class GraphSourceDiscoveryService implements GraphSourceDiscoveryPort {
               parsed = inspectGraphSchema(schema.sdl, runtimeQueryFields);
             }
             projection = {
-              schemaVersion: 1,
+              schemaVersion: 2,
               gatewayEnvironment: "mainnet",
               manifestIpfsCid: candidate.manifestIpfsCid,
               schemaHash,
@@ -578,7 +646,7 @@ export class GraphSourceDiscoveryService implements GraphSourceDiscoveryPort {
           inspection = {
             schemaHash,
             schemaBytes,
-              entities: bindRequirements(projection.entities, need).slice(0, 8),
+            entities: boundedEntityEvidence(bindRequirements(projection.entities, need)),
             schemaInspected: true,
             queryEntitySource: projection.queryEntitySource,
             error: null,

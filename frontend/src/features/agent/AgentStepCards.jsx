@@ -7,6 +7,8 @@ const stageTitleKeys = {
   source_discovery_planning: "agent.stage.discoveryPlan",
   source_needs: "agent.stage.sourceNeeds",
   graph_source_discovery: "agent.stage.graphDiscovery",
+  aggregate_schema_retrieval: "agent.stage.aggregateRetrieval",
+  aggregate_selection: "agent.stage.aggregateSelection",
   semantic_entity_retrieval: "agent.stage.semanticRetrieval",
   source_entity_selection: "agent.stage.entitySelection",
   semantic_field_retrieval: "agent.stage.semanticFieldRetrieval",

@@ -18,8 +18,8 @@ export interface GraphQueryPlanValidationInput {
 
 export interface ValidatedGraphQueryPlan {
   operation: OperationDefinitionNode;
-  cursorType: "ID" | "String" | "Bytes";
-  runtimeWindowVariableType: "BigInt" | "Int" | "String" | null;
+  cursorType: "ID" | "String" | "Bytes" | "Int8" | "BigInt" | "Int";
+  runtimeWindowVariableType: "BigInt" | "Int" | "Int8" | "String" | "Timestamp" | null;
   hasAdditionalPredicates: boolean;
 }
 
@@ -95,7 +95,7 @@ export function validateGraphSourceQueryPlan(
   const firstType = namedType(variables.get("first")!);
   const cursorType = namedType(variables.get("cursor")!);
   if (firstType.name !== "Int" || !firstType.required) fail("Graph Source query variable first must have type Int!");
-  if (!new Set(["ID", "String", "Bytes"]).has(cursorType.name) || !cursorType.required) {
+  if (!new Set(["ID", "String", "Bytes", "Int8", "BigInt", "Int"]).has(cursorType.name) || !cursorType.required) {
     fail("Graph Source query cursor must have a supported non-null scalar type");
   }
   let runtimeWindowVariableType: ValidatedGraphQueryPlan["runtimeWindowVariableType"] = null;
@@ -119,11 +119,11 @@ export function validateGraphSourceQueryPlan(
       startType.name !== endType.name
       || !startType.required
       || !endType.required
-      || !new Set(["BigInt", "Int", "String"]).has(startType.name)
+      || !new Set(["BigInt", "Int", "Int8", "String", "Timestamp"]).has(startType.name)
     ) {
       fail("Graph Source runtime window variables must use the same supported non-null scalar type");
     }
-    runtimeWindowVariableType = startType.name as "BigInt" | "Int" | "String";
+    runtimeWindowVariableType = startType.name as "BigInt" | "Int" | "Int8" | "String" | "Timestamp";
   }
 
   if (operation.selectionSet.selections.length !== 1 || operation.selectionSet.selections[0]?.kind !== Kind.FIELD) {
@@ -133,7 +133,7 @@ export function validateGraphSourceQueryPlan(
   if (root.name.value !== input.queryEntity || root.alias || root.directives?.length || !root.selectionSet) {
     fail("Graph Source query root must match the selected query entity without aliases or directives");
   }
-  const permittedArguments = new Set(["first", "orderBy", "orderDirection", "where"]);
+  const permittedArguments = new Set(["first", "orderBy", "orderDirection", "where", "interval"]);
   if ((root.arguments ?? []).some((item) => !permittedArguments.has(item.name.value))) {
     fail("Graph Source query contains an unsupported query-root argument");
   }
@@ -153,6 +153,16 @@ export function validateGraphSourceQueryPlan(
     fail("Graph Source query must advance the id_gt cursor with $cursor");
   }
   if (where?.kind !== Kind.OBJECT) fail("Graph Source query where argument must be an object");
+  const aggregation = plan.aggregation ?? null;
+  const interval = argument(root, "interval")?.value;
+  if (aggregation) {
+    if (aggregation.sourceEntity.trim().length === 0) fail("Graph Source aggregation source entity is invalid");
+    if (interval?.kind !== Kind.STRING || interval.value !== aggregation.interval) {
+      fail("Graph Source aggregate query must use its declared interval");
+    }
+  } else if (interval) {
+    fail("Graph Source raw entity query cannot declare an aggregate interval");
+  }
   if (runtimeWindow) {
     if (
       variableName(objectField(where, `${runtimeWindow.field}_gte`)) !== runtimeWindow.startVariable
@@ -179,7 +189,7 @@ export function validateGraphSourceQueryPlan(
   }
   return {
     operation,
-    cursorType: cursorType.name as "ID" | "String" | "Bytes",
+    cursorType: cursorType.name as ValidatedGraphQueryPlan["cursorType"],
     runtimeWindowVariableType,
     hasAdditionalPredicates,
   };

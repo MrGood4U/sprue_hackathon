@@ -167,6 +167,13 @@ function entityDocument(input: EntityEmbeddingInput): string {
     `Subgraph: ${input.displayName}`,
     `Query entity: ${input.entity.queryEntity}`,
     `Entity type: ${input.entity.entityType}`,
+    `Entity kind: ${input.entity.entityKind ?? "entity"}`,
+    ...(input.entity.aggregation ? [
+      `Aggregate source: ${input.entity.aggregation.sourceEntity}`,
+      `Aggregate intervals: ${input.entity.aggregation.intervals.join(", ")}`,
+      `Aggregate dimensions: ${input.entity.aggregation.dimensions.join(", ") || "none"}`,
+      `Aggregate measures: ${input.entity.aggregation.measures.map((measure) => `${measure.fieldPath}:${measure.fn}:${measure.arg ?? "row"}`).join(", ") || "none"}`,
+    ] : []),
     `Grain hint: ${input.entity.grainHint ?? "unknown"}`,
     "Actual inspected fields:",
   ].join("\n");

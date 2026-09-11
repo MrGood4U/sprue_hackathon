@@ -114,7 +114,7 @@ async function fetchLiveSource(
     }
     if (batch.length < first) break;
     const next = (batch.at(-1) as Row).id;
-    if (typeof next !== "string" || next <= cursor) throw new Error("Graph cursor did not advance");
+    if (typeof next !== "string" || next === cursor) throw new Error("Graph cursor did not advance");
     cursor = next;
   }
   if (source.rowLimit == null && rows.length >= source.maxRows && finalBatchWasFull) {

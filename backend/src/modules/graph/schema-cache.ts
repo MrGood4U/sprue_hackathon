@@ -20,8 +20,19 @@ const inspectedField = z.object({
   nullable: z.boolean(),
   list: z.boolean(),
 }).strict();
+const aggregationInspection = z.object({
+  sourceEntity: z.string().min(1).max(200),
+  intervals: z.array(z.enum(["hour", "day"])).min(1).max(2),
+  dimensions: z.array(z.string().min(1).max(500)).max(128),
+  measures: z.array(z.object({
+    fieldPath: z.string().min(1).max(500),
+    fn: z.enum(["sum", "count", "min", "max", "first", "last"]),
+    arg: z.string().max(1000).nullable(),
+    cumulative: z.boolean(),
+  }).strict()).max(128),
+}).strict();
 const cachedProjection = z.object({
-  schemaVersion: z.literal(1),
+  schemaVersion: z.literal(2),
   gatewayEnvironment: z.literal("mainnet"),
   manifestIpfsCid: identifier,
   schemaHash,
@@ -30,6 +41,8 @@ const cachedProjection = z.object({
   entities: z.array(z.object({
     queryEntity: z.string().min(1).max(200),
     entityType: z.string().min(1).max(200),
+    entityKind: z.enum(["entity", "timeseries", "aggregation"]),
+    aggregation: aggregationInspection.nullable(),
     fields: z.array(inspectedField).max(1_024),
   }).strict()).max(128),
 }).strict();
@@ -44,7 +57,7 @@ export class GraphSchemaCacheError extends Error {
 function cacheKey(identity: {manifestIpfsCid: string; schemaHash: string}): string {
   const cid = identifier.parse(identity.manifestIpfsCid);
   const hash = schemaHash.parse(identity.schemaHash).slice("sha256:".length);
-  return `sprue:graph-schema:v1:mainnet:${cid}:${hash}`;
+  return `sprue:graph-schema:v2:mainnet:${cid}:${hash}`;
 }
 
 /**

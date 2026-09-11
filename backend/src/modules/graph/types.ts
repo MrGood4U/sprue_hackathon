@@ -111,7 +111,7 @@ export interface GraphRuntimeQueryPort {
 }
 
 export interface GraphCachedSchemaProjection {
-  schemaVersion: 1;
+  schemaVersion: 2;
   gatewayEnvironment: "mainnet";
   manifestIpfsCid: string;
   schemaHash: string;
@@ -120,6 +120,8 @@ export interface GraphCachedSchemaProjection {
   entities: readonly {
     queryEntity: string;
     entityType: string;
+    entityKind: GraphSchemaEntityKind;
+    aggregation: GraphAggregationInspection | null;
     fields: readonly GraphInspectedField[];
   }[];
 }
@@ -176,6 +178,10 @@ export interface GraphSourceQueryPlan {
     endVariable: "windowEnd";
     valueEncoding: "unix_seconds";
   } | null;
+  aggregation?: {
+    sourceEntity: string;
+    interval: "hour" | "day";
+  } | null;
   pushedOperations: readonly {
     nodeRole: string;
     operator: "map" | "filter" | "sort";
@@ -183,9 +189,25 @@ export interface GraphSourceQueryPlan {
   }[];
 }
 
+export type GraphSchemaEntityKind = "entity" | "timeseries" | "aggregation";
+
+export interface GraphAggregationInspection {
+  sourceEntity: string;
+  intervals: readonly ("hour" | "day")[];
+  dimensions: readonly string[];
+  measures: readonly {
+    fieldPath: string;
+    fn: "sum" | "count" | "min" | "max" | "first" | "last";
+    arg: string | null;
+    cumulative: boolean;
+  }[];
+}
+
 export interface GraphSchemaEntityInspection {
   queryEntity: string;
   entityType: string;
+  entityKind?: GraphSchemaEntityKind;
+  aggregation?: GraphAggregationInspection | null;
   fields: readonly GraphInspectedField[];
   suggestedBindings: readonly {requirementId: string; fieldPaths: readonly string[]}[];
   matchedRequirements: readonly string[];

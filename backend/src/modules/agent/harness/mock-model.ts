@@ -465,6 +465,16 @@ function sourceFeasibilityOutput(
 
 export function createMockStageOutput(request: AgentModelRequest): unknown {
   if (request.stage === "source_discovery_planning") return sourceDiscoveryPlanningOutput(request);
+  if (request.stage === "aggregate_selection") return {
+    schemaVersion: 1,
+    kind: "aggregate_selection",
+    decisions: request.sourceNeeds.map((need) => ({
+      sourceNeedId: need.id,
+      decision: "fallback",
+      rationale: "The deterministic mock planner leaves aggregate selection to raw-entity fallback.",
+    })),
+    assumptions: [],
+  };
   if (request.stage === "source_entity_selection") return sourceEntitySelectionOutput(request);
   if (request.stage === "source_feasibility") return sourceFeasibilityOutput(request);
   if (request.stage === "semantic_interpretation") return semanticOutput(request);
