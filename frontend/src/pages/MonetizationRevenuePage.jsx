@@ -1,5 +1,5 @@
 import {useState} from "react";
-import {BookOpenText, Check, CheckCircle, Coins, Copy, RocketLaunch, SpinnerGap, StopCircle, Wallet, WarningCircle} from "@phosphor-icons/react";
+import {BookOpenText, Check, CheckCircle, Coins, Copy, LinkSimple, RocketLaunch, SpinnerGap, StopCircle, Wallet, WarningCircle} from "@phosphor-icons/react";
 import {ProductHeader} from "../components/product/ProductHeader.jsx";
 import {Button, IconButton} from "../components/ui/Button.jsx";
 import {Status} from "../components/ui/Status.jsx";
@@ -55,7 +55,10 @@ function LoadedMonetizationPage({delivery, productRef, navigate}) {
   const [stopOpen, setStopOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [copyState, setCopyState] = useState("idle");
+  const [pageCopyState, setPageCopyState] = useState({endpoint: "idle", curl: "idle"});
   const paidEndpoint = publication?.endpointUrl ?? null;
+  const exampleEndpoint = paidEndpoint ? `${paidEndpoint}${paidEndpoint.includes("?") ? "&" : "?"}limit=100` : null;
+  const curlExample = exampleEndpoint ? `curl --include --request GET \\\n  --url '${exampleEndpoint}'` : null;
   const priceIsValid = /^(?:0|[1-9][0-9]{0,69})(?:\.[0-9]{1,8})?$/.test(priceHbar)
     && Number(priceHbar) > 0;
 
@@ -93,10 +96,35 @@ function LoadedMonetizationPage({delivery, productRef, navigate}) {
     }
   };
 
+  const copyPageValue = async (target, value) => {
+    try {
+      await copyText(value);
+      setPageCopyState((current) => ({...current, [target]: "copied"}));
+    } catch {
+      setPageCopyState((current) => ({...current, [target]: "failed"}));
+    }
+  };
+
   return <>
     <ProductHeader product={product} productRef={productRef} active="monetize" navigate={navigate} onRename={delivery.rename} />
     <main className="product-content">
       <div className="content-heading"><div><span className="eyebrow">Hedera x402</span><h1>{t("monetize.title")}</h1><p>{t("monetize.description")}</p></div><div className="monetize-heading-actions"><Status tone={readinessTone}>{t(`monetize.readiness.${monetization.readiness}`)}</Status>{isActive && <Button icon={BookOpenText} onClick={() => { setCopyState("idle"); setGuideOpen(true); }}>{t("monetize.usageGuide")}</Button>}{isActive ? <Button variant="danger" icon={StopCircle} onClick={() => { setCommandState({status: "idle", error: null}); setStopOpen(true); }}>{t("monetize.stopDeployment")}</Button> : <Button variant="primary" icon={RocketLaunch} onClick={() => { setCommandState({status: "idle", error: null}); setPublishOpen(true); }}>{t("monetize.publishEndpoint")}</Button>}</div></div>
+
+      {isActive && paidEndpoint && curlExample && <section className="panel x402-access-section">
+        <div className="panel-title"><LinkSimple size={19} /><h3>{t("monetize.endpointAccess")}</h3></div>
+        <p className="x402-access-detail">{t("monetize.endpointAccessDetail")}</p>
+        <div className="x402-access-examples">
+          <div className="x402-access-example">
+            <div className="x402-access-example-heading"><strong>{t("monetize.fullEndpoint")}</strong><span className={`x402-access-feedback ${pageCopyState.endpoint}`} role="status" aria-live="polite">{pageCopyState.endpoint === "copied" ? t("monetize.copySucceeded") : pageCopyState.endpoint === "failed" ? t("monetize.copyFailed") : ""}</span></div>
+            <div className={`x402-guide-endpoint ${pageCopyState.endpoint}`}><span className="method">GET</span><code>{paidEndpoint}</code><IconButton label={pageCopyState.endpoint === "copied" ? t("monetize.copySucceeded") : t("monetize.copyEndpoint")} onClick={() => copyPageValue("endpoint", paidEndpoint)}>{pageCopyState.endpoint === "copied" ? <Check size={18} /> : <Copy size={18} />}</IconButton></div>
+          </div>
+          <div className="x402-access-example">
+            <div className="x402-access-example-heading"><strong>{t("monetize.curlExample")}</strong><span className={`x402-access-feedback ${pageCopyState.curl}`} role="status" aria-live="polite">{pageCopyState.curl === "copied" ? t("monetize.curlCopied") : pageCopyState.curl === "failed" ? t("monetize.curlCopyFailed") : ""}</span></div>
+            <div className={`x402-access-code ${pageCopyState.curl}`}><pre><code>{curlExample}</code></pre><IconButton label={pageCopyState.curl === "copied" ? t("monetize.curlCopied") : t("monetize.copyCurl")} onClick={() => copyPageValue("curl", curlExample)}>{pageCopyState.curl === "copied" ? <Check size={18} /> : <Copy size={18} />}</IconButton></div>
+            <small>{t("monetize.curlDetail")}</small>
+          </div>
+        </div>
+      </section>}
 
       <section className="panel revenue-section"><div className="panel-title"><Coins size={19} /><h3>{t("monetize.confirmedRevenue")}</h3></div><div className="money-grid"><MoneyList title={t("monetize.grossSales")} rows={monetization.revenue.grossSales} emptySymbol={revenueSymbol} icon={Coins} /><MoneyList title={t("monetize.creatorProceeds")} rows={monetization.revenue.creatorProceeds} emptySymbol={revenueSymbol} icon={Wallet} /></div></section>
 
@@ -131,11 +159,11 @@ function LoadedMonetizationPage({delivery, productRef, navigate}) {
       </ol>
       <div className="x402-guide-example">
         <div><strong>{t("monetize.challengeExample")}</strong><span>{t("monetize.noApiKeyRequired")}</span></div>
-        <pre><code>{`curl --include --request GET \\\n  --url '${paidEndpoint}?limit=100'`}</code></pre>
+        <pre><code>{curlExample}</code></pre>
       </div>
       <div className="x402-guide-example">
         <div><strong>{t("monetize.retryExample")}</strong><span>{t("monetize.paymentClientRequired")}</span></div>
-        <pre><code>{`curl --include --request GET \\\n  --url '${paidEndpoint}?limit=100' \\\n  --header 'PAYMENT-SIGNATURE: YOUR_X402_PAYMENT_PAYLOAD'`}</code></pre>
+        <pre><code>{`${curlExample} \\\n  --header 'PAYMENT-SIGNATURE: YOUR_X402_PAYMENT_PAYLOAD'`}</code></pre>
       </div>
     </Modal>}
   </>;

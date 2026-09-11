@@ -7,6 +7,7 @@ test("hackathon monetization keeps the full price with the creator and omits fee
   const runtime = await readFile(new URL("../../backend/src/modules/demo/runtime.ts", import.meta.url), "utf8");
   const english = await readFile(new URL("../src/i18n/messages/en.js", import.meta.url), "utf8");
   const delivery = await readFile(new URL("../src/services/api/delivery.js", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
 
   assert.match(page, /function formatAtomic\(money\)/);
   assert.match(page, /monetization\.revenue\.creatorProceeds/);
@@ -18,13 +19,21 @@ test("hackathon monetization keeps the full price with the creator and omits fee
   assert.match(page, /monetize\.stopDeployment/);
   assert.match(page, /monetize\.usageGuide/);
   assert.match(page, /publication\?\.endpointUrl/);
+  assert.match(page, /className="panel x402-access-section"/);
+  assert.match(page, /monetize\.fullEndpoint/);
+  assert.match(page, /monetize\.curlExample/);
+  assert.match(page, /copyPageValue\("endpoint", paidEndpoint\)/);
+  assert.match(page, /copyPageValue\("curl", curlExample\)/);
   assert.match(page, /<strong>\{`0 \$\{emptySymbol\}`\}<\/strong>/);
   assert.match(english, /PAYMENT-REQUIRED/);
   assert.match(page, /PAYMENT-SIGNATURE/);
   assert.doesNotMatch(page, /Authorization: Bearer|sprue_live_/);
   assert.match(page, /className="x402-publish-modal"/);
   assert.doesNotMatch(page, /monetize-grid|settlement-preview|settlement-amount|settlement-flow/);
-  assert.equal(page.match(/<section className="panel/g)?.length, 2);
+  assert.equal(page.match(/<section className="panel/g)?.length, 3);
+  assert.match(styles, /\.money-card strong \{[^}]*font: 500 26px\/1\.2 var\(--mono\)/);
+  assert.match(styles, /\.x402-guide-endpoint code \{[^}]*overflow-wrap: anywhere/);
+  assert.match(styles, /\.x402-access-code pre \{[^}]*white-space: pre-wrap[^}]*overflow-wrap: anywhere/);
   assert.match(delivery, /export function publishX402/);
   assert.match(delivery, /export function retireX402/);
   assert.doesNotMatch(page, /useDemoRuntime|setPublished|simulationNotice|demoPublished/);

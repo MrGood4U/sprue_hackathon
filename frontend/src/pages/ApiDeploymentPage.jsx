@@ -32,7 +32,7 @@ function fieldRows(outputSchema) {
 function ApiRouteState({delivery, productRef, navigate}) {
   const {t} = useI18n();
   const product = delivery.product ?? (delivery.status === "error" ? {name: t("api.unknownProduct"), slug: productRef} : null);
-  return <><ProductHeader product={product} productRef={productRef} active="api" navigate={navigate} /><main className="runtime-gate builder-route-state"><div className="panel"><span className="section-label">{t("api.liveData")}</span><h1>{t(delivery.status === "loading" ? "api.loading" : "api.loadError")}</h1><p>{t(delivery.status === "loading" ? "api.loadingDetail" : "api.loadErrorDetail")}</p>{delivery.status === "error" && <Button variant="primary" onClick={() => delivery.refresh()}>{t("common.retry")}</Button>}</div></main></>;
+  return <><ProductHeader product={product} productRef={productRef} active="api" navigate={navigate} /><main className="runtime-gate builder-route-state"><div className="panel"><span className="section-label">{t("api.eyebrow")}</span><h1>{t(delivery.status === "loading" ? "api.loading" : "api.loadError")}</h1><p>{t(delivery.status === "loading" ? "api.loadingDetail" : "api.loadErrorDetail")}</p>{delivery.status === "error" && <Button variant="primary" onClick={() => delivery.refresh()}>{t("common.retry")}</Button>}</div></main></>;
 }
 
 function LoadedApiPage({delivery, productRef, navigate}) {
@@ -161,7 +161,7 @@ function LoadedApiPage({delivery, productRef, navigate}) {
           {requestUrl && <><div className="code-tabs"><button className="active">cURL</button></div><pre className="code-block">curl --request GET {"\n"}  --url '{requestUrl}' {"\n"}  --header 'accept: application/json' {"\n"}  --header 'authorization: Bearer YOUR_SPRUE_API_KEY'</pre></>}
         </section>
         <section className="panel request-tester">
-          <div className="panel-title"><TerminalWindow size={19} /><h3>{t("api.requestTester")}</h3><Status tone="violet">{t("api.liveData")}</Status></div>
+          <div className="panel-title"><TerminalWindow size={19} /><h3>{t("api.requestTester")}</h3></div>
           <Field htmlFor="api-key" label={t("api.apiKey")} hint={t("api.apiKeyHint")}><input id="api-key" type="password" autoComplete="off" value={apiKey} placeholder="sprue_live_..." onChange={(event) => setApiKey(event.target.value)} /></Field>
           {parameter && <Field htmlFor="api-limit" label={t("api.limit")} hint={t(limitIsValid ? "api.limitHint" : "api.limitInvalid", parameter)}><input id="api-limit" type="number" min={parameter.minimum} max={parameter.maximum} step="1" value={limit} aria-invalid={!limitIsValid} onChange={(event) => setLimit(event.target.value)} /></Field>}
           <Button variant="primary" icon={requestState.status === "loading" ? SpinnerGap : Play} className={requestState.status === "loading" ? "is-loading" : ""} disabled={!delivery.delivery.capabilities.privateRequest || !limitIsValid || !apiKey.trim() || requestState.status === "loading"} onClick={sendRequest}>{t(requestState.status === "loading" ? "api.sending" : "api.sendTest")}</Button>

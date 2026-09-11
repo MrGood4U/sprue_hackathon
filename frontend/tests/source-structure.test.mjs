@@ -94,6 +94,8 @@ test("keeps the API page focused on request and response formats", async () => {
   const deliveryHook = await readFile(new URL("features/delivery/useProductDelivery.js", sourceRoot), "utf8");
   const deliveryApi = await readFile(new URL("services/api/delivery.js", sourceRoot), "utf8");
   const styles = await readFile(new URL("styles.css", sourceRoot), "utf8");
+  const english = await readFile(new URL("i18n/messages/en.js", sourceRoot), "utf8");
+  const chinese = await readFile(new URL("i18n/messages/zh-CN.js", sourceRoot), "utf8");
 
   assert.match(source, /api\.requestFormat/);
   assert.match(source, /api\.responseFormat/);
@@ -112,6 +114,11 @@ test("keeps the API page focused on request and response formats", async () => {
   assert.match(source, /await copyText\(issuedKey\.apiKey\)/);
   assert.match(source, /role="status" aria-live="polite"/);
   assert.match(source, /api\.apiKeyCopyFailed/);
+  assert.doesNotMatch(source, /api\.liveData/);
+  assert.match(english, /"api\.readiness\.available": "Deployment ready"/);
+  assert.match(chinese, /"api\.readiness\.available": "\\u90e8\\u7f72\\u5c31\\u7eea"/);
+  assert.doesNotMatch(english, /"api\.liveData"|Deployment record ready/);
+  assert.doesNotMatch(chinese, /"api\.liveData"|\\u90e8\\u7f72\\u8bb0\\u5f55\\u5c31\\u7eea/);
   assert.doesNotMatch(source, /api\.backendFacts|delivery-facts/);
   assert.doesNotMatch(source, /useDemoRuntime|useRequestTest|responseExample|mock-chip/);
   assert.match(deliveryHook, /getProductDelivery/);
