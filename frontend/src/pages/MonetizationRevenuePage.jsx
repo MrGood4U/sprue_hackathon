@@ -1,14 +1,17 @@
 import {useState} from "react";
-import {BookOpenText, Check, CheckCircle, Coins, Copy, LinkSimple, RocketLaunch, SpinnerGap, StopCircle, Wallet, WarningCircle} from "@phosphor-icons/react";
+import {ArrowSquareOut, BookOpenText, CaretLeft, CaretRight, Check, CheckCircle, Coins, Copy, LinkSimple, RocketLaunch, SpinnerGap, StopCircle, Tag, Wallet, WarningCircle} from "@phosphor-icons/react";
 import {ProductHeader} from "../components/product/ProductHeader.jsx";
 import {Button, IconButton} from "../components/ui/Button.jsx";
 import {Status} from "../components/ui/Status.jsx";
 import {Field} from "../components/ui/Field.jsx";
 import {Modal} from "../components/ui/Modal.jsx";
 import {useProductDelivery} from "../features/delivery/useProductDelivery.js";
+import {hederaTransactionUrl} from "../features/delivery/hederaExplorer.js";
 import {copyText} from "../features/wallet/copyText.js";
 import {productRefFromPath} from "../features/products/productRoute.js";
 import {useI18n} from "../i18n/I18nProvider.jsx";
+
+const salesPageSize = 10;
 
 function blockerText(t, blocker) {
   const key = `delivery.blocker.${blocker.code}`;
@@ -56,11 +59,18 @@ function LoadedMonetizationPage({delivery, productRef, navigate}) {
   const [guideOpen, setGuideOpen] = useState(false);
   const [copyState, setCopyState] = useState("idle");
   const [pageCopyState, setPageCopyState] = useState({endpoint: "idle", curl: "idle"});
+  const [salesPage, setSalesPage] = useState(1);
   const paidEndpoint = publication?.endpointUrl ?? null;
   const exampleEndpoint = paidEndpoint ? `${paidEndpoint}${paidEndpoint.includes("?") ? "&" : "?"}limit=100` : null;
   const curlExample = exampleEndpoint ? `curl --include --request GET \\\n  --url '${exampleEndpoint}'` : null;
   const priceIsValid = /^(?:0|[1-9][0-9]{0,69})(?:\.[0-9]{1,8})?$/.test(priceHbar)
     && Number(priceHbar) > 0;
+  const salesPageCount = Math.max(1, Math.ceil(monetization.sales.length / salesPageSize));
+  const currentSalesPage = Math.min(salesPage, salesPageCount);
+  const visibleSales = monetization.sales.slice(
+    (currentSalesPage - 1) * salesPageSize,
+    currentSalesPage * salesPageSize,
+  );
 
   const publish = async () => {
     if (!api.deployment?.id || !priceIsValid) return;
@@ -111,7 +121,10 @@ function LoadedMonetizationPage({delivery, productRef, navigate}) {
       <div className="content-heading"><div><span className="eyebrow">Hedera x402</span><h1>{t("monetize.title")}</h1><p>{t("monetize.description")}</p></div><div className="monetize-heading-actions"><Status tone={readinessTone}>{t(`monetize.readiness.${monetization.readiness}`)}</Status>{isActive && <Button icon={BookOpenText} onClick={() => { setCopyState("idle"); setGuideOpen(true); }}>{t("monetize.usageGuide")}</Button>}{isActive ? <Button variant="danger" icon={StopCircle} onClick={() => { setCommandState({status: "idle", error: null}); setStopOpen(true); }}>{t("monetize.stopDeployment")}</Button> : <Button variant="primary" icon={RocketLaunch} onClick={() => { setCommandState({status: "idle", error: null}); setPublishOpen(true); }}>{t("monetize.publishEndpoint")}</Button>}</div></div>
 
       {isActive && paidEndpoint && curlExample && <section className="panel x402-access-section">
-        <div className="panel-title"><LinkSimple size={19} /><h3>{t("monetize.endpointAccess")}</h3></div>
+        <div className="x402-access-heading">
+          <div className="panel-title"><LinkSimple size={19} /><h3>{t("monetize.endpointAccess")}</h3></div>
+          <div className="x402-request-price"><Tag size={18} aria-hidden="true" /><span>{t("monetize.requestPrice")}</span><strong>{price ? formatAtomic(price) : t("monetize.priceMissing")}</strong></div>
+        </div>
         <p className="x402-access-detail">{t("monetize.endpointAccessDetail")}</p>
         <div className="x402-access-examples">
           <div className="x402-access-example">
@@ -128,13 +141,36 @@ function LoadedMonetizationPage({delivery, productRef, navigate}) {
 
       <section className="panel revenue-section"><div className="panel-title"><Coins size={19} /><h3>{t("monetize.confirmedRevenue")}</h3></div><div className="money-grid"><MoneyList title={t("monetize.grossSales")} rows={monetization.revenue.grossSales} emptySymbol={revenueSymbol} icon={Coins} /><MoneyList title={t("monetize.creatorProceeds")} rows={monetization.revenue.creatorProceeds} emptySymbol={revenueSymbol} icon={Wallet} /></div></section>
 
-      <section className="panel sales-section"><div className="panel-title"><Coins size={19} /><h3>{t("monetize.sales")}</h3><span>{t("monetize.latestSales", {count: monetization.sales.length})}</span></div>{monetization.sales.length === 0 ? <div className="delivery-empty-inline"><Coins size={22} /><span>{t("monetize.noSales")}</span></div> : <div className="sales-table" role="table" aria-label={t("monetize.sales")}><div className="sales-row sales-head" role="row"><span>{t("monetize.correlation")}</span><span>{t("monetize.status")}</span><span>{t("monetize.amount")}</span><span>{t("monetize.startedAt")}</span></div>{monetization.sales.map((sale) => <div className="sales-row" role="row" key={sale.id}><code>{sale.correlationId}</code><Status tone={sale.status === "served" ? "green" : sale.status === "failed" ? "amber" : "violet"}>{sale.status}</Status><span>{formatAtomic(sale.amount)}</span><time dateTime={sale.startedAt}>{sale.startedAt}</time></div>)}</div>}</section>
+      <section className="panel sales-section">
+        <div className="panel-title"><Coins size={19} /><h3>{t("monetize.sales")}</h3><span>{t("monetize.latestSales", {count: monetization.sales.length})}</span></div>
+        {monetization.sales.length === 0
+          ? <div className="delivery-empty-inline"><Coins size={22} /><span>{t("monetize.noSales")}</span></div>
+          : <>
+            <div className="sales-table" role="table" aria-label={t("monetize.sales")}>
+              <div className="sales-row sales-head" role="row"><span>{t("monetize.correlation")}</span><span>{t("monetize.status")}</span><span>{t("monetize.amount")}</span><span>{t("monetize.startedAt")}</span></div>
+              {visibleSales.map((sale) => {
+                const explorerUrl = hederaTransactionUrl(sale);
+                return <div className="sales-row" role="row" key={sale.id}>
+                  <div className="sales-correlation"><code>{sale.correlationId}</code>{explorerUrl && <a className="sales-explorer-link" href={explorerUrl} target="_blank" rel="noopener noreferrer" aria-label={t("monetize.openTransaction", {id: sale.correlationId})}><ArrowSquareOut size={17} weight="bold" aria-hidden="true" /></a>}</div>
+                  <Status tone={sale.status === "served" ? "green" : sale.status === "failed" ? "amber" : "violet"}>{sale.status}</Status>
+                  <span>{formatAtomic(sale.amount)}</span>
+                  <time dateTime={sale.startedAt}>{sale.startedAt}</time>
+                </div>;
+              })}
+            </div>
+            {salesPageCount > 1 && <nav className="sales-pagination" aria-label={t("monetize.pagination")}>
+              <Button icon={CaretLeft} disabled={currentSalesPage === 1} onClick={() => setSalesPage((page) => Math.max(1, page - 1))}>{t("monetize.previousPage")}</Button>
+              <span aria-live="polite">{t("monetize.pageStatus", {page: currentSalesPage, pages: salesPageCount})}</span>
+              <button className="button button-secondary sales-next-button" disabled={currentSalesPage === salesPageCount} onClick={() => setSalesPage((page) => Math.min(salesPageCount, page + 1))}><span>{t("monetize.nextPage")}</span><CaretRight size={17} weight="bold" aria-hidden="true" /></button>
+            </nav>}
+          </>}
+      </section>
     </main>
     {publishOpen && <Modal title={t("monetize.publishTitle")} eyebrow="Hedera x402" width="640px" className="x402-publish-modal" onClose={() => commandState.status !== "publishing" && setPublishOpen(false)} footer={<><Button disabled={commandState.status === "publishing"} onClick={() => setPublishOpen(false)}>{t("common.cancel")}</Button><Button variant="primary" icon={commandState.status === "publishing" ? SpinnerGap : RocketLaunch} className={commandState.status === "publishing" ? "is-loading" : ""} disabled={!delivery.delivery.capabilities.publishX402 || !priceIsValid || commandState.status === "publishing"} onClick={publish}>{t(commandState.status === "publishing" ? "monetize.publishing" : "monetize.publishEndpoint")}</Button></>}>
       <p className="modal-copy">{t("monetize.publishDialogDetail")}</p>
       <div className="publish-steps">
         <div className={`publish-step ${api.readiness === "available" ? "complete" : ""}`}><span>1</span><div><strong>{t("monetize.endpointSelected")}</strong><small>{api.contract?.endpointUrl ?? t("monetize.endpointMissing")}</small></div>{api.readiness === "available" && <CheckCircle size={19} weight="fill" />}</div>
-        <div className={`publish-step ${priceIsValid ? "complete" : ""}`}><span>2</span><div><Field htmlFor="x402-price" label={t("monetize.buyerPrice")} hint={t(priceIsValid ? "monetize.priceHint" : "monetize.priceInvalid")}><div className="input-suffix"><input id="x402-price" inputMode="decimal" value={priceHbar} aria-invalid={!priceIsValid} onChange={(event) => setPriceHbar(event.target.value)} /><span>HBAR</span></div></Field></div>{priceIsValid && <CheckCircle size={19} weight="fill" />}</div>
+        <div className={`publish-step ${priceIsValid ? "complete" : ""}`}><span>2</span><div><Field htmlFor="x402-price" label={t("monetize.buyerPrice")} hint={t(priceIsValid ? "monetize.priceHint" : "monetize.priceInvalid")}><div className="input-suffix"><input id="x402-price" inputMode="decimal" autoComplete="off" value={priceHbar} aria-invalid={!priceIsValid} onChange={(event) => setPriceHbar(event.target.value)} /><span>HBAR</span></div></Field></div>{priceIsValid && <CheckCircle size={19} weight="fill" />}</div>
         <div className={`publish-step ${recipient?.identityStatus === "resolved" ? "complete" : ""}`}><span>3</span><div><strong>{t("monetize.revenueDestination")}</strong><small>{recipient?.networkAccountRef ?? t("monetize.recipientMissing")}</small></div>{recipient?.identityStatus === "resolved" && <Status>{t("common.verified")}</Status>}</div>
         <div className={`publish-step ${recipient?.canReceive && recipient?.canSpend ? "complete" : ""}`}><span>4</span><div><strong>{t("monetize.recipientCapability")}</strong><small>{t(recipient?.canReceive && recipient?.canSpend ? "monetize.capabilityVerified" : "monetize.capabilityMissing")}</small></div>{recipient?.canReceive && recipient?.canSpend && <CheckCircle size={19} weight="fill" />}</div>
       </div>

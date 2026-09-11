@@ -19,6 +19,13 @@ test("hackathon monetization keeps the full price with the creator and omits fee
   assert.match(page, /monetize\.stopDeployment/);
   assert.match(page, /monetize\.usageGuide/);
   assert.match(page, /publication\?\.endpointUrl/);
+  assert.match(page, /const salesPageSize = 10/);
+  assert.match(page, /monetization\.sales\.slice\(/);
+  assert.match(page, /hederaTransactionUrl\(sale\)/);
+  assert.match(page, /ArrowSquareOut/);
+  assert.match(page, /monetize\.requestPrice/);
+  assert.match(page, /formatAtomic\(price\)/);
+  assert.match(page, /label=\{t\("monetize\.buyerPrice"\)\}/);
   assert.match(page, /className="panel x402-access-section"/);
   assert.match(page, /monetize\.fullEndpoint/);
   assert.match(page, /monetize\.curlExample/);
@@ -34,6 +41,8 @@ test("hackathon monetization keeps the full price with the creator and omits fee
   assert.match(styles, /\.money-card strong \{[^}]*font: 500 26px\/1\.2 var\(--mono\)/);
   assert.match(styles, /\.x402-guide-endpoint code \{[^}]*overflow-wrap: anywhere/);
   assert.match(styles, /\.x402-access-code pre \{[^}]*white-space: pre-wrap[^}]*overflow-wrap: anywhere/);
+  assert.match(styles, /\.sales-explorer-link:focus-visible/);
+  assert.match(styles, /\.sales-pagination/);
   assert.match(delivery, /export function publishX402/);
   assert.match(delivery, /export function retireX402/);
   assert.doesNotMatch(page, /useDemoRuntime|setPublished|simulationNotice|demoPublished/);

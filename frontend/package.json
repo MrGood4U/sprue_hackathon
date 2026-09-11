@@ -12,7 +12,7 @@
     "test:i18n": "node --test tests/localization.test.mjs",
     "test:builder": "node --test tests/builder.test.mjs",
     "test:wallet": "node --test tests/wallet-access.test.mjs",
-    "test:monetization": "node --test tests/monetization.test.mjs",
+    "test:monetization": "node --test tests/monetization.test.mjs tests/hedera-explorer.test.mjs",
     "test:services": "node --test tests/backend-services.test.mjs",
     "test:workflow-editor": "node --test tests/workflow-editor.test.mjs",
     "test:live-builder": "node --test tests/live-builder.test.mjs",
