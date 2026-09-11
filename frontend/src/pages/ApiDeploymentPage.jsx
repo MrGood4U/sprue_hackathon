@@ -1,5 +1,5 @@
 import {useEffect, useRef, useState} from "react";
-import {Check, Copy, Database, DownloadSimple, FileCode, Key, Play, RocketLaunch, SpinnerGap, TerminalWindow, WarningCircle} from "@phosphor-icons/react";
+import {Check, Copy, Database, DownloadSimple, FileCode, Key, Play, RocketLaunch, SpinnerGap, StopCircle, TerminalWindow, WarningCircle} from "@phosphor-icons/react";
 import {ProductHeader} from "../components/product/ProductHeader.jsx";
 import {Button, IconButton} from "../components/ui/Button.jsx";
 import {Field} from "../components/ui/Field.jsx";
@@ -53,6 +53,8 @@ function LoadedApiPage({delivery, productRef, navigate}) {
   const [apiKey, setApiKey] = useState("");
   const [requestState, setRequestState] = useState({status: "idle", body: null, error: null});
   const [exportState, setExportState] = useState({status: "idle", error: null});
+  const [stopOpen, setStopOpen] = useState(false);
+  const [stopState, setStopState] = useState({status: "idle", error: null});
   const parsedLimit = Number(limit);
   const limitIsValid = parameter ? Number.isInteger(parsedLimit) && parsedLimit >= parameter.minimum && parsedLimit <= parameter.maximum : false;
   const requestUrl = contract && parameter ? `${contract.endpointUrl}?${parameter.name}=${limitIsValid ? parsedLimit : parameter.default}` : null;
@@ -124,10 +126,25 @@ function LoadedApiPage({delivery, productRef, navigate}) {
     }
   };
 
+  const stopDeployment = async () => {
+    if (!api.deployment?.id) return;
+    setStopState({status: "loading", error: null});
+    try {
+      await delivery.suspend(api.deployment.id);
+      setApiKey("");
+      setIssuedKey(null);
+      setRequestState({status: "idle", body: null, error: null});
+      setStopState({status: "idle", error: null});
+      setStopOpen(false);
+    } catch (error) {
+      setStopState({status: "error", error});
+    }
+  };
+
   return <>
     <ProductHeader product={product} productRef={productRef} active="api" navigate={navigate} onRename={delivery.rename} />
     <main className="product-content">
-      <div className="content-heading"><div><span className="eyebrow">{t("api.eyebrow")}</span><h1>{product.name}</h1><p>{product.description || product.originalIntent}</p></div><div className="api-heading-actions"><Button icon={exportState.status === "loading" ? SpinnerGap : DownloadSimple} className={exportState.status === "loading" ? "is-loading" : ""} disabled={!delivery.delivery.capabilities.privateExport || exportState.status === "loading"} onClick={downloadExport}>{t("api.privateDeploy")}</Button><Button variant="primary" icon={RocketLaunch} disabled={!delivery.delivery.capabilities.deploy} onClick={() => { deployIdempotencyKey.current = null; setDeployOpen(true); }}>{t(delivery.delivery.capabilities.deploy ? (contract ? "api.redeploy" : "api.deploy") : "api.deployUnavailable")}</Button></div></div>
+      <div className="content-heading"><div><span className="eyebrow">{t("api.eyebrow")}</span><h1>{product.name}</h1><p>{product.description || product.originalIntent}</p></div><div className="api-heading-actions"><Button icon={exportState.status === "loading" ? SpinnerGap : DownloadSimple} className={exportState.status === "loading" ? "is-loading" : ""} disabled={!delivery.delivery.capabilities.privateExport || exportState.status === "loading"} onClick={downloadExport}>{t("api.privateDeploy")}</Button>{api.deployment?.status === "healthy" && <Button variant="danger" icon={StopCircle} onClick={() => { setStopState({status: "idle", error: null}); setStopOpen(true); }}>{t("api.stopDeployment")}</Button>}<Button variant="primary" icon={RocketLaunch} disabled={!delivery.delivery.capabilities.deploy} onClick={() => { deployIdempotencyKey.current = null; setDeployOpen(true); }}>{t(delivery.delivery.capabilities.deploy ? (contract ? "api.redeploy" : "api.deploy") : "api.deployUnavailable")}</Button></div></div>
 
       {exportState.status === "error" && <div className="inline-notice api-action-error"><WarningCircle size={18} /><span>{t("api.exportFailed")}</span></div>}
 
@@ -157,6 +174,7 @@ function LoadedApiPage({delivery, productRef, navigate}) {
     </main>
     {deployOpen && <Modal title={t(contract ? "api.redeployTitle" : "api.deployTitle")} eyebrow={t("api.hostedRuntime")} width="520px" onClose={() => deployState.status !== "loading" && setDeployOpen(false)} footer={<><Button disabled={deployState.status === "loading"} onClick={() => setDeployOpen(false)}>{t("common.cancel")}</Button><Button variant="primary" icon={deployState.status === "loading" ? SpinnerGap : RocketLaunch} className={deployState.status === "loading" ? "is-loading" : ""} disabled={deployState.status === "loading"} onClick={submitDeployment}>{t(deployState.status === "loading" ? "api.deploying" : "api.confirmDeploy")}</Button></>}><p className="modal-copy">{t("api.deployDetail")}</p><Field htmlFor="deployment-alias" label={t("api.alias")} hint={t("api.aliasHint")}><input id="deployment-alias" value={alias} placeholder={product.id} onChange={(event) => { deployIdempotencyKey.current = null; setAlias(event.target.value); }} /></Field>{deployState.status === "error" && <div className="inline-notice"><WarningCircle size={18} /><span>{t("api.deployFailed")}: {deployState.error?.message}</span></div>}</Modal>}
     {issuedKey && <Modal title={t("api.keyIssuedTitle")} eyebrow={t("api.keyIssuedEyebrow")} width="560px" onClose={() => setIssuedKey(null)} footer={<Button variant="primary" onClick={() => setIssuedKey(null)}>{t("common.done")}</Button>}><div className="inline-notice"><Key size={18} /><span>{t("api.keyIssuedWarning")}</span></div><div className={`api-key-value is-${apiKeyCopyStatus}`}><code>{issuedKey.apiKey}</code><IconButton label={t(apiKeyCopyStatus === "copied" ? "api.apiKeyCopied" : apiKeyCopyStatus === "failed" ? "api.retryCopyApiKey" : "api.copyApiKey")} disabled={apiKeyCopyStatus === "copying"} onClick={copyApiKey}>{apiKeyCopyStatus === "copied" ? <Check size={18} /> : apiKeyCopyStatus === "failed" ? <WarningCircle size={18} /> : <Copy size={18} />}</IconButton></div><span className={`api-key-copy-feedback is-${apiKeyCopyStatus}`} role="status" aria-live="polite">{apiKeyCopyStatus === "copied" ? t("api.apiKeyCopied") : apiKeyCopyStatus === "failed" ? t("api.apiKeyCopyFailed") : ""}</span><p className="modal-copy">{t("api.keyIssuedDetail")}</p></Modal>}
+    {stopOpen && <Modal title={t("api.stopDeploymentTitle")} eyebrow={t("api.hostedRuntime")} width="520px" onClose={() => stopState.status !== "loading" && setStopOpen(false)} footer={<><Button disabled={stopState.status === "loading"} onClick={() => setStopOpen(false)}>{t("common.cancel")}</Button><Button variant="danger" icon={stopState.status === "loading" ? SpinnerGap : StopCircle} className={stopState.status === "loading" ? "is-loading" : ""} disabled={stopState.status === "loading"} onClick={stopDeployment}>{t(stopState.status === "loading" ? "api.stoppingDeployment" : "api.confirmStopDeployment")}</Button></>}><div className="product-delete-warning"><WarningCircle size={19} /><div><strong>{t("api.stopDeploymentWarning")}</strong><p>{t("api.stopDeploymentDetail")}</p></div></div>{stopState.status === "error" && <div className="inline-notice api-action-error"><WarningCircle size={18} /><span>{t("api.stopDeploymentFailed")}: {stopState.error?.message}</span></div>}</Modal>}
   </>;
 }
 

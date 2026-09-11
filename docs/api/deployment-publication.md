@@ -1,6 +1,6 @@
 # Deployment, Private API, and Publication APIs
 
-Draft 0.3. Read the [shared contract](../../api-contract.md) and [Builder contracts](products-builder.md). `W` expands to `/api/v1/workspaces/{workspaceId}`. All creator operations require the active owner; mutations require Idempotency-Key. The implemented hosted profile is live: build persists an immutable executable version, deployment activates that version, and each data request makes fresh bounded The Graph queries before running the fixed DAG. Result rows are not materialized or reused. Publication, payment, refresh, and multi-key management sections remain future contracts unless explicitly marked implemented.
+Draft 0.4. Read the [shared contract](../../api-contract.md) and [Builder contracts](products-builder.md). `W` expands to `/api/v1/workspaces/{workspaceId}`. All creator operations require the active owner; mutations require Idempotency-Key. The implemented hosted profile is live: build persists an immutable executable version, deployment activates that version, and each data request makes fresh bounded The Graph queries before running the fixed DAG. Result rows are not materialized or reused. Deployment suspension and the initial fee-free Hedera testnet HBAR x402 publication, retirement, verification, settlement, and paid delivery path are implemented; refresh and richer multi-key management remain future contracts.
 
 ## 0. Product Delivery Read Model
 
@@ -8,9 +8,9 @@ Draft 0.3. Read the [shared contract](../../api-contract.md) and [Builder contra
 |---|---|---|---|---|
 | GET | `W/products/{productId}/delivery` | None | 200 `ProductDeliveryView` | Read-only projection of version, deployment, materialization, publication, recipient capability, sales, and ledger facts |
 
-`ProductDeliveryView` is the shared backend fact source for the authenticated API and Monetize pages. It returns explicit readiness and blocker codes rather than synthesizing a healthy endpoint, example rows, publication, price, recipient, or revenue. Its `capabilities` object reports deploy, private request, private export, x402 publication, and public request independently. The API contract appears when a healthy deployment has an active ready version and configured endpoint URL; a live deployment does not require an active materialization. The fixed optional `limit` parameter is the platform contract documented below, while every output field comes from the active immutable version.
+`ProductDeliveryView` is the shared backend fact source for the authenticated API and X402 pages. It returns explicit readiness and blocker codes rather than synthesizing a healthy endpoint, example rows, publication, price, recipient, or revenue. Its `capabilities` object reports deploy, private request, private export, x402 publication, and public request independently. The API contract appears when a healthy deployment has an active ready version and configured endpoint URL; a live deployment does not require an active materialization. The fixed optional `limit` parameter is the platform contract documented below, while every output field comes from the active immutable version.
 
-The monetization projection selects only a stored Hedera x402 publication revision, derives recipient readiness from the linked wallet address and HBAR capability observation, aggregates confirmed ledger entries by network and asset, and returns at most twenty persisted paid access requests. It masks payer addresses and never counts pending or uncertain values as confirmed revenue. This read does not deploy, publish, charge, retry, reconcile, or grant wallet authority.
+The X402 projection selects only a stored Hedera publication revision, derives recipient readiness from the linked wallet address and HBAR capability observation, aggregates confirmed ledger entries by network and asset, and returns at most twenty persisted paid access requests. It masks payer addresses and never counts pending or uncertain values as confirmed revenue. The read itself performs no mutation or wallet grant.
 
 ## 1. Deployment Lifecycle
 
@@ -20,6 +20,7 @@ The monetization projection selects only a stored Hedera x402 publication revisi
 | POST | `W/products/{productId}/deployments` | `{alias?: string}` | 201 `{deployment, apiKey}` | Activate latest ready version and issue one scoped Sprue API key |
 | GET | `W/products/{productId}/private-export` | None | Downloadable deployment bundle | Immutable plan plus portable runner contract; never credentials |
 | GET | `W/deployments/{deploymentId}` | None | 200 `Deployment` + ETag | Atomic active pointers and health/freshness |
+| POST | `W/deployments/{deploymentId}/suspend` | `{}` | 200 `Deployment` | Stop hosted API service, revoke its active API credentials, and retire any active x402 publication |
 | POST | `W/deployments/{deploymentId}/activation-preflight` | `{versionId, materializationId}`; read-only, key optional | 200 `ActivationPreflight` | Read ownership, output schema, artifact and runtime readiness |
 | POST | `W/deployments/{deploymentId}/activate` | `{versionId, materializationId, expectedSpecHash}` + If-Match | 202 `CommandAccepted` | Explicit atomic activation after all checks |
 | GET | `W/deployments/{deploymentId}/contract` | None | 200 `EndpointContract` | Exact active output schema/access/parameter/code-sample projection |
@@ -87,7 +88,7 @@ The first successful creation returns secretAvailable true and the raw key. Repl
 
 Automatic refreshes use the active version's approved cadence and current bounded policy; they do not require another browser confirmation for each scheduled run. Run-now confirmation still exposes relevant bounds. Coalesce or block overlapping refreshes for one deployment, and pin the current active version at dispatch. A successful refresh can update only the materialization pointer for that same still-active version; otherwise keep the artifact/history without activating it. This conditional update is a critical M3 concurrency test.
 
-## 5. Publication Draft, Activation, and Retirement
+## 5. X402 Publication and Retirement
 
 Publication is access configuration on Sprue's existing API, not a Blocky402 marketplace listing. A ready private deployment exists before x402 is offered.
 
@@ -95,30 +96,20 @@ Publication is access configuration on Sprue's existing API, not a Blocky402 mar
 |---|---|---|---|---|
 | GET | `W/deployments/{deploymentId}/publications` | Pagination | 200 Publication collection | publication_versions |
 | POST | `W/deployments/{deploymentId}/publication-preflight` | `PublicationInput`; read-only, key optional | 200 `PublicationPreflight` | Recheck recipient, profile, capability and current API |
-| POST | `W/deployments/{deploymentId}/publications` | `PublicationInput` | 201 `Publication` draft | Insert immutable configuration revision |
+| POST | `W/deployments/{deploymentId}/publications` | `{priceHbar}` | 201 active `Publication` | Validate current API, Hedera recipient, and Blocky402 capability; create and activate one immutable revision |
 | GET | `W/deployments/{deploymentId}/publications/{publicationId}` | None | 200 `Publication` | Exact revision; no secret facilitator config |
 | POST | `W/deployments/{deploymentId}/publications/{publicationId}/activate` | `{expectedActivePublicationVersionId: Id \| null}` + deployment If-Match | 202 `CommandAccepted` | Final confirmation; revalidate and atomically switch publication pointer |
 | POST | `W/deployments/{deploymentId}/publications/{publicationId}/retire` | `{}` + deployment If-Match | 200 `Deployment` | Retire active x402 policy and atomically install a private revision; no deletion |
 
-Private/API-key input is `{accessMode: private | api_key, serveMode: materialized}`. x402 input:
+The implemented one-click input is exact decimal HBAR, for example:
 
 ```json
 {
-  "accessMode": "x402",
-  "serveMode": "materialized",
-  "networkId": "30000000-0000-4000-8000-000000000001",
-  "assetId": "30000000-0000-4000-8000-000000000002",
-  "priceAtomic": "20000000",
-  "recipientWalletAddressId": "30000000-0000-4000-8000-000000000003",
-  "paymentProtocolVersion": "2",
-  "paymentScheme": "exact",
-  "maxTimeoutSeconds": 120,
-  "facilitator": "blocky402",
-  "serviceFeeEnabled": false
+  "priceHbar": "0.20"
 }
 ```
 
-IDs above are illustrative, not usable seed records. The selected network/asset must resolve to Hedera testnet HBAR (0.0.0, 8 decimals). 20000000 tinybars is exactly 0.20 HBAR. Convert user decimal text with integer arithmetic, reject more than 8 fractional digits, and submit Atomic strings. The maximum timeout is a positive integer within the live adapter/platform bounds; 120 is an example, not a sponsor/default requirement.
+The backend resolves the fixed network, HBAR asset, verified creator account, x402 v2 exact scheme, timeout, facilitator, and advertised fee payer. It converts decimal text with integer arithmetic and rejects more than 8 fractional digits. 0.20 HBAR is exactly 20000000 tinybars.
 
 Reject a nonpositive price, mainnet/HTS, unresolved EVM recipient, custom facilitator URL, client-selected fee payer, serveMode live, or serviceFeeEnabled true. The backend supplies and pins the facilitator capability/hash/observation from supported configuration. serviceFeeTerms and acceptance fields cannot be supplied while fees are disabled. The hackathon frontend omits fee controls and allocations entirely.
 

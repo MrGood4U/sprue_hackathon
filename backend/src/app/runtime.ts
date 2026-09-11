@@ -35,6 +35,7 @@ import {DisabledGraphSchemaCache, RedisGraphSchemaCache} from "../modules/graph/
 import { listen, drain } from "./server.js";
 import {postgresLiveDeploymentRepository} from "../modules/deployments/postgres-repository.js";
 import {LiveDeploymentService} from "../modules/deployments/service.js";
+import {Blocky402Client} from "../modules/payments/blocky402-client.js";
 export async function startRuntime(
   config: AppConfig,
   role: "api" | "worker",
@@ -161,6 +162,7 @@ export async function startRuntime(
             .update(config.privyAppSecret)
             .digest(),
           config.dataPublicBaseUrl,
+          new Blocky402Client(config.hedera.facilitatorUrl),
         )
       : undefined;
     const auth = new AuthService(authRepository, wallets, logger);

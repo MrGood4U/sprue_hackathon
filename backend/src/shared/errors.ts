@@ -53,6 +53,21 @@ const definitions = {
     "The Sprue data API key is invalid, expired, or outside this product scope.",
     "none",
   ],
+  X402_PREREQUISITES_MISSING: [
+    409,
+    "A healthy deployment and verified Hedera HBAR recipient are required before x402 publication.",
+    "resolve_blocker",
+  ],
+  X402_PAYMENT_REPLAYED: [
+    409,
+    "This x402 payment authorization has already been used.",
+    "none",
+  ],
+  X402_SETTLEMENT_FAILED: [
+    502,
+    "The x402 payment could not be settled, so no protected response was released.",
+    "none",
+  ],
   LIVE_EXECUTION_FAILED: [
     502,
     "The fixed live data plan could not complete its upstream query.",

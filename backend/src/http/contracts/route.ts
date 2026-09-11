@@ -41,6 +41,9 @@ export interface RouteDefinition {
     | "graph-sources-search"
     | "graph-sources-validate"
     | "deployments-create"
+    | "deployment-suspend"
+    | "x402-publish"
+    | "x402-retire"
     | "deployment-private-export"
     | "data-product-execute";
   idempotency: boolean;

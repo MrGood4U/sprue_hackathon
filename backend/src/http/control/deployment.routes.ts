@@ -48,6 +48,15 @@ export const deploymentRoutes: readonly RouteDefinition[] = [
   },
   {
     method: "POST",
+    path: "/api/v1/workspaces/{workspaceId}/deployments/{deploymentId}/suspend",
+    operationId: "postApiV1WorkspacesWorkspaceIdDeploymentsDeploymentIdSuspend",
+    audience: "creator",
+    implementation: "deployment-suspend",
+    idempotency: true,
+    ifMatch: false,
+  },
+  {
+    method: "POST",
     path: "/api/v1/workspaces/{workspaceId}/deployments/{deploymentId}/activation-preflight",
     operationId:
       "postApiV1WorkspacesWorkspaceIdDeploymentsDeploymentIdActivationPreflight",
@@ -210,7 +219,7 @@ export const deploymentRoutes: readonly RouteDefinition[] = [
     operationId:
       "postApiV1WorkspacesWorkspaceIdDeploymentsDeploymentIdPublications",
     audience: "creator",
-    implementation: "reserved",
+    implementation: "x402-publish",
     idempotency: true,
     ifMatch: false,
   },
@@ -240,7 +249,7 @@ export const deploymentRoutes: readonly RouteDefinition[] = [
     operationId:
       "postApiV1WorkspacesWorkspaceIdDeploymentsDeploymentIdPublicationsPublicationIdRetire",
     audience: "creator",
-    implementation: "reserved",
+    implementation: "x402-retire",
     idempotency: true,
     ifMatch: true,
   },

@@ -2,6 +2,8 @@
 
 ## Status
 
+Draft 1.64, updated on 2026-09-11. The product tab previously labeled `Monetize` is now `X402`. A healthy API page exposes a destructive `Stop deployment` action with confirmation, pending feedback, retryable failure, and projection refresh; success revokes active API credentials and retires any paid gate. The X402 page is backed entirely by the owner-authorized delivery projection, accepts an exact positive HBAR price, activates one fee-free Hedera testnet publication through Blocky402, and exposes a separately confirmed `Stop x402` action. Public paid delivery follows challenge, verification, settlement persistence, and server-internal authenticated DAG execution in that order. The raw internal key is never returned or stored, replayed payment proofs fail closed, and a settled payment whose live Graph execution fails remains visible as a paid delivery failure. These lifecycle controls use the existing semantic button, dialog, focus, loading, error, and destructive-action tokens.
+
 Draft 1.63, updated on 2026-09-11. This amendment connects `Run backend build` to an authenticated, read-only compilation preflight for the exact layout-free structured DAG currently visible in Builder. While the request is active, the primary action is disabled and shows a rotating indicator. The backend validates graph bounds, node and edge references, ports and input cardinality, acyclicity, reachability to one Output node, registered operator versions and configurations, predecessor-derived schemas, Source-to-Map normalization boundaries, and the declared final output contract. A passed compilation caches the browser-session draft and opens the same product's API page. A failed compilation keeps the Builder intact and opens a focused dialog containing bounded, node-attributed failure reasons. The returned hash is evidence for this exact compile request only: this preflight does not admit sources, persist a product version, compile GraphQL, execute data, deploy an API, or create publication readiness. This supersedes Draft 1.61 only where it described backend Build as disabled.
 
 Draft 1.62, updated on 2026-09-10. This amendment adds one dedicated semantic entity-retrieval step between Graph discovery and model entity selection. The same stable card reports each real embedding batch, the subsequent local cosine-similarity calculation, and the terminal embedded/batch/retained counts; it fails explicitly when the embedding provider fails. The detailed Draft 1.61 baseline follows and remains otherwise unchanged.
@@ -70,7 +72,7 @@ The MVP contains **ten route-level page families**. Parameterized routes and cre
 | 6 | Agent Planner | `/app/products/new`, `/app/products/:productId/agent` | Creator | Describe intent, discover sources, and review Agent progress |
 | 7 | DAG Builder | `/app/products/:productId/build` | Creator | Inspect, refine, validate, and build the generated DAG |
 | 8 | API and Deployment | `/app/products/:productId/api` | Creator | Deploy and privately test a persistent API |
-| 9 | Monetization and Revenue | `/app/products/:productId/monetize` | Creator | Validate Hedera receipt, enable x402, and reconcile sales |
+| 9 | X402 | `/app/products/:productId/monetize` | Creator | Validate Hedera receipt, enable or stop x402, and reconcile sales |
 | 10 | Public Product and Consumer Demo | `/p/:slug` | Public | Understand and exercise the paid API flow |
 
 There is no separate MVP page for run history, global settings, team management, or marketplace discovery. Agent progress belongs inside Agent Planner; build trace and recent runs belong inside DAG Builder; API usage belongs inside API and Deployment; payment history belongs inside Monetization and Revenue.
@@ -96,7 +98,7 @@ Inside a product, a persistent product header shows the product name and four de
 - `Agent`
 - `Build`
 - `API`
-- `Monetize`
+- `X402`
 
 The browser Back action must preserve product context, filters, chat draft, selected DAG node, and scroll position when safe. URL parameters identify product, product view, selected version, and selected run where appropriate. Modal and drawer state should use URL state only when it must be shareable or restorable.
 
@@ -466,7 +468,7 @@ The MVP has no arbitrary JavaScript/Python editor and no unrestricted custom-cod
 
 **Domain reads and writes:** `deployments`, `publication_versions`, `api_credentials`, `refresh_schedules`, `materializations`, `execution_runs`, `api_access_requests`, `api_http_attempts`, `usage_events`, and `active_product_view`.
 
-### 9. Monetization and Revenue
+### 9. X402
 
 **Purpose:** Turn an already healthy private API into an optional Hedera x402 product and show evidence-backed sales.
 

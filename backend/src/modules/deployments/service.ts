@@ -8,6 +8,8 @@ import type {LiveSourceInput} from "./live-plan.js";
 import {contentHash, createImmutableLivePlan, declaredLiveQueryEntityType, LivePlanCompilationError} from "./live-plan.js";
 import {executeLivePlan} from "./runtime.js";
 import {LiveDeploymentError, type AdmittedLiveSource, type LiveDeploymentRepository} from "./contracts.js";
+import type {LoadedX402Gate, X402PaymentRequirements} from "./contracts.js";
+import {Blocky402Error, type X402Facilitator, type X402PaymentPayload} from "../payments/blocky402-client.js";
 
 export type GraphLiveClient = GraphPlanningMcpPort & GraphRuntimeQueryPort & GraphRuntimeSchemaPort;
 
@@ -18,6 +20,7 @@ export class LiveDeploymentService {
     private readonly graphFactory: (apiKey: string) => GraphLiveClient,
     private readonly apiKeyHashKey: Buffer,
     private readonly dataPublicBaseUrl: string,
+    private readonly x402Facilitator?: X402Facilitator,
   ) {}
 
   private keyHash(value: string): string {
@@ -28,6 +31,15 @@ export class LiveDeploymentService {
     const hmac = createHmac("sha256", this.apiKeyHashKey).update(operation);
     for (const value of values) hmac.update("\0").update(JSON.stringify(value));
     return hmac.digest("hex");
+  }
+
+  private internalX402Key(deploymentId: string, publicationId: string): string {
+    return `sprue_live_${createHmac("sha256", this.apiKeyHashKey)
+      .update("sprue-x402-internal-key-v1\0")
+      .update(deploymentId)
+      .update("\0")
+      .update(publicationId)
+      .digest("base64url")}`;
   }
 
   async buildVersion(input: {
@@ -151,6 +163,193 @@ export class LiveDeploymentService {
         createdAt: result.createdAt.toISOString(),
       },
     };
+  }
+
+  async suspend(workspaceId: string, deploymentId: string) {
+    const deployment = await this.repository.suspend({workspaceId, deploymentId});
+    if (!deployment) throw new LiveDeploymentError("DEPLOYMENT_NOT_FOUND");
+    return deployment;
+  }
+
+  async publishX402(input: {
+    workspaceId: string;
+    deploymentId: string;
+    actorUserId: string;
+    priceAtomic: string;
+    signal?: AbortSignal;
+  }) {
+    if (!this.x402Facilitator) throw new LiveDeploymentError("BLOCKY402_UNAVAILABLE");
+    if (!/^[1-9][0-9]{0,77}$/.test(input.priceAtomic)) throw new LiveDeploymentError("X402_PRICE_INVALID");
+    const candidate = await this.repository.loadPublicationCandidate(input.workspaceId, input.deploymentId);
+    if (!candidate) throw new LiveDeploymentError("X402_PUBLICATION_PREREQUISITES_MISSING");
+    let supported;
+    try {
+      supported = await this.x402Facilitator.supported(input.signal);
+    } catch (error) {
+      if (error instanceof Blocky402Error) throw new LiveDeploymentError("BLOCKY402_UNAVAILABLE");
+      throw error;
+    }
+    const requirements: X402PaymentRequirements = {
+      scheme: "exact",
+      network: "hedera:testnet",
+      amount: input.priceAtomic,
+      payTo: candidate.recipientAddress,
+      maxTimeoutSeconds: 300,
+      asset: "0.0.0",
+      extra: {feePayer: supported.feePayer},
+    };
+    const publicationId = randomUUID();
+    const internalApiKey = this.internalX402Key(candidate.deploymentId, publicationId);
+    try {
+      return await this.repository.publishX402({
+        publicationId,
+        candidate,
+        actorUserId: input.actorUserId,
+        priceAtomic: input.priceAtomic,
+        requirements,
+        facilitatorCapability: supported.capability,
+        facilitatorCapabilityHash: contentHash(supported.capability),
+        facilitatorUrl: this.x402Facilitator.publicUrl,
+        internalCredential: {
+          id: randomUUID(),
+          prefix: `${internalApiKey.slice(0, 19)}...`,
+          hash: this.keyHash(internalApiKey),
+        },
+      });
+    } catch (error) {
+      if (error instanceof LiveDeploymentError) throw error;
+      throw new LiveDeploymentError("X402_PUBLICATION_FAILED");
+    }
+  }
+
+  async retireX402(workspaceId: string, deploymentId: string, publicationId: string) {
+    const publication = await this.repository.retireX402({workspaceId, deploymentId, publicationId});
+    if (!publication) throw new LiveDeploymentError("X402_PUBLICATION_NOT_FOUND");
+    return publication;
+  }
+
+  private paymentRequired(gate: LoadedX402Gate, error = "PAYMENT-SIGNATURE header is required") {
+    return {
+      kind: "payment_required" as const,
+      body: {
+        x402Version: 2 as const,
+        error,
+        resource: {
+          url: gate.endpointUrl,
+          description: gate.productName,
+          mimeType: "application/json",
+        },
+        accepts: [gate.requirements],
+        extensions: {},
+      },
+    };
+  }
+
+  private decodePaymentPayload(value: string): X402PaymentPayload | null {
+    if (value.length < 4 || value.length > 65_536 || !/^[A-Za-z0-9+/_=-]+$/.test(value)) return null;
+    try {
+      const parsed = JSON.parse(Buffer.from(value, "base64").toString("utf8")) as Record<string, unknown>;
+      const accepted = parsed.accepted as Record<string, unknown> | undefined;
+      const payload = parsed.payload as Record<string, unknown> | undefined;
+      if (parsed.x402Version !== 2 || parsed.scheme !== "exact" || parsed.network !== "hedera:testnet"
+        || !accepted || !payload || typeof payload.transaction !== "string"
+        || payload.transaction.length < 16 || payload.transaction.length > 262_144) return null;
+      return parsed as unknown as X402PaymentPayload;
+    } catch {
+      return null;
+    }
+  }
+
+  async executeRequest(input: {
+    ownerUserId: string;
+    productRef: string;
+    authorization: string | undefined;
+    paymentSignature: string | undefined;
+    limit: number;
+    path: string;
+    signal?: AbortSignal;
+  }) {
+    if (input.authorization) {
+      const value = await this.execute(input);
+      return {kind: "success" as const, value, paymentResponse: null};
+    }
+    const gate = await this.repository.loadX402Gate(input.ownerUserId, input.productRef);
+    if (!gate) throw new LiveDeploymentError("DATA_API_KEY_REQUIRED");
+    if (!input.paymentSignature) return this.paymentRequired(gate);
+    const payload = this.decodePaymentPayload(input.paymentSignature);
+    if (!payload || contentHash(payload.accepted) !== contentHash(gate.requirements)) {
+      return this.paymentRequired(gate, "The supplied payment does not match this resource requirement");
+    }
+    if (!this.x402Facilitator) throw new LiveDeploymentError("BLOCKY402_UNAVAILABLE");
+    const authorizationHash = createHash("sha256").update(input.paymentSignature).digest("hex");
+    const requestHash = contentHash({path: input.path, limit: input.limit, publicationId: gate.publicationId});
+    const record = await this.repository.beginPaidRequest({
+      gate,
+      authorizationHash,
+      requestHash,
+      correlationId: randomUUID(),
+      idempotencyKey: authorizationHash,
+      path: input.path,
+      limit: input.limit,
+      recoveryCapabilityHash: this.fingerprint("x402-recovery", [authorizationHash, gate.publicationId]),
+    });
+    if (!record) throw new LiveDeploymentError("X402_PAYMENT_REPLAYED");
+    let settlementSucceeded = false;
+    try {
+      const verified = await this.x402Facilitator.verify(payload, gate.requirements, input.signal);
+      if (!verified.valid || !verified.payer) {
+        await this.repository.failPaidRequest({...record, code: verified.reason ?? "X402_PAYMENT_INVALID"});
+        return this.paymentRequired(gate, "The supplied payment could not be verified");
+      }
+      const settled = await this.x402Facilitator.settle(payload, gate.requirements, input.signal);
+      if (!settled.success || !settled.transaction || !settled.payer) {
+        await this.repository.failPaidRequest({...record, code: settled.reason ?? "X402_SETTLEMENT_FAILED"});
+        throw new LiveDeploymentError("X402_SETTLEMENT_FAILED");
+      }
+      settlementSucceeded = true;
+      await this.repository.confirmPaidSettlement({
+        ...record,
+        gate,
+        payerAddress: settled.payer,
+        transaction: settled.transaction,
+        settlementEvidence: settled.evidence,
+      });
+      const internalApiKey = this.internalX402Key(gate.deploymentId, gate.publicationId);
+      const value = await this.execute({
+        ownerUserId: gate.ownerUserId,
+        productRef: gate.productId,
+        authorization: `Bearer ${internalApiKey}`,
+        limit: input.limit,
+        signal: input.signal,
+      });
+      const responseBody = {data: value.data, meta: value.meta};
+      const serialized = JSON.stringify(responseBody);
+      await this.repository.completePaidRequest({
+        ...record,
+        responseContentHash: createHash("sha256").update(serialized).digest("hex"),
+        responseByteCount: Buffer.byteLength(serialized),
+      });
+      return {
+        kind: "success" as const,
+        value,
+        paymentResponse: {
+          success: true,
+          transaction: settled.transaction,
+          network: "hedera:testnet",
+          payer: settled.payer,
+        },
+      };
+    } catch (error) {
+      if (!(error instanceof LiveDeploymentError && error.code === "X402_SETTLEMENT_FAILED")) {
+        await this.repository.failPaidRequest({
+          ...record,
+          code: error instanceof LiveDeploymentError ? error.code : "X402_REQUEST_FAILED",
+          preservePayment: settlementSucceeded,
+        }).catch(() => undefined);
+      }
+      if (error instanceof Blocky402Error) throw new LiveDeploymentError("BLOCKY402_UNAVAILABLE");
+      throw error;
+    }
   }
 
   async execute(input: {ownerUserId: string; productRef: string; authorization: string | undefined; limit: number; signal?: AbortSignal}) {

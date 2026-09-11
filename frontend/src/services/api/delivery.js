@@ -83,6 +83,68 @@ export async function deployProduct(productId, input, {
   return (await response.json()).data;
 }
 
+async function postDeploymentCommand(path, body, {
+  apiBaseUrl: configuredBaseUrl,
+  fetchImpl = globalThis.fetch,
+  workspaceId,
+  accessToken,
+  idempotencyKey = `sprue-delivery-${globalThis.crypto.randomUUID()}`,
+  ifMatch,
+  signal,
+} = {}) {
+  if (!uuidPattern.test(workspaceId ?? "") || typeof accessToken !== "string" || !accessToken) {
+    throw new Error("AUTH_REQUIRED");
+  }
+  const headers = {
+    Accept: "application/json",
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json",
+    "Idempotency-Key": idempotencyKey,
+  };
+  if (ifMatch) headers["If-Match"] = ifMatch;
+  const response = await fetchImpl(`${apiBaseUrl(configuredBaseUrl)}${path}`, {
+    method: "POST",
+    credentials: "omit",
+    redirect: "error",
+    cache: "no-store",
+    headers,
+    body: JSON.stringify(body),
+    signal: requestSignal(signal, 30_000),
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(payload?.error?.code ?? "DELIVERY_COMMAND_FAILED");
+  return payload.data;
+}
+
+export function suspendDeployment(deploymentId, options = {}) {
+  if (!uuidPattern.test(deploymentId ?? "")) throw new Error("DEPLOYMENT_NOT_FOUND");
+  return postDeploymentCommand(
+    `/api/v1/workspaces/${options.workspaceId}/deployments/${deploymentId}/suspend`,
+    {},
+    options,
+  );
+}
+
+export function publishX402(deploymentId, priceHbar, options = {}) {
+  if (!uuidPattern.test(deploymentId ?? "")) throw new Error("DEPLOYMENT_NOT_FOUND");
+  return postDeploymentCommand(
+    `/api/v1/workspaces/${options.workspaceId}/deployments/${deploymentId}/publications`,
+    {priceHbar},
+    options,
+  );
+}
+
+export function retireX402(deploymentId, publicationId, options = {}) {
+  if (!uuidPattern.test(deploymentId ?? "") || !uuidPattern.test(publicationId ?? "")) {
+    throw new Error("PUBLICATION_NOT_FOUND");
+  }
+  return postDeploymentCommand(
+    `/api/v1/workspaces/${options.workspaceId}/deployments/${deploymentId}/publications/${publicationId}/retire`,
+    {},
+    {...options, ifMatch: "*"},
+  );
+}
+
 export async function downloadPrivateDeployment(productId, {
   apiBaseUrl: configuredBaseUrl,
   fetchImpl = globalThis.fetch,

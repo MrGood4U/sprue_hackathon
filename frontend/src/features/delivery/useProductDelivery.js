@@ -1,7 +1,7 @@
 import {useCallback, useEffect, useState} from "react";
 import {resolveProduct} from "../agent/agentData.js";
 import {useAuth} from "../auth/AuthProvider.jsx";
-import {deployProduct, downloadPrivateDeployment, getProductDelivery} from "../../services/api/delivery.js";
+import {deployProduct, downloadPrivateDeployment, getProductDelivery, publishX402, retireX402, suspendDeployment} from "../../services/api/delivery.js";
 import {updateProduct} from "../../services/api/products.js";
 import {useProductCache} from "../products/ProductCacheProvider.jsx";
 
@@ -76,5 +76,34 @@ export function useProductDelivery(productRef) {
     return downloadPrivateDeployment(state.product.id, await scope());
   }, [scope, state.product]);
 
-  return {...state, workspaceId, refresh, rename, deploy, exportPrivate};
+  const reloadReadyState = useCallback(async () => {
+    if (!state.product) throw new Error("PRODUCT_NOT_FOUND");
+    const options = await scope();
+    const [product, result] = await Promise.all([
+      resolveProduct(productRef, options),
+      getProductDelivery(state.product.id, options),
+    ]);
+    rememberProduct(product);
+    setState({status: "ready", product, ...result, error: null});
+  }, [productRef, rememberProduct, scope, state.product]);
+
+  const suspend = useCallback(async (deploymentId) => {
+    const result = await suspendDeployment(deploymentId, await scope());
+    await reloadReadyState();
+    return result;
+  }, [reloadReadyState, scope]);
+
+  const publish = useCallback(async (deploymentId, priceHbar) => {
+    const result = await publishX402(deploymentId, priceHbar, await scope());
+    await reloadReadyState();
+    return result;
+  }, [reloadReadyState, scope]);
+
+  const retire = useCallback(async (deploymentId, publicationId) => {
+    const result = await retireX402(deploymentId, publicationId, await scope());
+    await reloadReadyState();
+    return result;
+  }, [reloadReadyState, scope]);
+
+  return {...state, workspaceId, refresh, rename, deploy, exportPrivate, suspend, publish, retire};
 }

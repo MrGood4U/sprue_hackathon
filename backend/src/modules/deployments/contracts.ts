@@ -19,7 +19,57 @@ export interface HostedDeploymentView {
   alias: string;
   endpointUrl: string;
   activeVersionId: string;
-  status: "healthy";
+  status: "healthy" | "suspended";
+}
+
+export interface X402PaymentRequirements {
+  scheme: "exact";
+  network: "hedera:testnet";
+  amount: string;
+  payTo: string;
+  maxTimeoutSeconds: number;
+  asset: "0.0.0";
+  extra: {feePayer: string};
+}
+
+export interface X402PublicationView {
+  id: string;
+  deploymentId: string;
+  revisionNo: number;
+  status: "active" | "retired";
+  priceAtomic: string;
+  recipientAddress: string;
+  network: "hedera:testnet";
+  asset: "0.0.0";
+  facilitator: "blocky402";
+  createdAt: Date;
+}
+
+export interface X402PublicationCandidate {
+  deploymentId: string;
+  workspaceId: string;
+  productId: string;
+  productName: string;
+  ownerUserId: string;
+  activeVersionId: string;
+  endpointUrl: string;
+  networkId: string;
+  assetId: string;
+  recipientWalletAddressId: string;
+  recipientAddress: string;
+}
+
+export interface LoadedX402Gate extends X402PublicationCandidate {
+  publicationId: string;
+  priceAtomic: string;
+  internalCredentialId: string;
+  requirements: X402PaymentRequirements;
+}
+
+export interface PaidRequestRecord {
+  requestId: string;
+  paymentIntentId: string;
+  paymentAttemptId: string;
 }
 
 export interface IssuedApiKey {
@@ -76,6 +126,42 @@ export interface LiveDeploymentRepository {
     specHash: string;
     specification: ImmutableLivePlan;
   } | null>;
+  suspend(input: {workspaceId: string; deploymentId: string}): Promise<HostedDeploymentView | null>;
+  loadPublicationCandidate(workspaceId: string, deploymentId: string): Promise<X402PublicationCandidate | null>;
+  publishX402(input: {
+    publicationId: string;
+    candidate: X402PublicationCandidate;
+    actorUserId: string;
+    priceAtomic: string;
+    requirements: X402PaymentRequirements;
+    facilitatorCapability: Record<string, unknown>;
+    facilitatorCapabilityHash: string;
+    facilitatorUrl: string;
+    internalCredential: {id: string; prefix: string; hash: string};
+  }): Promise<X402PublicationView>;
+  retireX402(input: {workspaceId: string; deploymentId: string; publicationId: string}): Promise<X402PublicationView | null>;
+  loadX402Gate(ownerUserId: string, productRef: string): Promise<LoadedX402Gate | null>;
+  beginPaidRequest(input: {
+    gate: LoadedX402Gate;
+    authorizationHash: string;
+    requestHash: string;
+    correlationId: string;
+    idempotencyKey: string;
+    path: string;
+    limit: number;
+    recoveryCapabilityHash: string;
+  }): Promise<PaidRequestRecord | null>;
+  failPaidRequest(input: PaidRequestRecord & {code: string; preservePayment?: boolean}): Promise<void>;
+  confirmPaidSettlement(input: PaidRequestRecord & {
+    gate: LoadedX402Gate;
+    payerAddress: string;
+    transaction: string;
+    settlementEvidence: Record<string, unknown>;
+  }): Promise<void>;
+  completePaidRequest(input: PaidRequestRecord & {
+    responseContentHash: string;
+    responseByteCount: number;
+  }): Promise<void>;
 }
 
 export class LiveDeploymentError extends Error {

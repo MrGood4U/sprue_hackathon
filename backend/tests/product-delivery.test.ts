@@ -7,6 +7,9 @@ import {seedReferenceData} from "../src/db/seed.js";
 import {ProductNotFoundError} from "../src/modules/products/contracts.js";
 import {postgresProductRepository} from "../src/modules/products/postgres-repository.js";
 import {ProductService} from "../src/modules/products/service.js";
+import {LiveDeploymentService} from "../src/modules/deployments/service.js";
+import {postgresLiveDeploymentRepository} from "../src/modules/deployments/postgres-repository.js";
+import type {X402Facilitator} from "../src/modules/payments/blocky402-client.js";
 
 function clientFor(db: PGlite): SqlClient {
   return {
@@ -267,7 +270,7 @@ test("product delivery projects only durable API and monetization facts", async 
       deploy: true,
       privateRequest: true,
       privateExport: true,
-      publishX402: false,
+      publishX402: true,
       publicRequest: false,
     });
     assert.equal(projected.api.readiness, "available");
@@ -282,6 +285,140 @@ test("product delivery projects only durable API and monetization facts", async 
     assert.equal(projected.monetization.publication?.recipient?.networkAccountRef, "0.0.12345");
     assert.equal(projected.monetization.publication?.recipient?.canReceive, true);
     assert.deepEqual(projected.monetization.sales, []);
+
+    const pglitePool = {
+      query: (sql: string, parameters?: unknown[]) => db.query(sql, parameters),
+      async connect() {
+        return {
+          query: (sql: string, parameters?: unknown[]) => db.query(sql, parameters),
+          release() {},
+        };
+      },
+    };
+    const facilitator: X402Facilitator = {
+      publicUrl: "https://api.testnet.blocky402.com",
+      async supported() {
+        const capability = {x402Version: 2, scheme: "exact", network: "hedera:testnet",
+          extra: {feePayer: "0.0.7162784"}};
+        return {capability, feePayer: capability.extra.feePayer};
+      },
+      async verify() { throw new Error("Payment is not exercised by this persistence test"); },
+      async settle() { throw new Error("Payment is not exercised by this persistence test"); },
+    };
+    const liveRepository = postgresLiveDeploymentRepository(pglitePool as never);
+    const liveService = new LiveDeploymentService(
+      liveRepository,
+      {} as never,
+      () => { throw new Error("Graph is not exercised by this persistence test"); },
+      Buffer.alloc(32, 8),
+      "http://127.0.0.1:3001/data/v1",
+      facilitator,
+    );
+    const publication = await liveService.publishX402({
+      workspaceId,
+      deploymentId: String(deployment.id),
+      actorUserId: userId,
+      priceAtomic: "20000000",
+    });
+    assert.equal(publication.status, "active");
+    const internalCredential = (await db.query<{key_prefix: string; key_hash: string; scopes_json: unknown}>(
+      `SELECT key_prefix,key_hash,scopes_json FROM api_credentials
+       WHERE deployment_id=$1 AND scopes_json->>'kind'='x402_internal'`,
+      [deployment.id],
+    )).rows[0]!;
+    assert.match(internalCredential.key_prefix, /^sprue_live_/);
+    assert.match(internalCredential.key_hash, /^[a-f0-9]{64}$/);
+    assert.doesNotMatch(JSON.stringify(internalCredential), /sprue_live_[A-Za-z0-9_-]{43}/);
+    const active = await service.delivery(workspaceId, String(product.id));
+    assert.equal(active.monetization.readiness, "active");
+    assert.equal(active.capabilities.publicRequest, true);
+
+    const retiredPublication = await liveService.retireX402(
+      workspaceId,
+      String(deployment.id),
+      publication.id,
+    );
+    assert.equal(retiredPublication.status, "retired");
+    const privateOnly = await service.delivery(workspaceId, String(product.id));
+    assert.equal(privateOnly.api.readiness, "available");
+    assert.equal(privateOnly.monetization.readiness, "retired");
+    assert.equal(privateOnly.capabilities.publicRequest, false);
+    const republished = await liveService.publishX402({
+      workspaceId,
+      deploymentId: String(deployment.id),
+      actorUserId: userId,
+      priceAtomic: "25000000",
+    });
+    assert.equal(republished.status, "active");
+    assert.equal(republished.revisionNo, 3);
+
+    const gate = await liveRepository.loadX402Gate(userId, String(product.id));
+    assert.ok(gate);
+    const lineage = (await db.query<{
+      publication_deployment_id: string;
+      deployment_product_id: string;
+      version_product_id: string;
+    }>(
+      `SELECT pv.deployment_id::text AS publication_deployment_id,
+        d.data_product_id::text AS deployment_product_id,
+        v.data_product_id::text AS version_product_id
+       FROM publication_versions pv
+       JOIN deployments d ON d.id=pv.deployment_id
+       JOIN data_product_versions v ON v.id=d.active_version_id
+       WHERE pv.id=$1`,
+      [gate.publicationId],
+    )).rows[0]!;
+    assert.deepEqual(lineage, {
+      publication_deployment_id: gate.deploymentId,
+      deployment_product_id: gate.productId,
+      version_product_id: gate.productId,
+    });
+    const paid = await liveRepository.beginPaidRequest({
+      gate,
+      authorizationHash: "a".repeat(64),
+      requestHash: "b".repeat(64),
+      correlationId: randomUUID(),
+      idempotencyKey: "paid-api-request-0001",
+      path: `/data/v1/${userId}/${String(product.id)}?limit=100`,
+      limit: 100,
+      recoveryCapabilityHash: "c".repeat(64),
+    });
+    assert.ok(paid);
+    await liveRepository.confirmPaidSettlement({
+      ...paid,
+      gate,
+      payerAddress: "0.0.7326075",
+      transaction: "0.0.7162784@1789092000.1",
+      settlementEvidence: {
+        success: true,
+        transaction: "0.0.7162784@1789092000.1",
+        network: "hedera:testnet",
+        payer: "0.0.7326075",
+      },
+    });
+    await liveRepository.completePaidRequest({
+      ...paid,
+      responseContentHash: "d".repeat(64),
+      responseByteCount: 128,
+    });
+    const afterSale = await service.delivery(workspaceId, String(product.id));
+    assert.equal(afterSale.monetization.sales.length, 1);
+    assert.equal(afterSale.monetization.sales[0]!.status, "served");
+    assert.equal(afterSale.monetization.revenue.grossSales[0]!.amountAtomic, "25000000");
+    assert.equal(afterSale.monetization.revenue.creatorProceeds[0]!.amountAtomic, "25000000");
+
+    const stopped = await liveService.suspend(workspaceId, String(deployment.id));
+    assert.equal(stopped.status, "suspended");
+    const retired = await service.delivery(workspaceId, String(product.id));
+    assert.equal(retired.api.deployment?.status, "suspended");
+    assert.equal(retired.monetization.readiness, "api_not_ready");
+    assert.equal(retired.monetization.publication?.status, "retired");
+    assert.equal(retired.capabilities.publicRequest, false);
+    const activeCredentials = await db.query<{count: string}>(
+      "SELECT count(*)::text AS count FROM api_credentials WHERE deployment_id=$1 AND status='active'",
+      [deployment.id],
+    );
+    assert.equal(activeCredentials.rows[0]!.count, "0");
   } finally {
     await db.close();
   }

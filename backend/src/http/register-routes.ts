@@ -49,7 +49,7 @@ import {
 } from "./agent/agent.controller.js";
 import {searchBuilderSources, validateBuilderSource} from "./graph/builder-source.controller.js";
 import {compileBuilderDag} from "./control/builder-compile.controller.js";
-import {deployProduct, executeDataProduct, exportPrivateDeployment} from "./control/deployment.controller.js";
+import {deployProduct, executeDataProduct, exportPrivateDeployment, publishX402, retireX402, suspendDeployment} from "./control/deployment.controller.js";
 export interface RouteDependencies {
   config: AppConfig;
   verifier: IdentityVerifier;
@@ -179,6 +179,12 @@ export function registerRoutes(app: Express, deps: RouteDependencies) {
                                                           ? compileBuilderDag(deps.products, deps.deployments)
                                                         : route.implementation === "deployments-create"
                                                           ? deployProduct(deps.deployments)
+                                                        : route.implementation === "deployment-suspend"
+                                                          ? suspendDeployment(deps.deployments)
+                                                        : route.implementation === "x402-publish"
+                                                          ? publishX402(deps.deployments)
+                                                        : route.implementation === "x402-retire"
+                                                          ? retireX402(deps.deployments)
                                                         : route.implementation === "deployment-private-export"
                                                           ? exportPrivateDeployment(deps.deployments)
                                                         : route.implementation === "data-product-execute"

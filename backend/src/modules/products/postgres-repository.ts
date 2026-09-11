@@ -352,7 +352,7 @@ function monetizationBlockers(
   value: DeliveryPublication | null,
 ) {
   const blockers: ProductDeliveryView["monetization"]["blockers"] = [];
-  if (readiness === "api_not_ready") blockers.push({code: "API_NOT_READY", message: "A healthy API deployment with ready materialized data is required."});
+  if (readiness === "api_not_ready") blockers.push({code: "API_NOT_READY", message: "A healthy API deployment with a ready immutable live plan is required."});
   if (readiness === "not_configured") blockers.push({code: "PUBLICATION_NOT_CONFIGURED", message: "No Hedera x402 publication revision exists."});
   if (readiness === "draft") blockers.push({code: "PUBLICATION_NOT_ACTIVE", message: "The latest Hedera x402 publication is not active."});
   if (readiness === "invalid") blockers.push({code: "PUBLICATION_INVALID", message: "The latest Hedera x402 publication is invalid."});
@@ -814,8 +814,8 @@ export function postgresProductRepository(
           deploy: latestVersion?.status === "ready",
           privateRequest: readiness === "available",
           privateExport: latestVersion?.status === "ready",
-          publishX402: false,
-          publicRequest: false,
+          publishX402: readiness === "available" && monetizationReadinessValue !== "active",
+          publicRequest: readiness === "available" && monetizationReadinessValue === "active",
         },
         api: {
           readiness,

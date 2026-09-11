@@ -13,6 +13,8 @@ import {LiveDeploymentService} from "../src/modules/deployments/service.js";
 import {LiveDeploymentError, type LiveDeploymentRepository} from "../src/modules/deployments/contracts.js";
 import {GraphMcpError} from "../src/modules/graph/mcp-client.js";
 import type {GraphRuntimeQueryPort} from "../src/modules/graph/types.js";
+import type {LoadedX402Gate, X402PublicationCandidate} from "../src/modules/deployments/contracts.js";
+import type {X402Facilitator} from "../src/modules/payments/blocky402-client.js";
 
 const schemaDocument = `
   enum OrderDirection { asc desc }
@@ -97,6 +99,150 @@ test("deployment retries derive the same one-time API key from one idempotency c
   assert.equal(calls[0]!.requestFingerprint, calls[1]!.requestFingerprint);
   assert.equal(calls[0]!.credential.hash, calls[1]!.credential.hash);
   assert.notEqual(calls[0]!.credential.id, calls[1]!.credential.id);
+});
+
+test("x402 settles before internal live execution and never returns the internal API key", async () => {
+  const compiled = compileStructuredDag(compilationInput());
+  assert.equal(compiled.status, "passed");
+  if (compiled.status !== "passed") return;
+  const plan = createImmutableLivePlan({
+    compilation: compiled,
+    dag: compilationInput().dag,
+    sources: [{
+      id: "graph-items",
+      displayName: "Items",
+      logicalSubgraphId: "items",
+      manifestIpfsCid: "QmExample",
+      dataNetwork: "eip155:1",
+      queryEntity: "items",
+      fieldBindings: [{fieldPath: "rawAmount", requirementId: "amount"}],
+      auxiliaryFieldBindings: [],
+      providerCredentialId: "graph-credential",
+      sourceSnapshotId: "source-snapshot",
+      schemaDocument,
+    }],
+  });
+  const candidate: X402PublicationCandidate = {
+    deploymentId: "11111111-1111-4111-8111-111111111111",
+    workspaceId: "22222222-2222-4222-8222-222222222222",
+    productId: "33333333-3333-4333-8333-333333333333",
+    productName: "Paid live rows",
+    ownerUserId: "44444444-4444-4444-8444-444444444444",
+    activeVersionId: "55555555-5555-4555-8555-555555555555",
+    endpointUrl: "https://data.example/data/v1/owner/product",
+    networkId: "66666666-6666-4666-8666-666666666666",
+    assetId: "77777777-7777-4777-8777-777777777777",
+    recipientWalletAddressId: "88888888-8888-4888-8888-888888888888",
+    recipientAddress: "0.0.8011510",
+  };
+  const requirements = {
+    scheme: "exact" as const,
+    network: "hedera:testnet" as const,
+    amount: "20000000",
+    payTo: candidate.recipientAddress,
+    maxTimeoutSeconds: 300,
+    asset: "0.0.0" as const,
+    extra: {feePayer: "0.0.7162784"},
+  };
+  const order: string[] = [];
+  let publicationId = "";
+  let internalKeyHash = "";
+  const repository = {
+    async loadPublicationCandidate() { return candidate; },
+    async publishX402(input: Parameters<LiveDeploymentRepository["publishX402"]>[0]) {
+      publicationId = input.publicationId;
+      internalKeyHash = input.internalCredential.hash;
+      return {
+        id: input.publicationId,
+        deploymentId: candidate.deploymentId,
+        revisionNo: 1,
+        status: "active" as const,
+        priceAtomic: input.priceAtomic,
+        recipientAddress: candidate.recipientAddress,
+        network: "hedera:testnet" as const,
+        asset: "0.0.0" as const,
+        facilitator: "blocky402" as const,
+        createdAt: new Date("2026-09-11T00:00:00.000Z"),
+      };
+    },
+    async loadX402Gate(): Promise<LoadedX402Gate> {
+      return {...candidate, publicationId, priceAtomic: requirements.amount,
+        internalCredentialId: "internal-credential", requirements};
+    },
+    async beginPaidRequest() {
+      return {requestId: "request", paymentIntentId: "intent", paymentAttemptId: "attempt"};
+    },
+    async failPaidRequest() { order.push("fail"); },
+    async confirmPaidSettlement() { order.push("confirm-settlement"); },
+    async completePaidRequest() { order.push("complete-request"); },
+    async loadAuthorized(input: Parameters<LiveDeploymentRepository["loadAuthorized"]>[0]) {
+      order.push("internal-api");
+      assert.equal(input.keyHash, internalKeyHash);
+      return {
+        deploymentId: candidate.deploymentId,
+        workspaceId: candidate.workspaceId,
+        productId: candidate.productId,
+        ownerUserId: candidate.ownerUserId,
+        activeVersionId: candidate.activeVersionId,
+        specification: plan,
+        specHash: contentHash(plan),
+        apiCredentialId: "internal-credential",
+      };
+    },
+  } as unknown as LiveDeploymentRepository;
+  const facilitator: X402Facilitator = {
+    publicUrl: "https://api.testnet.blocky402.com",
+    async supported() {
+      return {capability: {x402Version: 2, scheme: "exact", network: "hedera:testnet",
+        extra: {feePayer: requirements.extra.feePayer}}, feePayer: requirements.extra.feePayer};
+    },
+    async verify() {
+      order.push("verify");
+      return {valid: true, payer: "0.0.7326075", reason: null, evidence: {isValid: true}};
+    },
+    async settle() {
+      order.push("settle");
+      return {success: true, payer: "0.0.7326075", transaction: "0.0.7162784@1789092000.1",
+        reason: null, evidence: {success: true}};
+    },
+  };
+  const service = new LiveDeploymentService(
+    repository,
+    {async resolve() { return "server-side-graph-key"; }} as never,
+    () => ({
+      async executeStaticQuery() {
+        order.push("graph-query");
+        return {data: {items: [{id: "row-1", rawAmount: "12.5"}]}, errors: []};
+      },
+      async close() {},
+    }) as never,
+    Buffer.alloc(32, 9),
+    "https://data.example/data/v1",
+    facilitator,
+  );
+
+  const publication = await service.publishX402({...candidate, actorUserId: candidate.ownerUserId,
+    priceAtomic: requirements.amount});
+  assert.equal("apiKey" in publication, false);
+  assert.notEqual(internalKeyHash, "");
+  const challenge = await service.executeRequest({ownerUserId: candidate.ownerUserId,
+    productRef: candidate.productId, authorization: undefined, paymentSignature: undefined,
+    path: "/data/v1/owner/product?limit=100", limit: 100});
+  assert.equal(challenge.kind, "payment_required");
+  const paymentSignature = Buffer.from(JSON.stringify({
+    x402Version: 2,
+    scheme: "exact",
+    network: "hedera:testnet",
+    accepted: requirements,
+    payload: {transaction: "base64-partially-signed-transaction"},
+  })).toString("base64");
+  const result = await service.executeRequest({ownerUserId: candidate.ownerUserId,
+    productRef: candidate.productId, authorization: undefined, paymentSignature,
+    path: "/data/v1/owner/product?limit=100", limit: 100});
+
+  assert.equal(result.kind, "success");
+  assert.deepEqual(order, ["verify", "settle", "confirm-settlement", "internal-api", "graph-query", "complete-request"]);
+  assert.doesNotMatch(JSON.stringify(result), /sprue_live_/);
 });
 
 function compilationInput(): StructuredDagCompileInput {
