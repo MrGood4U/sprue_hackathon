@@ -384,9 +384,8 @@ export function compileStructuredDag(input: StructuredDagCompileInput, now = new
       add("SOURCE_CONFIG_INVALID", `Source ${source.id} must reference a verified source identity.`, source.id, `dag.nodes.${source.id}.config`);
     }
     const targets = [...(outgoing.get(source.id) ?? [])];
-    const boundary = targets.length === 1 ? nodeById.get(targets[0]!) : null;
-    if (!boundary || boundary.type !== "map" || incoming.get(boundary.id)?.get("rows") !== source.id || boundary.config.mode !== "project") {
-      add("SOURCE_NORMALIZATION_MAP_REQUIRED", `Source ${source.id} must connect exclusively to one project-mode Map boundary.`, source.id);
+    if (targets.length !== 1) {
+      add("SOURCE_OUTPUT_CONNECTION_INVALID", `Source ${source.id} must connect to exactly one downstream operator.`, source.id);
     }
   }
   const seen = new Set<string>();

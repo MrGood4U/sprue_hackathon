@@ -46,15 +46,14 @@ test("structured DAG compiler rejects cycles and multiply connected inputs", () 
   assert.equal(result.issues.some((issue) => issue.code === "INPUT_PORT_MULTIPLE"), true);
 });
 
-test("structured DAG compiler enforces the source boundary Map and declared output schema", () => {
+test("structured DAG compiler accepts a residual graph after a fully pushed Map and enforces the output schema", () => {
   const base = validDag();
   const missingBoundary = {...base, dag: {
     nodes: base.dag.nodes.filter((node) => node.id !== "normalize_rows"),
     edges: [{fromNode: "source_rows", fromPort: "rows", toNode: "final_output", toPort: "rows"}],
   }} satisfies StructuredDagCompileInput;
   const boundaryResult = compileStructuredDag(missingBoundary);
-  assert.equal(boundaryResult.status, "failed");
-  assert.equal(boundaryResult.issues.some((issue) => issue.code === "SOURCE_NORMALIZATION_MAP_REQUIRED"), true);
+  assert.equal(boundaryResult.status, "passed");
 
   const mismatchedBase = validDag();
   const mismatchedOutput = {...mismatchedBase, outputSchema: {fields: [

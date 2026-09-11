@@ -62,8 +62,8 @@ function collectLeafPaths(selection: SelectionSetNode, prefix = ""): string[] {
 
 /**
  * Validate the Agent-authored query as a bounded, immutable Source acquisition
- * plan. The downstream DAG remains present, so pushdown is an optimization and
- * never a hidden replacement for the product's declared operators.
+ * plan. The complete semantic DAG is validated before pushed work is removed
+ * from the residual runtime DAG.
  */
 export function validateGraphSourceQueryPlan(
   plan: GraphSourceQueryPlan,

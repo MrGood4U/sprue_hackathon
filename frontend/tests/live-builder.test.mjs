@@ -214,7 +214,11 @@ test("recovers predecessor fields for historical Agent drafts that predate sourc
   assert.deepEqual(draft.specification.dag.nodes[0].outputSchema.fields, sourceFields);
 
   const editor = createEditorState(draft);
-  assert.equal(editor.nodes.find((node) => node.id === "map").data.node.config.mode, "project");
+  assert.equal(editor.nodes.find((node) => node.id === "map").data.node.config.mode, "extend");
+  assert.deepEqual(
+    editor.nodes.find((node) => node.id === "map").data.node.config.fields.map((field) => field.name),
+    ["observed_date"],
+  );
   assert.deepEqual(deriveFilterInputFields(editor, "filter").map(({name}) => name), [
     "observed_at",
     "category_code",

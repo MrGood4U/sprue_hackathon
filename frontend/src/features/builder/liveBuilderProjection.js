@@ -284,7 +284,7 @@ export function projectAgentBuilderDraft(product, messages) {
 }
 
 export function builderDraftCacheKey(workspaceId, productId) {
-  return `sprue.builder-draft.v7:${workspaceId}:${productId}`;
+  return `sprue.builder-draft.v8:${workspaceId}:${productId}`;
 }
 
 export function browserSessionStorage() {

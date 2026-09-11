@@ -31,6 +31,7 @@ import {
 } from "./harness/entity-embedding.js";
 import {AgentModelRequestError} from "./harness/remote-model.js";
 import type {AgentDebugSink, AgentTraceSink, HarnessExplorationResult, HarnessTraceEvent} from "./harness/types.js";
+import {residualizeAgentPushdowns} from "./pushdown.js";
 
 export const agentNetworkCatalog = graphPlannerNetworkCatalog;
 
@@ -227,7 +228,7 @@ function proposalContent(
       evidenceStatus: candidate.status,
     }];
   });
-  const builderDraft = {
+  const builderDraft = residualizeAgentPushdowns({
     schemaVersion: 1 as const,
     status: "requires_source_admission" as const,
     sources: builderSources,
@@ -267,7 +268,7 @@ function proposalContent(
       })),
     },
     refreshPolicy: result.discoveryPlan.semanticPlan.refresh,
-  };
+  });
   const withoutHash = {
     schemaVersion: 1 as const,
     kind: "proposal" as const,

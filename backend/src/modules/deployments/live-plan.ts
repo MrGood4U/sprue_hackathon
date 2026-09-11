@@ -248,12 +248,6 @@ export function compileAuthoredLiveQuery(
   return {document: plan.document, initialCursor: cursor.initial};
 }
 
-function collectExpressionFields(value: unknown, fields: Set<string>): void {
-  if (!record(value)) return;
-  if (value.op === "field" && typeof value.field === "string") fields.add(value.field);
-  if (Array.isArray(value.inputs)) value.inputs.forEach((input) => collectExpressionFields(input, fields));
-}
-
 function sourceProjections(
   source: LiveSourceInput,
   dag: StructuredDagCompileInput["dag"],
@@ -261,31 +255,30 @@ function sourceProjections(
   const sourceNode = dag.nodes.find((node) => node.type === "source"
     && String(node.config.sourceId ?? node.config.sourceKey ?? "") === source.id);
   if (!sourceNode?.outputSchema) throw new Error(`Source ${source.id} has no compiled output schema`);
-  const outgoing = dag.edges.filter((edge) => edge.fromNode === sourceNode.id);
-  if (outgoing.length !== 1) throw new Error(`Source ${source.id} does not have one normalization Map`);
-  const map = dag.nodes.find((node) => node.id === outgoing[0]!.toNode && node.type === "map");
-  if (!map || !Array.isArray(map.config.fields)) throw new Error(`Source ${source.id} does not have one normalization Map`);
-
-  const referenced = new Set<string>();
-  map.config.fields.forEach((definition) => {
-    if (record(definition)) collectExpressionFields(definition.expression, referenced);
-  });
   const available = new Set(sourceNode.outputSchema.fields.map((field) => field.name));
-  const projections: LiveSourceProjection[] = [];
-  for (const outputPath of [...referenced].sort()) {
-    if (outputPath === "data_network") continue;
-    if (!available.has(outputPath)) throw new Error(`Normalization Map references unavailable source field ${outputPath}`);
-    const required = source.fieldBindings.find((binding) =>
-      binding.fieldPath === outputPath || binding.requirementId === outputPath);
-    const auxiliary = source.auxiliaryFieldBindings.find((binding) =>
-      binding.fieldPath === outputPath || binding.name === outputPath || binding.requirementId === outputPath);
-    const providerPath = required?.fieldPath ?? auxiliary?.fieldPath ?? outputPath;
-    if (!fieldPath.test(providerPath)) throw new Error(`Source field ${outputPath} has no valid provider path`);
-    projections.push({fieldPath: providerPath, outputPath});
+  const boundProjections: LiveSourceProjection[] = [
+    ...source.fieldBindings.map((binding) => ({
+      fieldPath: binding.fieldPath,
+      outputPath: available.has(binding.requirementId) ? binding.requirementId : binding.fieldPath,
+    })),
+    ...source.auxiliaryFieldBindings.map((binding) => ({
+      fieldPath: binding.fieldPath,
+      outputPath: available.has(binding.name ?? binding.requirementId ?? "")
+        ? (binding.name ?? binding.requirementId ?? binding.fieldPath)
+        : binding.fieldPath,
+    })),
+  ];
+  const projections = boundProjections.length > 0
+    ? boundProjections
+    : sourceNode.outputSchema.fields
+      .filter((field) => field.name !== "data_network")
+      .map((field) => ({fieldPath: field.name, outputPath: field.name}));
+  for (const projection of projections) {
+    if (!fieldPath.test(projection.fieldPath) || !available.has(projection.outputPath)) {
+      throw new Error(`Source field ${projection.outputPath} has no valid provider projection`);
+    }
   }
-  if (projections.length === 0 && !referenced.has("data_network")) {
-    throw new Error(`Source ${source.id} normalization does not consume a provider field`);
-  }
+  if (projections.length === 0) throw new Error(`Source ${source.id} does not project a provider field`);
   return projections;
 }
 

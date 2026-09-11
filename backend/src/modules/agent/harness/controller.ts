@@ -78,6 +78,7 @@ import type {
   SourceNeed,
   ValidatedHarnessProposal,
 } from "./types.js";
+import {matchesCompleteFilterPushdown} from "../pushdown-equivalence.js";
 
 export class HarnessValidationError extends Error {
   readonly code: string;
@@ -1102,6 +1103,21 @@ function validateSourceFeasibility(
     if (declaresFilterPushdown !== queryPredicatesByNeed.get(selection.sourceNeedId)) {
       fail(
         "Feasibility Source query filter metadata does not match its Graph where predicates",
+        "FEASIBILITY_SOURCE_PUSHDOWN_INVALID",
+      );
+    }
+    const pushedFilters = selection.queryPlan.pushedOperations.filter((item) => item.operator === "filter");
+    if (pushedFilters.length === 1) {
+      const filter = compositionNodes.get(pushedFilters[0]!.nodeRole);
+      if (!filter || !matchesCompleteFilterPushdown(selection.queryPlan.document, filter.config, boundaryMap.config)) {
+        fail(
+          "Feasibility Source query predicates are not exactly equivalent to the declared Filter",
+          "FEASIBILITY_SOURCE_PUSHDOWN_INVALID",
+        );
+      }
+    } else if (pushedFilters.length > 1) {
+      fail(
+        "Feasibility Source query can push at most one complete Filter",
         "FEASIBILITY_SOURCE_PUSHDOWN_INVALID",
       );
     }

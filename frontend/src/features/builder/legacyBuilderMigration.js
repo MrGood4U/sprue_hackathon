@@ -93,10 +93,11 @@ function projectModeConfig(config, inputFields) {
 }
 
 function outputFields(config, inputFields) {
-  return config.fields.flatMap((definition) => {
+  const inherited = config.mode === "extend" ? inputFields : [];
+  return [...inherited, ...config.fields.flatMap((definition) => {
     const field = inferMapDefinitionField(definition, inputFields);
     return field ? [{...field, name: definition.name}] : [];
-  });
+  })];
 }
 
 function migrateFilter(nodes, edges, filterId) {
@@ -126,10 +127,15 @@ function migrateFilter(nodes, edges, filterId) {
   const inputFields = source?.outputSchema?.fields ?? [];
   if (!map || !source || inputFields.length === 0) return null;
 
-  const mapConfig = projectModeConfig(map.config, inputFields);
+  const mapConfig = map.config?.mode === "extend" && Array.isArray(map.config?.fields)
+    ? {mode: "extend", fields: structuredClone(map.config.fields)}
+    : projectModeConfig(map.config, inputFields);
   if (!mapConfig) return null;
   const definitions = mapConfig.fields;
-  const outputNames = new Set(definitions.map((definition) => definition.name));
+  const outputNames = new Set([
+    ...(mapConfig.mode === "extend" ? inputFields.map((field) => field.name) : []),
+    ...definitions.map((definition) => definition.name),
+  ]);
   const sourceNames = new Set(inputFields.map((field) => field.name));
   const combinator = ["and", "or"].includes(filter.config.expression.op) ? filter.config.expression.op : "and";
   const terms = ["and", "or"].includes(filter.config.expression.op)
@@ -152,7 +158,7 @@ function migrateFilter(nodes, edges, filterId) {
     conditions.push({field: name, operator: "eq", value: true});
   }
 
-  const nextMapConfig = {mode: "project", fields: definitions};
+  const nextMapConfig = {mode: mapConfig.mode, fields: definitions};
   if (validateMapConfig(nextMapConfig, inputFields).length > 0) return null;
   const nextFilterConfig = {predicate: {combinator, conditions}};
   if (validateFilterConfig(nextFilterConfig, outputFields(nextMapConfig, inputFields)).length > 0) return null;
@@ -175,6 +181,82 @@ function migrateFilter(nodes, edges, filterId) {
       ...mapOutgoing.map((edge) => ({...edge, fromNode: filter.id, fromPort: "rows"})),
     ],
   };
+}
+
+function queryPlanAliases(source) {
+  const providerAliases = new Map([
+    ...(source.config?.fieldBindings ?? []).map((binding) => [binding.fieldPath, binding.requirementId]),
+    ...(source.config?.auxiliaryFieldBindings ?? []).map((binding) => [binding.fieldPath, binding.name]),
+    ["data_network", "data_network"],
+  ]);
+  const aliases = new Map(providerAliases);
+  for (const name of [...aliases.values()]) aliases.set(name, name);
+  return {aliases, providerAliases};
+}
+
+function rewritePushedFieldReferences(expression, aliases) {
+  if (!expression || typeof expression !== "object" || Array.isArray(expression)) return expression;
+  if (expression.op === "field" && typeof expression.field === "string") {
+    return {...expression, field: aliases.get(expression.field) ?? expression.field};
+  }
+  if (!Array.isArray(expression.inputs)) return expression;
+  return {...expression, inputs: expression.inputs.map((input) => rewritePushedFieldReferences(input, aliases))};
+}
+
+function removeUnaryNode(nodes, edges, nodeId) {
+  const incoming = edges.filter((edge) => edge.toNode === nodeId && (edge.toPort ?? "rows") === "rows");
+  if (incoming.length !== 1) return {nodes, edges};
+  const outgoing = edges.filter((edge) => edge.fromNode === nodeId);
+  return {
+    nodes: nodes.filter((node) => node.id !== nodeId),
+    edges: [
+      ...edges.filter((edge) => edge.toNode !== nodeId && edge.fromNode !== nodeId),
+      ...outgoing.map((edge) => ({...edge, fromNode: incoming[0].fromNode, fromPort: "rows"})),
+    ],
+  };
+}
+
+function residualizeQueryPushdowns(nodes, edges) {
+  let current = {nodes, edges};
+  for (const sourceId of current.nodes.filter((node) => node.type === "source").map((node) => node.id)) {
+    let source = current.nodes.find((node) => node.id === sourceId);
+    const operations = source?.config?.queryPlan?.pushedOperations;
+    if (!source || !Array.isArray(operations)) continue;
+    const {aliases, providerAliases} = queryPlanAliases(source);
+    const mapRoles = operations.filter((operation) => operation?.operator === "map").map((operation) => operation.nodeRole);
+    for (const role of mapRoles) {
+      const map = current.nodes.find((node) => node.id === role && node.type === "map");
+      if (!map || !Array.isArray(map.config?.fields)) continue;
+      const retained = map.config.fields.flatMap((definition) => {
+        const input = definition?.expression?.op === "field" ? definition.expression.field : null;
+        if (typeof definition?.name === "string" && typeof input === "string" && aliases.get(input) === definition.name) return [];
+        return [{...definition, expression: rewritePushedFieldReferences(definition?.expression, aliases)}];
+      });
+      const sourceFields = source.outputSchema?.fields ?? [];
+      const projected = new Map();
+      for (const [providerPath, outputName] of providerAliases) {
+        const field = sourceFields.find((candidate) => candidate.name === providerPath || candidate.name === outputName);
+        if (field) projected.set(outputName, {...field, name: outputName});
+      }
+      const dataNetwork = sourceFields.find((field) => field.name === "data_network")
+        ?? {name: "data_network", type: "string", nullable: false, unit: null};
+      projected.set("data_network", dataNetwork);
+      current = {
+        ...current,
+        nodes: current.nodes.map((node) => node.id === source.id
+          ? {...node, outputSchema: {fields: [...projected.values()]}}
+          : node.id === map.id
+            ? {...node, config: {mode: "extend", fields: retained}}
+            : node),
+      };
+      source = current.nodes.find((node) => node.id === sourceId);
+      if (retained.length === 0) current = removeUnaryNode(current.nodes, current.edges, map.id);
+    }
+    // Historical query-plan metadata predated deterministic semantic-equivalence
+    // checks. Only the backend may remove Filter or Sort nodes after proving a
+    // complete pushdown; the browser must not trust an old marker by itself.
+  }
+  return current;
 }
 
 function normalizedOrdering(orderBy) {
@@ -311,5 +393,6 @@ export function migrateLegacyBuilderDraft(nodes, edges, outputSchemaFields = [])
     current = migrateFilter(current.nodes, current.edges, filterId) ?? current;
   }
   current = migrateOutputs(current.nodes, current.edges);
+  current = residualizeQueryPushdowns(current.nodes, current.edges);
   return annotateLegacyMapUnits(current.nodes, current.edges, outputSchemaFields);
 }

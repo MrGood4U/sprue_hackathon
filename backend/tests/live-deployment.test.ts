@@ -305,6 +305,51 @@ test("immutable live plans preserve an Agent-authored GraphQL pushdown verbatim"
   }]);
 });
 
+test("live plans project bound fields directly from Source after a fully pushed Map", async () => {
+  const input: StructuredDagCompileInput = {
+    schemaVersion: 1,
+    dag: {
+      nodes: [
+        {id: "source", type: "source", operatorVersion: "1", config: {sourceId: "graph-items"}, outputSchema: {fields: [
+          {name: "amount", type: "string", nullable: false, unit: null},
+        ]}},
+        {id: "output", type: "output", operatorVersion: "3", config: {fields: ["amount"]}},
+      ],
+      edges: [{fromNode: "source", fromPort: "rows", toNode: "output", toPort: "rows"}],
+    },
+    outputSchema: {fields: [{name: "amount", type: "string", nullable: false, unit: null}]},
+  };
+  const compilation = compileStructuredDag(input);
+  assert.equal(compilation.status, "passed");
+  if (compilation.status !== "passed") return;
+  const plan = createImmutableLivePlan({
+    compilation,
+    dag: input.dag,
+    sources: [{
+      id: "graph-items",
+      displayName: "Items",
+      logicalSubgraphId: "items",
+      manifestIpfsCid: "QmExample",
+      dataNetwork: "ethereum-mainnet",
+      queryEntity: "items",
+      fieldBindings: [{fieldPath: "rawAmount", requirementId: "amount"}],
+      auxiliaryFieldBindings: [],
+      providerCredentialId: "credential-id",
+      sourceSnapshotId: "snapshot-id",
+      schemaDocument,
+    }],
+  });
+
+  assert.deepEqual(plan.sources[0]!.projections, [{fieldPath: "rawAmount", outputPath: "amount"}]);
+  const result = await executeLivePlan(plan, async () => ({
+    async executeStaticQuery() {
+      return {data: {items: [{id: "row-1", rawAmount: "12.5"}]}, errors: []};
+    },
+    async close() {},
+  }));
+  assert.deepEqual(result.rows, [{amount: "12.5"}]);
+});
+
 test("immutable live plans reject Agent-authored GraphQL outside selected provider fields", () => {
   const input = compilationInput();
   const compilation = compileStructuredDag(input);
