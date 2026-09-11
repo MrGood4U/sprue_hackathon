@@ -253,7 +253,7 @@ test("HTTP framework boundaries through real local sockets", async (t) => {
       async overview() {
         return {
           period: {startsAt: "2026-09-07T00:00:00.000Z", endsAt: "2026-09-08T00:00:00.000Z"},
-          activeProductCount: "0",
+          deployedProductCount: "0",
           draftVersionCount: "0",
           apiRequestCount: "0",
           graphQueryCount: "0",

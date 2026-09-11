@@ -146,7 +146,7 @@ export interface Money {
 
 export interface WorkspaceOverview {
   period: {startsAt: string; endsAt: string};
-  activeProductCount: string;
+  deployedProductCount: string;
   draftVersionCount: string;
   apiRequestCount: string;
   graphQueryCount: string;

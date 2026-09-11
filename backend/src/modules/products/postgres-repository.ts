@@ -849,7 +849,21 @@ export function postgresProductRepository(
         `WITH bounds AS (
           SELECT now() AS ends_at,now()-interval '24 hours' AS starts_at
         ), product_counts AS (
-          SELECT count(*) FILTER (WHERE p.status='active')::text AS active_count
+          SELECT count(*) FILTER (WHERE EXISTS (
+            SELECT 1
+            FROM deployments d
+            WHERE d.data_product_id=p.id
+              AND (
+                d.status='healthy'
+                OR EXISTS (
+                  SELECT 1
+                  FROM publication_versions pv
+                  WHERE pv.deployment_id=d.id
+                    AND pv.access_mode='x402'
+                    AND pv.status='active'
+                )
+              )
+          ))::text AS deployed_count
           FROM data_products p WHERE p.workspace_id=$1 AND p.deleted_at IS NULL
         ), draft_counts AS (
           SELECT count(*)::text AS draft_count
@@ -895,7 +909,7 @@ export function postgresProductRepository(
             LIMIT 10
           ) r
         )
-        SELECT b.starts_at,b.ends_at,p.active_count,d.draft_count,
+        SELECT b.starts_at,b.ends_at,p.deployed_count,d.draft_count,
           q.request_count,g.query_count,
           coalesce((SELECT jsonb_agg(jsonb_build_object(
             'networkId',network_id,'network',network,'assetId',asset_id,
@@ -915,7 +929,7 @@ export function postgresProductRepository(
       const row = result.rows[0]!;
       return {
         period: {startsAt: timestamp(row.starts_at)!, endsAt: timestamp(row.ends_at)!},
-        activeProductCount: String(row.active_count),
+        deployedProductCount: String(row.deployed_count),
         draftVersionCount: String(row.draft_count),
         apiRequestCount: String(row.request_count),
         graphQueryCount: String(row.query_count),

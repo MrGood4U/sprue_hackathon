@@ -61,9 +61,10 @@ function ProductRow({ product, navigate, onRename, onDelete, t, locale }) {
   const deployment = product.activeDeployment;
   const apiReady = deployment?.status === "healthy" && Boolean(deployment.activeVersionId);
   const x402Ready = apiReady && deployment.accessMode === "x402" && Boolean(deployment.activePublicationVersionId);
-  const lastRunAt = product.latestRun?.finishedAt
-    ?? product.latestRun?.startedAt
-    ?? product.latestRun?.queuedAt;
+  const lastModifiedAt = new Intl.DateTimeFormat(locale, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(product.updatedAt));
   const productPath = `/app/products/${product.slug}/agent`;
 
   return (
@@ -77,7 +78,7 @@ function ProductRow({ product, navigate, onRename, onDelete, t, locale }) {
             onTitleActivate={() => navigate(productPath)}
             onCommit={(name) => onRename(product.id, name)}
           />
-          <small>{product.description || t(`dashboard.productStatus.${product.status}`)}</small>
+          {product.description && <small>{product.description}</small>}
         </span>
       </span>
       <span>
@@ -87,7 +88,7 @@ function ProductRow({ product, navigate, onRename, onDelete, t, locale }) {
         <small>{hasSource ? t("dashboard.graphSourceCount", { count: formatCount(sourceCount, locale) }) : t("dashboard.notConfigured")}</small>
       </span>
       <span>
-        <Status tone={apiReady ? "violet" : deployment ? "amber" : "neutral"}>
+        <Status tone={apiReady ? "green" : deployment ? "amber" : "neutral"}>
           {t(apiReady ? "common.ready" : "common.notReady")}
         </Status>
         <small>{deployment ? t(`dashboard.deploymentStatus.${deployment.status}`) : t("dashboard.noDeployment")}</small>
@@ -99,8 +100,7 @@ function ProductRow({ product, navigate, onRename, onDelete, t, locale }) {
         <small>{t(x402Ready ? "dashboard.x402Active" : "dashboard.x402Inactive")}</small>
       </span>
       <span>
-        <strong>{product.latestRun ? t(`dashboard.runStatus.${product.latestRun.status}`) : t("dashboard.neverRun")}</strong>
-        <small>{lastRunAt ? new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(lastRunAt)) : t("dashboard.noRunRecord")}</small>
+        <strong><time dateTime={product.updatedAt}>{lastModifiedAt}</time></strong>
       </span>
       <span className="product-row-actions" role="cell">
         <IconButton
@@ -182,9 +182,9 @@ export function DashboardPage({ navigate }) {
 
       <div className="metrics-row">
         <Metric
-          label={t("dashboard.metric.activeProducts")}
-          value={formatCount(overview?.activeProductCount, locale)}
-          note={overview && t("dashboard.metric.draftVersions", { count: formatCount(overview.draftVersionCount, locale) })}
+          label={t("dashboard.metric.deployedProducts")}
+          value={formatCount(overview?.deployedProductCount, locale)}
+          note={overview && t("dashboard.metric.deployedProductsDetail")}
           loading={dashboard.status === "loading"}
         />
         <Metric
@@ -248,7 +248,7 @@ export function DashboardPage({ navigate }) {
 
         <div className="table" role="table" aria-label={t("dashboard.tableLabel")}>
           <div className="table-row table-head" role="row">
-            <span>{t("dashboard.column.product")}</span><span>{t("dashboard.column.source")}</span><span>API</span><span>{t("dashboard.column.x402")}</span><span>{t("dashboard.column.lastRun")}</span>
+            <span>{t("dashboard.column.product")}</span><span>{t("dashboard.column.source")}</span><span>API</span><span>{t("dashboard.column.x402")}</span><span>{t("dashboard.column.lastModified")}</span>
             <span aria-label={t("dashboard.column.actions")} />
           </div>
 

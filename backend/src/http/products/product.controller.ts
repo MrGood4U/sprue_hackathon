@@ -200,7 +200,7 @@ export const productDeliverySchema = z.strictObject({
 
 export const workspaceOverviewSchema = z.strictObject({
   period: z.strictObject({startsAt: z.iso.datetime(), endsAt: z.iso.datetime()}),
-  activeProductCount: atomicSchema,
+  deployedProductCount: atomicSchema,
   draftVersionCount: atomicSchema,
   apiRequestCount: atomicSchema,
   graphQueryCount: atomicSchema,

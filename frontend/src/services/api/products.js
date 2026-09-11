@@ -81,7 +81,7 @@ function assertProduct(value, detail = false) {
 function assertOverview(value) {
   if (
     !value?.period ||
-    !/^\d+$/.test(value?.activeProductCount ?? "") ||
+    !/^\d+$/.test(value?.deployedProductCount ?? "") ||
     !/^\d+$/.test(value?.draftVersionCount ?? "") ||
     !/^\d+$/.test(value?.apiRequestCount ?? "") ||
     !/^\d+$/.test(value?.graphQueryCount ?? "") ||

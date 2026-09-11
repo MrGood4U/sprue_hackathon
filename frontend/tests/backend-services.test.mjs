@@ -229,7 +229,7 @@ test("product dashboard client uses only authenticated live workspace records", 
       assert.equal(url, `https://api.example.test/api/v1/workspaces/${workspaceId}/overview?period=24h`);
       return liveResponse({
         period: {startsAt: "2026-09-07T00:00:00.000Z", endsAt: "2026-09-08T00:00:00.000Z"},
-        activeProductCount: "0",
+        deployedProductCount: "0",
         draftVersionCount: "0",
         apiRequestCount: "0",
         graphQueryCount: "0",

@@ -44,9 +44,12 @@ test("keeps page implementations out of application composition", async () => {
 
 test("keeps the Dashboard focused on metrics and the product list", async () => {
   const source = await readFile(new URL("pages/DashboardPage.jsx", sourceRoot), "utf8");
+  const sidebar = await readFile(new URL("components/navigation/Sidebar.jsx", sourceRoot), "utf8");
   const productHeader = await readFile(new URL("components/product/ProductHeader.jsx", sourceRoot), "utf8");
   const productNameEditor = await readFile(new URL("components/product/EditableProductName.jsx", sourceRoot), "utf8");
   const styles = await readFile(new URL("styles.css", sourceRoot), "utf8");
+  const english = await readFile(new URL("i18n/messages/en.js", sourceRoot), "utf8");
+  const chinese = await readFile(new URL("i18n/messages/zh-CN.js", sourceRoot), "utf8");
 
   assert.doesNotMatch(source, /dashboard-lower|dashboard\.activities\.map|dashboard\.sponsorProof\.map/);
   assert.doesNotMatch(styles, /\.dashboard-lower|\.activity-list|\.proof-grid/);
@@ -55,6 +58,11 @@ test("keeps the Dashboard focused on metrics and the product list", async () => 
   assert.doesNotMatch(source, /<AppHeader[\s\S]*?actions=\{/);
   assert.match(styles, /\.app-header \{[^}]*align-items: flex-start/);
   assert.match(source, /<EditableProductName[\s\S]*variant="table"/);
+  assert.match(source, /product\.description && <small>\{product\.description\}<\/small>/);
+  assert.doesNotMatch(source, /dashboard\.productStatus\.\$\{product\.status\}/);
+  assert.match(sidebar, /sidebar\.workspaceStatus/);
+  assert.match(english, /"sidebar\.workspaceStatus": "\{\{workspace\}\}"/);
+  assert.match(chinese, /"sidebar\.workspaceStatus": "\{\{workspace\}\}"/);
   assert.match(source, /useProductDashboard\(\)/);
   assert.match(source, /dashboard\.create\(\)/);
   assert.doesNotMatch(source, /showCreate|dashboard\.createTitle/);
@@ -67,6 +75,10 @@ test("keeps the Dashboard focused on metrics and the product list", async () => 
   assert.ok(apiColumnIndex >= 0 && x402ColumnIndex > apiColumnIndex);
   assert.match(source, /deployment\.accessMode === "x402"/);
   assert.match(source, /common\.notReady/);
+  assert.match(source, /tone=\{apiReady \? "green"/);
+  assert.match(source, /dashboard\.column\.lastModified/);
+  assert.match(source, /dateTime=\{product\.updatedAt\}/);
+  assert.doesNotMatch(source, /dashboard\.column\.lastRun|product\.latestRun/);
   assert.match(source, /dashboard\.status === "error"/);
   assert.match(source, /dashboard\.emptyTitle/);
   assert.match(source, /<Trash size=\{17\} \/>/);

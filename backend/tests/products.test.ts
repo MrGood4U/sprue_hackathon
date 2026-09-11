@@ -64,7 +64,7 @@ test("durable products create, replay, rename, delete, and remain workspace isol
     );
 
     const emptyOverview = await service.overview(ownerA.workspaceId);
-    assert.equal(emptyOverview.activeProductCount, "0");
+    assert.equal(emptyOverview.deployedProductCount, "0");
     assert.equal(emptyOverview.apiRequestCount, "0");
     assert.equal(emptyOverview.graphQueryCount, "0");
     assert.deepEqual(emptyOverview.graphExpenses, []);
@@ -158,8 +158,14 @@ test("durable products create, replay, rename, delete, and remain workspace isol
       ProductPreconditionError,
     );
 
-    await db.query("UPDATE data_products SET status='active' WHERE id=$1", [created.id]);
-    assert.equal((await service.overview(ownerA.workspaceId)).activeProductCount, "1");
+    await db.query(
+      `INSERT INTO deployments (
+        id,workspace_id,data_product_id,environment,runtime_target,provider,
+        endpoint_slug,public_base_url,status,last_health_at
+      ) VALUES ($1,$2,$3,'local','shared_hosted','local',$4,$5,'healthy',now())`,
+      [randomUUID(), ownerA.workspaceId, created.id, `product-${created.id}`, "http://127.0.0.1:3001/data/v1"],
+    );
+    assert.equal((await service.overview(ownerA.workspaceId)).deployedProductCount, "1");
 
     const deleteCommand = {
       workspaceId: ownerA.workspaceId,
@@ -173,7 +179,7 @@ test("durable products create, replay, rename, delete, and remain workspace isol
     assert.match(deleted.deletedAt, /^2026-|^20\d\d-/);
     assert.deepEqual(await service.delete(deleteCommand), deleted);
     assert.deepEqual((await service.list({workspaceId: ownerA.workspaceId, limit: 20})).items, []);
-    assert.equal((await service.overview(ownerA.workspaceId)).activeProductCount, "0");
+    assert.equal((await service.overview(ownerA.workspaceId)).deployedProductCount, "0");
     await assert.rejects(service.read(ownerA.workspaceId, created.id), ProductNotFoundError);
     await assert.rejects(
       service.update({
