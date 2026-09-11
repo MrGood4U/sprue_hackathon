@@ -57,9 +57,8 @@ const sourceScalarTypes = new Set(["boolean", "string", "id", "address", "bytes"
 const defaultSourceRowLimit = 1_000;
 const maximumSourceRowLimit = 10_000;
 
-function effectiveSourceRowLimit(config, queryPlan) {
+function effectiveSourceRowLimit(config) {
   if (Number.isInteger(config?.limit)) return config.limit;
-  if (config?.limit === undefined && Number.isInteger(queryPlan?.pagination?.maxRows)) return queryPlan.pagination.maxRows;
   return defaultSourceRowLimit;
 }
 
@@ -139,7 +138,7 @@ function SourceConfig({ node, draft, update, mode, onModeChange, sourceDiscovery
   const sourceId = node.config?.sourceId ?? node.config?.sourceKey ?? "";
   const selected = sources.find((source) => source.id === sourceId);
   const queryPlan = node.config?.queryPlan ?? selected?.queryPlan ?? null;
-  const rowLimit = effectiveSourceRowLimit(node.config, queryPlan);
+  const rowLimit = effectiveSourceRowLimit(node.config);
   const pushedOperations = (queryPlan?.pushedOperations ?? [])
     .filter((operation) => operation.operator === "filter" || operation.operator === "sort");
 
@@ -200,7 +199,7 @@ function SourceConfig({ node, draft, update, mode, onModeChange, sourceDiscovery
       auxiliaryFieldBindings: [],
       accessSelection: source.accessSelection,
       queryPlan: null,
-      limit: effectiveSourceRowLimit(node.config, queryPlan),
+      limit: effectiveSourceRowLimit(node.config),
     });
   };
 

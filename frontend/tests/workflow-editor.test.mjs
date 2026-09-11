@@ -674,4 +674,5 @@ test("Source nodes expose an editable bounded row limit with a conservative defa
   assert.match(inspector, /id=\{`source-limit-\$\{node\.id\}`\}/);
   assert.match(inspector, /type="number"[\s\S]*?min="1"[\s\S]*?max=\{maximumSourceRowLimit\}/);
   assert.match(inspector, /validSourceRowLimit\(draftConfig\)/);
+  assert.doesNotMatch(inspector, /queryPlan\?\.pagination\?\.maxRows/);
 });
