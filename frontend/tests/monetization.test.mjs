@@ -18,6 +18,7 @@ test("hackathon monetization keeps the full price with the creator and omits fee
   assert.match(page, /monetize\.stopDeployment/);
   assert.match(page, /monetize\.usageGuide/);
   assert.match(page, /publication\?\.endpointUrl/);
+  assert.match(page, /<strong>\{`0 \$\{emptySymbol\}`\}<\/strong>/);
   assert.match(english, /PAYMENT-REQUIRED/);
   assert.match(page, /PAYMENT-SIGNATURE/);
   assert.doesNotMatch(page, /Authorization: Bearer|sprue_live_/);
@@ -28,6 +29,9 @@ test("hackathon monetization keeps the full price with the creator and omits fee
   assert.match(delivery, /export function retireX402/);
   assert.doesNotMatch(page, /useDemoRuntime|setPublished|simulationNotice|demoPublished/);
   assert.doesNotMatch(page, /feePercent|sprueFee|serviceFee|split-bar|split-legend|evidence-callout|evidenceRetained/);
+  assert.doesNotMatch(page, /monetization\.revenue\.providerFees|monetize\.providerFees|monetize\.noRevenue/);
+  assert.match(english, /"monetize\.latestSales": "Latest \{\{count\}\} records"/);
+  assert.doesNotMatch(english, /monetize\.providerFees|monetize\.noRevenue|Latest \{\{count\}\} live transactions/);
   assert.doesNotMatch(runtime, /feePercent:|creatorReceives:|serviceFee:/);
   assert.doesNotMatch(english, /monetize\.(sprueFee|serviceFee|creatorReceivesPercent|sprueReceivesPercent|evidenceRetained|evidenceDetail)/);
 });

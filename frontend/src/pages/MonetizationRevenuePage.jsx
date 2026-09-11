@@ -1,5 +1,5 @@
 import {useState} from "react";
-import {BookOpenText, Check, CheckCircle, Coins, Copy, RocketLaunch, ShieldCheck, SpinnerGap, StopCircle, Wallet, WarningCircle} from "@phosphor-icons/react";
+import {BookOpenText, Check, CheckCircle, Coins, Copy, RocketLaunch, SpinnerGap, StopCircle, Wallet, WarningCircle} from "@phosphor-icons/react";
 import {ProductHeader} from "../components/product/ProductHeader.jsx";
 import {Button, IconButton} from "../components/ui/Button.jsx";
 import {Status} from "../components/ui/Status.jsx";
@@ -31,8 +31,8 @@ function MonetizeRouteState({delivery, productRef, navigate}) {
   return <><ProductHeader product={product} productRef={productRef} active="monetize" navigate={navigate} /><main className="runtime-gate builder-route-state"><div className="panel"><span className="section-label">{t("monetize.liveData")}</span><h1>{t(delivery.status === "loading" ? "monetize.loading" : "monetize.loadError")}</h1><p>{t(delivery.status === "loading" ? "monetize.loadingDetail" : "monetize.loadErrorDetail")}</p>{delivery.status === "error" && <Button variant="primary" onClick={() => delivery.refresh()}>{t("common.retry")}</Button>}</div></main></>;
 }
 
-function MoneyList({title, rows, empty, icon: Icon}) {
-  return <article className="money-card"><div><Icon size={18} /><span>{title}</span></div>{rows.length > 0 ? rows.map((money) => <strong key={`${money.networkId}:${money.assetId}`}>{formatAtomic(money)}</strong>) : <small>{empty}</small>}</article>;
+function MoneyList({title, rows, emptySymbol, icon: Icon}) {
+  return <article className="money-card"><div><Icon size={18} /><span>{title}</span></div>{rows.length > 0 ? rows.map((money) => <strong key={`${money.networkId}:${money.assetId}`}>{formatAtomic(money)}</strong>) : <strong>{`0 ${emptySymbol}`}</strong>}</article>;
 }
 
 function LoadedMonetizationPage({delivery, productRef, navigate}) {
@@ -43,6 +43,7 @@ function LoadedMonetizationPage({delivery, productRef, navigate}) {
   const publication = monetization.publication;
   const recipient = publication?.recipient;
   const price = publication?.price;
+  const revenueSymbol = price?.symbol ?? "HBAR";
   const isActive = monetization.readiness === "active";
   const readinessTone = isActive ? "green" : monetization.readiness === "draft" ? "violet" : "amber";
   const [priceHbar, setPriceHbar] = useState(() => {
@@ -97,7 +98,7 @@ function LoadedMonetizationPage({delivery, productRef, navigate}) {
     <main className="product-content">
       <div className="content-heading"><div><span className="eyebrow">Hedera x402</span><h1>{t("monetize.title")}</h1><p>{t("monetize.description")}</p></div><div className="monetize-heading-actions"><Status tone={readinessTone}>{t(`monetize.readiness.${monetization.readiness}`)}</Status>{isActive && <Button icon={BookOpenText} onClick={() => { setCopyState("idle"); setGuideOpen(true); }}>{t("monetize.usageGuide")}</Button>}{isActive ? <Button variant="danger" icon={StopCircle} onClick={() => { setCommandState({status: "idle", error: null}); setStopOpen(true); }}>{t("monetize.stopDeployment")}</Button> : <Button variant="primary" icon={RocketLaunch} onClick={() => { setCommandState({status: "idle", error: null}); setPublishOpen(true); }}>{t("monetize.publishEndpoint")}</Button>}</div></div>
 
-      <section className="panel revenue-section"><div className="panel-title"><Coins size={19} /><h3>{t("monetize.confirmedRevenue")}</h3><Status tone="violet">{t("monetize.liveData")}</Status></div><div className="money-grid"><MoneyList title={t("monetize.grossSales")} rows={monetization.revenue.grossSales} empty={t("monetize.noRevenue")} icon={Coins} /><MoneyList title={t("monetize.creatorProceeds")} rows={monetization.revenue.creatorProceeds} empty={t("monetize.noRevenue")} icon={Wallet} /><MoneyList title={t("monetize.providerFees")} rows={monetization.revenue.providerFees} empty={t("monetize.noRevenue")} icon={ShieldCheck} /></div></section>
+      <section className="panel revenue-section"><div className="panel-title"><Coins size={19} /><h3>{t("monetize.confirmedRevenue")}</h3></div><div className="money-grid"><MoneyList title={t("monetize.grossSales")} rows={monetization.revenue.grossSales} emptySymbol={revenueSymbol} icon={Coins} /><MoneyList title={t("monetize.creatorProceeds")} rows={monetization.revenue.creatorProceeds} emptySymbol={revenueSymbol} icon={Wallet} /></div></section>
 
       <section className="panel sales-section"><div className="panel-title"><Coins size={19} /><h3>{t("monetize.sales")}</h3><span>{t("monetize.latestSales", {count: monetization.sales.length})}</span></div>{monetization.sales.length === 0 ? <div className="delivery-empty-inline"><Coins size={22} /><span>{t("monetize.noSales")}</span></div> : <div className="sales-table" role="table" aria-label={t("monetize.sales")}><div className="sales-row sales-head" role="row"><span>{t("monetize.correlation")}</span><span>{t("monetize.status")}</span><span>{t("monetize.amount")}</span><span>{t("monetize.startedAt")}</span></div>{monetization.sales.map((sale) => <div className="sales-row" role="row" key={sale.id}><code>{sale.correlationId}</code><Status tone={sale.status === "served" ? "green" : sale.status === "failed" ? "amber" : "violet"}>{sale.status}</Status><span>{formatAtomic(sale.amount)}</span><time dateTime={sale.startedAt}>{sale.startedAt}</time></div>)}</div>}</section>
     </main>
