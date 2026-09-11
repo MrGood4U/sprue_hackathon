@@ -39,9 +39,20 @@ hx402 wallet balance
 
 The official Portal API can also be used when a personal access token is available:
 
+PowerShell:
+
+```powershell
+$env:HEDERA_PORTAL_PAT = "your-portal-token"
+hx402 faucet --amount 10
+Remove-Item Env:HEDERA_PORTAL_PAT
+```
+
+macOS or Linux:
+
 ```bash
 export HEDERA_PORTAL_PAT="your-portal-token"
 hx402 faucet --amount 10
+unset HEDERA_PORTAL_PAT
 ```
 
 The faucet is development-only and is limited by Hedera Portal policy. `HEDERA_PORTAL_PAT` is sent only to Hedera Portal and is not stored.
@@ -49,6 +60,16 @@ The faucet is development-only and is limited by Hedera Portal policy. `HEDERA_P
 ## Import an existing buyer account
 
 Only ECDSA keys are supported because the Hedera x402 signer uses the key's EVM-compatible address.
+
+PowerShell:
+
+```powershell
+$env:HX402_PRIVATE_KEY = "your-private-key"
+hx402 wallet import --account-id 0.0.1234 --network testnet --max-hbar 1
+Remove-Item Env:HX402_PRIVATE_KEY
+```
+
+macOS or Linux:
 
 ```bash
 export HX402_PRIVATE_KEY="your-private-key"
