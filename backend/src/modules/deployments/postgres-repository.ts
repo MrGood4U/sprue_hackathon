@@ -316,7 +316,7 @@ export function postgresLiveDeploymentRepository(pool: pg.Pool): LiveDeploymentR
     async loadPublicationCandidate(workspaceId, deploymentId) {
       const result = await pool.query(
         `SELECT d.id AS deployment_id,d.workspace_id,d.data_product_id,p.name AS product_name,
-          p.creator_user_id,d.active_version_id,d.public_base_url,
+          p.creator_user_id,d.active_version_id,
           n.id AS network_id,a.id AS asset_id,wa.id AS wallet_address_id,
           wa.network_account_ref
          FROM deployments d
@@ -348,7 +348,6 @@ export function postgresLiveDeploymentRepository(pool: pg.Pool): LiveDeploymentR
         deploymentId: String(row.deployment_id), workspaceId: String(row.workspace_id),
         productId: String(row.data_product_id), productName: String(row.product_name), ownerUserId,
         activeVersionId: String(row.active_version_id),
-        endpointUrl: `${String(row.public_base_url).replace(/\/$/, "")}/${ownerUserId}/${String(row.data_product_id)}`,
         networkId: String(row.network_id), assetId: String(row.asset_id),
         recipientWalletAddressId: String(row.wallet_address_id),
         recipientAddress: String(row.network_account_ref),
@@ -494,7 +493,7 @@ export function postgresLiveDeploymentRepository(pool: pg.Pool): LiveDeploymentR
     async loadX402Gate(ownerUserId, productRef) {
       const result = await pool.query(
         `SELECT d.id AS deployment_id,d.workspace_id,d.data_product_id,p.name AS product_name,
-          p.creator_user_id,d.active_version_id,d.public_base_url,pv.id AS publication_id,
+          p.creator_user_id,d.active_version_id,pv.id AS publication_id,
           pv.price_atomic,pv.max_timeout_seconds,pv.facilitator_capability_json,
           n.id AS network_id,a.id AS asset_id,wa.id AS wallet_address_id,wa.network_account_ref,
           c.id AS internal_credential_id
@@ -516,12 +515,11 @@ export function postgresLiveDeploymentRepository(pool: pg.Pool): LiveDeploymentR
       if (!row) return null;
       const capability = row.facilitator_capability_json as {extra?: {feePayer?: unknown}};
       if (typeof capability?.extra?.feePayer !== "string") return null;
-      const endpointUrl = `${String(row.public_base_url).replace(/\/$/, "")}/${String(row.creator_user_id)}/${String(row.data_product_id)}`;
       return {
         deploymentId: String(row.deployment_id), workspaceId: String(row.workspace_id),
         productId: String(row.data_product_id), productName: String(row.product_name),
         ownerUserId: String(row.creator_user_id), activeVersionId: String(row.active_version_id),
-        endpointUrl, networkId: String(row.network_id), assetId: String(row.asset_id),
+        networkId: String(row.network_id), assetId: String(row.asset_id),
         recipientWalletAddressId: String(row.wallet_address_id),
         recipientAddress: String(row.network_account_ref), publicationId: String(row.publication_id),
         priceAtomic: String(row.price_atomic), internalCredentialId: String(row.internal_credential_id),
@@ -553,7 +551,7 @@ export function postgresLiveDeploymentRepository(pool: pg.Pool): LiveDeploymentR
           [paymentIntentId, input.gate.workspaceId, input.gate.productId, input.gate.networkId,
             input.gate.assetId, input.gate.priceAtomic, input.gate.recipientWalletAddressId,
             input.gate.recipientAddress, input.gate.requirements.extra.feePayer,
-            input.gate.requirements.maxTimeoutSeconds, input.gate.endpointUrl,
+            input.gate.requirements.maxTimeoutSeconds, input.resourceUrl,
             input.gate.requirements, input.requestHash, input.idempotencyKey],
         );
         await client.query(

@@ -24,7 +24,11 @@ test("all documented HTTP operations have one domain-owned route reservation", a
       const path = match[2]!
         .replace(/^W(?=\/)/, "/api/v1/workspaces/{workspaceId}")
         .replaceAll("{w}", "{workspaceId}");
-      if (path.startsWith("/api") || path.startsWith("/data"))
+      if (
+        path.startsWith("/api") ||
+        path.startsWith("/data") ||
+        path.startsWith("/x402")
+      )
         expected.add(`${match[1]} ${path}`);
     }
   }
@@ -40,6 +44,7 @@ test("all documented HTTP operations have one domain-owned route reservation", a
       route.audience === "creator",
       !route.path.startsWith("/api/v1/public") &&
         !route.path.startsWith("/data/") &&
+        !route.path.startsWith("/x402/") &&
         !route.path.endsWith("/app-config"),
     );
 });

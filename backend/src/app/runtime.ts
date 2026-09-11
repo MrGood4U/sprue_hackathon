@@ -111,7 +111,7 @@ export async function startRuntime(
       : undefined;
     const products = config.privyAppSecret
       ? new ProductService(
-          postgresProductRepository(pool),
+          postgresProductRepository(pool, config.x402PublicBaseUrl),
           createHash("sha256")
             .update("sprue-product-command-v1\0")
             .update(config.privyAppSecret)
@@ -162,6 +162,7 @@ export async function startRuntime(
             .update(config.privyAppSecret)
             .digest(),
           config.dataPublicBaseUrl,
+          config.x402PublicBaseUrl,
           new Blocky402Client(config.hedera.facilitatorUrl),
         )
       : undefined;

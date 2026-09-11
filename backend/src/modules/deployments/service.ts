@@ -20,6 +20,7 @@ export class LiveDeploymentService {
     private readonly graphFactory: (apiKey: string) => GraphLiveClient,
     private readonly apiKeyHashKey: Buffer,
     private readonly dataPublicBaseUrl: string,
+    private readonly x402PublicBaseUrl: string,
     private readonly x402Facilitator?: X402Facilitator,
   ) {}
 
@@ -40,6 +41,10 @@ export class LiveDeploymentService {
       .update("\0")
       .update(publicationId)
       .digest("base64url")}`;
+  }
+
+  private x402EndpointUrl(ownerUserId: string, productId: string): string {
+    return `${this.x402PublicBaseUrl.replace(/\/$/, "")}/${ownerUserId}/${productId}`;
   }
 
   async buildVersion(input: {
@@ -235,7 +240,7 @@ export class LiveDeploymentService {
         x402Version: 2 as const,
         error,
         resource: {
-          url: gate.endpointUrl,
+          url: this.x402EndpointUrl(gate.ownerUserId, gate.productId),
           description: gate.productName,
           mimeType: "application/json",
         },
@@ -260,21 +265,16 @@ export class LiveDeploymentService {
     }
   }
 
-  async executeRequest(input: {
+  async executeX402Request(input: {
     ownerUserId: string;
     productRef: string;
-    authorization: string | undefined;
     paymentSignature: string | undefined;
     limit: number;
     path: string;
     signal?: AbortSignal;
   }) {
-    if (input.authorization) {
-      const value = await this.execute(input);
-      return {kind: "success" as const, value, paymentResponse: null};
-    }
     const gate = await this.repository.loadX402Gate(input.ownerUserId, input.productRef);
-    if (!gate) throw new LiveDeploymentError("DATA_API_KEY_REQUIRED");
+    if (!gate) throw new LiveDeploymentError("X402_PUBLICATION_NOT_FOUND");
     if (!input.paymentSignature) return this.paymentRequired(gate);
     const payload = this.decodePaymentPayload(input.paymentSignature);
     if (!payload || contentHash(payload.accepted) !== contentHash(gate.requirements)) {
@@ -283,12 +283,14 @@ export class LiveDeploymentService {
     if (!this.x402Facilitator) throw new LiveDeploymentError("BLOCKY402_UNAVAILABLE");
     const authorizationHash = createHash("sha256").update(input.paymentSignature).digest("hex");
     const requestHash = contentHash({path: input.path, limit: input.limit, publicationId: gate.publicationId});
+    const resourceUrl = this.x402EndpointUrl(gate.ownerUserId, gate.productId);
     const record = await this.repository.beginPaidRequest({
       gate,
       authorizationHash,
       requestHash,
       correlationId: randomUUID(),
       idempotencyKey: authorizationHash,
+      resourceUrl,
       path: input.path,
       limit: input.limit,
       recoveryCapabilityHash: this.fingerprint("x402-recovery", [authorizationHash, gate.publicationId]),

@@ -49,7 +49,7 @@ import {
 } from "./agent/agent.controller.js";
 import {searchBuilderSources, validateBuilderSource} from "./graph/builder-source.controller.js";
 import {compileBuilderDag} from "./control/builder-compile.controller.js";
-import {deployProduct, executeDataProduct, exportPrivateDeployment, publishX402, retireX402, suspendDeployment} from "./control/deployment.controller.js";
+import {deployProduct, executeDataProduct, executeX402Product, exportPrivateDeployment, publishX402, retireX402, suspendDeployment} from "./control/deployment.controller.js";
 export interface RouteDependencies {
   config: AppConfig;
   verifier: IdentityVerifier;
@@ -189,6 +189,8 @@ export function registerRoutes(app: Express, deps: RouteDependencies) {
                                                           ? exportPrivateDeployment(deps.deployments)
                                                         : route.implementation === "data-product-execute"
                                                           ? executeDataProduct(deps.deployments)
+                                                        : route.implementation === "x402-product-execute"
+                                                          ? executeX402Product(deps.deployments)
               : () => {
                   throw new AppError("CAPABILITY_NOT_IMPLEMENTED");
                 };

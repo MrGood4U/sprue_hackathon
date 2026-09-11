@@ -10,6 +10,7 @@ import { AppError } from "../src/shared/errors.js";
 import { unavailableIdentity } from "../src/integrations/unavailable-identity.js";
 import type { LogEvent } from "../src/shared/logger.js";
 import { atomicSchema } from "../src/http/contracts/common.js";
+import {LiveDeploymentError} from "../src/modules/deployments/contracts.js";
 
 const workspace = "10000000-0000-4000-8000-000000000001";
 const user = "10000000-0000-4000-8000-000000000002";
@@ -277,6 +278,39 @@ test("HTTP framework boundaries through real local sockets", async (t) => {
       async delete(input: unknown) {
         productDeleteInput = input;
         return {productId: product.id, deletedAt: "2026-09-08T00:05:00.000Z"};
+      },
+    } as never,
+    deployments: {
+      async execute(input: {authorization?: string; limit: number}) {
+        if (input.authorization !== "Bearer private-key") {
+          throw new LiveDeploymentError("DATA_API_KEY_REQUIRED");
+        }
+        return {
+          data: [{source: "private"}],
+          meta: {serveMode: "live", versionId: product.id, specHash: "a".repeat(64),
+            queriedAt: "2026-09-11T00:00:00.000Z", sourceRequests: 1,
+            sourceRows: 1, returnedRows: 1},
+        };
+      },
+      async executeX402Request(input: {paymentSignature?: string}) {
+        assert.equal(Object.hasOwn(input, "authorization"), false);
+        if (!input.paymentSignature) {
+          return {
+            kind: "payment_required" as const,
+            body: {
+              x402Version: 2 as const,
+              error: "PAYMENT-SIGNATURE header is required",
+              resource: {
+                url: `http://127.0.0.1:3001/x402/v1/${user}/${product.id}`,
+                description: product.name,
+                mimeType: "application/json",
+              },
+              accepts: [],
+              extensions: {},
+            },
+          };
+        }
+        throw new Error("Paid execution is outside this transport test");
       },
     } as never,
     ready: async () => ready,
@@ -714,6 +748,27 @@ test("HTTP framework boundaries through real local sockets", async (t) => {
           405,
         );
         assert.equal((await call("/data/v1/test")).status, 503);
+        const privatePath = `/data/v1/${user}/${product.id}`;
+        const paidPath = `/x402/v1/${user}/${product.id}`;
+        const paymentOnlyPrivate = await call(privatePath, {
+          headers: {"PAYMENT-SIGNATURE": "payment-proof"},
+        });
+        assert.equal(paymentOnlyPrivate.status, 401);
+        assert.equal(paymentOnlyPrivate.headers.get("payment-required"), null);
+        const privateResponse = await call(privatePath, {
+          headers: {Authorization: "Bearer private-key"},
+        });
+        assert.equal(privateResponse.status, 200);
+        assert.equal(privateResponse.headers.get("payment-required"), null);
+        const paidResponse = await call(paidPath, {
+          headers: {Authorization: "Bearer private-key"},
+        });
+        assert.equal(paidResponse.status, 402);
+        assert.equal(
+          (await paidResponse.json()).resource.url,
+          `http://127.0.0.1:3001/x402/v1/${user}/${product.id}`,
+        );
+        assert.ok(paidResponse.headers.get("payment-required"));
         assert.equal(
           (
             await call(

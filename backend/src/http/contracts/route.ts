@@ -45,7 +45,8 @@ export interface RouteDefinition {
     | "x402-publish"
     | "x402-retire"
     | "deployment-private-export"
-    | "data-product-execute";
+    | "data-product-execute"
+    | "x402-product-execute";
   idempotency: boolean;
   ifMatch: boolean;
 }

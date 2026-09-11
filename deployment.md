@@ -114,6 +114,7 @@ The Dockerfile path is `Dockerfile` within the backend build root. Set the share
 | `API_BASE_URL` | Actual HTTPS API origin |
 | `CONSOLE_PUBLIC_URL` | Actual HTTPS Vercel console origin |
 | `DATA_PUBLIC_BASE_URL` | API origin plus `/data/v1` |
+| `X402_PUBLIC_BASE_URL` | API origin plus `/x402/v1`; paid endpoints are isolated from API-key endpoints |
 | `CORS_ALLOWED_ORIGINS` | Exact console origin(s), comma-separated |
 | `DEMO_RUNTIME_ENABLED` | `true` for the temporary evaluator-facing backend projection; otherwise `false` |
 | `AGENT_MODE` | `mock` for the default evaluator projection; `remote` enables the configured OpenAI-compatible Chat Completions endpoint after all Agent variables are supplied |

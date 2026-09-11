@@ -30,6 +30,7 @@ const schema = z.object({
   API_BASE_URL: z.url(),
   CONSOLE_PUBLIC_URL: z.url(),
   DATA_PUBLIC_BASE_URL: z.url(),
+  X402_PUBLIC_BASE_URL: z.url().optional(),
   CORS_ALLOWED_ORIGINS: z.string().min(1),
   PRIVY_APP_ID: z.string().max(200).optional(),
   PRIVY_APP_SECRET: z.string().max(4096).optional(),
@@ -225,6 +226,7 @@ export function parseConfig(environment: NodeJS.ProcessEnv) {
     "BLOCKY402_FACILITATOR_URL",
     values.BLOCKY402_FACILITATOR_URL,
   );
+  const apiBaseUrl = publicUrl("API_BASE_URL", values.API_BASE_URL);
   return {
     nodeEnvironment: values.NODE_ENV,
     environment: values.DEPLOYMENT_ENVIRONMENT,
@@ -235,11 +237,15 @@ export function parseConfig(environment: NodeJS.ProcessEnv) {
     redis: values.GRAPH_SCHEMA_CACHE_ENABLED
       ? {enabled: true as const, url: redisUrl!}
       : {enabled: false as const, url: redisUrl},
-    apiBaseUrl: publicUrl("API_BASE_URL", values.API_BASE_URL),
+    apiBaseUrl,
     consolePublicUrl,
     dataPublicBaseUrl: publicUrl(
       "DATA_PUBLIC_BASE_URL",
       values.DATA_PUBLIC_BASE_URL,
+    ),
+    x402PublicBaseUrl: publicUrl(
+      "X402_PUBLIC_BASE_URL",
+      values.X402_PUBLIC_BASE_URL ?? `${apiBaseUrl}/x402/v1`,
     ),
     allowedOrigins: [...new Set(origins)],
     privyAppId,

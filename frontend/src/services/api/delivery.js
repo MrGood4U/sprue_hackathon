@@ -199,6 +199,9 @@ function assertDelivery(value, productId) {
     !assertBlockers(value?.api?.blockers) ||
     !monetizationReadiness.has(value?.monetization?.readiness) ||
     !assertBlockers(value?.monetization?.blockers) ||
+    (value?.monetization?.publication !== null &&
+      (typeof value?.monetization?.publication?.endpointUrl !== "string" ||
+        !/^https?:\/\//.test(value.monetization.publication.endpointUrl))) ||
     !Array.isArray(value?.monetization?.revenue?.grossSales) ||
     !Array.isArray(value?.monetization?.revenue?.creatorProceeds) ||
     !Array.isArray(value?.monetization?.revenue?.providerFees) ||

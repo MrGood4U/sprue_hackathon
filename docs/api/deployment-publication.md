@@ -31,6 +31,8 @@ Creation chooses the configured environment/provider/runtime and upserts the pro
 
 The immutable ready version contains compiler identity, DAG operator versions, static GraphQL documents, bounded pagination policy, exact source snapshots and bindings, credential references, output schema, and a canonical specification hash. The runtime verifies that hash and never recompiles or accepts arbitrary query/code input from the caller. Each `GET /data/v1/{ownerUserId}/{productIdOrAlias}?limit=N` requires `Authorization: Bearer sprue_live_...`, queries every source again, executes the fixed DAG, returns `Cache-Control: private, no-store`, and reports the live query timestamp and source request counts in response metadata.
 
+An active paid publication exposes the separate canonical URL `/x402/v1/{ownerUserId}/{productIdOrAlias}`. This route always applies the x402 payment flow and never accepts a Sprue API key as a bypass. After settlement, it invokes the same immutable live DAG through the server-only internal credential. Retiring the publication removes paid access without changing the private `/data/v1` deployment.
+
 `Deployment = {id, productId, environment, provider, runtimeTarget: shared_hosted, endpointSlug, endpointUrl: string | null, publicProductUrl: string | null, activeVersionId: Id | null, activeMaterializationId: Id | null, activePublicationVersionId: Id | null, status, lastHealthAt: Timestamp | null, materialization: MaterializationSummary | null, publication: PublicationSummary | null, schedule: RefreshSchedule | null, lockVersion, updatedAt}`. Derived URLs come from configured origins. publicProductUrl is null unless an active public x402 revision exists. Fixture artifactDigest/region/lastDeployed must not become invented persistent fields: use actual artifact contentHash, observation timestamps, and optional deployment configuration metadata, clearly labeled.
 
 `MaterializationSummary = {id, versionId, runId, artifactId, contentHash, rowCount: Count | null, byteCount: Count, status, sourceFreshnessAt, createdAt, expiresAt: Timestamp | null, freshness: current | stale | unavailable}`. Freshness is derived using observed source age/refresh policy; it is not an alternate materialization status.
@@ -46,6 +48,8 @@ A new deployment may show deploying while its command runs. A replacement comman
 | Method | Path | Input | Success | Model ownership |
 |---|---|---|---|---|
 | GET | `/data/v1/{ownerId}/{productRef}` | `Authorization: Bearer sprue_live_...`; optional `limit` | 200 live `DataResponse` | API-key-authorized execution of the immutable plan with fresh bounded The Graph reads |
+| GET | `/x402/v1/{ownerId}/{productRef}` | x402 `PAYMENT-SIGNATURE`; optional `limit` | 402 payment challenge or 200 live `DataResponse` after settlement | Paid execution of the same immutable plan without exposing the internal API credential |
+| GET | `/data/v1/{endpointSlug}` | Reserved | Not implemented | Legacy single-segment endpoint reservation; it does not resolve or execute a product |
 | POST | `W/deployments/{deploymentId}/private-requests` | `{parameters: {limit?: number}}` | 200 `PrivateTestResult` | Owner-authorized api_access_requests/attempts + usage; no api_sale or Graph query |
 | GET | `W/access-requests/{accessRequestId}` | None | 200 creator `RequestReceipt` | Sanitized request/payment/delivery chronology |
 

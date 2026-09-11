@@ -58,7 +58,7 @@ test("durable products create, replay, rename, delete, and remain workspace isol
     const ownerA = await createOwnerAndWallet(db, "a");
     const ownerB = await createOwnerAndWallet(db, "b");
     const service = new ProductService(
-      postgresProductRepository(client),
+      postgresProductRepository(client, "http://127.0.0.1:3001/x402/v1"),
       Buffer.alloc(32, 7),
       "test-v1",
     );

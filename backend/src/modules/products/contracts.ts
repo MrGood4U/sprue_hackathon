@@ -213,6 +213,7 @@ export interface DeliveryContract {
 
 export interface DeliveryPublication {
   id: string;
+  endpointUrl: string;
   revisionNo: number;
   status: "draft" | "active" | "retired" | "invalid";
   accessMode: "x402";

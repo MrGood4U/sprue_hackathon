@@ -16,6 +16,11 @@ test("hackathon monetization keeps the full price with the creator and omits fee
   assert.match(page, /className="monetize-heading-actions"/);
   assert.match(page, /setPublishOpen\(true\)/);
   assert.match(page, /monetize\.stopDeployment/);
+  assert.match(page, /monetize\.usageGuide/);
+  assert.match(page, /publication\?\.endpointUrl/);
+  assert.match(english, /PAYMENT-REQUIRED/);
+  assert.match(page, /PAYMENT-SIGNATURE/);
+  assert.doesNotMatch(page, /Authorization: Bearer|sprue_live_/);
   assert.match(page, /className="x402-publish-modal"/);
   assert.doesNotMatch(page, /monetize-grid|settlement-preview|settlement-amount|settlement-flow/);
   assert.equal(page.match(/<section className="panel/g)?.length, 2);

@@ -140,6 +140,7 @@ const moneySchema = z.strictObject({
 
 const deliveryPublicationSchema = z.strictObject({
   id: z.uuid(),
+  endpointUrl: z.url(),
   revisionNo: z.number().int().positive(),
   status: z.enum(["draft", "active", "retired", "invalid"]),
   accessMode: z.literal("x402"),

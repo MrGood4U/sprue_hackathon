@@ -1,11 +1,12 @@
 import {useState} from "react";
-import {CheckCircle, Coins, RocketLaunch, ShieldCheck, SpinnerGap, StopCircle, Wallet, WarningCircle} from "@phosphor-icons/react";
+import {BookOpenText, Check, CheckCircle, Coins, Copy, RocketLaunch, ShieldCheck, SpinnerGap, StopCircle, Wallet, WarningCircle} from "@phosphor-icons/react";
 import {ProductHeader} from "../components/product/ProductHeader.jsx";
-import {Button} from "../components/ui/Button.jsx";
+import {Button, IconButton} from "../components/ui/Button.jsx";
 import {Status} from "../components/ui/Status.jsx";
 import {Field} from "../components/ui/Field.jsx";
 import {Modal} from "../components/ui/Modal.jsx";
 import {useProductDelivery} from "../features/delivery/useProductDelivery.js";
+import {copyText} from "../features/wallet/copyText.js";
 import {productRefFromPath} from "../features/products/productRoute.js";
 import {useI18n} from "../i18n/I18nProvider.jsx";
 
@@ -51,6 +52,9 @@ function LoadedMonetizationPage({delivery, productRef, navigate}) {
   const [commandState, setCommandState] = useState({status: "idle", error: null});
   const [publishOpen, setPublishOpen] = useState(false);
   const [stopOpen, setStopOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [copyState, setCopyState] = useState("idle");
+  const paidEndpoint = publication?.endpointUrl ?? null;
   const priceIsValid = /^(?:0|[1-9][0-9]{0,69})(?:\.[0-9]{1,8})?$/.test(priceHbar)
     && Number(priceHbar) > 0;
 
@@ -78,10 +82,20 @@ function LoadedMonetizationPage({delivery, productRef, navigate}) {
     }
   };
 
+  const copyEndpoint = async () => {
+    if (!paidEndpoint) return;
+    try {
+      await copyText(paidEndpoint);
+      setCopyState("copied");
+    } catch {
+      setCopyState("failed");
+    }
+  };
+
   return <>
     <ProductHeader product={product} productRef={productRef} active="monetize" navigate={navigate} onRename={delivery.rename} />
     <main className="product-content">
-      <div className="content-heading"><div><span className="eyebrow">Hedera x402</span><h1>{t("monetize.title")}</h1><p>{t("monetize.description")}</p></div><div className="monetize-heading-actions"><Status tone={readinessTone}>{t(`monetize.readiness.${monetization.readiness}`)}</Status>{isActive ? <Button variant="danger" icon={StopCircle} onClick={() => { setCommandState({status: "idle", error: null}); setStopOpen(true); }}>{t("monetize.stopDeployment")}</Button> : <Button variant="primary" icon={RocketLaunch} onClick={() => { setCommandState({status: "idle", error: null}); setPublishOpen(true); }}>{t("monetize.publishEndpoint")}</Button>}</div></div>
+      <div className="content-heading"><div><span className="eyebrow">Hedera x402</span><h1>{t("monetize.title")}</h1><p>{t("monetize.description")}</p></div><div className="monetize-heading-actions"><Status tone={readinessTone}>{t(`monetize.readiness.${monetization.readiness}`)}</Status>{isActive && <Button icon={BookOpenText} onClick={() => { setCopyState("idle"); setGuideOpen(true); }}>{t("monetize.usageGuide")}</Button>}{isActive ? <Button variant="danger" icon={StopCircle} onClick={() => { setCommandState({status: "idle", error: null}); setStopOpen(true); }}>{t("monetize.stopDeployment")}</Button> : <Button variant="primary" icon={RocketLaunch} onClick={() => { setCommandState({status: "idle", error: null}); setPublishOpen(true); }}>{t("monetize.publishEndpoint")}</Button>}</div></div>
 
       <section className="panel revenue-section"><div className="panel-title"><Coins size={19} /><h3>{t("monetize.confirmedRevenue")}</h3><Status tone="violet">{t("monetize.liveData")}</Status></div><div className="money-grid"><MoneyList title={t("monetize.grossSales")} rows={monetization.revenue.grossSales} empty={t("monetize.noRevenue")} icon={Coins} /><MoneyList title={t("monetize.creatorProceeds")} rows={monetization.revenue.creatorProceeds} empty={t("monetize.noRevenue")} icon={Wallet} /><MoneyList title={t("monetize.providerFees")} rows={monetization.revenue.providerFees} empty={t("monetize.noRevenue")} icon={ShieldCheck} /></div></section>
 
@@ -100,6 +114,29 @@ function LoadedMonetizationPage({delivery, productRef, navigate}) {
       {commandState.status === "error" && <div className="inline-notice"><WarningCircle size={18} /><span>{t("monetize.commandFailed")}: {commandState.error?.message}</span></div>}
     </Modal>}
     {stopOpen && <Modal title={t("monetize.stopTitle")} eyebrow="Hedera x402" width="520px" onClose={() => commandState.status !== "stopping" && setStopOpen(false)} footer={<><Button disabled={commandState.status === "stopping"} onClick={() => setStopOpen(false)}>{t("common.cancel")}</Button><Button variant="danger" icon={commandState.status === "stopping" ? SpinnerGap : StopCircle} className={commandState.status === "stopping" ? "is-loading" : ""} disabled={commandState.status === "stopping"} onClick={stop}>{t(commandState.status === "stopping" ? "monetize.stopping" : "monetize.confirmStop")}</Button></>}><div className="product-delete-warning"><WarningCircle size={19} /><div><strong>{t("monetize.stopWarning")}</strong><p>{t("monetize.stopDetail")}</p></div></div>{commandState.status === "error" && <div className="inline-notice"><WarningCircle size={18} /><span>{t("monetize.commandFailed")}: {commandState.error?.message}</span></div>}</Modal>}
+    {guideOpen && paidEndpoint && <Modal title={t("monetize.usageGuideTitle")} eyebrow="Hedera x402" width="680px" className="x402-guide-modal" onClose={() => setGuideOpen(false)} footer={<Button variant="primary" onClick={() => setGuideOpen(false)}>{t("common.done")}</Button>}>
+      <p className="modal-copy">{t("monetize.usageGuideDetail")}</p>
+      <div className={`x402-guide-endpoint ${copyState}`}>
+        <span className="method">GET</span>
+        <code>{paidEndpoint}</code>
+        <IconButton label={t("monetize.copyEndpoint")} onClick={copyEndpoint}>{copyState === "copied" ? <Check size={18} /> : <Copy size={18} />}</IconButton>
+      </div>
+      <span className={`x402-copy-feedback ${copyState}`} role="status">{copyState === "copied" ? t("monetize.copySucceeded") : copyState === "failed" ? t("monetize.copyFailed") : ""}</span>
+      <ol className="x402-guide-steps">
+        <li><span>1</span><div><strong>{t("monetize.guideStepChallenge")}</strong><p>{t("monetize.guideStepChallengeDetail")}</p></div></li>
+        <li><span>2</span><div><strong>{t("monetize.guideStepPayment")}</strong><p>{t("monetize.guideStepPaymentDetail")}</p></div></li>
+        <li><span>3</span><div><strong>{t("monetize.guideStepRetry")}</strong><p>{t("monetize.guideStepRetryDetail")}</p></div></li>
+        <li><span>4</span><div><strong>{t("monetize.guideStepResponse")}</strong><p>{t("monetize.guideStepResponseDetail")}</p></div></li>
+      </ol>
+      <div className="x402-guide-example">
+        <div><strong>{t("monetize.challengeExample")}</strong><span>{t("monetize.noApiKeyRequired")}</span></div>
+        <pre><code>{`curl --include --request GET \\\n  --url '${paidEndpoint}?limit=100'`}</code></pre>
+      </div>
+      <div className="x402-guide-example">
+        <div><strong>{t("monetize.retryExample")}</strong><span>{t("monetize.paymentClientRequired")}</span></div>
+        <pre><code>{`curl --include --request GET \\\n  --url '${paidEndpoint}?limit=100' \\\n  --header 'PAYMENT-SIGNATURE: YOUR_X402_PAYMENT_PAYLOAD'`}</code></pre>
+      </div>
+    </Modal>}
   </>;
 }
 

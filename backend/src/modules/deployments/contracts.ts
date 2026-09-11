@@ -52,7 +52,6 @@ export interface X402PublicationCandidate {
   productName: string;
   ownerUserId: string;
   activeVersionId: string;
-  endpointUrl: string;
   networkId: string;
   assetId: string;
   recipientWalletAddressId: string;
@@ -147,6 +146,7 @@ export interface LiveDeploymentRepository {
     requestHash: string;
     correlationId: string;
     idempotencyKey: string;
+    resourceUrl: string;
     path: string;
     limit: number;
     recoveryCapabilityHash: string;

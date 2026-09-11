@@ -18,9 +18,10 @@ No public response exposes creator Graph credentials, upstream query/variables, 
 
 | Method | Path | Input | Result |
 |---|---|---|---|
-| GET | `/data/v1/{endpointSlug}` | `limit=100` (1-1000); access credentials/payment headers below | 200 `DataResponse`, 402 x402 challenge, or a safe non-success error |
+| GET | `/data/v1/{ownerId}/{productRef}` | Sprue API key; `limit=100` (1-1000) | 200 `DataResponse`, or a safe authentication/execution error; never an x402 challenge |
+| GET | `/x402/v1/{ownerId}/{productRef}` | x402 payment headers; `limit=100` (1-1000) | 200 `DataResponse`, 402 x402 challenge, or a safe payment/execution error |
 
-The configured environment resolves endpointSlug. Before any payment challenge, validate the route, parameters, active policy, health, ready materialization, source/data availability, and applicable rate limit. No Graph call, DAG execution, or automatic refresh occurs here. Returned rows come from the latest successful materialization pinned when this logical request begins.
+The configured environment resolves owner and product identity. The private and paid routes never combine or fall back automatically. Before any payment challenge, validate the paid route, parameters, active policy, health, source/data availability, and applicable rate limit.
 
 | Active access mode | Generated endpoint authorization | Payment behavior |
 |---|---|---|

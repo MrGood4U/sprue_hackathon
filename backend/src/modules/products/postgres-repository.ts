@@ -307,10 +307,11 @@ function price(row: Record<string, unknown>): Money | null {
   };
 }
 
-function publication(row: Record<string, unknown> | undefined): DeliveryPublication | null {
+function publication(row: Record<string, unknown> | undefined, x402EndpointUrl: string): DeliveryPublication | null {
   if (!row?.publication_id) return null;
   return {
     id: String(row.publication_id),
+    endpointUrl: x402EndpointUrl,
     revisionNo: Number(row.revision_no),
     status: String(row.publication_status) as DeliveryPublication["status"],
     accessMode: "x402",
@@ -410,6 +411,7 @@ async function findProduct(
 
 export function postgresProductRepository(
   client: Pick<SqlClient, "query">,
+  x402PublicBaseUrl: string,
 ): ProductRepository {
   return {
     async list(input) {
@@ -746,7 +748,10 @@ export function postgresProductRepository(
             [workspaceId, productId, selectedDeployment.id],
           )
         : {rows: []};
-      const selectedPublication = publication(publicationResult.rows[0]);
+      const selectedPublication = publication(
+        publicationResult.rows[0],
+        `${x402PublicBaseUrl.replace(/\/$/, "")}/${String(productRow.creator_user_id)}/${productId}`,
+      );
       const monetizationReadinessValue = monetizationReadiness(readiness, selectedPublication);
 
       const revenueResult = await client.query(

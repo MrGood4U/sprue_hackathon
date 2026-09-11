@@ -6410,6 +6410,66 @@
         ]
       }
     },
+    "/x402/v1/{ownerId}/{productRef}": {
+      "get": {
+        "operationId": "getX402V1OwnerIdProductRef",
+        "parameters": [
+          {
+            "name": "ownerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "productRef",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Actual server configuration; unsupported capabilities remain disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/DemoEnvelope"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe transport, authorization, ownership or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-sprue-implementation": "implemented",
+        "security": []
+      }
+    },
     "/data/v1/{ownerId}/{productRef}": {
       "get": {
         "operationId": "getDataV1OwnerIdProductRef",

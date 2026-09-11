@@ -74,7 +74,7 @@ test("product delivery projects only durable API and monetization facts", async 
     await db.exec("COMMIT");
 
     const service = new ProductService(
-      postgresProductRepository(client),
+      postgresProductRepository(client, "http://127.0.0.1:3001/x402/v1"),
       Buffer.alloc(32, 4),
       "test-v1",
     );
@@ -281,6 +281,10 @@ test("product delivery projects only durable API and monetization facts", async 
     assert.deepEqual(projected.api.contract?.responseSchema.outputSchema, outputSchema);
     assert.equal(projected.api.contract?.exampleBody, null);
     assert.equal(projected.monetization.readiness, "draft");
+    assert.equal(
+      projected.monetization.publication?.endpointUrl,
+      `http://127.0.0.1:3001/x402/v1/${userId}/${String(product.id)}`,
+    );
     assert.equal(projected.monetization.publication?.price?.amountAtomic, "20000000");
     assert.equal(projected.monetization.publication?.recipient?.networkAccountRef, "0.0.12345");
     assert.equal(projected.monetization.publication?.recipient?.canReceive, true);
@@ -312,6 +316,7 @@ test("product delivery projects only durable API and monetization facts", async 
       () => { throw new Error("Graph is not exercised by this persistence test"); },
       Buffer.alloc(32, 8),
       "http://127.0.0.1:3001/data/v1",
+      "http://127.0.0.1:3001/x402/v1",
       facilitator,
     );
     const publication = await liveService.publishX402({
@@ -379,7 +384,8 @@ test("product delivery projects only durable API and monetization facts", async 
       requestHash: "b".repeat(64),
       correlationId: randomUUID(),
       idempotencyKey: "paid-api-request-0001",
-      path: `/data/v1/${userId}/${String(product.id)}?limit=100`,
+      resourceUrl: `http://127.0.0.1:3001/x402/v1/${userId}/${String(product.id)}`,
+      path: `/x402/v1/${userId}/${String(product.id)}?limit=100`,
       limit: 100,
       recoveryCapabilityHash: "c".repeat(64),
     });

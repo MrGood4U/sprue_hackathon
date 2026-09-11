@@ -83,6 +83,7 @@ test("deployment retries derive the same one-time API key from one idempotency c
     () => { throw new Error("Graph is not used while deploying"); },
     Buffer.alloc(32, 7),
     "https://data.example/data/v1",
+    "https://data.example/x402/v1",
   );
   const command = {
     workspaceId: "11111111-1111-4111-8111-111111111111",
@@ -129,7 +130,6 @@ test("x402 settles before internal live execution and never returns the internal
     productName: "Paid live rows",
     ownerUserId: "44444444-4444-4444-8444-444444444444",
     activeVersionId: "55555555-5555-4555-8555-555555555555",
-    endpointUrl: "https://data.example/data/v1/owner/product",
     networkId: "66666666-6666-4666-8666-666666666666",
     assetId: "77777777-7777-4777-8777-777777777777",
     recipientWalletAddressId: "88888888-8888-4888-8888-888888888888",
@@ -218,6 +218,7 @@ test("x402 settles before internal live execution and never returns the internal
     }) as never,
     Buffer.alloc(32, 9),
     "https://data.example/data/v1",
+    "https://data.example/x402/v1",
     facilitator,
   );
 
@@ -225,10 +226,18 @@ test("x402 settles before internal live execution and never returns the internal
     priceAtomic: requirements.amount});
   assert.equal("apiKey" in publication, false);
   assert.notEqual(internalKeyHash, "");
-  const challenge = await service.executeRequest({ownerUserId: candidate.ownerUserId,
-    productRef: candidate.productId, authorization: undefined, paymentSignature: undefined,
-    path: "/data/v1/owner/product?limit=100", limit: 100});
+  await assert.rejects(
+    service.execute({ownerUserId: candidate.ownerUserId, productRef: candidate.productId,
+      authorization: undefined, limit: 100}),
+    (error: unknown) => error instanceof LiveDeploymentError && error.code === "DATA_API_KEY_REQUIRED",
+  );
+  const challenge = await service.executeX402Request({ownerUserId: candidate.ownerUserId,
+    productRef: candidate.productId, paymentSignature: undefined,
+    path: "/x402/v1/owner/product?limit=100", limit: 100});
   assert.equal(challenge.kind, "payment_required");
+  if (challenge.kind === "payment_required") {
+    assert.equal(challenge.body.resource.url, "https://data.example/x402/v1/44444444-4444-4444-8444-444444444444/33333333-3333-4333-8333-333333333333");
+  }
   const paymentSignature = Buffer.from(JSON.stringify({
     x402Version: 2,
     scheme: "exact",
@@ -236,9 +245,9 @@ test("x402 settles before internal live execution and never returns the internal
     accepted: requirements,
     payload: {transaction: "base64-partially-signed-transaction"},
   })).toString("base64");
-  const result = await service.executeRequest({ownerUserId: candidate.ownerUserId,
-    productRef: candidate.productId, authorization: undefined, paymentSignature,
-    path: "/data/v1/owner/product?limit=100", limit: 100});
+  const result = await service.executeX402Request({ownerUserId: candidate.ownerUserId,
+    productRef: candidate.productId, paymentSignature,
+    path: "/x402/v1/owner/product?limit=100", limit: 100});
 
   assert.equal(result.kind, "success");
   assert.deepEqual(order, ["verify", "settle", "confirm-settlement", "internal-api", "graph-query", "complete-request"]);
@@ -301,6 +310,7 @@ test("live source admission preserves safe Graph and persistence failure codes",
       }) as never,
       Buffer.alloc(32, 7),
       "https://data.example/data/v1",
+      "https://data.example/x402/v1",
     );
     await assert.rejects(
       service.buildVersion({workspaceId: "workspace", productId: "product", actorUserId: "user", compilation, dag: input.dag, sources: [source]}),
@@ -318,6 +328,7 @@ test("live source admission preserves safe Graph and persistence failure codes",
       () => ({async getSchema() { return schemaDocument; }, async close() {}}) as never,
       Buffer.alloc(32, 7),
       "https://data.example/data/v1",
+      "https://data.example/x402/v1",
     );
     await assert.rejects(
       service.buildVersion({workspaceId: "workspace", productId: "product", actorUserId: "user", compilation, dag: input.dag, sources: [source]}),
@@ -342,6 +353,7 @@ test("live source admission preserves safe Graph and persistence failure codes",
       }) as never,
       Buffer.alloc(32, 7),
       "https://data.example/data/v1",
+      "https://data.example/x402/v1",
     );
     await assert.rejects(
       service.buildVersion({workspaceId: "workspace", productId: "product", actorUserId: "user", compilation, dag: input.dag, sources: [source]}),
@@ -372,6 +384,7 @@ test("live source admission preserves safe Graph and persistence failure codes",
       }) as never,
       Buffer.alloc(32, 7),
       "https://data.example/data/v1",
+      "https://data.example/x402/v1",
     );
 
     await service.buildVersion({

@@ -83,10 +83,31 @@ export function executeDataProduct(service?: LiveDeploymentService): RequestHand
     const controller = new AbortController();
     req.once("aborted", () => controller.abort());
     try {
-      const result = await requireService(service).executeRequest({
+      const result = await requireService(service).execute({
         ownerUserId: String(req.params.ownerId),
         productRef: String(req.params.productRef),
         authorization: req.get("Authorization"),
+        limit: parsed.data.limit,
+        signal: controller.signal,
+      });
+      res.setHeader("Cache-Control", "private, no-store");
+      res.json({data: result.data, meta: {...meta(res.locals.requestId), ...result.meta}});
+    } catch (error) {
+      mapError(error);
+    }
+  };
+}
+
+export function executeX402Product(service?: LiveDeploymentService): RequestHandler {
+  return async (req, res) => {
+    const parsed = liveQuerySchema.safeParse(req.query);
+    if (!parsed.success) throw new AppError("INVALID_REQUEST");
+    const controller = new AbortController();
+    req.once("aborted", () => controller.abort());
+    try {
+      const result = await requireService(service).executeX402Request({
+        ownerUserId: String(req.params.ownerId),
+        productRef: String(req.params.productRef),
         paymentSignature: req.get("PAYMENT-SIGNATURE"),
         limit: parsed.data.limit,
         path: req.originalUrl,
@@ -99,9 +120,7 @@ export function executeDataProduct(service?: LiveDeploymentService): RequestHand
         res.status(402).json(result.body);
         return;
       }
-      if (result.paymentResponse) {
-        res.setHeader("PAYMENT-RESPONSE", Buffer.from(JSON.stringify(result.paymentResponse)).toString("base64"));
-      }
+      res.setHeader("PAYMENT-RESPONSE", Buffer.from(JSON.stringify(result.paymentResponse)).toString("base64"));
       res.json({data: result.value.data, meta: {...meta(res.locals.requestId), ...result.value.meta}});
     } catch (error) {
       mapError(error);
