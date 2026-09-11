@@ -323,6 +323,8 @@ export class LiveDeploymentService {
         authorization: `Bearer ${internalApiKey}`,
         limit: input.limit,
         signal: input.signal,
+        accessMode: "x402",
+        apiAccessRequestId: record.requestId,
       });
       const responseBody = {data: value.data, meta: value.meta};
       const serialized = JSON.stringify(responseBody);
@@ -354,7 +356,15 @@ export class LiveDeploymentService {
     }
   }
 
-  async execute(input: {ownerUserId: string; productRef: string; authorization: string | undefined; limit: number; signal?: AbortSignal}) {
+  async execute(input: {
+    ownerUserId: string;
+    productRef: string;
+    authorization: string | undefined;
+    limit: number;
+    signal?: AbortSignal;
+    accessMode?: "api_key" | "x402";
+    apiAccessRequestId?: string;
+  }) {
     const match = /^Bearer (sprue_live_[A-Za-z0-9_-]{43})$/.exec(input.authorization ?? "");
     if (!match) throw new LiveDeploymentError("DATA_API_KEY_REQUIRED");
     const loaded = await this.repository.loadAuthorized({
@@ -369,6 +379,13 @@ export class LiveDeploymentService {
       if (!apiKey) throw new LiveDeploymentError("GRAPH_CREDENTIAL_UNAVAILABLE");
       return this.graphFactory(apiKey);
     }, input.signal);
+    await this.repository.recordProviderRequests({
+      workspaceId: loaded.workspaceId,
+      productId: loaded.productId,
+      apiAccessRequestId: input.apiAccessRequestId,
+      accessMode: input.accessMode ?? "api_key",
+      quantity: result.sourceRequests,
+    });
     return {
       data: result.rows.slice(0, input.limit),
       meta: {

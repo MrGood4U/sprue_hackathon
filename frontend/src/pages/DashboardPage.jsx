@@ -194,6 +194,12 @@ export function DashboardPage({ navigate }) {
           loading={dashboard.status === "loading"}
         />
         <Metric
+          label={t("dashboard.metric.graphQueries")}
+          value={formatCount(overview?.graphQueryCount, locale)}
+          note={overview && t("dashboard.metric.graphQueriesDetail")}
+          loading={dashboard.status === "loading"}
+        />
+        <Metric
           label={t("dashboard.metric.graphSpend")}
           value={formatMoney(overview?.graphExpenses, locale, t, "USDC")}
           note={overview && t("dashboard.metric.confirmedLedger")}

@@ -20,17 +20,17 @@ Official documentation establishes the Hedera x402 wire profile and Blocky402's 
 
 ## Independent Hedera x402 Consumer
 
-[`x402-cli/`](x402-cli/) contains the standalone `hx402` buyer client required to call Sprue or any compatible Hedera x402 v2 API. It generates or imports an ECDSA wallet, encrypts the private key locally, resolves and reads Hedera accounts through Mirror Node, can request testnet faucet funding with a user-supplied Hedera Portal PAT, validates a native-HBAR payment challenge against a local per-request ceiling, signs the standard payment payload, retries the protected request, and prints the response. It does not import Sprue application modules or expose the private key to a resource server or facilitator.
+[`x402-cli/`](x402-cli/) contains the standalone `hx402-cli` buyer client required to call Sprue or any compatible Hedera x402 v2 API. It generates or imports an ECDSA wallet, encrypts the private key locally, resolves and reads Hedera accounts through Mirror Node, can request testnet faucet funding with a user-supplied Hedera Portal PAT, validates a native-HBAR payment challenge against a local per-request ceiling, signs the standard payment payload, retries the protected request, and prints the response. It does not import Sprue application modules or expose the private key to a resource server or facilitator.
 
-On Windows, `npm run build:exe` creates a standalone `x402-cli/release/hx402.exe`. Starting it without arguments opens an interactive `hx402>` command line; supplying arguments retains the one-shot automation interface.
+On Windows, `npm run build:exe` creates a standalone `x402-cli/release/hx402-cli.exe`. Starting it without arguments opens an interactive `hx402-cli>` command line; supplying arguments retains the one-shot automation interface. Run `hx402-cli help` for the quick-start guide or `hx402-cli help request` for request options and examples.
 
 ```bash
 cd x402-cli
 npm ci
 npm run build
 npm link
-hx402 wallet create --network testnet --max-hbar 1
-hx402 request "https://example.test/x402/v1/owner/product" --dry-run --max-hbar 0.25
+hx402-cli wallet create --network testnet --max-hbar 1
+hx402-cli request "https://example.test/x402/v1/owner/product" --dry-run --max-hbar 0.25
 ```
 
 See the [CLI setup and safety guide](x402-cli/README.md). A real request requires a funded buyer account and explicit payment approval; automated tests never move funds.

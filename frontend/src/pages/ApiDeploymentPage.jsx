@@ -152,8 +152,6 @@ function LoadedApiPage({delivery, productRef, navigate}) {
 
       {api.blockers.length > 0 && <div className="delivery-blockers" role="status">{api.blockers.map((blocker) => <div className="inline-notice" key={blocker.code}><WarningCircle size={18} /><span>{blockerText(t, blocker)}</span></div>)}</div>}
 
-      <section className="panel delivery-facts"><div className="panel-title"><Database size={19} /><h3>{t("api.backendFacts")}</h3><Status tone="violet">{t("api.liveData")}</Status></div><dl className="detail-list"><div><dt>{t("api.latestVersion")}</dt><dd>{api.latestVersion ? `v${api.latestVersion.versionNo} · ${api.latestVersion.status}` : t("common.notAvailable")}</dd></div><div><dt>{t("api.activeVersion")}</dt><dd>{api.activeVersion ? `v${api.activeVersion.versionNo} · ${api.activeVersion.status}` : t("common.notAvailable")}</dd></div><div><dt>{t("api.deployment")}</dt><dd>{api.deployment ? `${api.deployment.provider} · ${api.deployment.environment} · ${api.deployment.status}` : t("common.notAvailable")}</dd></div><div><dt>{t("api.sourceFreshness")}</dt><dd>{contract ? t("api.queriedPerRequest") : t("common.notAvailable")}</dd></div></dl></section>
-
       {contract && <div className="api-grid">
         <section className="panel api-contract">
           <div className="panel-title"><FileCode size={19} /><h3>{t("api.contract")}</h3><Status tone="violet">v{api.activeVersion?.versionNo}</Status></div>

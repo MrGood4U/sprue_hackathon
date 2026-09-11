@@ -862,6 +862,11 @@ export function postgresProductRepository(
           FROM api_access_requests r,bounds b
           WHERE r.workspace_id=$1 AND r.started_at>=b.starts_at
             AND r.started_at<b.ends_at
+        ), graph_query_counts AS (
+          SELECT coalesce(sum(u.quantity),0)::text AS query_count
+          FROM usage_events u,bounds b
+          WHERE u.workspace_id=$1 AND u.metric='provider_requests'
+            AND u.recorded_at>=b.starts_at AND u.recorded_at<b.ends_at
         ), finance AS (
           SELECT l.entry_type,l.network_id,l.asset_id,
             n.namespace||':'||n.reference AS network,a.asset_identifier,
@@ -891,7 +896,7 @@ export function postgresProductRepository(
           ) r
         )
         SELECT b.starts_at,b.ends_at,p.active_count,d.draft_count,
-          q.request_count,
+          q.request_count,g.query_count,
           coalesce((SELECT jsonb_agg(jsonb_build_object(
             'networkId',network_id,'network',network,'assetId',asset_id,
             'assetIdentifier',asset_identifier,'symbol',symbol,
@@ -904,7 +909,7 @@ export function postgresProductRepository(
           )) FROM finance WHERE entry_type='gross_sale'),'[]'::jsonb) AS gross_sales,
           recent.items AS recent_activity
         FROM bounds b CROSS JOIN product_counts p CROSS JOIN draft_counts d
-        CROSS JOIN request_counts q CROSS JOIN recent`,
+        CROSS JOIN request_counts q CROSS JOIN graph_query_counts g CROSS JOIN recent`,
         [workspaceId],
       );
       const row = result.rows[0]!;
@@ -913,6 +918,7 @@ export function postgresProductRepository(
         activeProductCount: String(row.active_count),
         draftVersionCount: String(row.draft_count),
         apiRequestCount: String(row.request_count),
+        graphQueryCount: String(row.query_count),
         graphExpenses: money(row.graph_expenses),
         grossSales: money(row.gross_sales),
         readiness: [],

@@ -21,35 +21,11 @@ import {
   readHederaAccount,
   requestTestnetFaucet,
 } from "./hedera.js";
+import {CLI_NAME, helpText} from "./help.js";
 import {confirm, promptSecret} from "./io.js";
 import {hbarToTinybars, tinybarsToHbar} from "./money.js";
 import {createPaidFetch, inspectPaymentChallenge, readPaymentResponse} from "./request.js";
 import {runInteractiveShell} from "./shell.js";
-
-const HELP = `Hedera x402 CLI
-
-Usage:
-  hx402                         Start the interactive command line
-  hx402 wallet create [--network testnet|mainnet] [--max-hbar 1] [--force]
-  hx402 wallet import --account-id 0.0.1234 [--network testnet|mainnet] [--max-hbar 1] [--force]
-  hx402 wallet show
-  hx402 wallet balance [--timeout-ms 10000]
-  hx402 wallet resolve [--timeout-ms 10000]
-  hx402 config max-payment <HBAR>
-  hx402 faucet [--amount 10] [--timeout-ms 15000]
-  hx402 request <URL> [-X METHOD] [-H "Name: value"] [-d JSON|@file]
-                [-o file] [--max-hbar HBAR] [--timeout-ms 30000]
-                [--dry-run] [--yes] [--include]
-
-Environment:
-  HX402_HOME                 Wallet directory (default: ~/.hedera-x402)
-  HX402_KEYSTORE_PASSWORD    Non-interactive wallet encryption password
-  HX402_PRIVATE_KEY          Private key used only by wallet import
-  HEDERA_PORTAL_PAT          Hedera Portal PAT used only by faucet
-
-The client accepts x402 v2 exact payments in native HBAR. Payment policy is
-checked before signing, and a changed recipient, price, or fee payer is rejected.
-`;
 
 function fail(message: string): never {
   throw new Error(message);
@@ -123,7 +99,7 @@ async function createWallet(args: ParsedArguments, imported: boolean): Promise<v
   const home = cliHome();
   await saveWallet(home, config, privateKey.toStringRaw(), passphrase, flag(args, "force"));
   stdout.write(`${JSON.stringify(publicConfig(config), null, 2)}\n`);
-  if (!imported) stderr.write("Wallet identity created. Fund the displayed EVM address to create its Hedera account, then run `hx402 wallet resolve`.\n");
+  if (!imported) stderr.write(`Wallet identity created. Fund the displayed EVM address to create its Hedera account, then run \`${CLI_NAME} wallet resolve\`.\n`);
 }
 
 async function observeWallet(args: ParsedArguments, resolveOnly: boolean): Promise<void> {
@@ -174,7 +150,7 @@ async function faucet(args: ParsedArguments): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 2_000));
   }
   stdout.write(`${JSON.stringify({transactionId, accountId: null,
-    nextStep: "Run hx402 wallet resolve after Mirror Node indexes the account."}, null, 2)}\n`);
+    nextStep: `Run ${CLI_NAME} wallet resolve after Mirror Node indexes the account.`}, null, 2)}\n`);
 }
 
 function requestUrl(raw: string): URL {
@@ -197,7 +173,7 @@ function requestHeaders(values: readonly string[]): Headers {
     const name = value.slice(0, separator).trim();
     const headerValue = value.slice(separator + 1).trim();
     if (["payment-signature", "host", "content-length"].includes(name.toLowerCase())) {
-      fail(`Header ${name} is managed by hx402 and cannot be supplied manually.`);
+      fail(`Header ${name} is managed by ${CLI_NAME} and cannot be supplied manually.`);
     }
     headers.append(name, headerValue);
   }
@@ -272,8 +248,8 @@ async function requestCommand(args: ParsedArguments): Promise<number> {
     stderr.write("Dry run complete; no transaction was signed or submitted.\n");
     return 0;
   }
-  if (!config) fail(`No wallet is configured in ${home}. Run \"hx402 wallet create\" or \"hx402 wallet import\".`);
-  if (!config.accountId) fail("The wallet has not resolved to a Hedera account. Fund it, then run `hx402 wallet resolve`.");
+  if (!config) fail(`No wallet is configured in ${home}. Run \"${CLI_NAME} wallet create\" or \"${CLI_NAME} wallet import\".`);
+  if (!config.accountId) fail(`The wallet has not resolved to a Hedera account. Fund it, then run \`${CLI_NAME} wallet resolve\`.`);
   if (!flag(args, "yes") && !await confirm(`Pay ${summary.amountHbar} HBAR to ${summary.payTo}?`)) fail("Payment cancelled.");
   const privateKey = await unlockConfiguredKey(home, config);
   const paidFetch = createPaidFetch({
@@ -292,12 +268,17 @@ async function requestCommand(args: ParsedArguments): Promise<number> {
 
 async function executeArguments(rawArguments: string[]): Promise<number> {
   const [command, subcommand, ...rest] = rawArguments;
-  if (!command || command === "help" || command === "--help" || command === "-h") {
-    stdout.write(HELP);
+  if (!command || command === "--help" || command === "-h") {
+    stdout.write(helpText());
+    return 0;
+  }
+  if (command === "help") {
+    if (rest.length > 0) fail("help accepts at most one topic.");
+    stdout.write(helpText(subcommand));
     return 0;
   }
   if (rawArguments.some((value) => value === "--help" || value === "-h")) {
-    stdout.write(HELP);
+    stdout.write(helpText(command));
     return 0;
   }
   if (command === "wallet") {
@@ -360,6 +341,6 @@ async function run(): Promise<void> {
 
 run().catch((error: unknown) => {
   const message = error instanceof Error ? error.message : "Unexpected failure.";
-  stderr.write(`hx402: ${message}\n`);
+  stderr.write(`${CLI_NAME}: ${message}\n`);
   process.exitCode = 1;
 });

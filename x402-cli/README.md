@@ -1,6 +1,6 @@
 # Hedera x402 CLI
 
-`hx402` is a standalone consumer for x402 v2 APIs that charge native HBAR on Hedera. It keeps a buyer key outside Sprue, checks every payment requirement against a local limit, signs a partially signed Hedera transfer, retries the HTTP request, and prints the protected response.
+`hx402-cli` is a standalone consumer for x402 v2 APIs that charge native HBAR on Hedera. It keeps a buyer key outside Sprue, checks every payment requirement against a local limit, signs a partially signed Hedera transfer, retries the HTTP request, and prints the protected response.
 
 The first release supports the `exact` scheme, `hedera:testnet` or `hedera:mainnet`, and native HBAR (`0.0.0`). It can call any compatible endpoint; it is not tied to a Sprue URL or response schema.
 
@@ -13,7 +13,7 @@ cd x402-cli
 npm ci
 npm run build
 npm link
-hx402 --help
+hx402-cli --help
 ```
 
 For a repository-local invocation without linking:
@@ -26,20 +26,22 @@ On Windows, build a self-contained executable that does not require Node.js on t
 
 ```powershell
 npm run build:exe
-.\release\hx402.exe
+.\release\hx402-cli.exe
 ```
 
-The local build is unsigned, so Windows may show an unrecognized-app warning. Production distribution should sign `hx402.exe` with the publisher's code-signing certificate. Add the `release` directory to `PATH` if the command should be available as `hx402.exe` outside that directory.
+The local build is unsigned, so Windows may show an unrecognized-app warning. Production distribution should sign `hx402-cli.exe` with the publisher's code-signing certificate. Add the `release` directory to `PATH` if the command should be available as `hx402-cli` outside that directory.
 
-Running `hx402` or `hx402.exe` without arguments in a terminal opens an interactive command line:
+Running `hx402-cli` or `hx402-cli.exe` without arguments in a terminal opens an interactive command line:
 
 ```text
 Hedera x402 interactive client
 Type "help" for commands, "clear" to clear the screen, or "exit" to quit.
 
-hx402> wallet show
-hx402> request "https://api.example/x402/v1/owner/product?limit=100" --dry-run
-hx402> exit
+hx402-cli> help
+hx402-cli> help request
+hx402-cli> wallet show
+hx402-cli> request "https://api.example/x402/v1/owner/product?limit=100" --dry-run
+hx402-cli> exit
 ```
 
 Commands with arguments continue to work as one-shot commands for scripts. The interactive command line keeps history only in the current process and does not write commands to disk.
@@ -49,14 +51,14 @@ Commands with arguments continue to work as one-shot commands for scripts. The i
 Create an encrypted local ECDSA key and its Hedera EVM alias:
 
 ```bash
-hx402 wallet create --network testnet --max-hbar 1
+hx402-cli wallet create --network testnet --max-hbar 1
 ```
 
 This creates key material, not a funded ledger account. Copy the displayed EVM address into the [Hedera testnet faucet](https://portal.hedera.com/faucet), then resolve the resulting account:
 
 ```bash
-hx402 wallet resolve
-hx402 wallet balance
+hx402-cli wallet resolve
+hx402-cli wallet balance
 ```
 
 The official Portal API can also be used when a personal access token is available:
@@ -65,7 +67,7 @@ PowerShell:
 
 ```powershell
 $env:HEDERA_PORTAL_PAT = "your-portal-token"
-hx402 faucet --amount 10
+hx402-cli faucet --amount 10
 Remove-Item Env:HEDERA_PORTAL_PAT
 ```
 
@@ -73,7 +75,7 @@ macOS or Linux:
 
 ```bash
 export HEDERA_PORTAL_PAT="your-portal-token"
-hx402 faucet --amount 10
+hx402-cli faucet --amount 10
 unset HEDERA_PORTAL_PAT
 ```
 
@@ -87,7 +89,7 @@ PowerShell:
 
 ```powershell
 $env:HX402_PRIVATE_KEY = "your-private-key"
-hx402 wallet import --account-id 0.0.1234 --network testnet --max-hbar 1
+hx402-cli wallet import --account-id 0.0.1234 --network testnet --max-hbar 1
 Remove-Item Env:HX402_PRIVATE_KEY
 ```
 
@@ -95,7 +97,7 @@ macOS or Linux:
 
 ```bash
 export HX402_PRIVATE_KEY="your-private-key"
-hx402 wallet import --account-id 0.0.1234 --network testnet --max-hbar 1
+hx402-cli wallet import --account-id 0.0.1234 --network testnet --max-hbar 1
 unset HX402_PRIVATE_KEY
 ```
 
@@ -108,25 +110,25 @@ Back up the wallet directory before using `--force`. Losing the key or passphras
 Inspect a quote without signing or submitting a transaction:
 
 ```bash
-hx402 request "https://api.example/x402/v1/owner/product?limit=100" --dry-run --max-hbar 0.25
+hx402-cli request "https://api.example/x402/v1/owner/product?limit=100" --dry-run --max-hbar 0.25
 ```
 
 Pay after an interactive confirmation and print the API response:
 
 ```bash
-hx402 request "https://api.example/x402/v1/owner/product?limit=100" --max-hbar 0.25
+hx402-cli request "https://api.example/x402/v1/owner/product?limit=100" --max-hbar 0.25
 ```
 
 For explicit non-interactive approval:
 
 ```bash
-hx402 request "https://api.example/paid" --yes --max-hbar 0.25
+hx402-cli request "https://api.example/paid" --yes --max-hbar 0.25
 ```
 
 Arbitrary methods, headers, request bodies, and output files are supported:
 
 ```bash
-hx402 request "https://api.example/paid" \
+hx402-cli request "https://api.example/paid" \
   -X POST \
   -H "Content-Type: application/json" \
   -d '{"query":"value"}' \
@@ -138,7 +140,7 @@ Use `-d @request.json` to read a body from a file and `--include` to print respo
 
 ## Safety model
 
-- The configured `maxPaymentHbar` is the default per-request ceiling. Override it downward or upward explicitly with `--max-hbar`, or change it with `hx402 config max-payment <HBAR>`.
+- The configured `maxPaymentHbar` is the default per-request ceiling. Override it downward or upward explicitly with `--max-hbar`, or change it with `hx402-cli config max-payment <HBAR>`.
 - The CLI accepts only x402 v2 `exact` native-HBAR requirements for the wallet's configured Hedera network.
 - It rejects missing or invalid recipients and fee payers.
 - It pins the approved amount, recipient, asset, network, scheme, timeout, and facilitator fee payer. A changed challenge is not signed.

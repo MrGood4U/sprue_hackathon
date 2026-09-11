@@ -82,7 +82,7 @@ Sponsor-linked starting points, not yet adopted or compatibility-tested: [Hedera
 
 ## Independent Consumer CLI
 
-The repository's [`x402-cli/`](../x402-cli/) package implements the separate buyer required by H2 without importing Sprue backend or frontend modules. It pins compatible `@x402/core`, `@x402/fetch`, and `@x402/hedera` version `2.25.0` as one tested protocol set. Dependency releases must be upgraded together and revalidated before use with funds.
+The repository's [`x402-cli/`](../x402-cli/) package and `hx402-cli` command implement the separate buyer required by H2 without importing Sprue backend or frontend modules. It pins compatible `@x402/core`, `@x402/fetch`, and `@x402/hedera` version `2.25.0` as one tested protocol set. Dependency releases must be upgraded together and revalidated before use with funds.
 
 The CLI supports explicit Hedera testnet or mainnet selection and native HBAR only. It creates or imports an ECDSA key, encrypts it locally with AES-256-GCM and scrypt, exposes only public wallet metadata, resolves the canonical account through Mirror Node, optionally submits a user-authorized testnet faucet request with a caller-supplied Portal PAT, and enforces a local maximum amount before signing. Requirement identity pins the scheme, network, asset, amount, recipient, timeout, and facilitator fee payer across the inspected challenge and paid retry. Mainnet is never inferred from a URL.
 
@@ -129,7 +129,7 @@ These are Sprue's proposed acceptance checks, not extra official requirements. D
 | [x] | Validate the creator's recipient/control model for the current Hedera testnet ECDSA-alias path | Account-ID mapping, completed account, creator-confirmed Privy EVM transaction, network-fee spend, and no key export; see [the evidence note](../docs/evidence/hedera/privy-testnet-control.md) | Sprue product/security |
 | [ ] | Exercise one nonzero creator-confirmed HBAR withdrawal | Privy confirmation, Ethereum transaction hash, Mirror Node result, exact amount, network fee, destination, and refreshed balance | P3 candidate evidence; not H1/H2 x402 evidence |
 | [ ] | Connect the payment adapter to Hedera testnet | Pinned package versions, non-secret configuration, live capability snapshot, and fee payer | H1 |
-| [ ] | Run the implemented independent `hx402` consumer against a derived-data API | Correlated challenge, authorization, settlement, response, and product version; local protocol-shape tests are insufficient | H1, H2 |
+| [ ] | Run the implemented independent `hx402-cli` consumer against a derived-data API | Correlated challenge, authorization, settlement, response, and product version; local protocol-shape tests are insufficient | H1, H2 |
 | [ ] | Exercise unpaid, invalid, duplicate, and uncertain requests | Redacted verify/settle/replay/retry traces; no public bypass or duplicate charge | Sprue safety |
 | [ ] | Reconcile facilitator and ledger evidence | Mirror Node transaction ID/hash, consensus timestamp, exact transfers, creator income, and any enabled fee | Sprue accounting |
 | [ ] | Reproduce the demo from a clean checkout | Setup commands, environment names, funding prerequisites, source locations, and bounded access | H3 |

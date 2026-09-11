@@ -84,6 +84,7 @@ function assertOverview(value) {
     !/^\d+$/.test(value?.activeProductCount ?? "") ||
     !/^\d+$/.test(value?.draftVersionCount ?? "") ||
     !/^\d+$/.test(value?.apiRequestCount ?? "") ||
+    !/^\d+$/.test(value?.graphQueryCount ?? "") ||
     !Array.isArray(value?.graphExpenses) ||
     !Array.isArray(value?.grossSales) ||
     !Array.isArray(value?.readiness) ||

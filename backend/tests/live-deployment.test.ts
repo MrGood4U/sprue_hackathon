@@ -189,6 +189,14 @@ test("x402 settles before internal live execution and never returns the internal
         apiCredentialId: "internal-credential",
       };
     },
+    async recordProviderRequests(input: Parameters<LiveDeploymentRepository["recordProviderRequests"]>[0]) {
+      assert.equal(input.workspaceId, candidate.workspaceId);
+      assert.equal(input.productId, candidate.productId);
+      assert.equal(input.apiAccessRequestId, "request");
+      assert.equal(input.accessMode, "x402");
+      assert.equal(input.quantity, 1);
+      order.push("meter-provider-requests");
+    },
   } as unknown as LiveDeploymentRepository;
   const facilitator: X402Facilitator = {
     publicUrl: "https://api.testnet.blocky402.com",
@@ -248,7 +256,7 @@ test("x402 settles before internal live execution and never returns the internal
     path: "/x402/v1/owner/product?limit=100", limit: 100});
 
   assert.equal(result.kind, "success");
-  assert.deepEqual(order, ["verify", "settle", "confirm-settlement", "internal-api", "graph-query", "complete-request"]);
+  assert.deepEqual(order, ["verify", "settle", "confirm-settlement", "internal-api", "graph-query", "meter-provider-requests", "complete-request"]);
   assert.doesNotMatch(JSON.stringify(result), /sprue_live_/);
 });
 

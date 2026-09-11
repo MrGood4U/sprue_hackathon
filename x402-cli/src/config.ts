@@ -146,7 +146,7 @@ export async function loadWalletConfig(home: string): Promise<WalletConfig> {
     value = JSON.parse(await readFile(path, "utf8"));
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      throw new Error(`No wallet is configured in ${home}. Run \"hx402 wallet create\" or \"hx402 wallet import\".`);
+      throw new Error(`No wallet is configured in ${home}. Run \"hx402-cli wallet create\" or \"hx402-cli wallet import\".`);
     }
     throw new Error(`The wallet configuration in ${path} is unreadable.`);
   }

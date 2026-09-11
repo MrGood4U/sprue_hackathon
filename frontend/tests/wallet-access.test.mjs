@@ -96,6 +96,7 @@ test("Wallet and Access uses live workspace data and delegates direct transfers 
   assert.match(transferModal, /disabled=\{!spendable \|\| submitting/);
   assert.doesNotMatch(transferModal, /setTimeout|retry/);
   assert.match(page, /wallet\.notConnected/);
+  assert.doesNotMatch(page, /wallet\.integrationReadiness|walletAccess\?\.readiness/);
   assert.doesNotMatch(page, /18\.42|3\.12|simulateDeposit/);
 
   const credentialActions = page.indexOf('<div className="credential-actions"');

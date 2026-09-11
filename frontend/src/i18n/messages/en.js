@@ -287,6 +287,8 @@ export const en = {
   "dashboard.metric.draftVersions": "{{count}} draft versions",
   "dashboard.metric.requests": "Requests · 24h",
   "dashboard.metric.liveRecords": "Persisted request records",
+  "dashboard.metric.graphQueries": "The Graph queries · 24h",
+  "dashboard.metric.graphQueriesDetail": "Triggered by API and x402 requests",
   "dashboard.metric.graphSpend": "Graph spend · 24h",
   "dashboard.metric.revenue": "x402 revenue · 24h",
   "dashboard.metric.confirmedLedger": "Confirmed ledger entries",

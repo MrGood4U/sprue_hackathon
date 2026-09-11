@@ -256,6 +256,7 @@ test("HTTP framework boundaries through real local sockets", async (t) => {
           activeProductCount: "0",
           draftVersionCount: "0",
           apiRequestCount: "0",
+          graphQueryCount: "0",
           graphExpenses: [],
           grossSales: [],
           readiness: [],

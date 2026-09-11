@@ -8249,6 +8249,10 @@
             "type": "string",
             "pattern": "^(0|[1-9][0-9]{0,77})$"
           },
+          "graphQueryCount": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,77})$"
+          },
           "graphExpenses": {
             "type": "array",
             "items": {
@@ -8412,6 +8416,7 @@
           "activeProductCount",
           "draftVersionCount",
           "apiRequestCount",
+          "graphQueryCount",
           "graphExpenses",
           "grossSales",
           "readiness",

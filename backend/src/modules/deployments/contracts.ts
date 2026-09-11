@@ -119,6 +119,13 @@ export interface LiveDeploymentRepository {
     productRef: string;
     keyHash: string;
   }): Promise<LoadedLiveDeployment | null>;
+  recordProviderRequests(input: {
+    workspaceId: string;
+    productId: string;
+    apiAccessRequestId?: string;
+    accessMode: "api_key" | "x402";
+    quantity: number;
+  }): Promise<void>;
   loadExport(workspaceId: string, productId: string): Promise<{
     productName: string;
     versionId: string;

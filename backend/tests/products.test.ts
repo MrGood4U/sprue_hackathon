@@ -66,6 +66,7 @@ test("durable products create, replay, rename, delete, and remain workspace isol
     const emptyOverview = await service.overview(ownerA.workspaceId);
     assert.equal(emptyOverview.activeProductCount, "0");
     assert.equal(emptyOverview.apiRequestCount, "0");
+    assert.equal(emptyOverview.graphQueryCount, "0");
     assert.deepEqual(emptyOverview.graphExpenses, []);
     assert.deepEqual(emptyOverview.grossSales, []);
 
@@ -84,6 +85,14 @@ test("durable products create, replay, rename, delete, and remain workspace isol
     assert.equal(created.workspaceId, ownerA.workspaceId);
     assert.equal(created.lockVersion, 0);
     assert.match(created.slug, /^new-product-/);
+
+    await db.query(
+      `INSERT INTO usage_events (
+        id,workspace_id,data_product_id,metric,quantity,unit,dimensions_json,recorded_at
+      ) VALUES ($1,$2,$3,'provider_requests','7','requests',$4::jsonb,now())`,
+      [randomUUID(), ownerA.workspaceId, created.id, {provider: "the_graph", accessMode: "api_key"}],
+    );
+    assert.equal((await service.overview(ownerA.workspaceId)).graphQueryCount, "7");
 
     const replayed = await service.create(command);
     assert.equal(replayed.id, created.id);

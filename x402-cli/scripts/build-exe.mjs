@@ -7,10 +7,11 @@ import {build} from "esbuild";
 const packageDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const workDirectory = join(packageDirectory, "dist", "sea");
 const releaseDirectory = join(packageDirectory, "release");
-const bundlePath = join(workDirectory, "hx402.bundle.cjs");
-const blobPath = join(workDirectory, "hx402.blob");
+const bundlePath = join(workDirectory, "hx402-cli.bundle.cjs");
+const blobPath = join(workDirectory, "hx402-cli.blob");
 const configPath = join(workDirectory, "sea-config.json");
-const executablePath = join(releaseDirectory, "hx402.exe");
+const executablePath = join(releaseDirectory, "hx402-cli.exe");
+const legacyExecutablePath = join(releaseDirectory, "hx402.exe");
 const postjectPath = join(packageDirectory, "node_modules", "postject", "dist", "cli.js");
 
 function run(command, arguments_) {
@@ -26,6 +27,7 @@ if (process.platform !== "win32") {
 await rm(workDirectory, {recursive: true, force: true});
 await mkdir(workDirectory, {recursive: true});
 await mkdir(releaseDirectory, {recursive: true});
+await rm(legacyExecutablePath, {force: true});
 
 await build({
   entryPoints: [join(packageDirectory, "src", "cli.ts")],

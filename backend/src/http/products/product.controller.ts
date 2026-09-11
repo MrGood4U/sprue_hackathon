@@ -203,6 +203,7 @@ export const workspaceOverviewSchema = z.strictObject({
   activeProductCount: atomicSchema,
   draftVersionCount: atomicSchema,
   apiRequestCount: atomicSchema,
+  graphQueryCount: atomicSchema,
   graphExpenses: z.array(moneySchema),
   grossSales: z.array(moneySchema),
   readiness: z.tuple([]),

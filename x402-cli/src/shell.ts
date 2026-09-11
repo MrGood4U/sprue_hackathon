@@ -1,8 +1,10 @@
 import {stdout} from "node:process";
+import {CLI_NAME} from "./help.js";
 import {promptLine} from "./io.js";
 
 export const SHELL_BANNER = `Hedera x402 interactive client
-Type "help" for commands, "clear" to clear the screen, or "exit" to quit.
+Type "help" for the quick-start guide, "help request" for request examples,
+"clear" to clear the screen, or "exit" to quit.
 `;
 
 export function tokenizeCommandLine(input: string): string[] {
@@ -70,7 +72,9 @@ const defaultIo: InteractiveShellIo = {
 
 function withoutExecutablePrefix(arguments_: string[]): string[] {
   const first = arguments_[0]?.toLowerCase();
-  return first === "hx402" || first === "hx402.exe" ? arguments_.slice(1) : arguments_;
+  return [CLI_NAME, `${CLI_NAME}.exe`, "hx402", "hx402.exe"].includes(first ?? "")
+    ? arguments_.slice(1)
+    : arguments_;
 }
 
 export async function runInteractiveShell(
@@ -81,7 +85,7 @@ export async function runInteractiveShell(
   while (true) {
     let line: string;
     try {
-      line = await io.readLine("hx402> ");
+      line = await io.readLine(`${CLI_NAME}> `);
     } catch (error) {
       if (error instanceof Error && (error.name === "AbortError" || error.message === "Input cancelled.")) {
         io.writeOutput("\n");
@@ -95,7 +99,7 @@ export async function runInteractiveShell(
       arguments_ = withoutExecutablePrefix(tokenizeCommandLine(line));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Invalid command line.";
-      io.writeError(`hx402: ${message}\n`);
+      io.writeError(`${CLI_NAME}: ${message}\n`);
       continue;
     }
     if (arguments_.length === 0) continue;
@@ -110,7 +114,7 @@ export async function runInteractiveShell(
       await execute(arguments_);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unexpected failure.";
-      io.writeError(`hx402: ${message}\n`);
+      io.writeError(`${CLI_NAME}: ${message}\n`);
     }
   }
 }

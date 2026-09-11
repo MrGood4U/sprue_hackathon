@@ -10,7 +10,6 @@ import {
   Key,
   LockKey,
   Plus,
-  ShieldCheck,
   Trash,
   Wallet,
   WarningCircle,
@@ -33,23 +32,6 @@ import {
   selectGraphCredential,
   validateGraphCredential,
 } from "../services/api/wallet.js";
-
-function readinessTone(status) {
-  if (status === "ready") return "green";
-  if (status === "pending") return "amber";
-  return "neutral";
-}
-
-function readinessLabel(t, status) {
-  return t(`wallet.readiness.${status}`);
-}
-
-function blockerLabel(t, readiness) {
-  const code = readiness?.blockers?.[0]?.code;
-  if (!code) return t("wallet.readiness.noBlocker");
-  const translated = t(`wallet.blocker.${code}`);
-  return translated === `wallet.blocker.${code}` ? code : translated;
-}
 
 export function WalletAccessPage({ navigate }) {
   const { t } = useI18n();
@@ -376,17 +358,6 @@ export function WalletAccessPage({ navigate }) {
           </div>
         </section>
 
-        <section className="panel policy-card">
-          <div className="panel-title"><ShieldCheck size={19} /><h3>{t("wallet.integrationReadiness")}</h3></div>
-          <div className="wallet-readiness-list">
-            {walletAccess?.readiness?.map((item) => (
-              <article key={item.kind}>
-                <div><strong>{t(`wallet.readinessKind.${item.kind}`)}</strong><Status tone={readinessTone(item.status)}>{readinessLabel(t, item.status)}</Status></div>
-                <p>{blockerLabel(t, item)}</p>
-              </article>
-            ))}
-          </div>
-        </section>
       </div>
 
       <section className="panel access-panel">

@@ -290,6 +290,8 @@ export const zhCN = {
   "dashboard.metric.draftVersions": "{{count}} \u4e2a\u8349\u7a3f\u7248\u672c",
   "dashboard.metric.requests": "\u8bf7\u6c42\u6570 \u00b7 24 \u5c0f\u65f6",
   "dashboard.metric.liveRecords": "\u6301\u4e45\u5316\u8bf7\u6c42\u8bb0\u5f55",
+  "dashboard.metric.graphQueries": "The Graph \u67e5\u8be2 \u00b7 24 \u5c0f\u65f6",
+  "dashboard.metric.graphQueriesDetail": "\u7531 API \u4e0e x402 \u8bf7\u6c42\u89e6\u53d1",
   "dashboard.metric.graphSpend": "Graph \u652f\u51fa \u00b7 24 \u5c0f\u65f6",
   "dashboard.metric.revenue": "x402 \u6536\u5165 \u00b7 24 \u5c0f\u65f6",
   "dashboard.metric.confirmedLedger": "\u5df2\u786e\u8ba4\u8d26\u672c\u8bb0\u5f55",

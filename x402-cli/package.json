@@ -5,7 +5,7 @@
   "description": "Standalone Hedera x402 command-line client",
   "type": "module",
   "bin": {
-    "hx402": "dist/src/cli.js"
+    "hx402-cli": "dist/src/cli.js"
   },
   "files": [
     "dist",

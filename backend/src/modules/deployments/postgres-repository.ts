@@ -245,6 +245,21 @@ export function postgresLiveDeploymentRepository(pool: pg.Pool): LiveDeploymentR
       };
     },
 
+    async recordProviderRequests(input) {
+      if (!Number.isSafeInteger(input.quantity) || input.quantity < 0) {
+        throw new Error("PROVIDER_REQUEST_QUANTITY_INVALID");
+      }
+      if (input.quantity === 0) return;
+      await pool.query(
+        `INSERT INTO usage_events (
+          id,workspace_id,data_product_id,api_access_request_id,
+          metric,quantity,unit,dimensions_json,recorded_at
+        ) VALUES ($1,$2,$3,$4,'provider_requests',$5,'requests',$6::jsonb,now())`,
+        [randomUUID(), input.workspaceId, input.productId, input.apiAccessRequestId ?? null,
+          String(input.quantity), {provider: "the_graph", accessMode: input.accessMode}],
+      );
+    },
+
     async loadExport(workspaceId, productId) {
       const result = await pool.query(
         `SELECT p.name,v.id AS version_id,v.specification_json,v.spec_hash

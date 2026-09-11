@@ -232,6 +232,7 @@ test("product dashboard client uses only authenticated live workspace records", 
         activeProductCount: "0",
         draftVersionCount: "0",
         apiRequestCount: "0",
+        graphQueryCount: "0",
         graphExpenses: [],
         grossSales: [],
         readiness: [],
@@ -241,6 +242,7 @@ test("product dashboard client uses only authenticated live workspace records", 
     ...creatorScope,
   });
   assert.equal(overview.overview.apiRequestCount, "0");
+  assert.equal(overview.overview.graphQueryCount, "0");
 
   const created = await createProduct({
     name: "New Product",

@@ -72,6 +72,7 @@ test("keeps the Dashboard focused on metrics and the product list", async () => 
   assert.match(source, /<Trash size=\{17\} \/>/);
   assert.match(source, /formatMoney\(overview\?\.graphExpenses, locale, t, "USDC"\)/);
   assert.match(source, /formatMoney\(overview\?\.grossSales, locale, t, "HBAR"\)/);
+  assert.match(source, /overview\?\.graphQueryCount/);
   assert.match(styles, /\.product-row > span:not\(\.product-cell\):not\(\.product-row-actions\)/);
   assert.match(styles, /\.product-row > \.product-row-actions \{[^}]*display: flex;[^}]*flex-direction: row;/s);
   assert.match(source, /dashboard\.deleteProductTitle/);
@@ -111,6 +112,7 @@ test("keeps the API page focused on request and response formats", async () => {
   assert.match(source, /await copyText\(issuedKey\.apiKey\)/);
   assert.match(source, /role="status" aria-live="polite"/);
   assert.match(source, /api\.apiKeyCopyFailed/);
+  assert.doesNotMatch(source, /api\.backendFacts|delivery-facts/);
   assert.doesNotMatch(source, /useDemoRuntime|useRequestTest|responseExample|mock-chip/);
   assert.match(deliveryHook, /getProductDelivery/);
   assert.match(deliveryApi, /meta\?\.dataSource !== "live"/);

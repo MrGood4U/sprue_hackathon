@@ -24,7 +24,7 @@ test("preserves empty quoted values and rejects unfinished quotes", () => {
 });
 
 test("interactive shell executes commands and accepts executable prefix", async () => {
-  const lines = ["wallet show", "hx402.exe help", "exit"];
+  const lines = ["wallet show", "hx402-cli.exe help", "hx402.exe help request", "exit"];
   const commands: string[][] = [];
   const output: string[] = [];
   const errors: string[] = [];
@@ -40,7 +40,7 @@ test("interactive shell executes commands and accepts executable prefix", async 
     return 0;
   }, io);
 
-  assert.deepEqual(commands, [["wallet", "show"], ["help"]]);
+  assert.deepEqual(commands, [["wallet", "show"], ["help"], ["help", "request"]]);
   assert.match(output.join(""), /Hedera x402 interactive client/);
   assert.deepEqual(errors, []);
 });

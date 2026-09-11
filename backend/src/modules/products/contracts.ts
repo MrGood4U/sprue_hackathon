@@ -149,6 +149,7 @@ export interface WorkspaceOverview {
   activeProductCount: string;
   draftVersionCount: string;
   apiRequestCount: string;
+  graphQueryCount: string;
   graphExpenses: Money[];
   grossSales: Money[];
   readiness: [];
