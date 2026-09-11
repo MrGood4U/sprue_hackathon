@@ -1,7 +1,8 @@
 import {Kind, parse} from "graphql";
 import type {ObjectValueNode, ValueNode} from "graphql";
+import type {GraphSourceQueryPlan} from "../graph/types.js";
 
-type Literal = string | boolean | readonly Literal[];
+type Literal = string | boolean | {variable: string} | readonly Literal[];
 type PredicateField = readonly [string, Literal];
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -13,6 +14,7 @@ function graphLiteral(value: ValueNode): Literal | null {
     return value.value;
   }
   if (value.kind === Kind.BOOLEAN) return value.value;
+  if (value.kind === Kind.VARIABLE) return {variable: value.name.value};
   if (value.kind === Kind.LIST) {
     const items = value.values.map(graphLiteral);
     return items.some((item) => item === null) ? null : items as Literal[];
@@ -40,12 +42,21 @@ function graphPredicateGroups(document: string): PredicateField[][] | null {
     const where = root.arguments?.find((argument) => argument.name.value === "where")?.value;
     if (where?.kind !== Kind.OBJECT) return null;
     const predicates = where.fields.filter((field) => field.name.value !== "id_gt");
-    if (predicates.length === 1 && predicates[0]!.name.value === "or") {
-      const branches = predicates[0]!.value;
+    const disjunction = predicates.find((field) => field.name.value === "or");
+    if (disjunction) {
+      if (predicates.some((field) => field.name.value === "and") || predicates.filter((field) => field.name.value === "or").length !== 1) {
+        return null;
+      }
+      const common = graphFields({
+        kind: Kind.OBJECT,
+        fields: predicates.filter((field) => field.name.value !== "or"),
+      } as ObjectValueNode);
+      if (common === null) return null;
+      const branches = disjunction.value;
       if (branches.kind !== Kind.LIST) return null;
-      return branches.values.map((branch) => branch.kind === Kind.OBJECT ? graphFields(branch) : null)
-        .every((branch): branch is PredicateField[] => branch !== null)
-        ? branches.values.map((branch) => graphFields(branch as ObjectValueNode)!)
+      const parsedBranches = branches.values.map((branch) => branch.kind === Kind.OBJECT ? graphFields(branch) : null);
+      return parsedBranches.every((branch): branch is PredicateField[] => branch !== null)
+        ? parsedBranches.map((branch) => [...common, ...branch])
         : null;
     }
     if (predicates.some((field) => field.name.value === "or" || field.name.value === "and")) return null;
@@ -91,6 +102,33 @@ function filterPredicateGroups(filterConfig: unknown, mapConfig: unknown): Predi
   return null;
 }
 
+function relativeWindowGroups(
+  filterConfig: unknown,
+  mapConfig: unknown,
+  runtimeWindow: NonNullable<GraphSourceQueryPlan["runtimeWindow"]> | null,
+): PredicateField[][] | null {
+  if (!record(filterConfig) || !record(filterConfig.relativeWindow) || !runtimeWindow) return null;
+  const window = filterConfig.relativeWindow;
+  if (
+    window.kind !== runtimeWindow.kind
+    || window.days !== runtimeWindow.days
+    || window.timezone !== runtimeWindow.timezone
+    || typeof window.field !== "string"
+    || providerFieldFor(mapConfig, window.field) !== runtimeWindow.field
+  ) return null;
+  return [[
+    [`${runtimeWindow.field}_gte`, {variable: runtimeWindow.startVariable}],
+    [`${runtimeWindow.field}_lt`, {variable: runtimeWindow.endVariable}],
+  ]];
+}
+
+function combineAnd(
+  left: readonly (readonly PredicateField[])[],
+  right: readonly (readonly PredicateField[])[],
+): PredicateField[][] {
+  return left.flatMap((leftGroup) => right.map((rightGroup) => [...leftGroup, ...rightGroup]));
+}
+
 function canonicalGroups(groups: readonly (readonly PredicateField[])[]): string {
   return JSON.stringify(groups
     .map((group) => [...group].sort(([left], [right]) => left.localeCompare(right)))
@@ -104,11 +142,22 @@ function canonicalGroups(groups: readonly (readonly PredicateField[])[]): string
  * condition. Nested relationship filters and null predicates remain residual.
  */
 export function matchesCompleteFilterPushdown(
-  document: string,
-  filterConfig: unknown,
+  planOrDocument: GraphSourceQueryPlan | string,
+  filterConfigOrConfigs: unknown | readonly unknown[],
   boundaryMapConfig: unknown,
 ): boolean {
-  const query = graphPredicateGroups(document);
-  const filter = filterPredicateGroups(filterConfig, boundaryMapConfig);
-  return query !== null && filter !== null && canonicalGroups(query) === canonicalGroups(filter);
+  const plan = typeof planOrDocument === "string"
+    ? {document: planOrDocument, runtimeWindow: null}
+    : planOrDocument;
+  const filterConfigs = Array.isArray(filterConfigOrConfigs) ? filterConfigOrConfigs : [filterConfigOrConfigs];
+  const query = graphPredicateGroups(plan.document);
+  if (query === null || filterConfigs.length === 0) return false;
+  let filters: PredicateField[][] = [[]];
+  for (const config of filterConfigs) {
+    const groups = filterPredicateGroups(config, boundaryMapConfig)
+      ?? relativeWindowGroups(config, boundaryMapConfig, plan.runtimeWindow ?? null);
+    if (groups === null) return false;
+    filters = combineAnd(filters, groups);
+  }
+  return canonicalGroups(query) === canonicalGroups(filters);
 }

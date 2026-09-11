@@ -21,7 +21,7 @@ The human approved the original seven operator types on 2026-09-05 and approved 
 | Type | Ports | Proposed configuration | Semantics and constraints |
 |---|---|---|---|
 | `source` | No input; rows output | Existing sourceId/queryDocument/variableBindings/pagination; proposed resultPath, rowSchema and window | Fetch a pinned, bounded subgraph query, extract one inspected root collection, validate every row, preserve provenance |
-| `filter` | rows -> rows | `{predicate: {combinator, conditions}}` | Filter already-fetched predecessor rows with typed field conditions; null is explicit; no schema change |
+| `filter` | rows -> rows | `{predicate: {combinator, conditions}}` or `{relativeWindow: {field, kind, days, timezone}}` | Filter predecessor rows with typed stable conditions, or declare a complete UTC-day runtime window that must be pushed exactly; no schema change |
 | `map` | rows -> rows | `{fields: Record<string, Expression>}` | Explicit projection/derivation; output contains only named fields; fields read original input, not earlier sibling assignments |
 | `aggregate` | rows -> rows | `{groupBy: string[], measures: Record<string, Measure>}` | Group on typed keys; count_rows, count_distinct, sum, min and max over declared fields; explicit memory limits |
 | `sort` | rows -> rows | `{orderBy: [{field, direction, nulls}], limit: integer-or-null}` | Stable multi-key scalar sorting; null means full sort and a bounded positive limit means Top K; no schema change |
@@ -41,7 +41,7 @@ Filter version 2 uses one bounded top-level `and` or `or` group with 1 to 32 con
 
 The Builder must derive field choices and compatible operators from the direct predecessor, preserve a condition that becomes invalid after an upstream schema change, show the error, and prevent confirmation. It must never silently rename or delete the reference. Object, JSON and list fields remain unavailable until a reviewed flatten/explode operator exists.
 
-Filter executes inside Sprue after the Source adapter has fetched and validated bounded rows. It does not rewrite or push predicates into GraphQL in this version. A future optimizer may push an equivalent predicate only after proving semantic equivalence; that optimization cannot change the canonical Filter contract or result.
+Stable Filter predicates may execute inside Sprue after the Source adapter has fetched and validated bounded rows. During Agent planning, a complete stable Filter may instead be removed from the residual DAG only after its entire meaning is proven equivalent to the schema-validated GraphQL `where` predicate. Multiple sequential Filters combine with AND and may be pushed only when the complete combined predicate is represented. A `relativeWindow` Filter declares 1 to 365 complete UTC days and must be pushed as runtime GraphQL variables; it cannot remain as planning-time calendar literals.
 
 ### Approved Sort / Top K Contract
 
@@ -124,7 +124,7 @@ Static validation never proves provider completeness. Build verifies extraction,
 
 ### Time and Block Determinism
 
-For proposed complete_utc_days, end is UTC midnight at or before the run's stable anchor and start is exactly N calendar UTC days earlier; use the half-open interval [start, end). Do not recalculate boundaries on retry. A seven-day and a thirty-day request create different configurations, not a hidden environment setting.
+For `complete_utc_days`, end is UTC midnight at or before the API invocation's stable server anchor and start is exactly N calendar UTC days earlier; use the half-open interval [start, end). Do not use the planning anchor as a persisted boundary or recalculate boundaries on pagination/retry. A seven-day and a thirty-day request create different configurations, not a hidden environment setting.
 
 The source window configuration declares this calculation; variableBindings uses the model's run.window.start/end references resolved within that source context. Source block selection follows an adapter-verified policy and is frozen before the associated paginated data query. Metadata probing, including block discovery when metered, counts as source work under the existing access mode. Timestamp filters and pinned blocks solve different problems; neither alone proves an event history is complete.
 

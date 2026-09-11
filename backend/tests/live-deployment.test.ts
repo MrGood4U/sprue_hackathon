@@ -43,6 +43,17 @@ const graphDialectSchemaDocument = `
   }
 `;
 
+const timedSchemaDocument = `
+  scalar BigInt
+  enum OrderDirection { asc desc }
+  enum TimedItem_orderBy { id }
+  input TimedItem_filter { id_gt: ID createdAt_gte: BigInt createdAt_lt: BigInt }
+  type TimedItem { id: ID!, rawAmount: String!, createdAt: BigInt! }
+  type Query {
+    timedItems(first: Int, orderBy: TimedItem_orderBy, orderDirection: OrderDirection, where: TimedItem_filter): [TimedItem!]!
+  }
+`;
+
 test("deployment retries derive the same one-time API key from one idempotency command", async () => {
   const calls: Parameters<LiveDeploymentRepository["deploy"]>[0][] = [];
   const repository = {
@@ -306,9 +317,86 @@ test("immutable live plans preserve an Agent-authored GraphQL pushdown verbatim"
   }]);
 });
 
+test("live plans resolve complete UTC-day Graph variables from each invocation anchor", async () => {
+  const input: StructuredDagCompileInput = {
+    schemaVersion: 1,
+    dag: {
+      nodes: [
+        {id: "source", type: "source", operatorVersion: "1", config: {sourceId: "timed-items"}, outputSchema: {fields: [
+          {name: "rawAmount", type: "string", nullable: false, unit: null},
+          {name: "createdAt", type: "timestamp", nullable: false, unit: null},
+        ]}},
+        {id: "map", type: "map", operatorVersion: "2", config: {mode: "project", fields: [
+          {name: "amount", expression: {op: "field", field: "rawAmount"}},
+          {name: "trade_timestamp", expression: {op: "field", field: "createdAt"}},
+        ]}},
+        {id: "output", type: "output", operatorVersion: "3", config: {fields: ["amount"]}},
+      ],
+      edges: [
+        {fromNode: "source", fromPort: "rows", toNode: "map", toPort: "rows"},
+        {fromNode: "map", fromPort: "rows", toNode: "output", toPort: "rows"},
+      ],
+    },
+    outputSchema: {fields: [{name: "amount", type: "string", nullable: false, unit: null}]},
+  };
+  const compilation = compileStructuredDag(input);
+  assert.equal(compilation.status, "passed");
+  if (compilation.status !== "passed") return;
+  const document = "query SprueLiveSource($first: Int!, $cursor: ID!, $windowStart: BigInt!, $windowEnd: BigInt!) { timedItems(first: $first, orderBy: id, orderDirection: asc, where: { id_gt: $cursor, createdAt_gte: $windowStart, createdAt_lt: $windowEnd }) { id createdAt rawAmount } }";
+  const plan = createImmutableLivePlan({
+    compilation,
+    dag: input.dag,
+    sources: [{
+      id: "timed-items",
+      displayName: "Timed items",
+      logicalSubgraphId: "timed-items",
+      manifestIpfsCid: "QmTimed",
+      dataNetwork: "eip155:1",
+      queryEntity: "timedItems",
+      queryPlan: {
+        schemaVersion: 1,
+        operationName: "SprueLiveSource",
+        document,
+        pagination: {kind: "id_cursor", cursorField: "id", pageSize: 1_000, maxRequests: 20, maxRows: 10_000},
+        runtimeWindow: {
+          kind: "complete_utc_days",
+          days: 7,
+          timezone: "UTC",
+          field: "createdAt",
+          startVariable: "windowStart",
+          endVariable: "windowEnd",
+          valueEncoding: "unix_seconds",
+        },
+        pushedOperations: [{nodeRole: "recent_rows", operator: "filter", description: "Keep the last seven complete UTC days."}],
+      },
+      fieldBindings: [{fieldPath: "rawAmount", requirementId: "amount"}],
+      auxiliaryFieldBindings: [{fieldPath: "createdAt", name: "trade_timestamp", purpose: "filter"}],
+      providerCredentialId: "credential-id",
+      sourceSnapshotId: "snapshot-id",
+      schemaDocument: timedSchemaDocument,
+    }],
+  });
+  const anchor = new Date("2026-09-11T10:09:20.336Z");
+  const expectedStart = String(Date.parse("2026-09-04T00:00:00.000Z") / 1_000);
+  const expectedEnd = String(Date.parse("2026-09-11T00:00:00.000Z") / 1_000);
+
+  const result = await executeLivePlan(plan, async () => ({
+    async executeStaticQuery(_manifest, actualDocument, variables) {
+      assert.equal(actualDocument, document);
+      assert.equal(variables.windowStart, expectedStart);
+      assert.equal(variables.windowEnd, expectedEnd);
+      return {data: {timedItems: [{id: "row-1", rawAmount: "1", createdAt: expectedStart}]}, errors: []};
+    },
+    async close() {},
+  }), undefined, () => anchor);
+
+  assert.equal(result.queriedAt, anchor.toISOString());
+  assert.deepEqual(result.rows, [{amount: "1"}]);
+});
+
 test("a Source node limit bounds live reads without treating the bound as an execution failure", async () => {
   const input = compilationInput();
-  input.dag.nodes.find((node) => node.type === "source")!.config.limit = 2;
+  (input.dag.nodes.find((node) => node.type === "source")!.config as Record<string, unknown>).limit = 2;
   const compilation = compileStructuredDag(input);
   assert.equal(compilation.status, "passed");
   if (compilation.status !== "passed") return;

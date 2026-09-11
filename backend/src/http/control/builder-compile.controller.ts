@@ -74,6 +74,15 @@ const sourceQueryPlanSchema = z.strictObject({
     maxRequests: z.number().int().min(1).max(20),
     maxRows: z.number().int().min(1).max(10_000),
   }),
+  runtimeWindow: z.strictObject({
+    kind: z.literal("complete_utc_days"),
+    days: z.number().int().min(1).max(365),
+    timezone: z.literal("UTC"),
+    field: z.string().regex(/^[_A-Za-z][_0-9A-Za-z]*$/),
+    startVariable: z.literal("windowStart"),
+    endVariable: z.literal("windowEnd"),
+    valueEncoding: z.literal("unix_seconds"),
+  }).nullable().optional(),
   pushedOperations: z.array(z.strictObject({
     nodeRole: z.string().regex(/^[a-z][a-z0-9_]{0,99}$/),
     operator: z.enum(["map", "filter", "sort"]),

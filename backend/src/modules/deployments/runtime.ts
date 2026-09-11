@@ -54,9 +54,36 @@ function projectionsFor(source: CompiledLiveSource): readonly {fieldPath: string
   ];
 }
 
+export function resolveCompleteUtcWindow(
+  days: number,
+  anchor: Date,
+): {start: string; end: string} {
+  if (!Number.isInteger(days) || days < 1 || days > 365 || Number.isNaN(anchor.getTime())) {
+    throw new Error("Compiled complete UTC-day window is invalid");
+  }
+  const endMilliseconds = Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth(), anchor.getUTCDate());
+  const startMilliseconds = endMilliseconds - days * 86_400_000;
+  return {
+    start: String(Math.floor(startMilliseconds / 1_000)),
+    end: String(Math.floor(endMilliseconds / 1_000)),
+  };
+}
+
+function sourceVariables(source: CompiledLiveSource, first: number, cursor: string, anchor: Date): Record<string, unknown> {
+  const variables: Record<string, unknown> = {first, cursor};
+  if (!source.runtimeWindow) return variables;
+  if (!source.runtimeWindowVariableType) throw new Error("Compiled Source runtime window has no variable type");
+  const window = resolveCompleteUtcWindow(source.runtimeWindow.days, anchor);
+  const encode = (value: string): string | number => source.runtimeWindowVariableType === "Int" ? Number(value) : value;
+  variables[source.runtimeWindow.startVariable] = encode(window.start);
+  variables[source.runtimeWindow.endVariable] = encode(window.end);
+  return variables;
+}
+
 async function fetchLiveSource(
   source: CompiledLiveSource,
   graph: GraphRuntimeQueryPort,
+  executionAnchor: Date,
   signal?: AbortSignal,
 ): Promise<{rows: Row[]; requests: number}> {
   const rows: Row[] = [];
@@ -66,7 +93,12 @@ async function fetchLiveSource(
   const rowCeiling = Math.min(source.rowLimit ?? source.maxRows, source.maxRows);
   while (requests < source.maxRequests && rows.length < rowCeiling) {
     const first = Math.min(source.pageSize, rowCeiling - rows.length);
-    const response = await graph.executeStaticQuery(source.manifestIpfsCid, source.queryDocument, {first, cursor}, signal);
+    const response = await graph.executeStaticQuery(
+      source.manifestIpfsCid,
+      source.queryDocument,
+      sourceVariables(source, first, cursor, executionAnchor),
+      signal,
+    );
     requests += 1;
     if (response.errors.length > 0) throw new Error(response.errors[0]!.message);
     const batch = response.data[source.queryEntity];
@@ -187,7 +219,9 @@ export async function executeLivePlan(
   plan: ImmutableLivePlan,
   graphForCredential: (credentialId: string) => Promise<GraphRuntimeQueryPort>,
   signal?: AbortSignal,
+  clock: () => Date = () => new Date(),
 ): Promise<LiveExecutionResult> {
+  const executionAnchor = clock();
   const nodes = new Map(plan.dag.nodes.map((node) => [node.id, node]));
   const pending = new Set(nodes.keys());
   const rowsByNode = new Map<string, Row[]>();
@@ -211,7 +245,7 @@ export async function executeLivePlan(
             graph = await graphForCredential(source.providerCredentialId);
             graphClients.set(source.providerCredentialId, graph);
           }
-          const fetched = await fetchLiveSource(source, graph, signal);
+          const fetched = await fetchLiveSource(source, graph, executionAnchor, signal);
           rowsByNode.set(id, fetched.rows);
           shapes.set(id, node.outputSchema.fields);
           sourceRequests += fetched.requests;
@@ -277,7 +311,7 @@ export async function executeLivePlan(
       if (!progressed) throw new Error("Compiled DAG could not be scheduled");
     }
     const output = plan.dag.nodes.find((node) => node.type === "output")!;
-    return {rows: rowsByNode.get(output.id) ?? [], sourceRequests, sourceRows, queriedAt: new Date().toISOString()};
+    return {rows: rowsByNode.get(output.id) ?? [], sourceRequests, sourceRows, queriedAt: executionAnchor.toISOString()};
   } finally {
     await Promise.allSettled([...graphClients.values()].map((client) => client.close()));
   }

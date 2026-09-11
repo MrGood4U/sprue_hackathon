@@ -80,7 +80,29 @@ function endpointFor(source) {
     .replaceAll("{manifest-cid}", encodeURIComponent(source.manifestIpfsCid));
 }
 
-async function fetchSource(source, signal) {
+function resolveCompleteUtcWindow(days, anchor) {
+  if (!Number.isInteger(days) || days < 1 || days > 365 || Number.isNaN(anchor.getTime())) {
+    throw new Error("Compiled complete UTC-day window is invalid");
+  }
+  const endMilliseconds = Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth(), anchor.getUTCDate());
+  return {
+    start: String(Math.floor((endMilliseconds - days * 86_400_000) / 1_000)),
+    end: String(Math.floor(endMilliseconds / 1_000)),
+  };
+}
+
+function sourceVariables(source, first, cursor, anchor) {
+  const variables = {first, cursor};
+  if (!source.runtimeWindow) return variables;
+  if (!source.runtimeWindowVariableType) throw new Error("Compiled Source runtime window has no variable type");
+  const window = resolveCompleteUtcWindow(source.runtimeWindow.days, anchor);
+  const encode = (value) => source.runtimeWindowVariableType === "Int" ? Number(value) : value;
+  variables[source.runtimeWindow.startVariable] = encode(window.start);
+  variables[source.runtimeWindow.endVariable] = encode(window.end);
+  return variables;
+}
+
+async function fetchSource(source, signal, executionAnchor) {
   const rows = [];
   let cursor = source.initialCursor;
   let requests = 0;
@@ -91,7 +113,7 @@ async function fetchSource(source, signal) {
     const response = await fetch(endpointFor(source), {
       method: "POST",
       headers: {"content-type": "application/json"},
-      body: JSON.stringify({query: source.queryDocument, variables: {first, cursor}}),
+      body: JSON.stringify({query: source.queryDocument, variables: sourceVariables(source, first, cursor, executionAnchor)}),
       signal,
     });
     requests += 1;
@@ -321,6 +343,7 @@ function sortRows(rows, config, shape) {
 }
 
 async function execute(signal) {
+  const executionAnchor = new Date();
   const rowsByNode = new Map(); const shapes = new Map();
   const pending = new Set(plan.dag.nodes.map((node) => node.id));
   let sourceRequests = 0; let sourceRows = 0;
@@ -334,7 +357,7 @@ async function execute(signal) {
       const shape = (portName) => shapes.get(incoming.get(portName));
       if (node.type === "source") {
         const source = plan.sources.find((item) => item.id === (node.config.sourceId ?? node.config.sourceKey));
-        const fetched = await fetchSource(source, signal);
+        const fetched = await fetchSource(source, signal, executionAnchor);
         rowsByNode.set(node.id, fetched.rows); shapes.set(node.id, node.outputSchema.fields);
         sourceRequests += fetched.requests; sourceRows += fetched.rows.length;
       } else if (node.type === "filter") {
@@ -390,7 +413,7 @@ async function execute(signal) {
     if (!progressed) throw new Error("The immutable DAG could not be scheduled");
   }
   const output = plan.dag.nodes.find((node) => node.type === "output");
-  return {rows: rowsByNode.get(output.id), sourceRequests, sourceRows, queriedAt: new Date().toISOString()};
+  return {rows: rowsByNode.get(output.id), sourceRequests, sourceRows, queriedAt: executionAnchor.toISOString()};
 }
 
 function authorized(request) {

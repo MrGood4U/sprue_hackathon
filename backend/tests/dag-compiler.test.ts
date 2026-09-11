@@ -36,11 +36,11 @@ test("structured DAG compiler accepts a normalized acyclic graph and produces a 
 
 test("structured DAG compiler validates an optional Source row limit", () => {
   const bounded = validDag();
-  bounded.dag.nodes.find((node) => node.type === "source")!.config.limit = 1_000;
+  (bounded.dag.nodes.find((node) => node.type === "source")!.config as Record<string, unknown>).limit = 1_000;
   assert.equal(compileStructuredDag(bounded).status, "passed");
 
   const invalid = validDag();
-  invalid.dag.nodes.find((node) => node.type === "source")!.config.limit = 0;
+  (invalid.dag.nodes.find((node) => node.type === "source")!.config as Record<string, unknown>).limit = 0;
   const result = compileStructuredDag(invalid);
   assert.equal(result.status, "failed");
   if (result.status === "failed") assert.equal(result.issues.some((issue) => issue.code === "SOURCE_LIMIT_INVALID"), true);

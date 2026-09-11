@@ -19,6 +19,7 @@ export interface GraphQueryPlanValidationInput {
 export interface ValidatedGraphQueryPlan {
   operation: OperationDefinitionNode;
   cursorType: "ID" | "String" | "Bytes";
+  runtimeWindowVariableType: "BigInt" | "Int" | "String" | null;
   hasAdditionalPredicates: boolean;
 }
 
@@ -82,14 +83,47 @@ export function validateGraphSourceQueryPlan(
   if (operation.directives?.length) fail("Graph Source query directives are not supported");
 
   const variables = new Map((operation.variableDefinitions ?? []).map((definition) => [definition.variable.name.value, definition]));
-  if (variables.size !== 2 || !variables.has("first") || !variables.has("cursor")) {
-    fail("Graph Source query must declare only the bounded first and cursor variables");
+  const runtimeWindow = plan.runtimeWindow ?? null;
+  const expectedVariables = runtimeWindow
+    ? new Set(["first", "cursor", runtimeWindow.startVariable, runtimeWindow.endVariable])
+    : new Set(["first", "cursor"]);
+  if (variables.size !== expectedVariables.size || [...expectedVariables].some((name) => !variables.has(name))) {
+    fail(runtimeWindow
+      ? "Graph Source query must declare only first, cursor, windowStart, and windowEnd"
+      : "Graph Source query must declare only the bounded first and cursor variables");
   }
   const firstType = namedType(variables.get("first")!);
   const cursorType = namedType(variables.get("cursor")!);
   if (firstType.name !== "Int" || !firstType.required) fail("Graph Source query variable first must have type Int!");
   if (!new Set(["ID", "String", "Bytes"]).has(cursorType.name) || !cursorType.required) {
     fail("Graph Source query cursor must have a supported non-null scalar type");
+  }
+  let runtimeWindowVariableType: ValidatedGraphQueryPlan["runtimeWindowVariableType"] = null;
+  if (runtimeWindow) {
+    if (
+      runtimeWindow.kind !== "complete_utc_days"
+      || !Number.isInteger(runtimeWindow.days)
+      || runtimeWindow.days < 1
+      || runtimeWindow.days > 365
+      || runtimeWindow.timezone !== "UTC"
+      || !graphName.test(runtimeWindow.field)
+      || runtimeWindow.startVariable !== "windowStart"
+      || runtimeWindow.endVariable !== "windowEnd"
+      || runtimeWindow.valueEncoding !== "unix_seconds"
+    ) {
+      fail("Graph Source runtime window is invalid");
+    }
+    const startType = namedType(variables.get(runtimeWindow.startVariable)!);
+    const endType = namedType(variables.get(runtimeWindow.endVariable)!);
+    if (
+      startType.name !== endType.name
+      || !startType.required
+      || !endType.required
+      || !new Set(["BigInt", "Int", "String"]).has(startType.name)
+    ) {
+      fail("Graph Source runtime window variables must use the same supported non-null scalar type");
+    }
+    runtimeWindowVariableType = startType.name as "BigInt" | "Int" | "String";
   }
 
   if (operation.selectionSet.selections.length !== 1 || operation.selectionSet.selections[0]?.kind !== Kind.FIELD) {
@@ -119,6 +153,14 @@ export function validateGraphSourceQueryPlan(
     fail("Graph Source query must advance the id_gt cursor with $cursor");
   }
   if (where?.kind !== Kind.OBJECT) fail("Graph Source query where argument must be an object");
+  if (runtimeWindow) {
+    if (
+      variableName(objectField(where, `${runtimeWindow.field}_gte`)) !== runtimeWindow.startVariable
+      || variableName(objectField(where, `${runtimeWindow.field}_lt`)) !== runtimeWindow.endVariable
+    ) {
+      fail("Graph Source query must bind its complete UTC-day window to the declared runtime variables");
+    }
+  }
   const hasAdditionalPredicates = where.fields.some((field) => field.name.value !== "id_gt");
 
   const selected = [...new Set(input.selectedPaths)];
@@ -135,5 +177,10 @@ export function validateGraphSourceQueryPlan(
   if (plan.pagination.kind !== "id_cursor" || plan.pagination.cursorField !== "id") {
     fail("Graph Source query must use the bounded id_cursor pagination contract");
   }
-  return {operation, cursorType: cursorType.name as "ID" | "String" | "Bytes", hasAdditionalPredicates};
+  return {
+    operation,
+    cursorType: cursorType.name as "ID" | "String" | "Bytes",
+    runtimeWindowVariableType,
+    hasAdditionalPredicates,
+  };
 }

@@ -10279,6 +10279,158 @@
                   "type": "string",
                   "pattern": "^[_A-Za-z][_0-9A-Za-z]*$"
                 },
+                "queryPlan": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "schemaVersion": {
+                          "type": "number",
+                          "const": 1
+                        },
+                        "operationName": {
+                          "type": "string",
+                          "const": "SprueLiveSource"
+                        },
+                        "document": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 20000
+                        },
+                        "pagination": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "id_cursor"
+                            },
+                            "cursorField": {
+                              "type": "string",
+                              "const": "id"
+                            },
+                            "pageSize": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 1000
+                            },
+                            "maxRequests": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 20
+                            },
+                            "maxRows": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 10000
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "cursorField",
+                            "pageSize",
+                            "maxRequests",
+                            "maxRows"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "runtimeWindow": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "complete_utc_days"
+                                },
+                                "days": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 365
+                                },
+                                "timezone": {
+                                  "type": "string",
+                                  "const": "UTC"
+                                },
+                                "field": {
+                                  "type": "string",
+                                  "pattern": "^[_A-Za-z][_0-9A-Za-z]*$"
+                                },
+                                "startVariable": {
+                                  "type": "string",
+                                  "const": "windowStart"
+                                },
+                                "endVariable": {
+                                  "type": "string",
+                                  "const": "windowEnd"
+                                },
+                                "valueEncoding": {
+                                  "type": "string",
+                                  "const": "unix_seconds"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "days",
+                                "timezone",
+                                "field",
+                                "startVariable",
+                                "endVariable",
+                                "valueEncoding"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "pushedOperations": {
+                          "maxItems": 12,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "nodeRole": {
+                                "type": "string",
+                                "pattern": "^[a-z][a-z0-9_]{0,99}$"
+                              },
+                              "operator": {
+                                "type": "string",
+                                "enum": [
+                                  "map",
+                                  "filter",
+                                  "sort"
+                                ]
+                              },
+                              "description": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "nodeRole",
+                              "operator",
+                              "description"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "schemaVersion",
+                        "operationName",
+                        "document",
+                        "pagination",
+                        "pushedOperations"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "fieldBindings": {
                   "maxItems": 64,
                   "type": "array",

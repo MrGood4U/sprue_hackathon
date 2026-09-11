@@ -167,6 +167,15 @@ export interface GraphSourceQueryPlan {
     maxRequests: number;
     maxRows: number;
   };
+  runtimeWindow?: {
+    kind: "complete_utc_days";
+    days: number;
+    timezone: "UTC";
+    field: string;
+    startVariable: "windowStart";
+    endVariable: "windowEnd";
+    valueEncoding: "unix_seconds";
+  } | null;
   pushedOperations: readonly {
     nodeRole: string;
     operator: "map" | "filter" | "sort";

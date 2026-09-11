@@ -111,6 +111,7 @@ function sourceDiscoveryPlanningOutput(
       ],
       orderBy: [{field: "record_id", direction: "asc"}],
     },
+    window: null,
     refresh: {mode: "manual", timezone: "UTC"},
     assumptions: ["This deterministic mock output validates harness plumbing only; remote model planning is schema-driven."],
     unresolved: [],
@@ -357,7 +358,8 @@ function sourceFeasibilityOutput(
         operationName: "SprueLiveSource" as const,
         document: `query SprueLiveSource($first: Int!, $cursor: ${cursorType}!) { ${entity.queryEntity}(first: $first, orderBy: id, orderDirection: asc, where: { id_gt: $cursor }) { ${graphQuerySelection(selectedPaths)} } }`,
         pagination: {kind: "id_cursor" as const, cursorField: "id" as const, pageSize: 1_000, maxRequests: 20, maxRows: 10_000},
-          pushedOperations: [],
+        runtimeWindow: null,
+        pushedOperations: [],
       },
       rationale: `The inspected entity binds every required semantic field for ${need.dataNetwork}.`,
     };

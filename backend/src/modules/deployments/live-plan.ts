@@ -42,6 +42,8 @@ export interface LiveSourceProjection {
 export interface CompiledLiveSource extends LiveSourceInput {
   projections: readonly LiveSourceProjection[];
   queryDocument: string;
+  runtimeWindow: GraphSourceQueryPlan["runtimeWindow"];
+  runtimeWindowVariableType: "BigInt" | "Int" | "String" | null;
   pushedOperations: GraphSourceQueryPlan["pushedOperations"];
   initialCursor: string;
   pageSize: number;
@@ -215,7 +217,7 @@ export function compileLiveQuery(
   source: LiveSourceInput,
   schemaDocument: string,
   selectedPaths: readonly string[],
-): {document: string; initialCursor: string} {
+): {document: string; initialCursor: string; runtimeWindowVariableType: null} {
   if (!graphName.test(source.queryEntity)) throw new Error(`Query entity ${source.queryEntity} is invalid`);
   const schema = buildGraphSchema(schemaDocument);
   const entity = sourceObject(source, schema, selectedPaths);
@@ -225,6 +227,7 @@ export function compileLiveQuery(
   return {
     document: `query SprueLiveSource($first: Int!, $cursor: ${cursor.type}!) { ${source.queryEntity}(first: $first, orderBy: id, orderDirection: asc, where: { id_gt: $cursor }) { ${selection} } _meta { deployment block { number hash timestamp } hasIndexingErrors } }`,
     initialCursor: cursor.initial,
+    runtimeWindowVariableType: null,
   };
 }
 
@@ -233,7 +236,7 @@ export function compileAuthoredLiveQuery(
   schemaDocument: string,
   selectedPaths: readonly string[],
   plan: GraphSourceQueryPlan,
-): {document: string; initialCursor: string} {
+): {document: string; initialCursor: string; runtimeWindowVariableType: "BigInt" | "Int" | "String" | null} {
   const schema = buildGraphSchema(schemaDocument);
   const entity = sourceObject(source, schema, selectedPaths);
   validateSelectedPaths(entity, selectedPaths);
@@ -246,7 +249,11 @@ export function compileAuthoredLiveQuery(
     const issues = validate(schema, parse(plan.document, {maxTokens: 5_000}));
     if (issues.length > 0) throw new Error(`Agent-authored Graph query is incompatible with the inspected schema: ${issues[0]!.message}`);
   }
-  return {document: plan.document, initialCursor: cursor.initial};
+  return {
+    document: plan.document,
+    initialCursor: cursor.initial,
+    runtimeWindowVariableType: authored.runtimeWindowVariableType,
+  };
 }
 
 function collectExpressionFields(value: unknown, fields: Set<string>): void {
@@ -337,6 +344,8 @@ export function createImmutableLivePlan(input: {
             gatewayEnvironment: "mainnet" as const,
           },
           queryDocument: query.document,
+          runtimeWindow: source.queryPlan?.runtimeWindow ?? null,
+          runtimeWindowVariableType: query.runtimeWindowVariableType,
           pushedOperations: source.queryPlan?.pushedOperations ?? [],
           initialCursor: query.initialCursor,
           pageSize: source.queryPlan?.pagination.pageSize ?? 1_000,

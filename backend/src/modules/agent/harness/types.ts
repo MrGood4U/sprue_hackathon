@@ -198,6 +198,7 @@ export interface DiscoverySemanticPlan {
     fields: readonly DiscoveryOutputField[];
     orderBy: readonly {field: string; direction: "asc" | "desc"}[];
   };
+  window?: {kind: "complete_utc_days"; days: number; timezone: "UTC"} | null;
   refresh: {mode: "manual" | "scheduled"; timezone: "UTC"};
   assumptions: readonly string[];
   unresolved: readonly string[];
@@ -404,7 +405,8 @@ export type SourceFeasibilityOutput = SourceFeasibilityPlan | PlannerClarificati
 
 export interface SourceDiscoveryPlanningModelRequest {
   stage: "source_discovery_planning";
-  promptVersion: "5";
+  promptVersion: "6";
+  planningAnchorAt: string;
   intent: string;
   availableNetworks: readonly {dataNetwork: string; label: string}[];
   limits: {maxNetworks: number; maxUniqueKeywordsPerNetwork: number; maxKeywordsPerNetwork: number};
@@ -413,7 +415,8 @@ export interface SourceDiscoveryPlanningModelRequest {
 
 export interface SourceFeasibilityModelRequest {
   stage: "source_feasibility";
-  promptVersion: "12";
+  promptVersion: "13";
+  planningAnchorAt: string;
   semanticPlan: DiscoverySemanticPlan;
   sourceNeeds: readonly DiscoverySourceNeed[];
   candidates: readonly SourceFeasibilityCandidate[];
@@ -429,7 +432,8 @@ export interface SourceFeasibilityModelRequest {
 
 export interface SourceEntitySelectionModelRequest {
   stage: "source_entity_selection";
-  promptVersion: "2";
+  promptVersion: "3";
+  planningAnchorAt: string;
   semanticPlan: DiscoverySemanticPlan;
   sourceNeeds: readonly DiscoverySourceNeed[];
   candidates: readonly SourceEntitySelectionCandidate[];
@@ -452,6 +456,7 @@ export interface ModelRepairDirective {
 export interface SemanticModelRequest {
   stage: "semantic_interpretation";
   promptVersion: "1";
+  planningAnchorAt: string;
   intent: string;
   availableNetworks: readonly {dataNetwork: string; label: string}[];
 }
@@ -459,6 +464,7 @@ export interface SemanticModelRequest {
 export interface SourceSelectionModelRequest {
   stage: "source_selection";
   promptVersion: "1";
+  planningAnchorAt: string;
   semanticPlan: SemanticPlan;
   sourceNeeds: readonly SourceNeed[];
   candidates: readonly SourceCandidateSummary[];
@@ -468,6 +474,7 @@ export interface SourceSelectionModelRequest {
 export interface DagCompositionModelRequest {
   stage: "dag_composition";
   promptVersion: "1";
+  planningAnchorAt: string;
   semanticPlan: SemanticPlan;
   sourceRoles: readonly {role: string; sourceNeedId: string; rowSchema: string}[];
   operatorRegistry: readonly OperatorSignature[];

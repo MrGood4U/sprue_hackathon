@@ -154,6 +154,11 @@ const discoverySemanticPlanSchema = z.object({
     }).strict()).min(1).max(32),
     orderBy: z.array(z.object({field: role, direction: z.enum(["asc", "desc"])}).strict()).max(8),
   }).strict(),
+  window: z.object({
+    kind: z.literal("complete_utc_days"),
+    days: z.number().int().min(1).max(365),
+    timezone: z.literal("UTC"),
+  }).strict().nullable(),
   refresh: z.object({mode: z.enum(["manual", "scheduled"]), timezone: z.literal("UTC")}).strict(),
   assumptions: z.array(boundedText(1000)).max(16),
   unresolved: z.array(boundedText(1000)).max(16),
@@ -221,6 +226,14 @@ const filterConditionSchema = z.discriminatedUnion("operator", [
     operator: z.enum(["is_null", "is_not_null"]),
   }).strict(),
 ]);
+const relativeWindowFilterSchema = z.object({
+  relativeWindow: z.object({
+    field: role,
+    kind: z.literal("complete_utc_days"),
+    days: z.number().int().min(1).max(365),
+    timezone: z.literal("UTC"),
+  }).strict(),
+}).strict();
 const filterPredicateSchema = z.object({
   combinator: z.enum(["and", "or"]),
   conditions: z.array(filterConditionSchema).min(1).max(32),
@@ -234,6 +247,7 @@ const flexibleNodeSchema = z.discriminatedUnion("operator", [
     config: z.union([
       z.object({predicate: filterPredicateSchema}).strict(),
       z.object({expression: expressionSchema}).strict(),
+      relativeWindowFilterSchema,
     ]),
   }).strict(),
   z.object({
@@ -340,9 +354,18 @@ const graphQueryPlanSchema = z.object({
     maxRequests: z.number().int().min(1).max(20),
     maxRows: z.number().int().min(1).max(10_000),
   }).strict(),
+  runtimeWindow: z.object({
+    kind: z.literal("complete_utc_days"),
+    days: z.number().int().min(1).max(365),
+    timezone: z.literal("UTC"),
+    field: queryEntity,
+    startVariable: z.literal("windowStart"),
+    endVariable: z.literal("windowEnd"),
+    valueEncoding: z.literal("unix_seconds"),
+  }).strict().nullable(),
   pushedOperations: z.array(z.object({
     nodeRole: role,
-    operator: z.enum(["map", "filter", "sort"]),
+    operator: z.enum(["filter", "sort"]),
     description: boundedText(500),
   }).strict()).max(12),
 }).strict();

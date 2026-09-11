@@ -897,6 +897,7 @@ test("Graph source discovery progressively inspects candidates independently for
 
 test("Agent derives search keywords before Graph MCP discovery and assesses composition afterward", async () => {
   const sequence: string[] = [];
+  const planningAnchors: string[] = [];
   const debugEvents: AgentDebugEvent[] = [];
   let feasibilityRequest: AgentModelRequest | undefined;
   const graph: GraphPlanningMcpPort = {
@@ -931,14 +932,20 @@ test("Agent derives search keywords before Graph MCP discovery and assesses comp
   const model = {
     async complete(request: AgentModelRequest) {
       sequence.push(`model:${request.stage}`);
+      planningAnchors.push(request.planningAnchorAt);
       if (request.stage === "source_feasibility") feasibilityRequest = request;
       return {provider: "mock" as const, model: "ordered-planner", output: createMockStageOutput(request)};
     },
   };
 
-  const result = await new AgentHarness(model, undefined, new GraphSourceDiscoveryService(graph), (event) => {
-    debugEvents.push(event);
-  }).explore({
+  const result = await new AgentHarness(
+    model,
+    undefined,
+    new GraphSourceDiscoveryService(graph),
+    (event) => { debugEvents.push(event); },
+    undefined,
+    () => new Date("2026-09-11T10:15:30.000Z"),
+  ).explore({
     intent: "Find wallets trading through Uniswap V3 on both Ethereum and Arbitrum.",
     availableNetworks: [
       {dataNetwork: "eip155:1", label: "Ethereum"},
@@ -950,6 +957,11 @@ test("Agent derives search keywords before Graph MCP discovery and assesses comp
   if (result.kind !== "feasibility") return;
   assert.equal(result.readyForCompilation, false);
   assert.equal(result.model.calls, 3);
+  assert.deepEqual(planningAnchors, [
+    "2026-09-11T10:15:30.000Z",
+    "2026-09-11T10:15:30.000Z",
+    "2026-09-11T10:15:30.000Z",
+  ]);
   assert.equal(result.feasibility.selections.length, 2);
   assert.equal(result.feasibility.composition.nodes.filter((node) => node.operator === "union").length, 1);
   assert.deepEqual(sequence, [
@@ -1625,6 +1637,7 @@ test("Agent can select inspected fields when no lexical grain or field hint matc
                 fields: [{name: "observation_value", description: "Measurement.", type: "decimal", unit: null, nullable: false}],
                 orderBy: [],
               },
+              window: null,
               refresh: {mode: "manual", timezone: "UTC"},
               assumptions: [],
               unresolved: [],
@@ -1669,7 +1682,8 @@ test("Agent can select inspected fields when no lexical grain or field hint matc
               operationName: "SprueLiveSource",
               document: "query SprueLiveSource($first: Int!, $cursor: ID!) { obscuras(first: $first, orderBy: id, orderDirection: asc, where: { id_gt: $cursor }) { id payload { flarn zorb } } }",
               pagination: {kind: "id_cursor", cursorField: "id", pageSize: 500, maxRequests: 20, maxRows: 10_000},
-              pushedOperations: [{nodeRole: "normalize_observations", operator: "map", description: "Project inspected observation fields."}],
+              runtimeWindow: null,
+              pushedOperations: [],
             },
             rationale: "The inspected provider field has the required scalar type and requested meaning.",
           }],
@@ -2045,6 +2059,7 @@ test("Agent validates schema-driven time-series fields without a wallet-shaped s
                 ],
                 orderBy: [{field: "day", direction: "asc"}],
               },
+              window: null,
               refresh: {mode: "scheduled", timezone: "UTC"},
               assumptions: [],
               unresolved: [],
@@ -2091,7 +2106,8 @@ test("Agent validates schema-driven time-series fields without a wallet-shaped s
               operationName: "SprueLiveSource",
               document: "query SprueLiveSource($first: Int!, $cursor: ID!) { metricEvents(first: $first, orderBy: id, orderDirection: asc, where: { id_gt: $cursor }) { id amountUSD blockTimestamp } }",
               pagination: {kind: "id_cursor", cursorField: "id", pageSize: 500, maxRequests: 20, maxRows: 10_000},
-              pushedOperations: [{nodeRole: "derive_day", operator: "map", description: "Project inspected metric fields."}],
+              runtimeWindow: null,
+              pushedOperations: [],
             },
             rationale: "Both semantic fields are present on the inspected entity.",
           }],

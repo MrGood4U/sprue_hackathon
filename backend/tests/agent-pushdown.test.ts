@@ -127,3 +127,36 @@ test("Filter pushdown accepts an equivalent GraphQL or-list and rejects transfor
   assert.equal(matchesCompleteFilterPushdown(document, filter, directMap), true);
   assert.equal(matchesCompleteFilterPushdown(document, filter, derivedMap), false);
 });
+
+test("Filter pushdown combines stable predicates with a runtime UTC-day window", () => {
+  const map = {mode: "project", fields: [
+    {name: "trade_timestamp", expression: {op: "field", field: "timestamp"}, unit: null},
+    {name: "kind", expression: {op: "field", field: "rawKind"}, unit: null},
+  ]};
+  const plan = {
+    schemaVersion: 1 as const,
+    operationName: "SprueLiveSource" as const,
+    document: "query SprueLiveSource($first: Int!, $cursor: ID!, $windowStart: BigInt!, $windowEnd: BigInt!) { rows(first: $first, orderBy: id, orderDirection: asc, where: { id_gt: $cursor, timestamp_gte: $windowStart, timestamp_lt: $windowEnd, or: [{ rawKind: \"mint\" }, { rawKind: \"swap\" }] }) { id rawKind timestamp } }",
+    pagination: {kind: "id_cursor" as const, cursorField: "id" as const, pageSize: 1_000, maxRequests: 20, maxRows: 10_000},
+    runtimeWindow: {
+      kind: "complete_utc_days" as const,
+      days: 7,
+      timezone: "UTC" as const,
+      field: "timestamp",
+      startVariable: "windowStart" as const,
+      endVariable: "windowEnd" as const,
+      valueEncoding: "unix_seconds" as const,
+    },
+    pushedOperations: [],
+  };
+  const filters = [
+    {relativeWindow: {field: "trade_timestamp", kind: "complete_utc_days", days: 7, timezone: "UTC"}},
+    {predicate: {combinator: "or", conditions: [
+      {field: "kind", operator: "eq", value: "swap"},
+      {field: "kind", operator: "eq", value: "mint"},
+    ]}},
+  ];
+
+  assert.equal(matchesCompleteFilterPushdown(plan, filters, map), true);
+  assert.equal(matchesCompleteFilterPushdown({...plan, runtimeWindow: {...plan.runtimeWindow, days: 6}}, filters, map), false);
+});

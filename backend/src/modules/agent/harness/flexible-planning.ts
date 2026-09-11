@@ -64,7 +64,7 @@ export const flexibleOperatorRegistry: readonly OperatorSignature[] = [
     operatorVersion: "2",
     inputPorts: ["rows"],
     outputPorts: ["rows"],
-    configContract: "{predicate:{combinator:'and'|'or',conditions:[{field,operator:'eq'|'ne'|'lt'|'lte'|'gt'|'gte',value:string|boolean}|{field,operator:'in'|'not_in',values:(string|boolean)[]}|{field,operator:'between',values:[string|boolean,string|boolean]}|{field,operator:'is_null'|'is_not_null'}]}}; use only operators valid for the referenced field type. Legacy {expression:Expression} remains accepted.",
+    configContract: "{predicate:{combinator:'and'|'or',conditions:[{field,operator:'eq'|'ne'|'lt'|'lte'|'gt'|'gte',value:string|boolean}|{field,operator:'in'|'not_in',values:(string|boolean)[]}|{field,operator:'between',values:[string|boolean,string|boolean]}|{field,operator:'is_null'|'is_not_null'}]}} or {relativeWindow:{field,kind:'complete_utc_days',days:1..365,timezone:'UTC'}}; use only operators valid for the referenced field type. Relative windows must be fully pushed into GraphQL. Legacy {expression:Expression} remains accepted.",
   },
   {
     type: "map",
@@ -509,6 +509,23 @@ function outputShape(
       const predicate = config.predicate as {conditions: readonly {field: string}[]};
       for (const condition of predicate.conditions) {
         field(source, condition.field, "Filter condition", {fields: usage, purpose: "filter"});
+      }
+    } else if ("relativeWindow" in config) {
+      exactKeys(config, ["relativeWindow"], "Filter config");
+      const window = record(config.relativeWindow, "Filter relativeWindow");
+      exactKeys(window, ["field", "kind", "days", "timezone"], "Filter relativeWindow");
+      const selected = field(source, window.field, "Filter relativeWindow field", {fields: usage, purpose: "filter"});
+      if (selected.type !== "timestamp" && selected.type !== "date") {
+        fail("FILTER_WINDOW_TYPE_INVALID", "A complete UTC-day window requires a timestamp or date field");
+      }
+      if (
+        window.kind !== "complete_utc_days"
+        || !Number.isInteger(window.days)
+        || Number(window.days) < 1
+        || Number(window.days) > 365
+        || window.timezone !== "UTC"
+      ) {
+        fail("FILTER_WINDOW_INVALID", "Filter relativeWindow must declare 1 to 365 complete UTC days");
       }
     } else {
       exactKeys(config, ["expression"], "Filter config");

@@ -770,6 +770,7 @@ test("remote Agent model sends an OpenAI-compatible request and parses the bound
   const request = {
     stage: "semantic_interpretation" as const,
     promptVersion: "1" as const,
+    planningAnchorAt: "2026-09-11T00:00:00.000Z",
     intent: "Find cross-chain traders.",
     availableNetworks: [
       {dataNetwork: "eip155:1", label: "ethereum"},
@@ -817,6 +818,7 @@ test("remote Agent model uses DeepSeek Responses Structured Outputs", async () =
   const request = {
     stage: "semantic_interpretation" as const,
     promptVersion: "1" as const,
+    planningAnchorAt: "2026-09-11T00:00:00.000Z",
     intent: "Find cross-chain traders.",
     availableNetworks: [{dataNetwork: "eip155:1", label: "ethereum"}],
   };
@@ -863,6 +865,7 @@ test("DeepSeek incomplete structured responses are classified without retaining 
     () => model.complete({
       stage: "semantic_interpretation",
       promptVersion: "1",
+      planningAnchorAt: "2026-09-11T00:00:00.000Z",
       intent: "Find cross-chain traders.",
       availableNetworks: [{dataNetwork: "eip155:1", label: "ethereum"}],
     }),
@@ -884,6 +887,7 @@ test("remote Agent model rejects ordinary content when the forced planning tool 
     () => model.complete({
       stage: "semantic_interpretation",
       promptVersion: "1",
+      planningAnchorAt: "2026-09-11T00:00:00.000Z",
       intent: "Find cross-chain traders.",
       availableNetworks: [{dataNetwork: "eip155:1", label: "ethereum"}],
     }),
@@ -936,6 +940,7 @@ test("remote Agent model classifies its bounded request timeout", async () => {
     () => model.complete({
       stage: "semantic_interpretation",
       promptVersion: "1",
+      planningAnchorAt: "2026-09-11T00:00:00.000Z",
       intent: "Find cross-chain traders.",
       availableNetworks: [{dataNetwork: "eip155:1", label: "ethereum"}],
     }),
@@ -961,6 +966,7 @@ test("remote Agent model records only safe provider error identifiers", async ()
     () => model.complete({
       stage: "semantic_interpretation",
       promptVersion: "1",
+      planningAnchorAt: "2026-09-11T00:00:00.000Z",
       intent: "Find cross-chain traders.",
       availableNetworks: [{dataNetwork: "eip155:1", label: "ethereum"}],
     }),

@@ -1023,6 +1023,21 @@ function validateSourceFeasibility(
         queryEntity: selection.queryEntity,
         selectedPaths: [...boundPaths, ...auxiliaryPaths],
       });
+      const semanticWindow = plan.window ?? null;
+      const runtimeWindow = selection.queryPlan.runtimeWindow ?? null;
+      if (
+        (semanticWindow === null) !== (runtimeWindow === null)
+        || (semanticWindow !== null && runtimeWindow !== null && (
+          semanticWindow.kind !== runtimeWindow.kind
+          || semanticWindow.days !== runtimeWindow.days
+          || semanticWindow.timezone !== runtimeWindow.timezone
+        ))
+      ) {
+        fail(
+          "Feasibility Source query runtime window does not match the requested semantic window",
+          "FEASIBILITY_SOURCE_WINDOW_INVALID",
+        );
+      }
       queryPredicatesByNeed.set(need.id, validatedQuery.hasAdditionalPredicates);
     } catch {
       fail(
@@ -1057,7 +1072,13 @@ function validateSourceFeasibility(
     const seenPushdowns = new Set<string>();
     for (const pushed of selection.queryPlan.pushedOperations) {
       const node = compositionNodes.get(pushed.nodeRole);
-      if (!node || node.operator !== pushed.operator || !pushdownReachable.has(node.role) || seenPushdowns.has(pushed.nodeRole)) {
+      if (
+        pushed.operator === "map"
+        || !node
+        || node.operator !== pushed.operator
+        || !pushdownReachable.has(node.role)
+        || seenPushdowns.has(pushed.nodeRole)
+      ) {
         fail(
           "Feasibility Source query references an unknown, mismatched, or duplicate pushed operator",
           "FEASIBILITY_SOURCE_PUSHDOWN_INVALID",
@@ -1101,17 +1122,14 @@ function validateSourceFeasibility(
       );
     }
     const pushedFilters = selection.queryPlan.pushedOperations.filter((item) => item.operator === "filter");
-    if (pushedFilters.length === 1) {
-      const filter = compositionNodes.get(pushedFilters[0]!.nodeRole);
-      if (!filter || !matchesCompleteFilterPushdown(selection.queryPlan.document, filter.config, boundaryMap.config)) {
-        fail(
-          "Feasibility Source query predicates are not exactly equivalent to the declared Filter",
-          "FEASIBILITY_SOURCE_PUSHDOWN_INVALID",
-        );
-      }
-    } else if (pushedFilters.length > 1) {
+    const filterConfigs = pushedFilters.map((item) => compositionNodes.get(item.nodeRole)?.config);
+    if (
+      pushedFilters.length > 0
+      && (filterConfigs.some((config) => config === undefined)
+        || !matchesCompleteFilterPushdown(selection.queryPlan, filterConfigs, boundaryMap.config))
+    ) {
       fail(
-        "Feasibility Source query can push at most one complete Filter",
+        "Feasibility Source query predicates are not exactly equivalent to its declared Filters",
         "FEASIBILITY_SOURCE_PUSHDOWN_INVALID",
       );
     }
@@ -1164,6 +1182,7 @@ export class AgentHarness {
     private readonly sourceDiscovery?: GraphSourceDiscoveryPort,
     private readonly debugSink?: AgentDebugSink,
     private readonly embeddingRanker?: EntityEmbeddingRankerPort,
+    private readonly clock: () => Date = () => new Date(),
   ) {}
 
   private emitDebug(event: AgentDebugEvent): void {
@@ -1206,6 +1225,7 @@ export class AgentHarness {
       }
     };
     const intent = validateExplorationRequest(request, this.limits);
+    const planningAnchorAt = this.clock().toISOString();
     emitTrace("admit", "passed", "Intent and network catalog accepted within harness limits");
 
     let modelCalls = 0;
@@ -1330,7 +1350,8 @@ export class AgentHarness {
     emitTrace("source_discovery_planning", "started", "Model is deriving bounded semantic requirements and Subgraph search keywords");
     const discoveryPlanningRequest: SourceDiscoveryPlanningModelRequest = {
       stage: "source_discovery_planning",
-      promptVersion: "5",
+      promptVersion: "6",
+      planningAnchorAt,
       intent,
       availableNetworks: request.availableNetworks,
       limits: {maxNetworks: this.limits.maxSources, maxUniqueKeywordsPerNetwork: 3, maxKeywordsPerNetwork: 3},
@@ -1475,7 +1496,8 @@ export class AgentHarness {
     );
     const entitySelectionRequest: SourceEntitySelectionModelRequest = {
       stage: "source_entity_selection",
-      promptVersion: "2",
+      promptVersion: "3",
+      planningAnchorAt,
       semanticPlan: discoveryPlanningOutput.semanticPlan,
       sourceNeeds,
       candidates: selectionCandidates,
@@ -1581,7 +1603,8 @@ export class AgentHarness {
     emitTrace("source_feasibility", "started", "Model is binding retrieved fields and composing registered operators");
     const feasibilityRequest: SourceFeasibilityModelRequest = {
       stage: "source_feasibility",
-      promptVersion: "12",
+      promptVersion: "13",
+      planningAnchorAt,
       semanticPlan: discoveryPlanningOutput.semanticPlan,
       sourceNeeds,
       candidates: presentedCandidateEvidence,
@@ -1678,6 +1701,7 @@ export class AgentHarness {
     if (request.sources.length === 0 || request.sources.length > this.limits.maxSources) {
       fail("Source count is outside harness limits", "SOURCE_LIMIT_EXCEEDED");
     }
+    const planningAnchorAt = this.clock().toISOString();
     addTrace(trace, "admit", "passed", "Intent and inspected source candidates accepted within harness limits");
 
     let modelCalls = 0;
@@ -1700,6 +1724,7 @@ export class AgentHarness {
     const semanticResponse = await invoke({
       stage: "semantic_interpretation",
       promptVersion: "1",
+      planningAnchorAt,
       intent,
       availableNetworks: [...new Map(request.sources.map((source) => [
         sourceDataNetwork(source),
@@ -1732,6 +1757,7 @@ export class AgentHarness {
     const selectionResponse = await invoke({
       stage: "source_selection",
       promptVersion: "1",
+      planningAnchorAt,
       semanticPlan: semanticOutput,
       sourceNeeds,
       candidates,
@@ -1755,6 +1781,7 @@ export class AgentHarness {
     const compositionResponse = await invoke({
       stage: "dag_composition",
       promptVersion: "1",
+      planningAnchorAt,
       semanticPlan: semanticOutput,
       sourceRoles: bindings.map((binding) => ({
         role: sourceRole(binding.need.id),
