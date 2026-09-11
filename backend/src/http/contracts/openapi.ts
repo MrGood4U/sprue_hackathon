@@ -3,6 +3,7 @@ import { routeCatalog } from "./catalog.js";
 import {
   graphCredentialInputSchema,
   graphCredentialViewSchema,
+  paymentAuthorizationInputSchema,
   walletAccessViewSchema,
 } from "../control/identity.controller.js";
 import {
@@ -106,7 +107,7 @@ export function openApiDocument() {
         ? route.implementation === "model-profile-test"
           ? "ModelProfileTestResult"
           : "ModelProfile"
-        : route.implementation === "wallet-access" || route.implementation === "wallet-hedera-create"
+        : route.implementation === "wallet-access" || route.implementation === "wallet-hedera-create" || route.implementation === "wallet-payment-authorization"
           ? "WalletAccess"
           : route.implementation === "graph-credentials-list"
             ? "GraphCredentialList"
@@ -153,7 +154,7 @@ export function openApiDocument() {
               ? "Idempotently initialized creator identity and default workspace"
               : modelProfile
                 ? "Authorized workspace model configuration without secret material"
-                : route.implementation === "wallet-access" || route.implementation === "wallet-hedera-create"
+                : route.implementation === "wallet-access" || route.implementation === "wallet-hedera-create" || route.implementation === "wallet-payment-authorization"
                   ? "Authorized live wallet, balance, credential and readiness projection"
                   : route.implementation.startsWith("graph-credentials-")
                     ? "Authorized Graph credential metadata without raw secret material"
@@ -220,6 +221,7 @@ export function openApiDocument() {
       route.implementation === "graph-credentials-select" ||
       route.implementation === "graph-credentials-revoke" ||
       route.implementation === "wallet-hedera-create" ||
+      route.implementation === "wallet-payment-authorization" ||
       route.implementation === "products-create" ||
       route.implementation === "products-update" ||
       route.implementation === "agent-sessions-create" ||
@@ -247,6 +249,8 @@ export function openApiDocument() {
                       ? {$ref: "#/components/schemas/BuilderSourceValidateInput"}
                     : route.implementation === "builder-compile"
                       ? {$ref: "#/components/schemas/BuilderCompileInput"}
+                : route.implementation === "wallet-payment-authorization"
+                  ? {$ref: "#/components/schemas/PaymentAuthorizationInput"}
                 : route.implementation === "wallet-hedera-create" ||
               route.implementation === "agent-planning-cancel" ||
               route.implementation === "graph-credentials-validate" ||
@@ -311,6 +315,7 @@ export function openApiDocument() {
         ModelProfile: z.toJSONSchema(modelProfileViewSchema),
         ModelProfileTestResult: z.toJSONSchema(modelProfileTestResultSchema),
         GraphCredentialInput: z.toJSONSchema(graphCredentialInputSchema),
+        PaymentAuthorizationInput: z.toJSONSchema(paymentAuthorizationInputSchema),
         GraphCredential: z.toJSONSchema(graphCredentialViewSchema),
         GraphCredentialList: z.toJSONSchema(z.array(graphCredentialViewSchema)),
         WalletAccess: z.toJSONSchema(walletAccessViewSchema),

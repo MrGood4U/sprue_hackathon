@@ -150,6 +150,7 @@ export type LogEvent =
         | "wallet_list"
         | "wallet_create"
         | "wallet_balance"
+        | "wallet_get"
         | "mirror_account";
       attempt: number;
       maxAttempts: number;
@@ -164,6 +165,7 @@ export type LogEvent =
         | "wallet_list"
         | "wallet_create"
         | "wallet_balance"
+        | "wallet_get"
         | "mirror_account";
       attempts: number;
     }
@@ -174,6 +176,7 @@ export type LogEvent =
         | "wallet_list"
         | "wallet_create"
         | "wallet_balance"
+        | "wallet_get"
         | "mirror_account"
         | "faucet_disbursement";
       attempts: number;

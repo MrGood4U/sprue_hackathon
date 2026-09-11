@@ -25,6 +25,7 @@ import {
   readIdentity,
   readWalletAccess,
   selectGraphCredential,
+  synchronizePaymentAuthorization,
   validateGraphCredential,
 } from "./control/identity.controller.js";
 import {demoCreatorAction, demoCreatorState, demoPublicAction, demoPublicState} from "./demo/demo.controller.js";
@@ -133,6 +134,8 @@ export function registerRoutes(app: Express, deps: RouteDependencies) {
                         ? readWalletAccess(deps.wallets)
                         : route.implementation === "wallet-hedera-create"
                           ? createHederaAccount(deps.wallets)
+                        : route.implementation === "wallet-payment-authorization"
+                          ? synchronizePaymentAuthorization(deps.wallets)
                         : route.implementation === "graph-credentials-list"
                           ? listGraphCredentials(deps.graphCredentials)
                           : route.implementation === "graph-credentials-create"

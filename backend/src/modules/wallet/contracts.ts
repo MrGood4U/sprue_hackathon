@@ -41,12 +41,52 @@ export interface ProviderBalance {
   observedAt: Date;
 }
 
+export interface ProviderDelegationObservation {
+  signerId: string;
+  policyId: string;
+  definition: {
+    walletPolicyIds: readonly string[];
+    signerPolicyIds: readonly string[];
+  };
+  observedAt: Date;
+}
+
 export interface PrivyWalletPort {
   findOrCreateUserWallet(input: {
     privyUserId: string;
     sprueUserId: string;
   }): Promise<ProviderWallet>;
   readGraphFundingBalance(walletId: string): Promise<ProviderBalance | null>;
+  readDelegatedPaymentAuthorization?(
+    walletId: string,
+  ): Promise<ProviderDelegationObservation | null>;
+}
+
+export interface WalletSignerGrantView {
+  id: string;
+  walletId: string;
+  provider: "privy";
+  providerSignerId: string;
+  providerPolicyId: string;
+  status: "pending" | "active" | "drifted" | "revoked" | "expired" | "failed";
+  grantedAt: string | null;
+  updatedAt: string;
+}
+
+export interface SpendingPolicyView {
+  id: string;
+  walletSignerGrantId: string;
+  network: string;
+  assetIdentifier: string;
+  symbol: "USDC";
+  decimals: 6;
+  maxPerPeriodAtomic: string;
+  periodKind: "day";
+  periodStartsAt: string;
+  periodEndsAt: string;
+  status: "draft" | "active" | "paused" | "exhausted" | "revoked" | "expired";
+  updatedAt: string;
+  lockVersion: number;
 }
 
 export interface HederaAccountObservation {
@@ -139,6 +179,21 @@ export interface WalletRepository {
     status: "succeeded" | "failed";
     errorCode?: string;
   }): Promise<void>;
+  listSignerGrants(workspaceId: string): Promise<readonly WalletSignerGrantView[]>;
+  listSpendingPolicies(workspaceId: string): Promise<readonly SpendingPolicyView[]>;
+  synchronizePaymentAuthorization(input: {
+    workspaceId: string;
+    actorUserId: string;
+    walletId: string;
+    providerSignerId: string;
+    providerPolicyId: string;
+    definition: ProviderDelegationObservation["definition"];
+    definitionHash: string;
+    observedAt: Date;
+    dailyLimitAtomic: string;
+    periodStartsAt: Date;
+    periodEndsAt: Date;
+  }): Promise<void>;
 }
 
 export interface WalletAccessView {
@@ -180,8 +235,8 @@ export interface WalletAccessView {
     provider: "privy" | "hedera_mirror_node";
     freshness: "current";
   }[];
-  signerGrants: readonly [];
-  spendingPolicies: readonly [];
+  signerGrants: readonly WalletSignerGrantView[];
+  spendingPolicies: readonly SpendingPolicyView[];
   recipientCapabilities: readonly {
     walletAddressId: string;
     networkId: string;
@@ -216,6 +271,13 @@ export class WalletProviderError extends Error {
   constructor() {
     super("WALLET_PROVIDER_UNAVAILABLE");
     this.name = "WalletProviderError";
+  }
+}
+
+export class WalletDelegationError extends Error {
+  constructor(readonly reason: "not_observed" | "unscoped" | "invalid_limit") {
+    super(`WALLET_DELEGATION_${reason.toUpperCase()}`);
+    this.name = "WalletDelegationError";
   }
 }
 

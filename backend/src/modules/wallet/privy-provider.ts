@@ -28,6 +28,7 @@ interface PrivyWalletClient {
       owner: {user_id: string};
       idempotency_key: string;
     }): Promise<Wallet>;
+    get(walletId: string): Promise<Wallet>;
     balance: {
       get(
         walletId: string,
@@ -44,7 +45,7 @@ interface PrivyWalletClient {
   };
 }
 
-type PrivyOperation = "wallet_list" | "wallet_create" | "wallet_balance";
+type PrivyOperation = "wallet_list" | "wallet_create" | "wallet_balance" | "wallet_get";
 type RetryableReason = "timeout" | "connection" | "rate_limit" | "server_error";
 type FailureReason = RetryableReason | "client_error" | "invalid_response" | "unexpected";
 
@@ -236,6 +237,38 @@ export function privyWalletProvider(
               asset: balance.asset,
               balanceAtomic: balance.raw_value,
               decimals: balance.raw_value_decimals,
+              observedAt: new Date(),
+            };
+          },
+          options,
+        );
+      } catch (error) {
+        if (error instanceof WalletProviderError) throw error;
+        throw new WalletProviderError();
+      }
+    },
+
+    async readDelegatedPaymentAuthorization(walletId) {
+      try {
+        return await withPrivyRetry(
+          "wallet_get",
+          async () => {
+            const wallet = await providerClient.wallets().get(walletId);
+            if (wallet.chain_type !== "ethereum") throw new WalletProviderError();
+            const signer = wallet.additional_signers.find(
+              (item) => typeof item.signer_id === "string" && item.signer_id.length > 0,
+            );
+            if (!signer) return null;
+            const signerPolicyIds = signer.override_policy_ids ?? [];
+            const policyId = signerPolicyIds[0] ?? wallet.policy_ids[0];
+            if (!policyId) return null;
+            return {
+              signerId: signer.signer_id,
+              policyId,
+              definition: {
+                walletPolicyIds: [...wallet.policy_ids],
+                signerPolicyIds: [...signerPolicyIds],
+              },
               observedAt: new Date(),
             };
           },

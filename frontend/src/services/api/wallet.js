@@ -72,10 +72,41 @@ function assertWalletAccess(value) {
     !Array.isArray(value?.wallets) ||
     !Array.isArray(value?.balances) ||
     !Array.isArray(value?.credentials) ||
+    !Array.isArray(value?.signerGrants) ||
+    !Array.isArray(value?.spendingPolicies) ||
     !Array.isArray(value?.readiness)
   ) throw new Error("INVALID_WALLET_API_RESPONSE");
   value.credentials.forEach(assertCredential);
   return value;
+}
+
+export async function synchronizePaymentAuthorization({walletId, dailyLimitAtomic}, {
+  apiBaseUrl: configuredBaseUrl,
+  fetchImpl = globalThis.fetch,
+  idempotencyKey = `sprue-wallet-authorization-${globalThis.crypto.randomUUID()}`,
+  signal,
+  ...options
+} = {}) {
+  if (!uuidPattern.test(walletId ?? "")) throw new Error("INVALID_WALLET_ID");
+  if (!/^[1-9][0-9]{0,77}$/.test(dailyLimitAtomic ?? "")) {
+    throw new Error("INVALID_DAILY_LIMIT");
+  }
+  const response = await fetchImpl(
+    endpoint(configuredBaseUrl, options, `wallets/${walletId}/synchronize-grants`),
+    {
+      method: "POST",
+      credentials: "omit",
+      redirect: "error",
+      cache: "no-store",
+      headers: headers(options, {
+        "Content-Type": "application/json",
+        "Idempotency-Key": idempotencyKey,
+      }),
+      body: JSON.stringify({dailyLimitAtomic}),
+      signal: requestSignal(signal, 30000),
+    },
+  );
+  return assertWalletAccess(await readLiveResponse(response));
 }
 
 export async function getWalletAccess({

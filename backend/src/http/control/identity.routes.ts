@@ -174,7 +174,7 @@ export const identityRoutes: readonly RouteDefinition[] = [
     operationId:
       "postApiV1WorkspacesWorkspaceIdWalletsWalletIdSynchronizeGrants",
     audience: "creator",
-    implementation: "reserved",
+    implementation: "wallet-payment-authorization",
     idempotency: true,
     ifMatch: false,
   },

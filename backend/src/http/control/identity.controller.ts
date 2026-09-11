@@ -16,6 +16,7 @@ import type {WalletService} from "../../modules/wallet/service.js";
 import {
   HederaAccountError,
   WalletCommandConflictError,
+  WalletDelegationError,
   WalletNotFoundError,
   WalletStorageError,
 } from "../../modules/wallet/contracts.js";
@@ -60,6 +61,37 @@ const readinessSchema = z.strictObject({
   blockers: z.array(z.strictObject({code: z.string(), message: z.string()})),
 });
 
+export const paymentAuthorizationInputSchema = z.strictObject({
+  dailyLimitAtomic: z.string().regex(/^[1-9][0-9]{0,77}$/),
+});
+
+const walletSignerGrantSchema = z.strictObject({
+  id: z.uuid(),
+  walletId: z.uuid(),
+  provider: z.literal("privy"),
+  providerSignerId: z.string(),
+  providerPolicyId: z.string(),
+  status: z.enum(["pending", "active", "drifted", "revoked", "expired", "failed"]),
+  grantedAt: z.iso.datetime().nullable(),
+  updatedAt: z.iso.datetime(),
+});
+
+const spendingPolicySchema = z.strictObject({
+  id: z.uuid(),
+  walletSignerGrantId: z.uuid(),
+  network: z.string(),
+  assetIdentifier: z.string(),
+  symbol: z.literal("USDC"),
+  decimals: z.literal(6),
+  maxPerPeriodAtomic: z.string().regex(/^[1-9][0-9]{0,77}$/),
+  periodKind: z.literal("day"),
+  periodStartsAt: z.iso.datetime(),
+  periodEndsAt: z.iso.datetime(),
+  status: z.enum(["draft", "active", "paused", "exhausted", "revoked", "expired"]),
+  updatedAt: z.iso.datetime(),
+  lockVersion: z.number().int().nonnegative(),
+});
+
 export const walletAccessViewSchema = z.strictObject({
   wallets: z.array(z.strictObject({
     id: z.uuid(),
@@ -100,8 +132,8 @@ export const walletAccessViewSchema = z.strictObject({
     provider: z.enum(["privy", "hedera_mirror_node"]),
     freshness: z.literal("current"),
   })),
-  signerGrants: z.tuple([]),
-  spendingPolicies: z.tuple([]),
+  signerGrants: z.array(walletSignerGrantSchema),
+  spendingPolicies: z.array(spendingPolicySchema),
   recipientCapabilities: z.array(z.strictObject({
     walletAddressId: z.uuid(),
     networkId: z.uuid(),
@@ -249,6 +281,34 @@ export function createHederaAccount(service?: WalletService): RequestHandler {
         throw new AppError("DEPENDENCY_UNAVAILABLE");
       }
       throw new AppError("INTERNAL_ERROR");
+    }
+  };
+}
+
+export function synchronizePaymentAuthorization(service?: WalletService): RequestHandler {
+  return async (req, res) => {
+    const parsed = paymentAuthorizationInputSchema.safeParse(req.body);
+    if (!parsed.success) throw new AppError("INVALID_REQUEST");
+    try {
+      const data = walletAccessViewSchema.parse(
+        await requireWallets(service).synchronizePaymentAuthorization({
+          workspaceId: String(req.params.workspaceId),
+          userId: actorUserId(res),
+          walletId: String(req.params.walletId),
+          dailyLimitAtomic: parsed.data.dailyLimitAtomic,
+        }),
+      );
+      res.json({data, meta: meta(res.locals.requestId)});
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      if (error instanceof WalletNotFoundError) throw new AppError("RESOURCE_NOT_FOUND");
+      if (error instanceof WalletDelegationError) {
+        throw new AppError(
+          error.reason === "invalid_limit" ? "INVALID_REQUEST" : "CAPABILITY_DISABLED",
+        );
+      }
+      if (error instanceof WalletStorageError) throw new AppError("DEPENDENCY_UNAVAILABLE");
+      throw new AppError("DEPENDENCY_UNAVAILABLE");
     }
   };
 }

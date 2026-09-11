@@ -1,4 +1,4 @@
-import {createHmac} from "node:crypto";
+import {createHash, createHmac} from "node:crypto";
 import type {GraphCredentialService} from "../graph-credential/service.js";
 import {
   graphFundingAsset,
@@ -12,6 +12,7 @@ import {
   type PrivyWalletPort,
   type WalletAccessView,
   WalletCommandConflictError,
+  WalletDelegationError,
   WalletNotFoundError,
   type WalletProvisioner,
   type WalletRepository,
@@ -52,6 +53,61 @@ export class WalletService implements WalletProvisioner {
       fingerprintKeyVersion: string;
     },
   ) {}
+
+  async synchronizePaymentAuthorization(input: {
+    workspaceId: string;
+    userId: string;
+    walletId: string;
+    dailyLimitAtomic: string;
+  }): Promise<Awaited<ReturnType<WalletService["readAccess"]>>> {
+    const wallet = await this.repository.findPrimary(input.workspaceId);
+    if (!wallet || wallet.id !== input.walletId || wallet.ownerUserId !== input.userId) {
+      throw new WalletNotFoundError();
+    }
+    if (
+      !/^[1-9][0-9]{0,77}$/.test(input.dailyLimitAtomic)
+    ) {
+      throw new WalletDelegationError("invalid_limit");
+    }
+    if (!this.provider.readDelegatedPaymentAuthorization) {
+      throw new WalletDelegationError("not_observed");
+    }
+    const authorization = await this.provider.readDelegatedPaymentAuthorization(
+      wallet.providerWalletId,
+    );
+    if (!authorization) throw new WalletDelegationError("not_observed");
+    if (
+      !authorization.definition.signerPolicyIds.includes(authorization.policyId) &&
+      !authorization.definition.walletPolicyIds.includes(authorization.policyId)
+    ) {
+      throw new WalletDelegationError("unscoped");
+    }
+    const now = new Date();
+    const periodStartsAt = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+    ));
+    const periodEndsAt = new Date(periodStartsAt);
+    periodEndsAt.setUTCDate(periodEndsAt.getUTCDate() + 1);
+    const definitionHash = createHash("sha256")
+      .update(JSON.stringify(authorization.definition))
+      .digest("hex");
+    await this.repository.synchronizePaymentAuthorization({
+      workspaceId: input.workspaceId,
+      actorUserId: input.userId,
+      walletId: input.walletId,
+      providerSignerId: authorization.signerId,
+      providerPolicyId: authorization.policyId,
+      definition: authorization.definition,
+      definitionHash,
+      observedAt: authorization.observedAt,
+      dailyLimitAtomic: input.dailyLimitAtomic,
+      periodStartsAt,
+      periodEndsAt,
+    });
+    return this.readAccess(input.workspaceId);
+  }
 
   private hederaView(
     address: AccountWalletRecord["addresses"][number],
@@ -191,7 +247,11 @@ export class WalletService implements WalletProvisioner {
   async readAccess(workspaceId: string): Promise<WalletAccessView & {
     credentials: Awaited<ReturnType<GraphCredentialService["list"]>>;
   }> {
-    const wallet = await this.repository.findPrimary(workspaceId);
+    const [wallet, signerGrants, spendingPolicies] = await Promise.all([
+      this.repository.findPrimary(workspaceId),
+      this.repository.listSignerGrants(workspaceId),
+      this.repository.listSpendingPolicies(workspaceId),
+    ]);
     let currentWallet = wallet;
     const credentials = this.graphCredentials
       ? await this.graphCredentials.list(workspaceId)
@@ -273,14 +333,26 @@ export class WalletService implements WalletProvisioner {
       }
     }
     if (!readiness.some((item) => item.kind === "graph_x402")) {
+      const currentGrantIds = new Set(
+        signerGrants.filter((item) => item.status === "pending" || item.status === "active").map((item) => item.id),
+      );
+      const configuredPolicy = spendingPolicies.some(
+        (item) => (item.status === "draft" || item.status === "active") && currentGrantIds.has(item.walletSignerGrantId),
+      );
       readiness.push({
         kind: "graph_x402",
         status: balances.length ? "pending" : "blocked",
         observedAt: balances[0]?.observedAt ?? null,
         blockers: [{
-          code: balances.length ? "SPENDING_AUTHORITY_REQUIRED" : "BALANCE_UNKNOWN",
+          code: balances.length
+            ? configuredPolicy
+              ? "DELEGATED_GRAPH_SPENDING_UNAVAILABLE"
+              : "SPENDING_POLICY_REQUIRED"
+            : "BALANCE_UNKNOWN",
           message: balances.length
-            ? "The wallet balance is known, but bounded spending authority is not configured."
+            ? configuredPolicy
+              ? "The wallet grant and daily limit are recorded, but delegated Graph purchase execution is not enabled."
+              : "The wallet balance is known, but a Privy signer observation and daily Sprue spending limit are required."
             : "No current Base Sepolia USDC balance observation is available.",
         }],
       });
@@ -384,8 +456,8 @@ export class WalletService implements WalletProvisioner {
       wallets: currentWallet ? [walletView(currentWallet)] : [],
       credentials,
       balances,
-      signerGrants: [],
-      spendingPolicies: [],
+      signerGrants,
+      spendingPolicies,
       recipientCapabilities,
       readiness,
     };

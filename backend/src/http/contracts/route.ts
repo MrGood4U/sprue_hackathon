@@ -18,6 +18,7 @@ export interface RouteDefinition {
     | "model-profile-test"
     | "wallet-access"
     | "wallet-hedera-create"
+    | "wallet-payment-authorization"
     | "graph-credentials-list"
     | "graph-credentials-create"
     | "graph-credentials-validate"

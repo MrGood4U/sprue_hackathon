@@ -3,17 +3,17 @@ import { X } from "@phosphor-icons/react";
 import { IconButton } from "./Button.jsx";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
 
-export function Modal({ title, eyebrow, children, footer, onClose, width = "520px", className = "" }) {
+export function Modal({ title, eyebrow, children, footer, onClose, width = "520px", className = "", closeDisabled = false }) {
   const { t } = useI18n();
 
   useEffect(() => {
-    const onKey = (event) => event.key === "Escape" && onClose();
+    const onKey = (event) => event.key === "Escape" && !closeDisabled && onClose();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [closeDisabled, onClose]);
 
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
+    <div className="modal-backdrop" role="presentation" onMouseDown={() => !closeDisabled && onClose()}>
       <section
         className={`modal ${className}`.trim()}
         role="dialog"
@@ -27,7 +27,7 @@ export function Modal({ title, eyebrow, children, footer, onClose, width = "520p
             {eyebrow && <span className="eyebrow">{eyebrow}</span>}
             <h2 id="modal-title">{title}</h2>
           </div>
-          <IconButton label={t("common.close")} onClick={onClose}>
+          <IconButton label={t("common.close")} onClick={onClose} disabled={closeDisabled}>
             <X size={18} />
           </IconButton>
         </div>

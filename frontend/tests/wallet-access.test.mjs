@@ -18,6 +18,7 @@ import {
   deleteGraphCredential,
   getWalletAccess,
   selectGraphCredential,
+  synchronizePaymentAuthorization,
   validateGraphCredential,
 } from "../src/services/api/wallet.js";
 
@@ -67,6 +68,7 @@ test("wallet text falls back to a temporary textarea", async () => {
 
 test("Wallet and Access uses live workspace data and delegates direct transfers to the wallet feature", async () => {
   const page = await readFile(new URL("../src/pages/WalletAccessPage.jsx", import.meta.url), "utf8");
+  const settingsModal = await readFile(new URL("../src/features/wallet/PaymentAuthorizationModal.jsx", import.meta.url), "utf8");
   const transferModal = await readFile(new URL("../src/features/wallet/WalletTransferModal.jsx", import.meta.url), "utf8");
 
   assert.match(page, /getWalletAccess/);
@@ -79,7 +81,16 @@ test("Wallet and Access uses live workspace data and delegates direct transfers 
   assert.match(page, /useAuth/);
   assert.doesNotMatch(page, /useDemoRuntime/);
   assert.match(page, /address\?\.address/);
-  assert.match(page, /onClick=\{copyWalletAddress\}/);
+  assert.match(page, /copyWalletAddress\("graph", address\.address\)/);
+  assert.match(page, /copyWalletAddress\("hedera", hederaAddress\.address\)/);
+  assert.match(page, /copyStatus, setCopyStatus.*wallet.*graph.*hedera/s);
+  assert.match(page, /wallet\.settings/);
+  assert.match(page, /<PaymentAuthorizationModal/);
+  assert.match(settingsModal, /useDelegatedActions/);
+  assert.match(settingsModal, /delegateWallet\(\{address: address\.address, chainType: "ethereum"\}\)/);
+  assert.match(settingsModal, /dailyLimitAtomic/);
+  assert.match(settingsModal, /autoFocus/);
+  assert.doesNotMatch(settingsModal, /type="checkbox"|noDailyLimit/);
   assert.doesNotMatch(page, /wallet\.displayAddress|wallet\.view\b|ArrowSquareOut/);
   assert.match(page, /graphBalance\?\.displayAmount/);
   assert.match(page, /setModal\(\{ type: "transfer", balance: graphBalance \}\)/);
@@ -241,6 +252,46 @@ test("wallet client reads only live account-scoped data", async () => {
     },
   });
   assert.deepEqual(result, walletAccess);
+});
+
+test("wallet settings persist a required daily atomic limit", async () => {
+  const walletId = "6d060831-077d-4dac-abf1-74869e59561a";
+  const walletAccess = {
+    wallets: [],
+    balances: [],
+    credentials: [],
+    signerGrants: [],
+    spendingPolicies: [],
+    recipientCapabilities: [],
+    readiness: [],
+  };
+  const result = await synchronizePaymentAuthorization({
+    walletId,
+    dailyLimitAtomic: "10000000",
+  }, {
+    workspaceId,
+    accessToken,
+    idempotencyKey: "wallet-settings-0001",
+    apiBaseUrl: "https://api.example.test",
+    fetchImpl: async (url, options) => {
+      assert.equal(url, `https://api.example.test/api/v1/workspaces/${workspaceId}/wallets/${walletId}/synchronize-grants`);
+      assert.equal(options.method, "POST");
+      assert.equal(options.headers.Authorization, "Bearer creator-token");
+      assert.equal(options.headers["Idempotency-Key"], "wallet-settings-0001");
+      assert.deepEqual(JSON.parse(options.body), {dailyLimitAtomic: "10000000"});
+      return liveResponse(walletAccess);
+    },
+  });
+  assert.deepEqual(result, walletAccess);
+  await assert.rejects(
+    synchronizePaymentAuthorization({walletId, dailyLimitAtomic: null}, {
+      workspaceId,
+      accessToken,
+      apiBaseUrl: "https://api.example.test",
+      fetchImpl: async () => { throw new Error("must not request"); },
+    }),
+    /INVALID_DAILY_LIMIT/,
+  );
 });
 
 test("Graph credential client sends the secret once and accepts only a redacted view", async () => {

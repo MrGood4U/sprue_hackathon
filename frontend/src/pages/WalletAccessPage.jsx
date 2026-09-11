@@ -2,11 +2,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowClockwise,
   ArrowUpRight,
+  Check,
   CheckCircle,
   CircleNotch,
   Copy,
   CreditCard,
   CurrencyDollar,
+  GearSix,
   Key,
   LockKey,
   Plus,
@@ -22,6 +24,7 @@ import { Status } from "../components/ui/Status.jsx";
 import { useAuth } from "../features/auth/AuthProvider.jsx";
 import { copyText } from "../features/wallet/copyText.js";
 import { GRAPH_ACCESS_MODE, showsGraphCredentials } from "../features/wallet/graphAccessMode.js";
+import { PaymentAuthorizationModal } from "../features/wallet/PaymentAuthorizationModal.jsx";
 import { WalletTransferModal } from "../features/wallet/WalletTransferModal.jsx";
 import { useI18n } from "../i18n/I18nProvider.jsx";
 import {
@@ -42,12 +45,13 @@ export function WalletAccessPage({ navigate }) {
   const [reloadToken, setReloadToken] = useState(0);
   const [modal, setModal] = useState(null);
   const [mode, setMode] = useState(GRAPH_ACCESS_MODE.X402);
-  const [copyStatus, setCopyStatus] = useState("idle");
+  const [copyStatus, setCopyStatus] = useState({wallet: "idle", graph: "idle", hedera: "idle"});
   const [credentialForm, setCredentialForm] = useState({ label: "", apiKey: "" });
   const [credentialState, setCredentialState] = useState("idle");
   const [credentialAction, setCredentialAction] = useState(null);
   const [hederaCreateState, setHederaCreateState] = useState("idle");
-  const copyFeedbackTimer = useRef(null);
+  const copyFeedbackTimers = useRef({});
+  const walletSettingsTrigger = useRef(null);
   const credentialsVisible = showsGraphCredentials(mode);
   const visibleCredentials = walletAccess?.credentials?.filter(
     (credential) => credential.status !== "revoked",
@@ -75,7 +79,7 @@ export function WalletAccessPage({ navigate }) {
   }, [loadWalletAccess, reloadToken]);
 
   useEffect(() => () => {
-    window.clearTimeout(copyFeedbackTimer.current);
+    Object.values(copyFeedbackTimers.current).forEach((timer) => window.clearTimeout(timer));
   }, []);
 
   const wallet = walletAccess?.wallets?.[0] ?? null;
@@ -109,24 +113,41 @@ export function WalletAccessPage({ navigate }) {
     }
   };
 
-  const copyWalletAddress = async () => {
-    if (!address?.address) return;
-    window.clearTimeout(copyFeedbackTimer.current);
-    setCopyStatus("copying");
+  const copyWalletAddress = async (kind, value) => {
+    if (!value) return;
+    window.clearTimeout(copyFeedbackTimers.current[kind]);
+    setCopyStatus((current) => ({...current, [kind]: "copying"}));
     try {
-      await copyText(address.address);
-      setCopyStatus("copied");
+      await copyText(value);
+      setCopyStatus((current) => ({...current, [kind]: "copied"}));
     } catch {
-      setCopyStatus("failed");
+      setCopyStatus((current) => ({...current, [kind]: "failed"}));
     }
-    copyFeedbackTimer.current = window.setTimeout(() => setCopyStatus("idle"), 4000);
+    copyFeedbackTimers.current[kind] = window.setTimeout(
+      () => setCopyStatus((current) => ({...current, [kind]: "idle"})),
+      4000,
+    );
   };
 
-  const copyFeedback = copyStatus === "copied"
-    ? t("wallet.addressCopied")
-    : copyStatus === "failed"
+  const copyFeedback = (kind) => copyStatus[kind] === "copied"
+    ? t(kind === "hedera"
+      ? "wallet.hederaAddressCopied"
+      : kind === "graph"
+        ? "wallet.graphAddressCopied"
+        : "wallet.privyAddressCopied")
+    : copyStatus[kind] === "failed"
       ? t("wallet.addressCopyFailed")
       : "";
+
+  const openWalletSettings = () => {
+    walletSettingsTrigger.current = document.activeElement;
+    setModal("walletSettings");
+  };
+
+  const closeWalletSettings = () => {
+    setModal(null);
+    window.requestAnimationFrame(() => walletSettingsTrigger.current?.focus?.());
+  };
 
   const openCredentialModal = () => {
     setCredentialForm({ label: "", apiKey: "" });
@@ -266,21 +287,22 @@ export function WalletAccessPage({ navigate }) {
           <div className="wallet-address-row">
             <div>
               <span>{t("wallet.creatorWallet")}</span>
-              <strong>{address?.address ?? t("wallet.addressUnavailable")}</strong>
-              <small>{address ? t("wallet.addressNetwork", { network: address.network }) : t("wallet.walletUnavailable")}</small>
-            </div>
-            {address && (
-              <div className="wallet-copy-action">
-                <IconButton
-                  label={copyStatus === "copied" ? t("wallet.addressCopied") : t("wallet.copyAddress")}
-                  onClick={copyWalletAddress}
-                  disabled={copyStatus === "copying"}
-                >
-                  <Copy size={18} />
-                </IconButton>
-                <span className="wallet-copy-feedback" role="status" aria-live="polite">{copyFeedback}</span>
+              <div className="wallet-address-copy-line">
+                <strong>{address?.address ?? t("wallet.addressUnavailable")}</strong>
+                {address && (
+                  <IconButton
+                    className={`wallet-inline-copy is-${copyStatus.wallet}`}
+                    label={copyStatus.wallet === "copied" ? t("wallet.privyAddressCopied") : t("wallet.copyPrivyAddress")}
+                    onClick={() => void copyWalletAddress("wallet", address.address)}
+                    disabled={copyStatus.wallet === "copying"}
+                  >
+                    {copyStatus.wallet === "copied" ? <Check size={18} /> : <Copy size={18} />}
+                  </IconButton>
+                )}
               </div>
-            )}
+              <small>{address ? t("wallet.addressNetwork", { network: address.network }) : t("wallet.walletUnavailable")}</small>
+              <span className={`wallet-copy-feedback ${copyStatus.wallet === "failed" ? "is-error" : ""}`} role={copyStatus.wallet === "failed" ? "alert" : "status"} aria-live="polite">{copyFeedback("wallet")}</span>
+            </div>
           </div>
           <div className="wallet-balance-grid">
             <article className="wallet-balance-card">
@@ -289,7 +311,20 @@ export function WalletAccessPage({ navigate }) {
                 <Status tone={graphBalance ? "green" : "neutral"}>{graphBalance ? t("wallet.liveBalance") : t("wallet.balanceUnavailable")}</Status>
               </div>
               <strong>{graphBalance?.displayAmount ?? "\u2014"} USDC</strong>
-              <small>{address?.network ?? "Base Sepolia"} {"\u00b7"} {address?.address ?? t("wallet.addressUnavailable")}</small>
+              <div className="wallet-balance-address">
+                <small>{address?.network ?? "Base Sepolia"} {"\u00b7"} {address?.address ?? t("wallet.addressUnavailable")}</small>
+                {address && (
+                  <IconButton
+                    className={`wallet-inline-copy is-${copyStatus.graph}`}
+                    label={copyStatus.graph === "copied" ? t("wallet.graphAddressCopied") : t("wallet.copyGraphAddress")}
+                    onClick={() => void copyWalletAddress("graph", address.address)}
+                    disabled={copyStatus.graph === "copying"}
+                  >
+                    {copyStatus.graph === "copied" ? <Check size={16} /> : <Copy size={16} />}
+                  </IconButton>
+                )}
+              </div>
+              <span className={`wallet-copy-feedback ${copyStatus.graph === "failed" ? "is-error" : ""}`} role={copyStatus.graph === "failed" ? "alert" : "status"} aria-live="polite">{copyFeedback("graph")}</span>
               <p>{t("wallet.graphBalanceDetail")}</p>
               <div className="wallet-balance-actions">
                 <Button variant="primary" icon={CreditCard} onClick={() => setModal("fund")} disabled={!address}>{t("wallet.fund")}</Button>
@@ -299,6 +334,9 @@ export function WalletAccessPage({ navigate }) {
                   disabled={!address || !graphBalance}
                 >
                   {t("wallet.transferOut")}
+                </Button>
+                <Button icon={GearSix} onClick={openWalletSettings} disabled={!wallet || !address}>
+                  {t("wallet.settings")}
                 </Button>
               </div>
             </article>
@@ -310,11 +348,24 @@ export function WalletAccessPage({ navigate }) {
                 </Status>
               </div>
               <strong>{hederaBalance?.displayAmount ?? "\u2014"} HBAR</strong>
-              <small>
-                {hederaAddress
-                  ? `${hederaAddress.network} \u00b7 ${hederaAddress.address}`
-                  : t("wallet.hederaAccountUnavailable")}
-              </small>
+              <div className="wallet-balance-address">
+                <small>
+                  {hederaAddress
+                    ? `${hederaAddress.network} \u00b7 ${hederaAddress.address}`
+                    : t("wallet.hederaAccountUnavailable")}
+                </small>
+                {hederaAddress && (
+                  <IconButton
+                    className={`wallet-inline-copy is-${copyStatus.hedera}`}
+                    label={copyStatus.hedera === "copied" ? t("wallet.hederaAddressCopied") : t("wallet.copyHederaAddress")}
+                    onClick={() => void copyWalletAddress("hedera", hederaAddress.address)}
+                    disabled={copyStatus.hedera === "copying"}
+                  >
+                    {copyStatus.hedera === "copied" ? <Check size={16} /> : <Copy size={16} />}
+                  </IconButton>
+                )}
+              </div>
+              <span className={`wallet-copy-feedback ${copyStatus.hedera === "failed" ? "is-error" : ""}`} role={copyStatus.hedera === "failed" ? "alert" : "status"} aria-live="polite">{copyFeedback("hedera")}</span>
               <p>
                 {hederaAddress
                   ? t("wallet.hederaAccountCreatedDetail")
@@ -512,7 +563,7 @@ export function WalletAccessPage({ navigate }) {
           title={t("wallet.fundTitle")}
           eyebrow={t("wallet.liveFunding")}
           onClose={() => setModal(null)}
-          footer={<><Button onClick={() => setModal(null)}>{t("common.close")}</Button><Button variant="primary" icon={Copy} onClick={copyWalletAddress}>{t("wallet.copyAddress")}</Button></>}
+          footer={<><Button onClick={() => setModal(null)}>{t("common.close")}</Button><Button variant="primary" icon={Copy} onClick={() => void copyWalletAddress("wallet", address.address)}>{t("wallet.copyAddress")}</Button></>}
         >
           <div className="transfer-balance-summary">
             <span>{t("wallet.fundingNetwork")}</span>
@@ -528,6 +579,17 @@ export function WalletAccessPage({ navigate }) {
           senderAddress={address.address}
           onClose={() => setModal(null)}
           onRefresh={() => setReloadToken((value) => value + 1)}
+        />
+      )}
+      {modal === "walletSettings" && wallet && address && (
+        <PaymentAuthorizationModal
+          wallet={wallet}
+          address={address}
+          walletAccess={walletAccess}
+          workspaceId={workspaceId}
+          getAccessToken={getAccessToken}
+          onUpdated={setWalletAccess}
+          onClose={closeWalletSettings}
         />
       )}
     </div>

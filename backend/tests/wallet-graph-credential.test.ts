@@ -25,6 +25,7 @@ import {
 } from "../src/modules/graph-credential/validator.js";
 import {
   type HederaAccountPort,
+  WalletDelegationError,
   WalletNotFoundError,
   WalletProviderError,
   WalletStorageError,
@@ -371,6 +372,124 @@ test("authentication provisions one user-owned Privy wallet and reads its live G
     assert.deepEqual(foreignView.wallets, []);
     assert.deepEqual(foreignView.balances, []);
     assert.deepEqual(foreignView.credentials, []);
+  } finally {
+    await db.close();
+  }
+});
+
+test("Privy wallet settings persist one draft UTC daily spending limit", async () => {
+  const db = new PGlite();
+  const client = clientFor(db);
+  try {
+    await migrate(client, await readMigrations());
+    await seedReferenceData(client);
+    const privyUserId = "did:privy:daily-limit-owner";
+    const provider: PrivyWalletPort = {
+      async findOrCreateUserWallet({sprueUserId}) {
+        return {
+          id: "privy-wallet-daily-limit",
+          externalId: `sprue_${sprueUserId.replaceAll("-", "")}`,
+          address: `0x${"d".repeat(40)}`,
+          chainType: "ethereum",
+          ownerPrivyUserId: privyUserId,
+        };
+      },
+      async readGraphFundingBalance() {
+        return {
+          chain: "base_sepolia",
+          asset: "USDC",
+          balanceAtomic: "50000000",
+          decimals: 6,
+          observedAt: new Date("2026-09-12T02:00:00.000Z"),
+        };
+      },
+      async readDelegatedPaymentAuthorization(walletId) {
+        assert.equal(walletId, "privy-wallet-daily-limit");
+        return {
+          signerId: "privy-additional-signer-1",
+          policyId: "privy-policy-1",
+          definition: {
+            walletPolicyIds: [],
+            signerPolicyIds: ["privy-policy-1"],
+          },
+          observedAt: new Date("2026-09-12T02:01:00.000Z"),
+        };
+      },
+    };
+    const service = new WalletService(
+      postgresWalletRepository(client),
+      provider,
+      graphCredentials(client),
+    );
+    const auth = new AuthService(
+      postgresAuthRepository(async () => ({
+        query: (sql, parameters) => db.query(sql, parameters),
+        release() {},
+      })),
+      service,
+    );
+    const identity = await auth.bootstrap({provider: "privy", subject: privyUserId});
+    const wallet = await service.readAccess(identity.defaultWorkspaceId);
+    const walletId = wallet.wallets[0]!.id;
+
+    const saved = await service.synchronizePaymentAuthorization({
+      workspaceId: identity.defaultWorkspaceId,
+      userId: identity.user.id,
+      walletId,
+      dailyLimitAtomic: "10000000",
+    });
+    assert.equal(saved.signerGrants.filter((item) => item.status === "pending").length, 1);
+    assert.equal(saved.spendingPolicies.filter((item) => item.status === "draft").length, 1);
+    assert.equal(saved.spendingPolicies[0]!.maxPerPeriodAtomic, "10000000");
+    assert.equal(saved.spendingPolicies[0]!.periodKind, "day");
+    assert.equal(saved.readiness.find((item) => item.kind === "graph_x402")?.status, "pending");
+    assert.equal(
+      saved.readiness.find((item) => item.kind === "graph_x402")?.blockers[0]?.code,
+      "DELEGATED_GRAPH_SPENDING_UNAVAILABLE",
+    );
+
+    await service.synchronizePaymentAuthorization({
+      workspaceId: identity.defaultWorkspaceId,
+      userId: identity.user.id,
+      walletId,
+      dailyLimitAtomic: "10000000",
+    });
+    assert.equal(
+      (await db.query<{count: number}>(
+        "SELECT count(*)::integer AS count FROM spending_policies",
+      )).rows[0]!.count,
+      1,
+    );
+
+    const changed = await service.synchronizePaymentAuthorization({
+      workspaceId: identity.defaultWorkspaceId,
+      userId: identity.user.id,
+      walletId,
+      dailyLimitAtomic: "20000000",
+    });
+    assert.equal(changed.spendingPolicies.filter((item) => item.status === "draft").length, 1);
+    assert.equal(changed.spendingPolicies.find((item) => item.status === "draft")?.maxPerPeriodAtomic, "20000000");
+    assert.equal(changed.spendingPolicies.filter((item) => item.status === "revoked").length, 1);
+
+    await assert.rejects(
+      service.synchronizePaymentAuthorization({
+        workspaceId: identity.defaultWorkspaceId,
+        userId: identity.user.id,
+        walletId,
+        dailyLimitAtomic: "0",
+      }),
+      WalletDelegationError,
+    );
+    const foreign = await createOwner(db);
+    await assert.rejects(
+      service.synchronizePaymentAuthorization({
+        workspaceId: foreign.workspaceId,
+        userId: foreign.userId,
+        walletId,
+        dailyLimitAtomic: "1000000",
+      }),
+      WalletNotFoundError,
+    );
   } finally {
     await db.close();
   }

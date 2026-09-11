@@ -1129,12 +1129,25 @@
           }
         ],
         "responses": {
-          "503": {
-            "description": "CAPABILITY_NOT_IMPLEMENTED: no command, payment or successful business response is produced",
+          "200": {
+            "description": "Authorized live wallet, balance, credential and readiness projection",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/WalletAccess"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
                 }
               }
             }
@@ -1150,12 +1163,22 @@
             }
           }
         },
-        "x-sprue-implementation": "reserved",
+        "x-sprue-implementation": "implemented",
         "security": [
           {
             "privyBearer": []
           }
-        ]
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentAuthorizationInput"
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/workspaces/{workspaceId}/signer-grants/{grantId}": {
@@ -7391,6 +7414,20 @@
         ],
         "additionalProperties": false
       },
+      "PaymentAuthorizationInput": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "dailyLimitAtomic": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{0,77}$"
+          }
+        },
+        "required": [
+          "dailyLimitAtomic"
+        ],
+        "additionalProperties": false
+      },
       "GraphCredential": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
@@ -8056,15 +8093,157 @@
           },
           "signerGrants": {
             "type": "array",
-            "prefixItems": [],
-            "items": false,
-            "maxItems": 0
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "walletId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "provider": {
+                  "type": "string",
+                  "const": "privy"
+                },
+                "providerSignerId": {
+                  "type": "string"
+                },
+                "providerPolicyId": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "active",
+                    "drifted",
+                    "revoked",
+                    "expired",
+                    "failed"
+                  ]
+                },
+                "grantedAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "updatedAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                }
+              },
+              "required": [
+                "id",
+                "walletId",
+                "provider",
+                "providerSignerId",
+                "providerPolicyId",
+                "status",
+                "grantedAt",
+                "updatedAt"
+              ],
+              "additionalProperties": false
+            }
           },
           "spendingPolicies": {
             "type": "array",
-            "prefixItems": [],
-            "items": false,
-            "maxItems": 0
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "walletSignerGrantId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "network": {
+                  "type": "string"
+                },
+                "assetIdentifier": {
+                  "type": "string"
+                },
+                "symbol": {
+                  "type": "string",
+                  "const": "USDC"
+                },
+                "decimals": {
+                  "type": "number",
+                  "const": 6
+                },
+                "maxPerPeriodAtomic": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]{0,77}$"
+                },
+                "periodKind": {
+                  "type": "string",
+                  "const": "day"
+                },
+                "periodStartsAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                },
+                "periodEndsAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "draft",
+                    "active",
+                    "paused",
+                    "exhausted",
+                    "revoked",
+                    "expired"
+                  ]
+                },
+                "updatedAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                },
+                "lockVersion": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "id",
+                "walletSignerGrantId",
+                "network",
+                "assetIdentifier",
+                "symbol",
+                "decimals",
+                "maxPerPeriodAtomic",
+                "periodKind",
+                "periodStartsAt",
+                "periodEndsAt",
+                "status",
+                "updatedAt",
+                "lockVersion"
+              ],
+              "additionalProperties": false
+            }
           },
           "recipientCapabilities": {
             "type": "array",
