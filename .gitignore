@@ -16,3 +16,4 @@ frontend/.vercel/
 x402-cli/node_modules/
 x402-cli/dist/
 x402-cli/.local/
+x402-cli/release/

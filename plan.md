@@ -509,6 +509,7 @@ The central explanation for judges is:
 
 | Date | Change | Reason |
 |---|---|---|
+| 2026-09-12 | Added an interactive `hx402>` terminal and a reproducible standalone Windows executable build | Let a buyer start `hx402.exe` once and perform multiple wallet, faucet, quote, and paid-request operations while retaining the existing one-shot automation interface and client-side secret boundaries. |
 | 2026-09-12 | Added a standalone Hedera native-HBAR x402 buyer CLI and standardized Sprue's v2 payment-payload decoder | Satisfy the separate-consumer architecture, allow independently funded wallets to call arbitrary compatible endpoints, and keep challenge approval bound to the exact signed requirement without exposing keys. |
 | 2026-09-11 | Raised the default live The Graph cursor page size from 500 to 1,000 rows and upgraded the current Builder projection | Match The Graph's documented per-collection maximum, satisfy a 1,000-row Source limit in one provider request, and keep total-row and request safety ceilings independent. |
 | 2026-09-10 | Added a requirement-ranked bounded field view for source feasibility while retaining the complete selected schema for validation | Prevent large relationship-expanded entities from exhausting model output/reasoning budgets. The model sees only presented, relevant paths with explicit omission counts; the Harness checks each returned path against both the presented view and the complete inspected schema without protocol or asset hardcoding. |

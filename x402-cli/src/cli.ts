@@ -24,10 +24,12 @@ import {
 import {confirm, promptSecret} from "./io.js";
 import {hbarToTinybars, tinybarsToHbar} from "./money.js";
 import {createPaidFetch, inspectPaymentChallenge, readPaymentResponse} from "./request.js";
+import {runInteractiveShell} from "./shell.js";
 
 const HELP = `Hedera x402 CLI
 
 Usage:
+  hx402                         Start the interactive command line
   hx402 wallet create [--network testnet|mainnet] [--max-hbar 1] [--force]
   hx402 wallet import --account-id 0.0.1234 [--network testnet|mainnet] [--max-hbar 1] [--force]
   hx402 wallet show
@@ -233,7 +235,7 @@ async function unlockConfiguredKey(home: string, config: WalletConfig): Promise<
   return privateKey;
 }
 
-async function requestCommand(args: ParsedArguments): Promise<void> {
+async function requestCommand(args: ParsedArguments): Promise<number> {
   requireOnly(args, ["method", "header", "data", "output", "max-hbar", "timeout-ms", "dry-run", "yes", "include"]);
   if (args.positionals.length !== 1) fail("request requires exactly one URL.");
   const url = requestUrl(args.positionals[0]!).toString();
@@ -248,8 +250,7 @@ async function requestCommand(args: ParsedArguments): Promise<void> {
   if (first.status !== 402) {
     stderr.write(`No payment required; received HTTP ${first.status}.\n`);
     await emitResponse(first, args);
-    if (!first.ok) process.exitCode = 1;
-    return;
+    return first.ok ? 0 : 1;
   }
 
   const home = cliHome();
@@ -269,7 +270,7 @@ async function requestCommand(args: ParsedArguments): Promise<void> {
   stderr.write(`${JSON.stringify(summary, null, 2)}\n`);
   if (flag(args, "dry-run")) {
     stderr.write("Dry run complete; no transaction was signed or submitted.\n");
-    return;
+    return 0;
   }
   if (!config) fail(`No wallet is configured in ${home}. Run \"hx402 wallet create\" or \"hx402 wallet import\".`);
   if (!config.accountId) fail("The wallet has not resolved to a Hedera account. Fund it, then run `hx402 wallet resolve`.");
@@ -286,32 +287,43 @@ async function requestCommand(args: ParsedArguments): Promise<void> {
   if (settlement) stderr.write(`Payment response: ${JSON.stringify(settlement)}\n`);
   stderr.write(`Received HTTP ${paid.status}.\n`);
   await emitResponse(paid, args);
-  if (!paid.ok) process.exitCode = 1;
+  return paid.ok ? 0 : 1;
 }
 
-async function run(): Promise<void> {
-  const rawArguments = process.argv.slice(2);
+async function executeArguments(rawArguments: string[]): Promise<number> {
   const [command, subcommand, ...rest] = rawArguments;
   if (!command || command === "help" || command === "--help" || command === "-h") {
     stdout.write(HELP);
-    return;
+    return 0;
   }
   if (rawArguments.some((value) => value === "--help" || value === "-h")) {
     stdout.write(HELP);
-    return;
+    return 0;
   }
   if (command === "wallet") {
     const args = parseArguments(rest);
-    if (subcommand === "create") return createWallet(args, false);
-    if (subcommand === "import") return createWallet(args, true);
+    if (subcommand === "create") {
+      await createWallet(args, false);
+      return 0;
+    }
+    if (subcommand === "import") {
+      await createWallet(args, true);
+      return 0;
+    }
     if (subcommand === "show") {
       requireOnly(args, []);
       if (args.positionals.length) fail("wallet show does not accept positional arguments.");
       stdout.write(`${JSON.stringify(publicConfig(await loadWalletConfig(cliHome())), null, 2)}\n`);
-      return;
+      return 0;
     }
-    if (subcommand === "balance") return observeWallet(args, false);
-    if (subcommand === "resolve") return observeWallet(args, true);
+    if (subcommand === "balance") {
+      await observeWallet(args, false);
+      return 0;
+    }
+    if (subcommand === "resolve") {
+      await observeWallet(args, true);
+      return 0;
+    }
     fail("wallet requires create, import, show, balance, or resolve.");
   }
   if (command === "config" && subcommand === "max-payment") {
@@ -325,11 +337,25 @@ async function run(): Promise<void> {
     const updated = {...config, maxPaymentTinybar: amount.toString(), updatedAt: new Date().toISOString()};
     await saveWalletConfig(home, updated);
     stdout.write(`${JSON.stringify(publicConfig(updated), null, 2)}\n`);
+    return 0;
+  }
+  if (command === "faucet") {
+    await faucet(parseArguments([subcommand, ...rest].filter((value): value is string => value !== undefined)));
+    return 0;
+  }
+  if (command === "request") {
+    return requestCommand(parseArguments([subcommand, ...rest].filter((value): value is string => value !== undefined)));
+  }
+  fail(`Unknown command: ${command}${subcommand ? ` ${subcommand}` : ""}`);
+}
+
+async function run(): Promise<void> {
+  const rawArguments = process.argv.slice(2);
+  if (rawArguments.length === 0 && process.stdin.isTTY && process.stdout.isTTY) {
+    await runInteractiveShell(executeArguments);
     return;
   }
-  if (command === "faucet") return faucet(parseArguments([subcommand, ...rest].filter((value): value is string => value !== undefined)));
-  if (command === "request") return requestCommand(parseArguments([subcommand, ...rest].filter((value): value is string => value !== undefined)));
-  fail(`Unknown command: ${command}${subcommand ? ` ${subcommand}` : ""}`);
+  process.exitCode = await executeArguments(rawArguments);
 }
 
 run().catch((error: unknown) => {

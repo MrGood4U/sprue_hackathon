@@ -22,6 +22,28 @@ For a repository-local invocation without linking:
 node dist/src/cli.js --help
 ```
 
+On Windows, build a self-contained executable that does not require Node.js on the target machine:
+
+```powershell
+npm run build:exe
+.\release\hx402.exe
+```
+
+The local build is unsigned, so Windows may show an unrecognized-app warning. Production distribution should sign `hx402.exe` with the publisher's code-signing certificate. Add the `release` directory to `PATH` if the command should be available as `hx402.exe` outside that directory.
+
+Running `hx402` or `hx402.exe` without arguments in a terminal opens an interactive command line:
+
+```text
+Hedera x402 interactive client
+Type "help" for commands, "clear" to clear the screen, or "exit" to quit.
+
+hx402> wallet show
+hx402> request "https://api.example/x402/v1/owner/product?limit=100" --dry-run
+hx402> exit
+```
+
+Commands with arguments continue to work as one-shot commands for scripts. The interactive command line keeps history only in the current process and does not write commands to disk.
+
 ## Create and fund a testnet wallet
 
 Create an encrypted local ECDSA key and its Hedera EVM alias:
@@ -130,6 +152,7 @@ Use `-d @request.json` to read a body from a file and `--include` to print respo
 npm run typecheck
 npm test
 npm run build
+npm run build:exe
 ```
 
 The CLI deliberately has its own package, dependencies, build output, and wallet state. Sprue is only one possible x402 resource server. The official x402 packages are pinned as one tested set. Security-patched compatible transitive SDK, protobuf, and WebSocket versions are locked through package overrides; update and audit the complete set together, then rerun the protocol-shape tests before using a new release with funds.
