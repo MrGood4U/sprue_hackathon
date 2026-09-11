@@ -336,7 +336,18 @@ export function readCachedBuilderDraft(storage, workspaceId, productId, originKe
   try {
     const value = JSON.parse(storage.getItem(builderDraftCacheKey(workspaceId, productId)) ?? "null");
     if (value?.schemaVersion !== 1 || value.originKey !== originKey || !isEditorDraft(value.draft)) return null;
-    return value.draft;
+    return {
+      ...value.draft,
+      specification: {
+        ...value.draft.specification,
+        dag: {
+          ...value.draft.specification.dag,
+          nodes: value.draft.specification.dag.nodes.map((node) => node.type === "source" && node.config?.limit === undefined
+            ? {...node, config: {...(node.config ?? {}), limit: 1_000}}
+            : node),
+        },
+      },
+    };
   } catch {
     return null;
   }

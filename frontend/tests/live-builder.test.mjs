@@ -357,6 +357,27 @@ test("keeps browser-session edits only for the same Agent result", () => {
   assert.equal(readCachedBuilderDraft(storage, "workspace-1", product.id, "new-agent-result"), null);
 });
 
+test("adds the default Source limit when loading a legacy browser-session draft", () => {
+  const records = new Map();
+  const storage = {getItem: (key) => records.get(key) ?? null, setItem: (key, value) => records.set(key, value)};
+  const draft = {
+    origin: {kind: "agent", originKey: "agent-result"},
+    specification: {
+      sources: [],
+      dag: {nodes: [
+        {id: "defaulted", type: "source", operatorVersion: "1", config: {sourceId: "graph-defaulted"}},
+        {id: "custom", type: "source", operatorVersion: "1", config: {sourceId: "graph-custom", limit: 250}},
+      ], edges: []},
+      outputSchema: {fields: []},
+    },
+  };
+  cacheBuilderDraft(storage, "workspace-1", product.id, draft);
+
+  const restored = readCachedBuilderDraft(storage, "workspace-1", product.id, draft.origin.originKey);
+  assert.equal(restored.specification.dag.nodes[0].config.limit, 1_000);
+  assert.equal(restored.specification.dag.nodes[1].config.limit, 250);
+});
+
 test("preserves the same product reference across all four product tabs", () => {
   for (const section of ["agent", "build", "api", "monetize"]) {
     assert.equal(productRefFromPath(`/app/products/live-product/${section}`), "live-product");

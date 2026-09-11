@@ -102,7 +102,7 @@ On 2026-09-11, the user required the one-time API-key copy action to provide imm
 
 On 2026-09-11, the user required the API response schema to follow the request schema in the left contract panel, before the cURL example. Keep the right request-tester panel focused on credentials, parameters, execution feedback, and the live response body; do not duplicate the static response schema there.
 
-On 2026-09-11, the user required every new Source node to expose an editable row `limit`, defaulting to 1,000 and bounded from 1 through 10,000. Keep it visible in the Source inspector, preserve it in the layout-free DAG, and block confirmation for an invalid value.
+On 2026-09-11, the user required every Source node to expose an editable row `limit`, defaulting to 1,000 and bounded from 1 through 10,000. Keep it visible in the Source inspector, preserve it in the layout-free DAG, and block confirmation for an invalid value. When loading a legacy browser-session draft, add the default only when `limit` is absent and never overwrite an existing user value.
 
 On 2026-09-11, the user required every Map definition row to keep labels and primary controls aligned even when one field adds helper copy. Top-align the field columns, align the row action with the control line, and keep the narrow-screen stacked action free of desktop alignment offsets.
 
