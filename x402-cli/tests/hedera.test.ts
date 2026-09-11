@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {readHederaAccount, requestTestnetFaucet} from "../src/hedera.js";
+import {PrivateKey} from "@x402/hedera";
+import {parseEcdsaPrivateKey, readHederaAccount, requestTestnetFaucet} from "../src/hedera.js";
+
+test("ECDSA key parsing accepts the SDK secp256k1 type and rejects ED25519", () => {
+  const ecdsa = PrivateKey.generateECDSA();
+  assert.equal(parseEcdsaPrivateKey(ecdsa.toStringRaw()).publicKey.toStringRaw(), ecdsa.publicKey.toStringRaw());
+
+  const ed25519 = PrivateKey.generateED25519();
+  assert.throws(() => parseEcdsaPrivateKey(ed25519.toStringDer()), /Only ECDSA Hedera keys are supported/);
+});
 
 test("Mirror Node resolution validates and returns canonical account data", async () => {
   const observation = await readHederaAccount("0x1111111111111111111111111111111111111111", "hedera:testnet", {

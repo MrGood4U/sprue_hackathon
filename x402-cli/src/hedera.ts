@@ -43,16 +43,23 @@ export function parseEcdsaPrivateKey(value: string): PrivateKey {
   const input = value.trim().replace(/^0x/i, "");
   if (!input) throw new Error("The Hedera private key is empty.");
   let privateKey: PrivateKey;
-  try {
-    privateKey = PrivateKey.fromStringECDSA(input);
-  } catch {
+  if (/^[0-9a-fA-F]{64}$/.test(input)) {
+    try {
+      privateKey = PrivateKey.fromStringECDSA(input);
+    } catch {
+      throw new Error("The Hedera private key is not a valid ECDSA key.");
+    }
+  } else {
     try {
       privateKey = PrivateKey.fromStringDer(input);
     } catch {
       throw new Error("The Hedera private key is not a valid ECDSA key.");
     }
   }
-  if (!privateKey.type.toLowerCase().includes("ecdsa")) throw new Error("Only ECDSA Hedera keys are supported.");
+  const keyType = privateKey.type.toLowerCase();
+  if (!keyType.includes("ecdsa") && !keyType.includes("secp256k1")) {
+    throw new Error("Only ECDSA Hedera keys are supported.");
+  }
   return privateKey;
 }
 

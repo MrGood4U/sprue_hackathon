@@ -402,6 +402,21 @@ test("product delivery projects only durable API and monetization facts", async 
         payer: "0.0.7326075",
       },
     });
+    const persistedSettlement = (await db.query<{
+      evidence_sources_json: unknown;
+      evidence_json: unknown;
+    }>(
+      `SELECT evidence_sources_json,evidence_json FROM payment_settlements
+       WHERE payment_intent_id=$1`,
+      [paid.paymentIntentId],
+    )).rows[0]!;
+    assert.deepEqual(persistedSettlement.evidence_sources_json, ["blocky402"]);
+    assert.deepEqual(persistedSettlement.evidence_json, {
+      success: true,
+      transaction: "0.0.7162784@1789092000.1",
+      network: "hedera:testnet",
+      payer: "0.0.7326075",
+    });
     await liveRepository.completePaidRequest({
       ...paid,
       responseContentHash: "d".repeat(64),

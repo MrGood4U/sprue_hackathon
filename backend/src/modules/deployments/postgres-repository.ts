@@ -638,7 +638,8 @@ export function postgresLiveDeploymentRepository(pool: pg.Pool): LiveDeploymentR
           [settlementId, input.paymentIntentId, input.paymentAttemptId, input.gate.networkId,
             input.gate.assetId, input.transaction, input.payerAddress,
             input.gate.requirements.extra.feePayer, input.gate.recipientAddress,
-            input.gate.priceAtomic, ["blocky402"], input.settlementEvidence,
+            input.gate.priceAtomic, JSON.stringify(["blocky402"]),
+            JSON.stringify(input.settlementEvidence),
             contentHash(input.settlementEvidence)],
         );
         for (const [id, type] of [[grossAllocationId, "gross_sale"], [creatorAllocationId, "creator_proceeds"]] as const) {
