@@ -157,6 +157,7 @@ test("keeps Agent Planner on live durable services without a demo fallback", asy
   const elapsedHook = await readFile(new URL("features/agent/useElapsedSeconds.js", sourceRoot), "utf8");
   const progress = await readFile(new URL("features/agent/AgentProgress.jsx", sourceRoot), "utf8");
   const stepCards = await readFile(new URL("features/agent/AgentStepCards.jsx", sourceRoot), "utf8");
+  const stepDetails = await readFile(new URL("features/agent/AgentStepDetails.jsx", sourceRoot), "utf8");
   const agentApi = await readFile(new URL("services/api/agent.js", sourceRoot), "utf8");
   const styles = await readFile(new URL("features/agent/agent.css", sourceRoot), "utf8");
   const app = await readFile(new URL("app/App.jsx", sourceRoot), "utf8");
@@ -245,6 +246,13 @@ test("keeps Agent Planner on live durable services without a demo fallback", asy
   assert.match(stepCards, /semantic_field_retrieval/);
   assert.match(stepCards, /agent\.status\.\$\{state\}/);
   assert.match(stepCards, /agent-step-card-spinner/);
+  assert.match(stepCards, /aria-expanded=\{expanded\}/);
+  assert.match(stepCards, /setExpandedStage\(expanded \? null : event\.stage\)/);
+  assert.match(stepDetails, /details\.kind === "aggregate_candidates"/);
+  assert.match(stepDetails, /details\.kind === "field_candidates"/);
+  assert.match(stepDetails, /semanticSimilarity\.toFixed\(3\)/);
+  assert.match(stepDetails, /candidate\.score\.toFixed\(2\)/);
+  assert.doesNotMatch(stepDetails, /modelOutput|apiKey|accessToken|privateKey/);
   assert.match(styles, /\.agent-trace-spinner \{[^}]*animation: agent-spin 900ms linear infinite;/s);
   assert.match(styles, /\.agent-step-card-spinner \{[^}]*animation: agent-spin 900ms linear infinite;/s);
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*animation-name: agent-spin !important;/);

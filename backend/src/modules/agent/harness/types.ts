@@ -669,6 +669,122 @@ export interface HarnessExplorationRequest {
   availableNetworks: readonly {dataNetwork: string; label: string}[];
 }
 
+export interface TraceRankedEntity {
+  rank: number;
+  candidateRef: string;
+  displayName: string;
+  queryEntity: string;
+  entityKind: "entity" | "timeseries" | "aggregation";
+  fieldCount: number;
+  semanticSimilarity: number | null;
+  rankingEvidence: "embedding" | "deterministic";
+  matchedRequirements: readonly string[];
+  grainHint: "matched" | "unknown";
+  aggregation: GraphAggregationInspection | null;
+}
+
+export type HarnessTraceDetails =
+  | {
+      kind: "discovery_plan";
+      intentSummary: string;
+      result: DiscoverySemanticPlan["result"];
+      window: DiscoverySemanticPlan["window"];
+      refresh: DiscoverySemanticPlan["refresh"];
+      searches: readonly SourceDiscoverySearch[];
+      assumptions: readonly string[];
+      deferredDiscoveryNoteCount: number;
+    }
+  | {
+      kind: "source_needs";
+      needs: readonly DiscoverySourceNeed[];
+    }
+  | {
+      kind: "graph_discovery";
+      searchedNeeds: number;
+      searchCalls: number;
+      inspectedSchemas: number;
+      candidateCount: number;
+      candidates: readonly {
+        candidateRef: string;
+        sourceNeedId: string;
+        displayName: string;
+        manifestIpfsCid: string;
+        discoveryMethod: "keyword" | "contract";
+        reportedNetwork: string | null;
+        networkEvidence: GraphDiscoveredSourceCandidate["networkEvidence"];
+        totalQueryCount30d: number | null;
+        queryActivityEvidence: GraphDiscoveredSourceCandidate["queryActivityEvidence"];
+        status: GraphDiscoveredSourceCandidate["status"];
+        score: number;
+        entityCount: number;
+        limitations: readonly string[];
+      }[];
+    }
+  | {
+      kind: "aggregate_candidates";
+      sourceNeedCount: number;
+      embeddedEntityCount: number;
+      embeddingBatchCount: number;
+      groups: readonly {sourceNeedId: string; candidates: readonly TraceRankedEntity[]}[];
+    }
+  | {
+      kind: "aggregate_decisions";
+      consideredCount: number;
+      acceptedCount: number;
+      rawFallbackCount: number;
+      decisions: readonly ({
+        sourceNeedId: string;
+        decision: "fallback";
+        rationale: string;
+      } | {
+        sourceNeedId: string;
+        decision: "use";
+        candidateRef: string;
+        displayName: string;
+        queryEntity: string;
+        interval: "hour" | "day";
+        fieldBindings: readonly SourceFieldBinding[];
+        rationale: string;
+      })[];
+    }
+  | {
+      kind: "entity_candidates";
+      fallbackNeedCount: number;
+      embeddedEntityCount: number;
+      embeddingBatchCount: number;
+      groups: readonly {sourceNeedId: string; candidates: readonly TraceRankedEntity[]}[];
+    }
+  | {
+      kind: "entity_selections";
+      aggregateCount: number;
+      rawCount: number;
+      selections: readonly (SourceEntitySelection & {
+        displayName: string;
+        selectionKind: "aggregate" | "raw";
+      })[];
+    }
+  | {
+      kind: "field_candidates";
+      inspectedFieldCount: number;
+      presentedFieldCount: number;
+      omittedFieldCount: number;
+      embeddedFieldCount: number;
+      embeddingBatchCount: number;
+      groups: readonly {
+        sourceNeedId: string;
+        candidateRef: string;
+        displayName: string;
+        queryEntity: string;
+        rankingEvidence: "embedding" | "deterministic";
+        requirements: readonly {
+          requirementId: string;
+          description: string;
+          expectedType: GraphSemanticValueType;
+          alternatives: readonly (GraphInspectedField & {semanticSimilarity: number | null})[];
+        }[];
+      }[];
+    };
+
 export interface HarnessTraceEvent {
   sequenceNo: number;
   stage:
@@ -687,6 +803,7 @@ export interface HarnessTraceEvent {
     | "output";
   status: "started" | "passed" | "failed";
   summary: string;
+  details?: HarnessTraceDetails;
 }
 
 /** Sanitized, user-visible progress emitted as each harness stage changes. */

@@ -65,7 +65,21 @@ test("Agent sessions persist real planner input, evidence summary, trace, and re
         planningCalls += 1;
         factoryInput.traceSink?.({sequenceNo: 1, stage: "admit", status: "passed", summary: "Intent admitted"});
         await planningGate;
-        factoryInput.traceSink?.({sequenceNo: 2, stage: "graph_source_discovery", status: "passed", summary: "Sources inspected"});
+        const discoveryTrace = {
+          sequenceNo: 2,
+          stage: "graph_source_discovery" as const,
+          status: "passed" as const,
+          summary: "Sources inspected",
+          details: {
+            kind: "graph_discovery" as const,
+            searchedNeeds: 2,
+            searchCalls: 2,
+            inspectedSchemas: 2,
+            candidateCount: 2,
+            candidates: [],
+          },
+        };
+        factoryInput.traceSink?.(discoveryTrace);
         return {
           kind: "feasibility",
           readyForCompilation: false,
@@ -142,7 +156,7 @@ test("Agent sessions persist real planner input, evidence summary, trace, and re
           blockers: ["Coverage remains unverified."],
           trace: [
             {sequenceNo: 1, stage: "admit", status: "passed", summary: "Intent admitted"},
-            {sequenceNo: 2, stage: "graph_source_discovery", status: "passed", summary: "Sources inspected"},
+            discoveryTrace,
           ],
           model: {provider: "remote", model: "test-model", calls: 2},
         } as never;
@@ -224,6 +238,17 @@ test("Agent sessions persist real planner input, evidence summary, trace, and re
     }
     const traceCount = await db.query<{count: number}>("SELECT count(*)::int AS count FROM trace_events");
     assert.equal(traceCount.rows[0]?.count, 2);
+    const traceDetails = await db.query<{details_json: Record<string, unknown>}>(
+      "SELECT details_json FROM trace_events WHERE sequence_no=2",
+    );
+    assert.deepEqual(traceDetails.rows[0]?.details_json, {
+      kind: "graph_discovery",
+      searchedNeeds: 2,
+      searchCalls: 2,
+      inspectedSchemas: 2,
+      candidateCount: 2,
+      candidates: [],
+    });
     const closedTrace = await service.listActiveTrace(ids.workspaceId, session.id, 0, 100);
     assert.equal(closedTrace.traceStreamId, null);
     assert.deepEqual(closedTrace.items, []);

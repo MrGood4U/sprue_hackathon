@@ -62,6 +62,7 @@ import type {
   HarnessRequest,
   HarnessResult,
   HarnessTraceEvent,
+  HarnessTraceDetails,
   DiscoverySemanticPlan,
   DiscoverySourceNeed,
   AggregateSelectionModelRequest,
@@ -151,8 +152,9 @@ function addTrace(
   stage: HarnessTraceEvent["stage"],
   status: HarnessTraceEvent["status"],
   summary: string,
+  details?: HarnessTraceDetails,
 ): void {
-  trace.push({sequenceNo: trace.length + 1, stage, status, summary});
+  trace.push({sequenceNo: trace.length + 1, stage, status, summary, ...(details ? {details} : {})});
 }
 
 function validateSemanticPlan(plan: SemanticPlan): void {
@@ -734,6 +736,51 @@ async function entitySelectionCandidates(
   return {candidates: output, embeddedEntityCount, embeddingBatchCount};
 }
 
+type RankedEntityGroups = Extract<HarnessTraceDetails, {kind: "entity_candidates"}>["groups"];
+
+function traceRankedEntityGroups(
+  needs: readonly DiscoverySourceNeed[],
+  candidates: readonly SourceEntitySelectionCandidate[],
+): RankedEntityGroups {
+  return needs.map((need) => {
+    const flattened = candidates
+      .filter((candidate) => candidate.sourceNeedId === need.id)
+      .flatMap((candidate) => candidate.entities.map((entity) => ({candidate, entity})));
+    if (flattened.some(({entity}) => entity.semanticSimilarity !== null)) {
+      flattened.sort((left, right) => {
+        const leftScore = left.entity.semanticSimilarity;
+        const rightScore = right.entity.semanticSimilarity;
+        return Number(rightScore !== null) - Number(leftScore !== null)
+          || (rightScore ?? 0) - (leftScore ?? 0)
+          || left.candidate.displayName.localeCompare(right.candidate.displayName)
+          || left.entity.queryEntity.localeCompare(right.entity.queryEntity);
+      });
+    }
+    const ranked = flattened
+      .slice(0, 5)
+      .map(({candidate, entity}, index) => ({
+        rank: index + 1,
+        candidateRef: candidate.candidateRef,
+        displayName: candidate.displayName,
+        queryEntity: entity.queryEntity,
+        entityKind: entity.entityKind,
+        fieldCount: entity.fieldCount,
+        semanticSimilarity: entity.semanticSimilarity,
+        rankingEvidence: entity.rankingEvidence,
+        matchedRequirements: entity.matchedRequirements,
+        grainHint: entity.grainHint,
+        aggregation: entity.aggregation
+          ? {
+              ...entity.aggregation,
+              dimensions: entity.aggregation.dimensions.slice(0, 12),
+              measures: entity.aggregation.measures.slice(0, 12),
+            }
+          : null,
+      }));
+    return {sourceNeedId: need.id, candidates: ranked};
+  });
+}
+
 function validateSourceEntitySelection(
   output: SourceEntitySelectionPlan,
   needs: readonly DiscoverySourceNeed[],
@@ -920,18 +967,47 @@ async function retrieveSelectedEntityFields(
   embeddedFieldCount: number;
   embeddingBatchCount: number;
   rankingEvidence: "embedding" | "deterministic";
+  groups: Extract<HarnessTraceDetails, {kind: "field_candidates"}>["groups"];
 }> {
   if (!embeddingRanker?.rankFields) {
+    const compactCandidates = compactFeasibilityCandidates(candidates, needs);
+    const needsById = new Map(needs.map((need) => [need.id, need]));
+    const discoveredByRef = new Map(discovery.candidates.map((candidate) => [candidate.candidateRef, candidate]));
     return {
-      candidates: compactFeasibilityCandidates(candidates, needs),
+      candidates: compactCandidates,
       embeddedFieldCount: 0,
       embeddingBatchCount: 0,
       rankingEvidence: "deterministic",
+      groups: compactCandidates.map((candidate) => {
+        const need = needsById.get(candidate.sourceNeedId)!;
+        const entity = candidate.entities[0]!;
+        const fieldsByPath = new Map(entity.fields.map((field) => [field.path, field]));
+        const bindingsByRequirement = new Map(entity.suggestedBindings.map((binding) => [binding.requirementId, binding.fieldPaths]));
+        return {
+          sourceNeedId: candidate.sourceNeedId,
+          candidateRef: candidate.candidateRef,
+          displayName: discoveredByRef.get(candidate.candidateRef)?.displayName ?? candidate.candidateRef,
+          queryEntity: entity.queryEntity,
+          rankingEvidence: "deterministic" as const,
+          requirements: need.fields.map((requirement) => ({
+            requirementId: requirement.id,
+            description: requirement.description,
+            expectedType: requirement.expectedType,
+            alternatives: (bindingsByRequirement.get(requirement.id) ?? [])
+              .map((path) => fieldsByPath.get(path))
+              .filter((field): field is GraphInspectedField => Boolean(field))
+              .filter((field) => graphTypeCompatible(requirement, field))
+              .slice(0, maxEmbeddedAlternativesPerRequirement)
+              .map((field) => ({...field, semanticSimilarity: null})),
+          })),
+        };
+      }),
     };
   }
   const needsById = new Map(needs.map((need) => [need.id, need]));
   const discoveredByRef = new Map(discovery.candidates.map((candidate) => [candidate.candidateRef, candidate]));
   const output: SourceFeasibilityCandidate[] = [];
+  const groups: Extract<HarnessTraceDetails, {kind: "field_candidates"}>["groups"][number][] = [];
   let embeddedFieldCount = 0;
   let embeddingBatchCount = 0;
   for (const [candidateIndex, candidate] of candidates.entries()) {
@@ -992,8 +1068,32 @@ async function retrieveSelectedEntityFields(
       ...candidate,
       entities: [embeddedFeasibilityEntity(entity, need, scores)],
     });
+    const fieldsByPath = new Map(entity.fields.map((field) => [field.path, field]));
+    groups.push({
+      sourceNeedId: candidate.sourceNeedId,
+      candidateRef: candidate.candidateRef,
+      displayName: discovered.displayName,
+      queryEntity: entity.queryEntity,
+      rankingEvidence: "embedding",
+      requirements: need.fields.map((requirement) => ({
+        requirementId: requirement.id,
+        description: requirement.description,
+        expectedType: requirement.expectedType,
+        alternatives: scores
+          .filter((score) => score.requirementId === requirement.id)
+          .sort((left, right) => right.similarity - left.similarity || left.fieldPath.localeCompare(right.fieldPath))
+          .map((score) => ({score, field: fieldsByPath.get(score.fieldPath)}))
+          .filter((entry): entry is {score: FieldEmbeddingScore; field: GraphInspectedField} => Boolean(entry.field))
+          .filter(({field}) => graphTypeCompatible(requirement, field))
+          .slice(0, maxEmbeddedAlternativesPerRequirement)
+          .map(({score, field}) => ({
+            ...field,
+            semanticSimilarity: Number(score.similarity.toFixed(6)),
+          })),
+      })),
+    });
   }
-  return {candidates: output, embeddedFieldCount, embeddingBatchCount, rankingEvidence: "embedding"};
+  return {candidates: output, embeddedFieldCount, embeddingBatchCount, rankingEvidence: "embedding", groups};
 }
 
 function graphTypeCompatible(requirement: GraphFieldRequirement, field: GraphInspectedField): boolean {
@@ -1351,8 +1451,9 @@ export class AgentHarness {
       stage: HarnessTraceEvent["stage"],
       status: HarnessTraceEvent["status"],
       summary: string,
+      details?: HarnessTraceDetails,
     ) => {
-      addTrace(trace, stage, status, summary);
+      addTrace(trace, stage, status, summary, details);
       try {
         traceSink?.(trace.at(-1)!);
       } catch {
@@ -1529,6 +1630,16 @@ export class AgentHarness {
       deferredNoteCount > 0
         ? `Search requirements passed validation; deferred ${deferredNoteCount} source-discoverable ${deferredNoteCount === 1 ? "detail" : "details"}`
         : "Search keywords and semantic requirements passed strict validation",
+      {
+        kind: "discovery_plan",
+        intentSummary: discoveryPlanningOutput.semanticPlan.summary,
+        result: discoveryPlanningOutput.semanticPlan.result,
+        window: discoveryPlanningOutput.semanticPlan.window,
+        refresh: discoveryPlanningOutput.semanticPlan.refresh,
+        searches: discoveryPlanningOutput.searches,
+        assumptions: discoveryPlanningOutput.semanticPlan.assumptions,
+        deferredDiscoveryNoteCount: deferredNoteCount,
+      },
     );
     this.emitDebug({
       stage: "source_discovery_planning",
@@ -1538,7 +1649,10 @@ export class AgentHarness {
     });
 
     const sourceNeeds = deriveDiscoverySourceNeeds(discoveryPlanningOutput.semanticPlan);
-    emitTrace("source_needs", "passed", `Derived ${sourceNeeds.length} compiler-owned source needs`);
+    emitTrace("source_needs", "passed", `Derived ${sourceNeeds.length} compiler-owned source needs`, {
+      kind: "source_needs",
+      needs: sourceNeeds,
+    });
     const labels = new Map(request.availableNetworks.map((network) => [network.dataNetwork, network.label]));
     const modelSearches = new Map(discoveryPlanningOutput.searches.map((search) => [search.sourceNeedId, search.keywords]));
     const searches = new Map(sourceNeeds.map((need) => [
@@ -1577,7 +1691,31 @@ export class AgentHarness {
       });
       throw error;
     }
-    emitTrace("graph_source_discovery", "passed", `Discovered ${discovery.candidates.length} candidates and inspected ${discovery.inspectedSchemas} schemas`);
+    emitTrace("graph_source_discovery", "passed", `Discovered ${discovery.candidates.length} candidates and inspected ${discovery.inspectedSchemas} schemas`, {
+      kind: "graph_discovery",
+      searchedNeeds: discovery.searchedNeeds,
+      searchCalls: discovery.searchCalls,
+      inspectedSchemas: discovery.inspectedSchemas,
+      candidateCount: discovery.candidates.length,
+      candidates: sourceNeeds.flatMap((need) => discovery.candidates
+        .filter((candidate) => candidate.sourceNeedId === need.id)
+        .slice(0, 5)
+        .map((candidate) => ({
+          candidateRef: candidate.candidateRef,
+          sourceNeedId: candidate.sourceNeedId,
+          displayName: candidate.displayName,
+          manifestIpfsCid: candidate.manifestIpfsCid,
+          discoveryMethod: candidate.discoveryMethod,
+          reportedNetwork: candidate.reportedNetwork,
+          networkEvidence: candidate.networkEvidence,
+          totalQueryCount30d: candidate.totalQueryCount30d,
+          queryActivityEvidence: candidate.queryActivityEvidence,
+          status: candidate.status,
+          score: candidate.score,
+          entityCount: candidate.entities.length,
+          limitations: candidate.limitations.slice(0, 5),
+        }))),
+    });
     this.emitDebug({
       stage: "graph_source_discovery",
       searchCalls: discovery.searchCalls,
@@ -1607,6 +1745,13 @@ export class AgentHarness {
       aggregateNeeds.length === 0
         ? "The intent has no semantics-preserving pre-aggregated alternative"
         : `Retained ${aggregateEntityCount} formal aggregation candidates for ${aggregateNeeds.length} source needs`,
+      {
+        kind: "aggregate_candidates",
+        sourceNeedCount: aggregateNeeds.length,
+        embeddedEntityCount: aggregateRetrieval.embeddedEntityCount,
+        embeddingBatchCount: aggregateRetrieval.embeddingBatchCount,
+        groups: traceRankedEntityGroups(aggregateNeeds, aggregateRetrieval.candidates),
+      },
     );
 
     let aggregateSelection: AggregateSelectionPlan = {
@@ -1661,7 +1806,16 @@ export class AgentHarness {
       });
       throw error;
     }
-    emitTrace("aggregate_selection", "passed", `Accepted ${acceptedAggregates.length} provider aggregation selections; remaining source needs will use raw fallback`);
+    const discoveryByRef = new Map(discovery.candidates.map((candidate) => [candidate.candidateRef, candidate]));
+    emitTrace("aggregate_selection", "passed", `Accepted ${acceptedAggregates.length} provider aggregation selections; remaining source needs will use raw fallback`, {
+      kind: "aggregate_decisions",
+      consideredCount: aggregateNeeds.length,
+      acceptedCount: acceptedAggregates.length,
+      rawFallbackCount: sourceNeeds.length - acceptedAggregates.length,
+      decisions: aggregateSelection.decisions.map((decision) => decision.decision === "fallback"
+        ? decision
+        : {...decision, displayName: discoveryByRef.get(decision.candidateRef)?.displayName ?? decision.candidateRef}),
+    });
 
     const acceptedByNeed = new Map(acceptedAggregates.map((selection) => [selection.sourceNeedId, selection]));
     const effectiveSourceNeeds = sourceNeeds.map((need) => acceptedByNeed.has(need.id) ? preAggregatedNeed(need)! : need);
@@ -1694,7 +1848,13 @@ export class AgentHarness {
       ? "Raw-entity fallback was not needed"
       : this.embeddingRanker
         ? `Embedded ${entityRetrieval.embeddedEntityCount} inspected entities in ${entityRetrieval.embeddingBatchCount} ${entityRetrieval.embeddingBatchCount === 1 ? "batch" : "batches"} and retained ${retainedEntityCount} compact candidates`
-        : `Ranked inspected entities deterministically and retained ${retainedEntityCount} compact candidates`);
+        : `Ranked inspected entities deterministically and retained ${retainedEntityCount} compact candidates`, {
+      kind: "entity_candidates",
+      fallbackNeedCount: fallbackNeeds.length,
+      embeddedEntityCount: entityRetrieval.embeddedEntityCount,
+      embeddingBatchCount: entityRetrieval.embeddingBatchCount,
+      groups: traceRankedEntityGroups(fallbackNeeds, selectionCandidates),
+    });
 
     let rawSelections: SourceEntitySelectionPlan["selections"] = [];
     emitTrace("source_entity_selection", "started", fallbackNeeds.length > 0
@@ -1735,7 +1895,16 @@ export class AgentHarness {
       selections: effectiveSourceNeeds.map((need) => allSelections.find((selection) => selection.sourceNeedId === need.id)!),
       assumptions: aggregateSelection.assumptions,
     };
-    emitTrace("source_entity_selection", "passed", `Locked ${acceptedAggregates.length} aggregate and ${rawSelections.length} raw entity selections`);
+    emitTrace("source_entity_selection", "passed", `Locked ${acceptedAggregates.length} aggregate and ${rawSelections.length} raw entity selections`, {
+      kind: "entity_selections",
+      aggregateCount: acceptedAggregates.length,
+      rawCount: rawSelections.length,
+      selections: entitySelectionOutput.selections.map((selection) => ({
+        ...selection,
+        displayName: discoveryByRef.get(selection.candidateRef)?.displayName ?? selection.candidateRef,
+        selectionKind: acceptedByNeed.has(selection.sourceNeedId) ? "aggregate" : "raw",
+      })),
+    });
 
     const sourceRoles = effectiveSourceNeeds.map((need) => ({
       role: sourceRole(need.id),
@@ -1801,6 +1970,15 @@ export class AgentHarness {
       fieldRetrieval.rankingEvidence === "embedding"
         ? `Embedded all ${fieldRetrieval.embeddedFieldCount} selected-entity fields in ${fieldRetrieval.embeddingBatchCount} ${fieldRetrieval.embeddingBatchCount === 1 ? "batch" : "batches"} and retained ${presentedFieldCount} requirement-ranked alternatives`
         : `Ranked selected-entity fields deterministically and retained ${presentedFieldCount} alternatives`,
+      {
+        kind: "field_candidates",
+        inspectedFieldCount,
+        presentedFieldCount,
+        omittedFieldCount: inspectedFieldCount - presentedFieldCount,
+        embeddedFieldCount: fieldRetrieval.embeddedFieldCount,
+        embeddingBatchCount: fieldRetrieval.embeddingBatchCount,
+        groups: fieldRetrieval.groups,
+      },
     );
     emitTrace("source_feasibility", "started", "Model is binding retrieved fields and composing registered operators");
     const feasibilityRequest: SourceFeasibilityModelRequest = {

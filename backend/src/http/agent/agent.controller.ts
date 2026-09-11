@@ -167,11 +167,26 @@ export const agentMessageListSchema = z.strictObject({
   hasMore: z.boolean(),
 });
 
+const agentTraceDetailKinds = new Set([
+  "discovery_plan",
+  "source_needs",
+  "graph_discovery",
+  "aggregate_candidates",
+  "aggregate_decisions",
+  "entity_candidates",
+  "entity_selections",
+  "field_candidates",
+]);
+const agentTraceDetailsSchema = z.record(z.string(), z.unknown()).refine(
+  (value) => typeof value.kind === "string" && agentTraceDetailKinds.has(value.kind),
+);
+
 export const agentTraceEventSchema = z.strictObject({
   sequenceNo: z.number().int().positive(),
   stage: z.string().min(1).max(80),
   status: z.enum(["started", "passed", "failed"]),
   summary: z.string().min(1).max(2000),
+  details: agentTraceDetailsSchema.optional(),
   createdAt: z.iso.datetime(),
 });
 

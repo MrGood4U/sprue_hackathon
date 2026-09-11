@@ -80,12 +80,16 @@ function command(row: Record<string, unknown>, sessionId: string): AgentCommandV
 }
 
 function traceEvent(row: Record<string, unknown>): AgentPlanningTraceView["items"][number] {
+  const details = row.details_json && typeof row.details_json === "object" && !Array.isArray(row.details_json)
+    ? row.details_json as AgentPlanningTraceView["items"][number]["details"]
+    : undefined;
   return {
     sequenceNo: Number(row.sequence_no),
     stage: String(row.stage) as AgentPlanningTraceView["items"][number]["stage"],
     status: String(row.status) === "succeeded" ? "passed" : String(row.status) as "started" | "failed",
     summary: String(row.summary),
     createdAt: timestamp(row.created_at)!,
+    ...(details ? {details} : {}),
   };
 }
 
@@ -315,7 +319,7 @@ export function postgresAgentRepository(client: Pick<SqlClient, "query">): Agent
         `INSERT INTO trace_events (
           trace_stream_id,sequence_no,stage,event_type,status,summary,details_json
         )
-        SELECT c.trace_stream_id,$4,$5,$6,$7,$8,NULL
+        SELECT c.trace_stream_id,$4,$5,$6,$7,$8,$9::jsonb
         FROM control_commands c
         JOIN planning_checkpoints pc ON pc.control_command_id=c.id
         JOIN agent_sessions s ON s.id=pc.agent_session_id
@@ -333,6 +337,7 @@ export function postgresAgentRepository(client: Pick<SqlClient, "query">): Agent
           event.status === "started" ? "stage_started" : event.status === "failed" ? "stage_failed" : "stage_completed",
           event.status === "passed" ? "succeeded" : event.status,
           event.summary,
+          event.details ? JSON.stringify(event.details) : null,
         ],
       );
       if (!result.rows[0]) {
@@ -366,7 +371,7 @@ export function postgresAgentRepository(client: Pick<SqlClient, "query">): Agent
       }
       const traceStreamId = String(stream.rows[0].id);
       const events = await client.query(
-        `SELECT sequence_no,stage,status,summary,created_at
+        `SELECT sequence_no,stage,status,summary,details_json,created_at
          FROM trace_events
          WHERE trace_stream_id=$1 AND sequence_no>$2
          ORDER BY sequence_no,id LIMIT $3`,
@@ -403,6 +408,7 @@ export function postgresAgentRepository(client: Pick<SqlClient, "query">): Agent
         event_type: event.status === "started" ? "stage_started" : event.status === "failed" ? "stage_failed" : "stage_completed",
         status: event.status === "passed" ? "succeeded" : event.status,
         summary: event.summary,
+        details: event.details ?? null,
       }));
       const result = await client.query(
         `WITH target AS MATERIALIZED (
@@ -426,9 +432,9 @@ export function postgresAgentRepository(client: Pick<SqlClient, "query">): Agent
             trace_stream_id,sequence_no,stage,event_type,status,summary,details_json
           )
           SELECT target.trace_stream_id,event.sequence_no,event.stage,
-            event.event_type,event.status,event.summary,NULL
+            event.event_type,event.status,event.summary,event.details
           FROM target,jsonb_to_recordset($10::jsonb) AS event(
-            sequence_no integer,stage text,event_type text,status text,summary text
+            sequence_no integer,stage text,event_type text,status text,summary text,details jsonb
           )
           ON CONFLICT (trace_stream_id,sequence_no) DO NOTHING
           RETURNING id

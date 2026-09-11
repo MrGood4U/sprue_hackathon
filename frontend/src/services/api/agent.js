@@ -4,6 +4,16 @@ const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}
 const sessionStatuses = new Set(["active", "completed", "abandoned"]);
 const commandStatuses = new Set(["queued", "running", "blocked", "succeeded", "failed", "cancelled"]);
 const traceStatuses = new Set(["started", "passed", "failed"]);
+const traceDetailKinds = new Set([
+  "discovery_plan",
+  "source_needs",
+  "graph_discovery",
+  "aggregate_candidates",
+  "aggregate_decisions",
+  "entity_candidates",
+  "entity_selections",
+  "field_candidates",
+]);
 const planningRequestTimeoutMs = 7_260_000;
 
 function apiBaseUrl(value = import.meta.env?.VITE_API_BASE_URL) {
@@ -99,6 +109,10 @@ function assertTraceEvent(value) {
     typeof value?.stage !== "string" || !value.stage || value.stage.length > 80 ||
     !traceStatuses.has(value?.status) ||
     typeof value?.summary !== "string" || !value.summary || value.summary.length > 2000 ||
+    !(
+      value?.details === undefined ||
+      (value.details && typeof value.details === "object" && !Array.isArray(value.details) && traceDetailKinds.has(value.details.kind))
+    ) ||
     typeof value?.createdAt !== "string"
   ) throw new Error("INVALID_AGENT_API_RESPONSE");
   return value;

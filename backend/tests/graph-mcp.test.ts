@@ -1644,6 +1644,13 @@ test("Agent uses embedding similarity to order compact entity evidence before mo
   assert.match(retrievalTrace[1]?.summary ?? "", /embedding batch 1\/1/);
   assert.match(retrievalTrace[2]?.summary ?? "", /Computing cosine similarity for 2 entities/);
   assert.match(retrievalTrace[3]?.summary ?? "", /Embedded 2 inspected entities in 1 batch and retained 2 compact candidates/);
+  const entityDetails = retrievalTrace[3]?.details;
+  assert.equal(entityDetails?.kind, "entity_candidates");
+  if (entityDetails?.kind === "entity_candidates") {
+    assert.equal(entityDetails.groups[0]?.candidates[0]?.queryEntity, "opaqueRows");
+    assert.equal(entityDetails.groups[0]?.candidates[0]?.semanticSimilarity, 0.91);
+    assert.equal(entityDetails.groups[0]?.candidates[0]?.rankingEvidence, "embedding");
+  }
   assert.ok(trace.findIndex((event) => event.stage === "semantic_entity_retrieval" && event.status === "passed")
     < trace.findIndex((event) => event.stage === "source_entity_selection" && event.status === "started"));
 });
@@ -1759,7 +1766,13 @@ test("Agent embeds all fields only after the model selects an entity", async () 
   assert.equal(suppliedFieldCount, fields.length);
   assert.ok(feasibilityRequest?.candidates[0]?.entities[0]?.fields.some((field) => field.path === "provider.metric127"));
   assert.ok((feasibilityRequest?.candidates[0]?.entities[0]?.fields.length ?? fields.length) < fields.length);
-  assert.ok(trace.some((event) => event.stage === "semantic_field_retrieval" && event.status === "passed"));
+  const fieldTrace = trace.find((event) => event.stage === "semantic_field_retrieval" && event.status === "passed");
+  assert.ok(fieldTrace);
+  assert.equal(fieldTrace?.details?.kind, "field_candidates");
+  if (fieldTrace?.details?.kind === "field_candidates") {
+    assert.equal(fieldTrace.details.groups[0]?.requirements[0]?.alternatives[0]?.path, "provider.metric127");
+    assert.equal(fieldTrace.details.groups[0]?.requirements[0]?.alternatives[0]?.semanticSimilarity, 1);
+  }
   assert.ok(trace.findIndex((event) => event.stage === "source_entity_selection" && event.status === "passed")
     < trace.findIndex((event) => event.stage === "semantic_field_retrieval" && event.status === "started"));
 });

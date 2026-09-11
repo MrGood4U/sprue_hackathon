@@ -1,6 +1,8 @@
-import {CheckCircle, CircleNotch, WarningCircle} from "@phosphor-icons/react";
+import {useState} from "react";
+import {CaretDown, CheckCircle, CircleNotch, WarningCircle} from "@phosphor-icons/react";
 import {Status} from "../../components/ui/Status.jsx";
 import {useI18n} from "../../i18n/I18nProvider.jsx";
+import {AgentStepDetails} from "./AgentStepDetails.jsx";
 
 const stageTitleKeys = {
   admit: "agent.stage.admit",
@@ -56,6 +58,7 @@ function stageTitle(stage, t) {
 
 export function AgentStepCards({trace = [], running = false, elapsedSeconds = 0}) {
   const {t} = useI18n();
+  const [expandedStage, setExpandedStage] = useState(null);
   const visibleEvents = latestStageEvents(trace);
   if (running && visibleEvents.length === 0) {
     visibleEvents.push({
@@ -71,27 +74,53 @@ export function AgentStepCards({trace = [], running = false, elapsedSeconds = 0}
     <section className="agent-step-cards" aria-label={t("agent.stepResultsLabel")}>
       {visibleEvents.map((event) => {
         const state = eventState(event.status);
+        const expandable = Boolean(event.details?.kind);
+        const expanded = expandable && expandedStage === event.stage;
         return (
-          <article className={`agent-step-card agent-step-card-${state}`} key={event.stage}>
-            <div className="agent-step-card-meta">
-              <span className="agent-step-card-icon" aria-hidden="true">
-                {state === "complete" ? (
-                  <CheckCircle size={18} weight="fill" />
-                ) : state === "failed" ? (
-                  <WarningCircle size={18} weight="fill" />
-                ) : (
-                  <CircleNotch className="agent-step-card-spinner" size={17} weight="bold" />
+          <article className={`agent-step-card agent-step-card-${state}${expanded ? " is-expanded" : ""}`} key={event.stage}>
+            {expandable ? (
+              <button
+                aria-expanded={expanded}
+                className="agent-step-card-toggle"
+                onClick={() => setExpandedStage(expanded ? null : event.stage)}
+                type="button"
+              >
+                <span className="agent-step-card-meta">
+                  <span className="agent-step-card-icon" aria-hidden="true">
+                    {state === "complete" ? <CheckCircle size={18} weight="fill" /> : <WarningCircle size={18} weight="fill" />}
+                  </span>
+                  <strong>{stageTitle(event.stage, t)}</strong>
+                  <Status tone={state === "complete" ? "green" : state === "failed" ? "amber" : "violet"}>
+                    {t(`agent.status.${state}`)}
+                  </Status>
+                </span>
+                <span className="agent-step-toggle-label">
+                  {t(expanded ? "agent.details.collapse" : "agent.details.expand")}
+                  <CaretDown className="agent-step-caret" size={16} weight="bold" aria-hidden="true" />
+                </span>
+              </button>
+            ) : (
+              <div className="agent-step-card-meta">
+                <span className="agent-step-card-icon" aria-hidden="true">
+                  {state === "complete" ? (
+                    <CheckCircle size={18} weight="fill" />
+                  ) : state === "failed" ? (
+                    <WarningCircle size={18} weight="fill" />
+                  ) : (
+                    <CircleNotch className="agent-step-card-spinner" size={17} weight="bold" />
+                  )}
+                </span>
+                <strong>{stageTitle(event.stage, t)}</strong>
+                <Status tone={state === "complete" ? "green" : state === "failed" ? "amber" : "violet"}>
+                  {t(`agent.status.${state}`)}
+                </Status>
+                {state === "active" && running && (
+                  <span className="agent-elapsed">{elapsedLabel(elapsedSeconds, t)}</span>
                 )}
-              </span>
-              <strong>{stageTitle(event.stage, t)}</strong>
-              <Status tone={state === "complete" ? "green" : state === "failed" ? "amber" : "violet"}>
-                {t(`agent.status.${state}`)}
-              </Status>
-              {state === "active" && running && (
-                <span className="agent-elapsed">{elapsedLabel(elapsedSeconds, t)}</span>
-              )}
-            </div>
+              </div>
+            )}
             <p>{event.summary}</p>
+            {expanded && <div className="agent-step-details"><AgentStepDetails details={event.details} /></div>}
           </article>
         );
       })}
