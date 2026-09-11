@@ -13,3 +13,6 @@ frontend/.env
 frontend/.env.*
 !frontend/.env.example
 frontend/.vercel/
+x402-cli/node_modules/
+x402-cli/dist/
+x402-cli/.local/

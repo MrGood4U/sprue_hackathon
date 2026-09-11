@@ -240,8 +240,6 @@ test("x402 settles before internal live execution and never returns the internal
   }
   const paymentSignature = Buffer.from(JSON.stringify({
     x402Version: 2,
-    scheme: "exact",
-    network: "hedera:testnet",
     accepted: requirements,
     payload: {transaction: "base64-partially-signed-transaction"},
   })).toString("base64");

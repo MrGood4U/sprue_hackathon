@@ -256,8 +256,8 @@ export class LiveDeploymentService {
       const parsed = JSON.parse(Buffer.from(value, "base64").toString("utf8")) as Record<string, unknown>;
       const accepted = parsed.accepted as Record<string, unknown> | undefined;
       const payload = parsed.payload as Record<string, unknown> | undefined;
-      if (parsed.x402Version !== 2 || parsed.scheme !== "exact" || parsed.network !== "hedera:testnet"
-        || !accepted || !payload || typeof payload.transaction !== "string"
+      if (parsed.x402Version !== 2 || !accepted || accepted.scheme !== "exact"
+        || accepted.network !== "hedera:testnet" || !payload || typeof payload.transaction !== "string"
         || payload.transaction.length < 16 || payload.transaction.length > 262_144) return null;
       return parsed as unknown as X402PaymentPayload;
     } catch {

@@ -2,7 +2,7 @@
 
 Describe it. Shape it. Sell it.
 
-Sprue is a hosted web product that turns natural-language onchain data logic into persistent, reusable, and optionally monetizable APIs. It is a browser application, not a Windows or macOS native client. Product structure, technical selection, and data-model version 1.12 are approved. MVP implementation now includes the maintained frontend, backend database foundation, API/standby-worker framework, Privy creator authentication with provider-independent Sprue user IDs, workspace-isolated creator state, durable encrypted Model Service profiles, an offline schema-driven DAG runtime for the cross-chain target, and an explicit backend demo runtime. The ten-page application in `frontend/` is the maintained product frontend, using the selected Evidence-First Console design and English/Simplified Chinese localization. Route-level pages request server-generated demo data and do not own browser fixtures while durable business handlers and provider adapters proceed. The initial downstream payment profile is Hedera testnet with HBAR through Blocky402. The current Privy wallet has demonstrated interactive control of its mapped Hedera testnet account, but no complete live MVP or x402 payment integration exists yet. See [mvp-flow.md](mvp-flow.md) for the end-to-end flow and support matrix.
+Sprue is a hosted web product that turns natural-language onchain data logic into persistent, reusable, and optionally monetizable APIs. It is a browser application, not a Windows or macOS native client. Product structure, technical selection, and data-model version 1.13 are approved. MVP implementation now includes the maintained frontend, backend database foundation, API/standby-worker framework, Privy creator authentication with provider-independent Sprue user IDs, workspace-isolated creator state, durable encrypted Model Service profiles, a schema-driven DAG compiler and live runtime, and hosted private and paid API lifecycles. The ten-page application in `frontend/` is the maintained product frontend, using the selected Evidence-First Console design and English/Simplified Chinese localization. The initial downstream payment profile is Hedera testnet native HBAR through Blocky402. Sprue can publish and enforce this profile, and the independent consumer CLI can construct a standards-shaped signed payment; a complete funded buyer-to-creator settlement and ledger reconciliation is still an explicit evidence gate. See [mvp-flow.md](mvp-flow.md) for the end-to-end flow and support matrix.
 
 ## Product Boundary
 
@@ -16,7 +16,22 @@ Sprue does not create, deploy, or maintain new Subgraphs or Subgraph Composition
 - [Privy](sponsor/privy.md): Creator account wallet and bounded Graph-spending authorization.
 - [Hedera](sponsor/Hedera.md): Downstream x402 v2 `exact` settlement through Blocky402; Sprue hosts the API and implements its payment gate.
 
-Official documentation establishes the Hedera x402 wire profile and Blocky402's hosted testnet/mainnet capability. The team selected testnet HBAR for the first integration; creator-controlled Hedera testnet account resolution and HBAR access are evidenced for the current complete Privy EVM path; native x402 signing, live settlement reconciliation, independent buyer receipt, delegated controls, and mainnet support remain validation gates. Graph-spending funds and API-sale proceeds must be tracked separately by network and asset. Bazantic was replaced on 2026-09-05; [its reference](sponsor/bazantic.md) remains historical only.
+Official documentation establishes the Hedera x402 wire profile and Blocky402's hosted testnet/mainnet capability. The team selected testnet HBAR for the first integration; creator-controlled Hedera testnet account resolution and HBAR access are evidenced for the current complete Privy EVM path, and the independent buyer can construct the standard signed payload locally. A funded settlement, creator receipt, ledger reconciliation, delegated controls, and mainnet evidence remain validation gates. Graph-spending funds and API-sale proceeds must be tracked separately by network and asset. Bazantic was replaced on 2026-09-05; [its reference](sponsor/bazantic.md) remains historical only.
+
+## Independent Hedera x402 Consumer
+
+[`x402-cli/`](x402-cli/) contains the standalone `hx402` buyer client required to call Sprue or any compatible Hedera x402 v2 API. It generates or imports an ECDSA wallet, encrypts the private key locally, resolves and reads Hedera accounts through Mirror Node, can request testnet faucet funding with a user-supplied Hedera Portal PAT, validates a native-HBAR payment challenge against a local per-request ceiling, signs the standard payment payload, retries the protected request, and prints the response. It does not import Sprue application modules or expose the private key to a resource server or facilitator.
+
+```bash
+cd x402-cli
+npm ci
+npm run build
+npm link
+hx402 wallet create --network testnet --max-hbar 1
+hx402 request "https://example.test/x402/v1/owner/product" --dry-run --max-hbar 0.25
+```
+
+See the [CLI setup and safety guide](x402-cli/README.md). A real request requires a funded buyer account and explicit payment approval; automated tests never move funds.
 
 ## Deployment Profiles
 

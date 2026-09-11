@@ -15,8 +15,6 @@ const requirements: X402PaymentRequirements = {
 
 const payload: X402PaymentPayload = {
   x402Version: 2,
-  scheme: "exact",
-  network: "hedera:testnet",
   accepted: requirements,
   payload: {transaction: "base64-partially-signed-transaction"},
 };

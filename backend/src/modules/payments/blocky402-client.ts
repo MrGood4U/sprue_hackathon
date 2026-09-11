@@ -30,8 +30,6 @@ const settleSchema = z.object({
 
 export interface X402PaymentPayload {
   x402Version: 2;
-  scheme: "exact";
-  network: "hedera:testnet";
   accepted: X402PaymentRequirements;
   payload: {transaction: string};
   resource?: {url: string; description?: string; mimeType?: string};
