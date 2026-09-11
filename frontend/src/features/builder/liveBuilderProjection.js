@@ -10,6 +10,13 @@ const integerPattern = /^-?(?:0|[1-9]\d*)$/;
 const decimalPattern = /^-?(?:0|[1-9]\d*)\.\d+$/;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 
+function normalizeLegacyQueryPlan(queryPlan) {
+  if (!queryPlan) return null;
+  const normalized = structuredClone(queryPlan);
+  if (normalized.pagination?.pageSize === 500) normalized.pagination.pageSize = 1_000;
+  return normalized;
+}
+
 function normalizeScalarType(value) {
   if (value === "count") return "integer";
   return scalarTypes.has(value) ? value : null;
@@ -266,6 +273,7 @@ export function projectAgentBuilderDraft(product, messages) {
       config: {
         ...node.config,
         limit: node.config?.limit ?? 1_000,
+        ...(node.config?.queryPlan ? {queryPlan: normalizeLegacyQueryPlan(node.config.queryPlan)} : {}),
         fieldBindings: source?.fieldBindings ?? node.config?.fieldBindings ?? [],
         auxiliaryFieldBindings: source?.auxiliaryFieldBindings ?? node.config?.auxiliaryFieldBindings ?? [],
       },
@@ -287,7 +295,7 @@ export function projectAgentBuilderDraft(product, messages) {
         adapterVersion: "planning",
         dataNetwork: source.dataNetwork,
         queryEntity: source.queryEntity,
-        queryPlan: structuredClone(source.queryPlan ?? null),
+        queryPlan: normalizeLegacyQueryPlan(source.queryPlan),
         fieldBindings: structuredClone(source.fieldBindings),
         auxiliaryFieldBindings: structuredClone(source.auxiliaryFieldBindings ?? []),
         outputSchema: emptyOutputSchema(sourceFieldsById.get(source.id)),
@@ -320,7 +328,7 @@ export function projectAgentBuilderDraft(product, messages) {
 }
 
 export function builderDraftCacheKey(workspaceId, productId) {
-  return `sprue.builder-draft.v9:${workspaceId}:${productId}`;
+  return `sprue.builder-draft.v10:${workspaceId}:${productId}`;
 }
 
 export function browserSessionStorage() {
@@ -340,10 +348,21 @@ export function readCachedBuilderDraft(storage, workspaceId, productId, originKe
       ...value.draft,
       specification: {
         ...value.draft.specification,
+        sources: value.draft.specification.sources.map((source) => ({
+          ...source,
+          queryPlan: normalizeLegacyQueryPlan(source.queryPlan),
+        })),
         dag: {
           ...value.draft.specification.dag,
-          nodes: value.draft.specification.dag.nodes.map((node) => node.type === "source" && node.config?.limit === undefined
-            ? {...node, config: {...(node.config ?? {}), limit: 1_000}}
+          nodes: value.draft.specification.dag.nodes.map((node) => node.type === "source"
+            ? {
+              ...node,
+              config: {
+                ...(node.config ?? {}),
+                limit: node.config?.limit ?? 1_000,
+                ...(node.config?.queryPlan ? {queryPlan: normalizeLegacyQueryPlan(node.config.queryPlan)} : {}),
+              },
+            }
             : node),
         },
       },

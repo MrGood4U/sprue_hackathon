@@ -339,7 +339,7 @@ export function createImmutableLivePlan(input: {
           queryDocument: query.document,
           pushedOperations: source.queryPlan?.pushedOperations ?? [],
           initialCursor: query.initialCursor,
-          pageSize: source.queryPlan?.pagination.pageSize ?? 500,
+          pageSize: source.queryPlan?.pagination.pageSize ?? 1_000,
           maxRequests: source.queryPlan?.pagination.maxRequests ?? 20,
           maxRows: plannedMaxRows,
           rowLimit: sourceLimit === null ? null : Math.min(sourceLimit, plannedMaxRows),

@@ -258,6 +258,7 @@ test("immutable live plans compile a schema-correct bounded Graph query", () => 
   assert.match(plan.sources[0]!.queryDocument, /\$cursor: ID!/);
   assert.match(plan.sources[0]!.queryDocument, /where: \{ id_gt: \$cursor \}/);
   assert.equal(plan.sources[0]!.initialCursor, "");
+  assert.equal(plan.sources[0]!.pageSize, 1_000);
   assert.equal(plan.sources[0]!.access.mode, "customer_api_key");
   assert.deepEqual(plan.sources[0]!.projections, [{fieldPath: "rawAmount", outputPath: "rawAmount"}]);
   assert.equal("schemaDocument" in plan.sources[0]!, false);

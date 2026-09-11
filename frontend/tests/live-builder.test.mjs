@@ -60,6 +60,7 @@ test("projects the latest durable Agent proposal into an editable non-executable
   assert.equal(draft.specification.intent.summary, "Compare swaps across two networks");
   assert.equal(draft.specification.sources[0].queryEntity, "swaps");
   assert.match(draft.specification.sources[0].queryPlan.document, /query SprueLiveSource/);
+  assert.equal(draft.specification.sources[0].queryPlan.pagination.pageSize, 1_000);
   assert.deepEqual(draft.specification.sources[0].fieldBindings, [{requirementId: "amount", fieldPath: "amountUSD"}]);
   assert.deepEqual(draft.specification.sources[0].outputSchema.fields.map(({name}) => name), ["amountUSD", "data_network"]);
   const boundaryMap = draft.specification.dag.nodes.find((node) => node.type === "map");
@@ -363,7 +364,12 @@ test("adds the default Source limit when loading a legacy browser-session draft"
   const draft = {
     origin: {kind: "agent", originKey: "agent-result"},
     specification: {
-      sources: [],
+      sources: [{
+        id: "graph-defaulted",
+        queryPlan: {
+          pagination: {kind: "id_cursor", cursorField: "id", pageSize: 500, maxRequests: 20, maxRows: 10_000},
+        },
+      }],
       dag: {nodes: [
         {id: "defaulted", type: "source", operatorVersion: "1", config: {sourceId: "graph-defaulted"}},
         {id: "custom", type: "source", operatorVersion: "1", config: {sourceId: "graph-custom", limit: 250}},
@@ -376,6 +382,7 @@ test("adds the default Source limit when loading a legacy browser-session draft"
   const restored = readCachedBuilderDraft(storage, "workspace-1", product.id, draft.origin.originKey);
   assert.equal(restored.specification.dag.nodes[0].config.limit, 1_000);
   assert.equal(restored.specification.dag.nodes[1].config.limit, 250);
+  assert.equal(restored.specification.sources[0].queryPlan.pagination.pageSize, 1_000);
 });
 
 test("preserves the same product reference across all four product tabs", () => {
