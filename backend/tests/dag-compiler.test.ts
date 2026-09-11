@@ -34,6 +34,18 @@ test("structured DAG compiler accepts a normalized acyclic graph and produces a 
   assert.deepEqual(first.outputSchema.fields, [{name: "amount_usd", type: "decimal", nullable: false, unit: "USD"}]);
 });
 
+test("structured DAG compiler validates an optional Source row limit", () => {
+  const bounded = validDag();
+  bounded.dag.nodes.find((node) => node.type === "source")!.config.limit = 1_000;
+  assert.equal(compileStructuredDag(bounded).status, "passed");
+
+  const invalid = validDag();
+  invalid.dag.nodes.find((node) => node.type === "source")!.config.limit = 0;
+  const result = compileStructuredDag(invalid);
+  assert.equal(result.status, "failed");
+  if (result.status === "failed") assert.equal(result.issues.some((issue) => issue.code === "SOURCE_LIMIT_INVALID"), true);
+});
+
 test("structured DAG compiler rejects cycles and multiply connected inputs", () => {
   const base = validDag();
   const input = {...base, dag: {...base.dag, edges: [...base.dag.edges,

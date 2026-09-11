@@ -100,6 +100,10 @@ On 2026-09-11, the user required Agent-authored Map expressions that exceed the 
 
 On 2026-09-11, the user required the one-time API-key copy action to provide immediate visible and assistive success or failure feedback. Use the shared Clipboard API plus browser fallback, switch the control icon and accessible label with the result, keep feedback stable long enough to read, and never report success when copying is unavailable or rejected.
 
+On 2026-09-11, the user required the API response schema to follow the request schema in the left contract panel, before the cURL example. Keep the right request-tester panel focused on credentials, parameters, execution feedback, and the live response body; do not duplicate the static response schema there.
+
+On 2026-09-11, the user required every new Source node to expose an editable row `limit`, defaulting to 1,000 and bounded from 1 through 10,000. Keep it visible in the Source inspector, preserve it in the layout-free DAG, and block confirmation for an invalid value.
+
 On 2026-09-11, the user required every Map definition row to keep labels and primary controls aligned even when one field adds helper copy. Top-align the field columns, align the row action with the control line, and keep the narrow-screen stacked action free of desktop alignment offsets.
 
 On 2026-09-11, the user required every Map definition to expose an optional generic output-unit annotation. Keep it on its own clearly labeled row with helper text explaining that it is metadata rather than value conversion. Empty means inherit an upstream unit when available; a non-empty value is bounded to 40 printable characters and must not conflict with an inferred unit. Propagate it through downstream schema derivation, and never derive it from a field name, provider path, protocol, asset, network, or provider convention. Upgrade historical Agent drafts generically from their declared output-unit contract only along unambiguous field lineage, stop at Map boundaries, and version the browser-session cache.

@@ -64,6 +64,10 @@ export function validateWorkflow(nodes, edges, draft = null) {
     const inputPorts = getInputPorts(definition.type);
     const connected = incoming.get(node.id) ?? new Set();
     if (definition.type === "source" && !(definition.config?.sourceId || definition.config?.sourceKey)) errors.push({ code: "SOURCE_CONFIG", nodeId: node.id });
+    if (definition.type === "source" && definition.config?.limit !== undefined
+      && (!Number.isInteger(definition.config.limit) || definition.config.limit < 1 || definition.config.limit > 10_000)) {
+      errors.push({code: "SOURCE_LIMIT", nodeId: node.id});
+    }
     if (["filter", "map", "aggregate", "sort"].includes(definition.type) && !connected.has("rows")) errors.push({ code: "MISSING_ROWS_INPUT", nodeId: node.id });
     if (definition.type === "filter" && connected.has("rows") && draft) {
       const fields = deriveFilterInputFields({nodes, edges, draft}, node.id);

@@ -305,6 +305,46 @@ test("immutable live plans preserve an Agent-authored GraphQL pushdown verbatim"
   }]);
 });
 
+test("a Source node limit bounds live reads without treating the bound as an execution failure", async () => {
+  const input = compilationInput();
+  input.dag.nodes.find((node) => node.type === "source")!.config.limit = 2;
+  const compilation = compileStructuredDag(input);
+  assert.equal(compilation.status, "passed");
+  if (compilation.status !== "passed") return;
+  const plan = createImmutableLivePlan({
+    compilation,
+    dag: input.dag,
+    sources: [{
+      id: "graph-items",
+      displayName: "Items",
+      logicalSubgraphId: "items",
+      manifestIpfsCid: "QmExample",
+      dataNetwork: "ethereum-mainnet",
+      queryEntity: "items",
+      fieldBindings: [{fieldPath: "rawAmount", requirementId: "amount"}],
+      auxiliaryFieldBindings: [],
+      providerCredentialId: "credential-id",
+      sourceSnapshotId: "snapshot-id",
+      schemaDocument,
+    }],
+  });
+  assert.equal(plan.sources[0]!.maxRows, 10_000);
+  assert.equal(plan.sources[0]!.rowLimit, 2);
+
+  const result = await executeLivePlan(plan, async () => ({
+    async executeStaticQuery(_manifest, _document, variables) {
+      assert.equal(variables.first, 2);
+      return {data: {items: [
+        {id: "row-1", rawAmount: "1"},
+        {id: "row-2", rawAmount: "2"},
+      ]}, errors: []};
+    },
+    async close() {},
+  }));
+  assert.equal(result.sourceRequests, 1);
+  assert.deepEqual(result.rows, [{amount: "1"}, {amount: "2"}]);
+});
+
 test("live plans preserve provider paths until the explicit Map executes", async () => {
   const input: StructuredDagCompileInput = {
     schemaVersion: 1,

@@ -98,6 +98,14 @@ test("keeps the API page focused on request and response formats", async () => {
   assert.match(source, /api\.responseFormat/);
   assert.match(source, /contract\.parameterSchema\.map/);
   assert.match(source, /fieldRows\(contract\.responseSchema\.outputSchema\)/);
+  const contractStart = source.indexOf('<section className="panel api-contract">');
+  const requestTesterStart = source.indexOf('<section className="panel request-tester">');
+  const requestFormatIndex = source.indexOf('t("api.requestFormat")', contractStart);
+  const responseFormatIndex = source.indexOf('t("api.responseFormat")', contractStart);
+  const curlIndex = source.indexOf('<div className="code-tabs">', contractStart);
+  assert.ok(contractStart >= 0 && requestFormatIndex > contractStart);
+  assert.ok(responseFormatIndex > requestFormatIndex && responseFormatIndex < curlIndex);
+  assert.ok(requestTesterStart > responseFormatIndex);
   assert.match(source, /contract\.exampleBody/);
   assert.match(source, /useProductDelivery\(productRef\)/);
   assert.match(source, /await copyText\(issuedKey\.apiKey\)/);

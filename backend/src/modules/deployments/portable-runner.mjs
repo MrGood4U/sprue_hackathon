@@ -84,8 +84,10 @@ async function fetchSource(source, signal) {
   const rows = [];
   let cursor = source.initialCursor;
   let requests = 0;
-  while (requests < source.maxRequests && rows.length < source.maxRows) {
-    const first = Math.min(source.pageSize, source.maxRows - rows.length);
+  let finalBatchWasFull = false;
+  const rowCeiling = Math.min(source.rowLimit ?? source.maxRows, source.maxRows);
+  while (requests < source.maxRequests && rows.length < rowCeiling) {
+    const first = Math.min(source.pageSize, rowCeiling - rows.length);
     const response = await fetch(endpointFor(source), {
       method: "POST",
       headers: {"content-type": "application/json"},
@@ -99,6 +101,7 @@ async function fetchSource(source, signal) {
     if (Array.isArray(payload.errors) && payload.errors.length > 0) throw new Error("The Graph rejected the compiled query");
     const batch = payload.data[source.queryEntity];
     if (!Array.isArray(batch)) throw new Error(`The Graph response is missing ${source.queryEntity}`);
+    finalBatchWasFull = batch.length === first;
     for (const item of batch) {
       if (!record(item) || typeof item.id !== "string") throw new Error("The Graph row is missing its compiled cursor");
       const projected = {data_network: source.dataNetwork};
@@ -112,8 +115,11 @@ async function fetchSource(source, signal) {
     if (typeof next !== "string" || next <= cursor) throw new Error("The Graph cursor did not advance");
     cursor = next;
   }
-  if (requests >= source.maxRequests && rows.length >= source.maxRows) {
+  if (source.rowLimit == null && rows.length >= source.maxRows && finalBatchWasFull) {
     throw new Error(`Live source ${source.id} exceeded the compiled row limit`);
+  }
+  if (requests >= source.maxRequests && rows.length < rowCeiling && finalBatchWasFull) {
+    throw new Error(`Live source ${source.id} exceeded the compiled request limit`);
   }
   return {rows, requests};
 }

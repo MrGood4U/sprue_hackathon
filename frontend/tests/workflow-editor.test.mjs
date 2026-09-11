@@ -31,6 +31,7 @@ import {
 import {isNodeConfigured} from "../src/features/workflow-editor/nodeConfiguration.js";
 import {presentWorkflowNodes} from "../src/features/workflow-editor/nodePresentation.js";
 import {getInputPorts} from "../src/features/workflow-editor/connectionRules.js";
+import {defaultNodeConfig} from "../src/features/workflow-editor/nodeCatalog.js";
 
 function draftFixture() {
   return {
@@ -664,4 +665,13 @@ test("Source inspector exposes the Agent-authored GraphQL with bounded scrolling
   assert.match(inspector, /await copyText\(queryPlan\.document\)/);
   assert.match(inspector, /aria-live="polite"/);
   assert.match(styles, /\.workflow-source-query-code \{[\s\S]*?max-height: min\(280px, 34dvh\);[\s\S]*?overflow: auto;/);
+});
+
+test("Source nodes expose an editable bounded row limit with a conservative default", async () => {
+  const inspector = await readFile(new URL("../src/features/workflow-editor/NodeInspector.jsx", import.meta.url), "utf8");
+
+  assert.deepEqual(defaultNodeConfig("source"), {sourceId: "", limit: 1_000});
+  assert.match(inspector, /id=\{`source-limit-\$\{node\.id\}`\}/);
+  assert.match(inspector, /type="number"[\s\S]*?min="1"[\s\S]*?max=\{maximumSourceRowLimit\}/);
+  assert.match(inspector, /validSourceRowLimit\(draftConfig\)/);
 });

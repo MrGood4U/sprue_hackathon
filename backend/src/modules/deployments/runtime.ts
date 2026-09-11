@@ -62,13 +62,16 @@ async function fetchLiveSource(
   const rows: Row[] = [];
   let cursor = source.initialCursor;
   let requests = 0;
-  while (requests < source.maxRequests && rows.length < source.maxRows) {
-    const first = Math.min(source.pageSize, source.maxRows - rows.length);
+  let finalBatchWasFull = false;
+  const rowCeiling = Math.min(source.rowLimit ?? source.maxRows, source.maxRows);
+  while (requests < source.maxRequests && rows.length < rowCeiling) {
+    const first = Math.min(source.pageSize, rowCeiling - rows.length);
     const response = await graph.executeStaticQuery(source.manifestIpfsCid, source.queryDocument, {first, cursor}, signal);
     requests += 1;
     if (response.errors.length > 0) throw new Error(response.errors[0]!.message);
     const batch = response.data[source.queryEntity];
     if (!Array.isArray(batch)) throw new Error(`Graph response does not contain ${source.queryEntity} rows`);
+    finalBatchWasFull = batch.length === first;
     for (const item of batch) {
       if (!object(item) || typeof item.id !== "string") throw new Error("Graph row does not expose the compiled cursor field id");
       const projected: Row = {data_network: source.dataNetwork};
@@ -82,8 +85,11 @@ async function fetchLiveSource(
     if (typeof next !== "string" || next <= cursor) throw new Error("Graph cursor did not advance");
     cursor = next;
   }
-  if (requests >= source.maxRequests && rows.length >= source.maxRows) {
+  if (source.rowLimit == null && rows.length >= source.maxRows && finalBatchWasFull) {
     throw new Error(`Graph source ${source.id} exceeded the compiled row limit`);
+  }
+  if (requests >= source.maxRequests && rows.length < rowCeiling && finalBatchWasFull) {
+    throw new Error(`Graph source ${source.id} exceeded the compiled request limit`);
   }
   return {rows, requests};
 }

@@ -47,6 +47,7 @@ export interface CompiledLiveSource extends LiveSourceInput {
   pageSize: number;
   maxRequests: number;
   maxRows: number;
+  rowLimit: number | null;
   providerCredentialId: string;
   sourceSnapshotId: string;
   adapterVersion: "graph-mcp-live-v1";
@@ -286,6 +287,13 @@ function sourceProjections(
   return projections;
 }
 
+function configuredSourceLimit(sourceId: string, dag: StructuredDagCompileInput["dag"]): number | null {
+  const sourceNode = dag.nodes.find((node) => node.type === "source"
+    && String(node.config.sourceId ?? node.config.sourceKey ?? "") === sourceId);
+  const value = sourceNode?.config.limit;
+  return Number.isInteger(value) && Number(value) >= 1 && Number(value) <= 10_000 ? Number(value) : null;
+}
+
 export function createImmutableLivePlan(input: {
   compilation: Extract<StructuredDagCompilation, {status: "passed"}>;
   dag: StructuredDagCompileInput["dag"];
@@ -306,6 +314,8 @@ export function createImmutableLivePlan(input: {
         const query = source.queryPlan
           ? compileAuthoredLiveQuery(source, source.schemaDocument, selectedPaths, source.queryPlan)
           : compileLiveQuery(source, source.schemaDocument, selectedPaths);
+        const plannedMaxRows = source.queryPlan?.pagination.maxRows ?? 10_000;
+        const sourceLimit = configuredSourceLimit(source.id, input.dag);
         return {
           id: source.id,
           displayName: source.displayName,
@@ -331,7 +341,8 @@ export function createImmutableLivePlan(input: {
           initialCursor: query.initialCursor,
           pageSize: source.queryPlan?.pagination.pageSize ?? 500,
           maxRequests: source.queryPlan?.pagination.maxRequests ?? 20,
-          maxRows: source.queryPlan?.pagination.maxRows ?? 10_000,
+          maxRows: plannedMaxRows,
+          rowLimit: sourceLimit === null ? null : Math.min(sourceLimit, plannedMaxRows),
         };
       }),
       dag: input.dag,

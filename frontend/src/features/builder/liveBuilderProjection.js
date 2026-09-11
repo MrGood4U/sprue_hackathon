@@ -265,6 +265,7 @@ export function projectAgentBuilderDraft(product, messages) {
       ...node,
       config: {
         ...node.config,
+        limit: node.config?.limit ?? 1_000,
         fieldBindings: source?.fieldBindings ?? node.config?.fieldBindings ?? [],
         auxiliaryFieldBindings: source?.auxiliaryFieldBindings ?? node.config?.auxiliaryFieldBindings ?? [],
       },

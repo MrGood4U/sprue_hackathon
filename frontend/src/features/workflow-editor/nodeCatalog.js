@@ -25,9 +25,9 @@ export const templateCatalog = [
     labelKey: "workflowEditor.template.crossChainUnion",
     descriptionKey: "workflowEditor.template.crossChainUnionDetail",
     nodes: [
-      { localId: "source-left", type: "source", config: { sourceId: "" } },
+      { localId: "source-left", type: "source", config: { sourceId: "", limit: 1_000 } },
       { localId: "map-left", type: "map", config: { mode: "project", fields: [] } },
-      { localId: "source-right", type: "source", config: { sourceId: "" } },
+      { localId: "source-right", type: "source", config: { sourceId: "", limit: 1_000 } },
       { localId: "map-right", type: "map", config: { mode: "project", fields: [] } },
       { localId: "union", type: "union", config: { mode: "append_compatible_rows", sourceDiscriminator: null } },
     ],
@@ -50,7 +50,7 @@ export function getTemplate(id) {
 
 export function defaultNodeConfig(type) {
   switch (type) {
-    case "source": return { sourceId: "" };
+    case "source": return { sourceId: "", limit: 1_000 };
     case "filter": return { predicate: {combinator: "and", conditions: []} };
     case "map": return { mode: "extend", fields: [] };
     case "aggregate": return { groupBy: [], measures: [] };

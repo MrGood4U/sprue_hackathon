@@ -54,6 +54,19 @@ function Field({ id, label, hint, children }) {
 }
 
 const sourceScalarTypes = new Set(["boolean", "string", "id", "address", "bytes", "integer", "decimal", "timestamp", "date"]);
+const defaultSourceRowLimit = 1_000;
+const maximumSourceRowLimit = 10_000;
+
+function effectiveSourceRowLimit(config, queryPlan) {
+  if (Number.isInteger(config?.limit)) return config.limit;
+  if (config?.limit === undefined && Number.isInteger(queryPlan?.pagination?.maxRows)) return queryPlan.pagination.maxRows;
+  return defaultSourceRowLimit;
+}
+
+function validSourceRowLimit(config) {
+  return config?.limit === undefined
+    || (Number.isInteger(config.limit) && config.limit >= 1 && config.limit <= maximumSourceRowLimit);
+}
 
 function sourceRecord(validation, entity, candidate) {
   const fields = entity.fields
@@ -126,6 +139,7 @@ function SourceConfig({ node, draft, update, mode, onModeChange, sourceDiscovery
   const sourceId = node.config?.sourceId ?? node.config?.sourceKey ?? "";
   const selected = sources.find((source) => source.id === sourceId);
   const queryPlan = node.config?.queryPlan ?? selected?.queryPlan ?? null;
+  const rowLimit = effectiveSourceRowLimit(node.config, queryPlan);
   const pushedOperations = (queryPlan?.pushedOperations ?? [])
     .filter((operation) => operation.operator === "filter" || operation.operator === "sort");
 
@@ -186,6 +200,7 @@ function SourceConfig({ node, draft, update, mode, onModeChange, sourceDiscovery
       auxiliaryFieldBindings: [],
       accessSelection: source.accessSelection,
       queryPlan: null,
+      limit: effectiveSourceRowLimit(node.config, queryPlan),
     });
   };
 
@@ -294,6 +309,28 @@ function SourceConfig({ node, draft, update, mode, onModeChange, sourceDiscovery
               </div>
             )}
           </Field>
+          {sourceId && (
+            <Field
+              id={`source-limit-${node.id}`}
+              label={t("workflowEditor.inspector.sourceRowLimit")}
+              hint={t("workflowEditor.inspector.sourceRowLimitHint", {maximum: maximumSourceRowLimit})}
+            >
+              <input
+                id={`source-limit-${node.id}`}
+                type="number"
+                min="1"
+                max={maximumSourceRowLimit}
+                step="1"
+                inputMode="numeric"
+                value={node.config?.limit ?? rowLimit}
+                aria-invalid={!validSourceRowLimit(node.config)}
+                onChange={(event) => update({
+                  ...(node.config ?? {}),
+                  limit: event.target.value === "" ? "" : Number(event.target.value),
+                })}
+              />
+            </Field>
+          )}
           {sourceId && (queryPlan ? (
             <section className="workflow-source-query" aria-labelledby={`source-query-title-${node.id}`}>
               <div className="workflow-source-query-header">
@@ -319,7 +356,7 @@ function SourceConfig({ node, draft, update, mode, onModeChange, sourceDiscovery
               <div className="workflow-source-query-meta">
                 <span>{t("workflowEditor.inspector.graphqlPagination", {
                   pageSize: queryPlan.pagination.pageSize,
-                  maxRows: queryPlan.pagination.maxRows,
+                  maxRows: rowLimit,
                 })}</span>
                 <span className={`workflow-source-query-copy is-${queryCopyStatus}`} role="status" aria-live="polite">
                   {queryCopyStatus === "copied" ? t("workflowEditor.inspector.graphqlCopied")
@@ -1489,6 +1526,7 @@ export function NodeInspector({ editor, nodeId, onClose, sourceDiscovery }) {
   const canConfirm = (node.type !== "source"
       || (sourceMode === "discovered" && Boolean(draftConfig.sourceId ?? draftConfig.sourceKey))
       || (sourceMode === "add" && Boolean(pendingSource)))
+    && (node.type !== "source" || validSourceRowLimit(draftConfig))
     && (node.type !== "filter" || (!legacyFilterExpression && filterErrors.length === 0))
     && (node.type !== "sort" || sortErrors.length === 0)
     && (node.type !== "map" || (mapErrors.length === 0 && !mapExpressionEditing))

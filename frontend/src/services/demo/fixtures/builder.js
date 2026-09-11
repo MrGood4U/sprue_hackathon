@@ -44,6 +44,7 @@ export function createDemoDraft(parameters = defaultParameters) {
   const nodes = [
     node("activity", "source", {
       sourceId: "source_dex_activity",
+      limit: 1_000,
       queryDocument: "query Activity($start: Int!, $end: Int!, $first: Int!, $lastId: ID!, $block: Int!) { activities(first: $first, orderBy: id, orderDirection: asc, where: {id_gt: $lastId, timestamp_gte: $start, timestamp_lt: $end}, block: {number: $block}) { id protocol wallet timestamp } _meta(block: {number: $block}) { block { number hash } deployment hasIndexingErrors } }",
       variableBindings: { start: "run.window.start", end: "run.window.end", first: "page.size", lastId: "page.cursor", block: "run.sourceBlock" },
       pagination: { strategy: "id_cursor", cursorField: "id", pageSize: 1000 },

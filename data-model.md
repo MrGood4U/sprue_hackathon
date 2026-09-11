@@ -275,6 +275,7 @@ This illustration was corrected on 2026-09-05 to retain all active wallets in th
         "operatorVersion": "1",
         "config": {
           "sourceId": "source_dex_activity",
+          "limit": 1000,
           "queryDocument": "query Activity($start: Int!, $end: Int!, $first: Int!, $lastId: ID!, $block: Int!) { activities(first: $first, orderBy: id, orderDirection: asc, where: {id_gt: $lastId, timestamp_gte: $start, timestamp_lt: $end}, block: {number: $block}) { id protocol wallet timestamp } _meta(block: {number: $block}) { block { number hash } deployment hasIndexingErrors } }",
           "variableBindings": {
             "start": "run.window.start",
@@ -588,7 +589,7 @@ Rules:
 - Node types and versions come from the registered operator allowlist.
 - Source entries reference an immutable validated snapshot and keep Subgraph ID, gateway Deployment ID, and manifest IPFS CID distinct. Published versions use a deployment target rather than silently following the current Subgraph version.
 - A version may contain multiple source entries, and each source node must reference exactly one entry by source ID.
-- Source nodes pin a static bounded query document, runtime variable bindings, block-consistency policy, and cursor pagination strategy. The adapter must not interpolate unvalidated values or silently broaden the query.
+- Source nodes pin a static bounded query document, runtime variable bindings, block-consistency policy, cursor pagination strategy, and an editable integer `limit` from 1 through 10,000 (1,000 by default for new nodes). Reaching this row limit is a successful bounded read; exhausting the independent request cap while more rows remain is an execution failure. The adapter must not interpolate unvalidated values or silently broaden the query.
 - `access.mode` is an explicit creator choice per source: `customer_api_key` uses the creator's existing Graph account/subscription, while `x402` pays per query from the creator wallet.
 - Exactly one access reference is selected. `customer_api_key` requires `providerCredentialId` and no spending policy; `x402` requires `spendingPolicyId` and no provider credential.
 - A provider credential ID names server-side secret configuration but contains no credential. Endpoint strings never contain persisted credentials.

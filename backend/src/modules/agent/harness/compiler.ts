@@ -384,7 +384,7 @@ export function validateCompositionForSourceNeeds(
     id: sourceRole(need.id),
     type: "source",
     operatorVersion: "1",
-    config: {sourceNeedId: need.id},
+    config: {sourceNeedId: need.id, limit: 1_000},
   }));
   const roleToId = new Map<string, string>(sourceNodes.map((node) => [node.id, node.id]));
   const compiledNodes = composition.nodes.map((node) => {
@@ -460,7 +460,7 @@ export function assembleSpecification(
       id: sourceRole(binding.need.id),
       type: "source",
       operatorVersion: "1",
-      config: {sourceId: canonicalSourceId(binding), queryPlan},
+      config: {sourceId: canonicalSourceId(binding), queryPlan, limit: 1_000},
     };
   });
   const roleToId = new Map<string, string>(sourceNodes.map((node) => [node.id, node.id]));

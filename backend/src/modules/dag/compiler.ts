@@ -383,6 +383,9 @@ export function compileStructuredDag(input: StructuredDagCompileInput, now = new
     if (!(typeof source.config.sourceId === "string" && source.config.sourceId.trim()) && !(typeof source.config.sourceKey === "string" && source.config.sourceKey.trim())) {
       add("SOURCE_CONFIG_INVALID", `Source ${source.id} must reference a verified source identity.`, source.id, `dag.nodes.${source.id}.config`);
     }
+    if (source.config.limit !== undefined && (!Number.isInteger(source.config.limit) || Number(source.config.limit) < 1 || Number(source.config.limit) > 10_000)) {
+      add("SOURCE_LIMIT_INVALID", `Source ${source.id} limit must be an integer between 1 and 10000.`, source.id, `dag.nodes.${source.id}.config.limit`);
+    }
     const targets = [...(outgoing.get(source.id) ?? [])];
     const boundary = targets.length === 1 ? nodeById.get(targets[0]!) : null;
     if (!boundary || boundary.type !== "map" || incoming.get(boundary.id)?.get("rows") !== source.id || boundary.config.mode !== "project") {

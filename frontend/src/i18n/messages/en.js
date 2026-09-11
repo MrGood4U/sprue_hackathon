@@ -921,6 +921,8 @@ export const en = {
   "workflowEditor.inspector.sourceAdmissionPending": "This verification adds planning evidence only. Runtime admission still verifies coverage, endpoint access, and the immutable source snapshot.",
   "workflowEditor.inspector.discoveryUnavailable": "Live Graph discovery is unavailable because the Builder source service is not configured.",
   "workflowEditor.inspector.existingSourceEvidence": "Existing Graph source",
+  "workflowEditor.inspector.sourceRowLimit": "Source row limit",
+  "workflowEditor.inspector.sourceRowLimitHint": "Return at most this many source rows per API execution. Enter 1–{{maximum}}.",
   "workflowEditor.inspector.graphqlQuery": "Agent-authored GraphQL",
   "workflowEditor.inspector.graphqlQueryAgentAuthored": "Generated during Agent planning; the backend validates and freezes this exact query at build time.",
   "workflowEditor.inspector.graphqlQueryUnavailable": "This source has no Agent-authored GraphQL yet. Re-run Agent planning to generate a pushdown plan; manually added sources use the compiler's bounded fallback query.",
