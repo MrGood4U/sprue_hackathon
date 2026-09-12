@@ -123,8 +123,9 @@ async function fetchSource(source, signal, executionAnchor) {
     if (Array.isArray(payload.errors) && payload.errors.length > 0) throw new Error("The Graph rejected the compiled query");
     const batch = payload.data[source.queryEntity];
     if (!Array.isArray(batch)) throw new Error(`The Graph response is missing ${source.queryEntity}`);
-    finalBatchWasFull = batch.length === first;
-    for (const item of batch) {
+    const acceptedBatch = batch.slice(0, first);
+    finalBatchWasFull = batch.length >= first;
+    for (const item of acceptedBatch) {
       if (!record(item) || typeof item.id !== "string") throw new Error("The Graph row is missing its compiled cursor");
       const projected = {data_network: source.dataNetwork};
       for (const projection of projectionsFor(source)) {
@@ -133,17 +134,14 @@ async function fetchSource(source, signal, executionAnchor) {
       rows.push(projected);
     }
     if (batch.length < first) break;
-    const next = batch.at(-1)?.id;
+    const next = acceptedBatch.at(-1)?.id;
     if (typeof next !== "string" || next <= cursor) throw new Error("The Graph cursor did not advance");
     cursor = next;
-  }
-  if (source.rowLimit == null && rows.length >= source.maxRows && finalBatchWasFull) {
-    throw new Error(`Live source ${source.id} exceeded the compiled row limit`);
   }
   if (requests >= source.maxRequests && rows.length < rowCeiling && finalBatchWasFull) {
     throw new Error(`Live source ${source.id} exceeded the compiled request limit`);
   }
-  return {rows, requests};
+  return {rows, requests, rowLimitReached: rows.length >= rowCeiling && finalBatchWasFull};
 }
 
 function decimal(value) {
@@ -346,7 +344,7 @@ async function execute(signal) {
   const executionAnchor = new Date();
   const rowsByNode = new Map(); const shapes = new Map();
   const pending = new Set(plan.dag.nodes.map((node) => node.id));
-  let sourceRequests = 0; let sourceRows = 0;
+  let sourceRequests = 0; let sourceRows = 0; let sourceRowLimitReached = false;
   while (pending.size > 0) {
     let progressed = false;
     for (const node of plan.dag.nodes) {
@@ -360,6 +358,7 @@ async function execute(signal) {
         const fetched = await fetchSource(source, signal, executionAnchor);
         rowsByNode.set(node.id, fetched.rows); shapes.set(node.id, node.outputSchema.fields);
         sourceRequests += fetched.requests; sourceRows += fetched.rows.length;
+        sourceRowLimitReached ||= fetched.rowLimitReached;
       } else if (node.type === "filter") {
         const rows = Object.prototype.hasOwnProperty.call(node.config, "predicate")
           ? filterRows(input("rows"), node.config.predicate, shape("rows"))
@@ -413,7 +412,7 @@ async function execute(signal) {
     if (!progressed) throw new Error("The immutable DAG could not be scheduled");
   }
   const output = plan.dag.nodes.find((node) => node.type === "output");
-  return {rows: rowsByNode.get(output.id), sourceRequests, sourceRows, queriedAt: executionAnchor.toISOString()};
+  return {rows: rowsByNode.get(output.id), sourceRequests, sourceRows, sourceRowLimitReached, queriedAt: executionAnchor.toISOString()};
 }
 
 function authorized(request) {
@@ -437,7 +436,7 @@ const server = createServer(async (request, response) => {
     const limit = Math.min(10_000, Math.max(1, Number(url.searchParams.get("limit") ?? "1000")));
     if (!Number.isInteger(limit)) return json(response, 400, {error: {code: "LIMIT_INVALID"}});
     const result = await execute(AbortSignal.timeout(30_000));
-    return json(response, 200, {data: result.rows.slice(0, limit), meta: {serveMode: "live", specHash: expectedSpecHash, queriedAt: result.queriedAt, sourceRequests: result.sourceRequests, sourceRows: result.sourceRows, returnedRows: Math.min(limit, result.rows.length)}});
+    return json(response, 200, {data: result.rows.slice(0, limit), meta: {serveMode: "live", specHash: expectedSpecHash, queriedAt: result.queriedAt, sourceRequests: result.sourceRequests, sourceRows: result.sourceRows, sourceRowLimitReached: result.sourceRowLimitReached, returnedRows: Math.min(limit, result.rows.length)}});
   } catch (error) {
     console.error(error instanceof Error ? error.message : "Private execution failed");
     return json(response, 502, {error: {code: "LIVE_EXECUTION_FAILED", message: "The live data request could not be completed"}});

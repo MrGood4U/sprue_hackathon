@@ -466,6 +466,7 @@ export class LiveDeploymentService {
         queriedAt: result.queriedAt,
         sourceRequests: result.sourceRequests,
         sourceRows: result.sourceRows,
+        sourceRowLimitReached: result.sourceRowLimitReached,
         returnedRows: Math.min(result.rows.length, input.limit),
       },
     };

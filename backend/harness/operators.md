@@ -118,7 +118,7 @@ Before accepting queryDocument:
 4. Bind time and block variables from frozen server context, and page cursor/size from the adapter. Other literals are typed, bounded and pinned in config. No variable source can resolve a secret, arbitrary URL, wallet destination or system environment.
 5. Use an inspected resultPath and row schema. Normalize timestamps/units using explicit mappings. Do not assume an ID's type, monotonic cursor order, historical block support or timestamp field from a generic example.
 6. Include and verify available `_meta` provenance, requested/returned block identity, manifest mapping and indexing errors. IDs from different provider surfaces require verified mapping, not string equivalence guesses.
-7. Bound query bytes/depth/complexity, total pages, rows, response bytes and retries. A full last page at the row/page ceiling is not proof of completeness: fail or perform an already-budgeted bounded completion check; never publish a silently truncated metric.
+7. Bound query bytes/depth/complexity, total pages, rows, response bytes and retries. A full page that reaches the row ceiling ends collection without a completion probe; continue the DAG over that bounded prefix and expose `sourceRowLimitReached: true` in delivery metadata. Exhausting the request ceiling before reaching the row ceiling remains a failure.
 
 Static validation never proves provider completeness. Build verifies extraction, requested interval coverage, source freshness and errors. If the provider cannot supply the required evidence or capabilities, the selected metric/source combination stays blocked or is revised by the creator.
 

@@ -734,10 +734,11 @@ test("a Source node limit bounds live reads without treating the bound as an exe
     async close() {},
   }));
   assert.equal(result.sourceRequests, 1);
+  assert.equal(result.sourceRowLimitReached, true);
   assert.deepEqual(result.rows, [{amount: "1"}, {amount: "2"}]);
 });
 
-test("live reads page to the compiled row ceiling and probe once to prove exact completeness", async () => {
+test("live reads stop at the compiled row ceiling without a completeness probe", async () => {
   const input = compilationInput();
   const compilation = compileStructuredDag(input);
   assert.equal(compilation.status, "passed");
@@ -778,12 +779,13 @@ test("live reads page to the compiled row ceiling and probe once to prove exact 
     },
     async close() {},
   }));
-  assert.deepEqual(requestSizes, [2, 2, 1]);
-  assert.equal(result.sourceRequests, 3);
+  assert.deepEqual(requestSizes, [2, 2]);
+  assert.equal(result.sourceRequests, 2);
+  assert.equal(result.sourceRowLimitReached, true);
   assert.deepEqual(result.rows, [{amount: "1"}, {amount: "2"}, {amount: "3"}, {amount: "4"}]);
 });
 
-test("live reads reject a source that contains rows beyond the compiled row ceiling", async () => {
+test("live reads still reject an exhausted request budget below the row ceiling", async () => {
   const input = compilationInput();
   const compilation = compileStructuredDag(input);
   assert.equal(compilation.status, "passed");
@@ -802,7 +804,7 @@ test("live reads reject a source that contains rows beyond the compiled row ceil
         schemaVersion: 1,
         operationName: "SprueLiveSource",
         document: "query SprueLiveSource($first: Int!, $cursor: ID!) { items(first: $first, orderBy: id, orderDirection: asc, where: { id_gt: $cursor }) { id rawAmount } }",
-        pagination: {kind: "id_cursor", cursorField: "id", pageSize: 2, maxRequests: 3, maxRows: 4},
+        pagination: {kind: "id_cursor", cursorField: "id", pageSize: 2, maxRequests: 2, maxRows: 5},
         pushedOperations: [],
       },
       fieldBindings: [{fieldPath: "rawAmount", requirementId: "amount"}],
@@ -817,10 +819,10 @@ test("live reads reject a source that contains rows beyond the compiled row ceil
       const cursor = String(variables.cursor);
       if (cursor === "") return {data: {items: [{id: "1", rawAmount: "1"}, {id: "2", rawAmount: "2"}]}, errors: []};
       if (cursor === "2") return {data: {items: [{id: "3", rawAmount: "3"}, {id: "4", rawAmount: "4"}]}, errors: []};
-      return {data: {items: [{id: "5", rawAmount: "5"}]}, errors: []};
+      return {data: {items: []}, errors: []};
     },
     async close() {},
-  })), /exceeded the compiled row limit/);
+  })), /exceeded the compiled request limit/);
 });
 
 test("live plans preserve provider paths until the explicit Map executes", async () => {
@@ -1046,6 +1048,7 @@ test("each live plan execution requests The Graph again and never reuses result 
 
 test("the exported dependency-free runner verifies its plan and queries Graph on every request", async () => {
   const input = compilationInput();
+  (input.dag.nodes.find((node) => node.type === "source")!.config as Record<string, unknown>).limit = 1;
   const compilation = compileStructuredDag(input);
   assert.equal(compilation.status, "passed");
   if (compilation.status !== "passed") return;
@@ -1111,6 +1114,7 @@ test("the exported dependency-free runner verifies its plan and queries Graph on
     assert.deepEqual(first.data, [{amount: "1"}]);
     assert.deepEqual(second.data, [{amount: "2"}]);
     assert.equal(first.meta.serveMode, "live");
+    assert.equal(first.meta.sourceRowLimitReached, true);
     assert.equal(graphRequests, 2);
   } finally {
     if (child.exitCode === null) {

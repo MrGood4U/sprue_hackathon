@@ -12,6 +12,7 @@ export interface LiveExecutionResult {
   rows: readonly Row[];
   sourceRequests: number;
   sourceRows: number;
+  sourceRowLimitReached: boolean;
   queriedAt: string;
 }
 
@@ -85,7 +86,7 @@ async function fetchLiveSource(
   graph: GraphRuntimeQueryPort,
   executionAnchor: Date,
   signal?: AbortSignal,
-): Promise<{rows: Row[]; requests: number}> {
+): Promise<{rows: Row[]; requests: number; rowLimitReached: boolean}> {
   const rows: Row[] = [];
   let cursor = source.initialCursor;
   let requests = 0;
@@ -103,8 +104,9 @@ async function fetchLiveSource(
     if (response.errors.length > 0) throw new Error(response.errors[0]!.message);
     const batch = response.data[source.queryEntity];
     if (!Array.isArray(batch)) throw new Error(`Graph response does not contain ${source.queryEntity} rows`);
-    finalBatchWasFull = batch.length === first;
-    for (const item of batch) {
+    const acceptedBatch = batch.slice(0, first);
+    finalBatchWasFull = batch.length >= first;
+    for (const item of acceptedBatch) {
       if (!object(item) || typeof item.id !== "string") throw new Error("Graph row does not expose the compiled cursor field id");
       const projected: Row = {data_network: source.dataNetwork};
       for (const projection of projectionsFor(source)) {
@@ -113,30 +115,14 @@ async function fetchLiveSource(
       rows.push(projected);
     }
     if (batch.length < first) break;
-    const next = (batch.at(-1) as Row).id;
+    const next = (acceptedBatch.at(-1) as Row).id;
     if (typeof next !== "string" || next === cursor) throw new Error("Graph cursor did not advance");
     cursor = next;
-  }
-  if (source.rowLimit == null && rows.length >= source.maxRows && finalBatchWasFull) {
-    if (requests >= source.maxRequests) {
-      throw new Error(`Graph source ${source.id} reached the compiled request limit before row-limit completeness could be verified`);
-    }
-    const response = await graph.executeStaticQuery(
-      source.manifestIpfsCid,
-      source.queryDocument,
-      sourceVariables(source, 1, cursor, executionAnchor),
-      signal,
-    );
-    requests += 1;
-    if (response.errors.length > 0) throw new Error(response.errors[0]!.message);
-    const batch = response.data[source.queryEntity];
-    if (!Array.isArray(batch)) throw new Error(`Graph response does not contain ${source.queryEntity} rows`);
-    if (batch.length > 0) throw new Error(`Graph source ${source.id} exceeded the compiled row limit`);
   }
   if (requests >= source.maxRequests && rows.length < rowCeiling && finalBatchWasFull) {
     throw new Error(`Graph source ${source.id} exceeded the compiled request limit`);
   }
-  return {rows, requests};
+  return {rows, requests, rowLimitReached: rows.length >= rowCeiling && finalBatchWasFull};
 }
 
 interface Decimal {coefficient: bigint; scale: number}
@@ -242,6 +228,7 @@ export async function executeLivePlan(
   const graphClients = new Map<string, GraphRuntimeQueryPort>();
   let sourceRequests = 0;
   let sourceRows = 0;
+  let sourceRowLimitReached = false;
   try {
     while (pending.size > 0) {
       let progressed = false;
@@ -263,6 +250,7 @@ export async function executeLivePlan(
           shapes.set(id, node.outputSchema.fields);
           sourceRequests += fetched.requests;
           sourceRows += fetched.rows.length;
+          sourceRowLimitReached ||= fetched.rowLimitReached;
         } else {
           const input = (port: string) => rowsByNode.get(incoming.get(port)!)!;
           const shape = (port: string) => shapes.get(incoming.get(port)!)!;
@@ -324,7 +312,7 @@ export async function executeLivePlan(
       if (!progressed) throw new Error("Compiled DAG could not be scheduled");
     }
     const output = plan.dag.nodes.find((node) => node.type === "output")!;
-    return {rows: rowsByNode.get(output.id) ?? [], sourceRequests, sourceRows, queriedAt: executionAnchor.toISOString()};
+    return {rows: rowsByNode.get(output.id) ?? [], sourceRequests, sourceRows, sourceRowLimitReached, queriedAt: executionAnchor.toISOString()};
   } finally {
     await Promise.allSettled([...graphClients.values()].map((client) => client.close()));
   }
