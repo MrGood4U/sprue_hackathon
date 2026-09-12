@@ -9,20 +9,24 @@ const NavigationGuardContext = createContext(null);
 export function NavigationGuardProvider({currentPath, navigate, children}) {
   const {t} = useI18n();
   const [activeGuard, setActiveGuard] = useState(null);
+  const activeGuardRef = useRef(null);
   const [pendingPath, setPendingPath] = useState(null);
 
   const setGuard = useCallback((token, active, onDiscard) => {
-    setActiveGuard((current) => active ? {token, onDiscard} : current?.token === token ? null : current);
+    const current = activeGuardRef.current;
+    const next = active ? {token, onDiscard} : current?.token === token ? null : current;
+    activeGuardRef.current = next;
+    setActiveGuard(next);
   }, []);
 
   const guardedNavigate = useCallback((nextPath) => {
     if (nextPath === currentPath) return;
-    if (activeGuard) {
+    if (activeGuardRef.current) {
       setPendingPath(nextPath);
       return;
     }
     navigate(nextPath);
-  }, [activeGuard, currentPath, navigate]);
+  }, [currentPath, navigate]);
 
   const leave = () => {
     const nextPath = pendingPath;
@@ -84,4 +88,8 @@ export function useUnsavedNavigationGuard(active, onDiscard) {
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [active]);
+
+  return useCallback(() => {
+    setGuard?.(token.current, false);
+  }, [setGuard]);
 }

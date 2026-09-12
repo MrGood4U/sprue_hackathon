@@ -51,7 +51,10 @@ test("guards every shared navigation path while the Builder has unsaved changes"
   assert.match(shell, /<Sidebar path=\{path\} navigate=\{guardedNavigate\}/);
   assert.match(shell, /resolveCreatorPage\(path, guardedNavigate\)/);
   assert.match(builder, /useUnsavedNavigationGuard\(editor\.dirty,/);
+  assert.match(builder, /releaseUnsavedNavigationGuard\(\);\s+navigate\(`/);
   assert.match(builder, /clearCachedBuilderDraft/);
+  assert.match(guard, /activeGuardRef\.current = next/);
+  assert.match(guard, /if \(activeGuardRef\.current\)/);
   assert.match(guard, /window\.addEventListener\("beforeunload", warn\)/);
   assert.match(guard, /builder\.leaveWithoutSaving/);
   assert.match(guard, /<Button autoFocus/);

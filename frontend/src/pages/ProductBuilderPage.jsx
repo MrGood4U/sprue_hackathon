@@ -25,7 +25,7 @@ function LoadedBuilder({ builder, navigate, productRef }) {
   const editor = useWorkflowEditor(builder.draft);
   const workingDraft = editor.draft;
   const canSaveDraft = editor.dirty && editor.validation.length === 0;
-  useUnsavedNavigationGuard(editor.dirty, () => {
+  const releaseUnsavedNavigationGuard = useUnsavedNavigationGuard(editor.dirty, () => {
     clearCachedBuilderDraft(browserSessionStorage(), builder.workspaceId, builder.product.id);
   });
 
@@ -76,6 +76,7 @@ function LoadedBuilder({ builder, navigate, productRef }) {
         return;
       }
       setBuildState("complete");
+      releaseUnsavedNavigationGuard();
       navigate(`/app/products/${encodeURIComponent(productRef)}/api`);
     } catch (error) {
       if (error?.name === "AbortError") return;
