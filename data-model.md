@@ -2,11 +2,11 @@
 
 ## Status
 
-Version: 1.17
+Version: 1.18
 
 Date: 2026-09-11
 
-Stage: Approved MVP design baseline. Version 1.17 requires each admitted live Graph source to pin the exact runtime-introspected collection-to-entity-type binding used to compile its immutable query, including when the provider SDL omits the Query root. Version 1.16 permits an admitted live Graph source to pin the exact manifest IPFS CID used by the restricted Graph MCP runtime. Version 1.15 activated the live hosted-runtime profile: a successful Builder compilation persists one immutable, hash-bound executable product version, and every accepted data API request executes that fixed plan against fresh The Graph responses. Compiled plans and provider metadata may be cached; source result rows and final response rows are not reused between requests. Version 1.14 added recoverable product tombstones. Earlier version history remains recorded below. Delegated spending, x402 settlement, and mainnet capability remain unverified.
+Stage: Approved MVP design baseline. Version 1.18 adds one mutable, owner-scoped Builder working draft per product. The draft stores the validated layout-free structured DAG separately from immutable executable versions and deployment pointers; saving it cannot activate, replace, suspend, or otherwise mutate a running API or x402 publication. Version 1.17 requires each admitted live Graph source to pin the exact runtime-introspected collection-to-entity-type binding used to compile its immutable query, including when the provider SDL omits the Query root. Version 1.16 permits an admitted live Graph source to pin the exact manifest IPFS CID used by the restricted Graph MCP runtime. Version 1.15 activated the live hosted-runtime profile: a successful Builder compilation persists one immutable, hash-bound executable product version, and every accepted data API request executes that fixed plan against fresh The Graph responses. Compiled plans and provider metadata may be cached; source result rows and final response rows are not reused between requests. Version 1.14 added recoverable product tombstones. Earlier version history remains recorded below. Delegated spending, x402 settlement, and mainnet capability remain unverified.
 
 This document is the source of truth for Sprue's MVP domain model, PostgreSQL persistence model, lifecycle rules, financial separation, and runtime records. It translates the product and architecture decisions in [agents.md](agents.md), [plan.md](plan.md), and [project-structure.md](project-structure.md) into an implementation-ready model.
 
@@ -1121,6 +1121,31 @@ Constraints and indexes:
 - Index `(workspace_id, status, updated_at desc)`.
 - The Dashboard may create a `draft` with `original_intent = ''` so it can navigate directly to Agent. The first accepted non-empty Agent planning message atomically initializes this field and increments `lock_version`; later messages never overwrite the initial objective. The empty placeholder example is presentation only and is never persisted as intent.
 - Product deletion is an owner-authorized, idempotent, lock-version-protected soft delete that sets `deleted_at`; physical deletion remains prohibited. Ordinary product lists, details, overview counts, new Agent-session binding, and new planning work must exclude tombstoned products. Historical versions, runs, messages, evidence, financial records, and the workspace-unique slug remain intact; public deployment resolution must also reject a tombstoned product before that route is enabled.
+
+#### `product_builder_drafts`
+
+The current mutable Builder working copy. It is deliberately not a `data_product_version`, build result, deployment candidate, or publication revision.
+
+| Column | Type | Null | Rules and purpose |
+|---|---|---:|---|
+| `data_product_id` | `uuid` | no | Primary key and FK to the owning product; one current draft per product |
+| `draft_schema_version` | `integer` | no | Builder draft envelope version; currently `1` |
+| `origin_key` | `text` | no | Stable Agent-message or manual-origin key used to avoid reviving a draft after a newer plan |
+| `structured_dag_json` | `jsonb` | no | Server-validated, layout-free Builder compile input; never contains credentials or deployment pointers |
+| `layout_json` | `jsonb` | no | Mutable Builder node positions, kept separate from the executable DAG |
+| `content_hash` | `text` | no | Deterministic server fingerprint of the origin, structured DAG, and draft layout |
+| `updated_by_user_id` | `uuid` | no | Last authenticated workspace owner who saved the draft |
+| `created_at` | `timestamptz` | no | First durable save time |
+| `updated_at` | `timestamptz` | no | Last content-changing save time |
+| `lock_version` | `integer` | no | Optimistic-concurrency version; starts at `1` |
+
+Rules:
+
+- The server validates the complete structured DAG envelope and deterministic compiler rules before persistence. Malformed, unsupported, cyclic, disconnected, or output-incompatible drafts are rejected without changing the saved draft.
+- A content-identical retry at the current lock version returns the existing record without incrementing `lock_version`.
+- Draft save reads and writes resolve the product inside the authenticated workspace and exclude tombstoned products.
+- Saving changes only this table. In particular, it does not insert or update `data_product_versions`, `deployments`, `publication_versions`, API credentials, execution records, or active version/publication pointers.
+- `Run backend build` may create or reuse an immutable ready `data_product_version`, but still does not change `deployments.active_version_id` or `deployments.active_publication_version_id`. Only the separate explicit API deployment/redeployment command may activate the newest ready version; x402 continues serving through the deployment's active pointers until then.
 
 #### `data_product_versions`
 

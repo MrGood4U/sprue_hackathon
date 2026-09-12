@@ -1,6 +1,6 @@
 # Product and Builder APIs
 
-Draft 0.4. All creator operations follow the [shared contract](../../api-contract.md). `W` in the tables is shorthand for `/api/v1/workspaces/{workspaceId}` and is not a literal route segment. Every referenced session, source, version, run, credential, policy, deployment, and artifact must resolve to the same workspace.
+Draft 0.5. All creator operations follow the [shared contract](../../api-contract.md). `W` in the tables is shorthand for `/api/v1/workspaces/{workspaceId}` and is not a literal route segment. Every referenced session, source, version, run, credential, policy, deployment, and artifact must resolve to the same workspace.
 
 ## 1. Products and Dashboard
 
@@ -13,6 +13,8 @@ Draft 0.4. All creator operations follow the [shared contract](../../api-contrac
 | DELETE | `W/products/{productId}` | Empty + If-Match + Idempotency-Key | 200 `ProductDeletion` | Set data_products.deleted_at; retain historical records |
 | GET | `W/products/{productId}/runs` | `status?`, `versionId?`, pagination | 200 RunSummary collection | execution_runs |
 | GET | `W/products/{productId}/versions` | Pagination | 200 VersionSummary collection | data_product_versions |
+| GET | `W/products/{productId}/builder-draft` | None | 200 `BuilderDraftResource` + ETag | Current mutable product_builder_drafts row, or an empty lock-version-0 resource |
+| PUT | `W/products/{productId}/builder-draft` | `{schemaVersion:1, originKey, structuredDag, layout}` + If-Match | 200 `BuilderDraftResource` + ETag | Validate and replace only the mutable Builder draft |
 
 name is 1-120 trimmed characters; description at most 2000; originalIntent is at most 8000 characters after trimming. It may be empty only for a newly created draft that immediately opens in Agent; placeholder guidance is never sent as data. The first accepted non-empty message for that product initializes the empty `original_intent` and advances its lock version, while later messages remain conversation revisions and do not rewrite the initial objective. Product creation does not start the Agent, build, deploy, or spend. An initial unbound Agent session can precede product/wallet creation; later acceptance creates the product through the explicit product endpoint and binds the producing session to it.
 
@@ -25,6 +27,8 @@ name is 1-120 trimmed characters; description at most 2000; originalIntent is at
 `DeploymentSummary = {id, environment, status, endpointSlug, endpointUrl: string | null, activeVersionId: Id | null, activeMaterializationId: Id | null, activePublicationVersionId: Id | null, accessMode: private | api_key | x402 | null, sourceFreshnessAt: Timestamp | null}`. Values come from one consistent active-pointer read.
 
 Archiving/restoring products, slug renaming, invitations, and account administration are not added to the MVP API just because the database can represent them. Product deletion is the explicit tombstone operation above, not archival or physical erasure.
+
+`BuilderDraftResource = {productId, draft: {schemaVersion:1, originKey, structuredDag: StructuredDagCompileInput, layout: {schemaVersion:1, nodes:[{id,x,y}]}} | null, contentHash: string | null, updatedAt: Timestamp | null, lockVersion}`. An absent draft returns `draft:null`, `contentHash:null`, `updatedAt:null`, and `lockVersion:0`. A first successful PUT requires `If-Match: "0"` and returns lock version 1. Subsequent writes require the current ETag. Identical content is a no-op. Layout remains separate from the executable DAG. This resource is a working copy only: PUT does not create a product version, admit a source, query The Graph, execute a DAG, deploy or redeploy an API, rotate credentials, or alter x402. The explicit backend Build creates/reuses a ready immutable version; only a later explicit API Deploy/Redeploy changes the version served by API and x402.
 
 ## 2. Agent Sessions, Messages, and Proposals
 

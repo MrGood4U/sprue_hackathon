@@ -39,6 +39,8 @@ export interface RouteDefinition {
     | "agent-messages-submit"
     | "agent-planning-cancel"
     | "builder-compile"
+    | "builder-draft-read"
+    | "builder-draft-write"
     | "graph-sources-search"
     | "graph-sources-validate"
     | "deployments-create"

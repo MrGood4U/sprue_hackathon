@@ -135,6 +135,28 @@ function assertCompilation(value) {
   return value;
 }
 
+function assertBuilderDraftResource(value, productId) {
+  if (
+    value?.productId !== productId ||
+    !Number.isSafeInteger(value?.lockVersion) ||
+    value.lockVersion < 0 ||
+    !(value?.contentHash === null || /^[0-9a-f]{64}$/.test(value.contentHash)) ||
+    !(value?.updatedAt === null || typeof value.updatedAt === "string") ||
+    !(value?.draft === null || (
+      value.draft?.schemaVersion === 1 &&
+      typeof value.draft?.originKey === "string" &&
+      value.draft.originKey.length > 0 &&
+      value.draft?.structuredDag?.schemaVersion === 1 &&
+      Array.isArray(value.draft?.structuredDag?.dag?.nodes) &&
+      Array.isArray(value.draft?.structuredDag?.dag?.edges) &&
+      Array.isArray(value.draft?.structuredDag?.outputSchema?.fields) &&
+      value.draft?.layout?.schemaVersion === 1 &&
+      Array.isArray(value.draft?.layout?.nodes)
+    ))
+  ) throw new Error("INVALID_PRODUCT_API_RESPONSE");
+  return value;
+}
+
 export async function listProducts({
   apiBaseUrl: configuredBaseUrl,
   fetchImpl = globalThis.fetch,
@@ -235,6 +257,59 @@ export async function compileProductDag(productId, input, {
   );
   const body = await readLiveResponse(response);
   return assertCompilation(body.data);
+}
+
+export async function getBuilderDraft(productId, {
+  apiBaseUrl: configuredBaseUrl,
+  fetchImpl = globalThis.fetch,
+  signal,
+  ...options
+} = {}) {
+  if (!uuidPattern.test(productId ?? "")) throw new Error("INVALID_PRODUCT_ID");
+  const response = await fetchImpl(
+    endpoint(configuredBaseUrl, options, `products/${productId}/builder-draft`),
+    {
+      method: "GET",
+      credentials: "omit",
+      redirect: "error",
+      cache: "no-store",
+      headers: headers(options),
+      signal: requestSignal(signal),
+    },
+  );
+  const body = await readLiveResponse(response);
+  return assertBuilderDraftResource(body.data, productId);
+}
+
+export async function saveBuilderDraft(productId, draft, {
+  lockVersion,
+  apiBaseUrl: configuredBaseUrl,
+  fetchImpl = globalThis.fetch,
+  signal,
+  ...options
+} = {}) {
+  if (
+    !uuidPattern.test(productId ?? "") ||
+    !Number.isSafeInteger(lockVersion) ||
+    lockVersion < 0
+  ) throw new Error("INVALID_BUILDER_DRAFT_SAVE");
+  const response = await fetchImpl(
+    endpoint(configuredBaseUrl, options, `products/${productId}/builder-draft`),
+    {
+      method: "PUT",
+      credentials: "omit",
+      redirect: "error",
+      cache: "no-store",
+      headers: headers(options, {
+        "Content-Type": "application/json",
+        "If-Match": `"${lockVersion}"`,
+      }),
+      body: JSON.stringify(draft),
+      signal: requestSignal(signal),
+    },
+  );
+  const body = await readLiveResponse(response);
+  return assertBuilderDraftResource(body.data, productId);
 }
 
 export async function createProduct(input, {

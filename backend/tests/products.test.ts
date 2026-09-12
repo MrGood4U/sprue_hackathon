@@ -167,6 +167,54 @@ test("durable products create, replay, rename, delete, and remain workspace isol
     );
     assert.equal((await service.overview(ownerA.workspaceId)).deployedProductCount, "1");
 
+    const structuredDag = {
+      schemaVersion: 1,
+      sources: [],
+      dag: {nodes: [], edges: []},
+      outputSchema: {fields: []},
+    };
+    assert.deepEqual(await service.readBuilderDraft(ownerA.workspaceId, created.id), {
+      productId: created.id,
+      draft: null,
+      contentHash: null,
+      updatedAt: null,
+      lockVersion: 0,
+    });
+    const savedDraft = await service.saveBuilderDraft({
+      workspaceId: ownerA.workspaceId,
+      productId: created.id,
+      actorUserId: ownerA.userId,
+      expectedLockVersion: 0,
+      draft: {
+        schemaVersion: 1,
+        originKey: "agent-result-1",
+        structuredDag,
+        layout: {schemaVersion: 1, nodes: [{id: "source-1", x: 120, y: 80}]},
+      },
+    });
+    assert.equal(savedDraft.lockVersion, 1);
+    assert.deepEqual(savedDraft.draft?.structuredDag, structuredDag);
+    assert.deepEqual(savedDraft.draft?.layout.nodes, [{id: "source-1", x: 120, y: 80}]);
+    assert.deepEqual(
+      await new ProductService(postgresProductRepository(client, "http://127.0.0.1:3001/x402/v1"), Buffer.alloc(32, 7), "test-v1")
+        .readBuilderDraft(ownerA.workspaceId, created.id),
+      savedDraft,
+    );
+    assert.equal((await db.query<{count: number}>("SELECT count(*)::int AS count FROM data_product_versions")).rows[0]?.count, 0);
+    assert.equal((await db.query<{count: number}>("SELECT count(*)::int AS count FROM publication_versions")).rows[0]?.count, 0);
+    assert.equal((await db.query<{count: number}>("SELECT count(*)::int AS count FROM deployments WHERE data_product_id=$1 AND status='healthy'", [created.id])).rows[0]?.count, 1);
+    await assert.rejects(
+      service.saveBuilderDraft({
+        workspaceId: ownerA.workspaceId,
+        productId: created.id,
+        actorUserId: ownerA.userId,
+        expectedLockVersion: 0,
+        draft: savedDraft.draft!,
+      }),
+      ProductPreconditionError,
+    );
+    await assert.rejects(service.readBuilderDraft(ownerB.workspaceId, created.id), ProductNotFoundError);
+
     const deleteCommand = {
       workspaceId: ownerA.workspaceId,
       productId: created.id,

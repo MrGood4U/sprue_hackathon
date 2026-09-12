@@ -8,6 +8,8 @@ import {
   ProductWalletNotFoundError,
   type ProductDetail,
   type ProductDeletion,
+  type BuilderDraftPayload,
+  type BuilderDraftResource,
   type ProductRepository,
   type ProductStatus,
 } from "./contracts.js";
@@ -130,6 +132,43 @@ export class ProductService {
       return result;
     } catch (error) {
       if (error instanceof ProductNotFoundError) throw error;
+      throw new ProductStorageError();
+    }
+  }
+
+  async readBuilderDraft(workspaceId: string, productId: string): Promise<BuilderDraftResource> {
+    try {
+      const draft = await this.repository.readBuilderDraft(workspaceId, productId);
+      if (!draft) throw new ProductNotFoundError();
+      return draft;
+    } catch (error) {
+      if (error instanceof ProductNotFoundError) throw error;
+      throw new ProductStorageError();
+    }
+  }
+
+  async saveBuilderDraft(input: {
+    workspaceId: string;
+    productId: string;
+    actorUserId: string;
+    expectedLockVersion: number;
+    draft: BuilderDraftPayload;
+  }): Promise<BuilderDraftResource> {
+    const originKey = text(input.draft.originKey, 512);
+    const draft = {...input.draft, originKey};
+    const contentHash = this.fingerprint("save_builder_draft", [
+      input.workspaceId,
+      input.productId,
+      draft,
+    ]);
+    try {
+      const result = await this.repository.saveBuilderDraft({...input, draft, contentHash});
+      if (result.kind === "not_found") throw new ProductNotFoundError();
+      if (result.kind === "precondition_failed") throw new ProductPreconditionError();
+      if ("draft" in result) return result.draft;
+      throw new ProductStorageError();
+    } catch (error) {
+      if (error instanceof ProductNotFoundError || error instanceof ProductPreconditionError) throw error;
       throw new ProductStorageError();
     }
   }

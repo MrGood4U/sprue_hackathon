@@ -43,6 +43,8 @@ import {
 import {
   builderCompilationSchema,
   builderCompileInputSchema,
+  builderDraftPayloadSchema,
+  builderDraftResourceSchema,
 } from "../control/builder-compile.controller.js";
 export function openApiDocument() {
   const paths: Record<string, Record<string, unknown>> = {};
@@ -137,6 +139,8 @@ export function openApiDocument() {
                                 ? "BuilderSourceValidation"
                                 : route.implementation === "builder-compile"
                                   ? "BuilderCompilation"
+                                : ["builder-draft-read", "builder-draft-write"].includes(route.implementation)
+                                  ? "BuilderDraftResource"
         : ["me", "bootstrap"].includes(route.implementation)
           ? "Bootstrap"
           : route.implementation === "app-config"
@@ -162,8 +166,10 @@ export function openApiDocument() {
                       ? "Authorized durable Agent conversation, sanitized planning evidence, or terminal command"
                       : route.implementation.startsWith("graph-sources-")
                         ? "Authorized live The Graph metadata discovery or schema verification"
-                        : route.implementation === "builder-compile"
-                          ? "Authorized read-only structured DAG compilation result"
+                          : route.implementation === "builder-compile"
+                            ? "Authorized read-only structured DAG compilation result"
+                          : route.implementation.startsWith("builder-draft-")
+                            ? "Authorized durable Builder working draft without deployment side effects"
                     : "Actual server configuration; unsupported capabilities remain disabled",
         content: {
           "application/json": {
@@ -230,6 +236,7 @@ export function openApiDocument() {
       route.implementation === "graph-sources-search" ||
       route.implementation === "graph-sources-validate" ||
       route.implementation === "builder-compile"
+      || route.implementation === "builder-draft-write"
     ) {
       operation.requestBody = {
         required: true,
@@ -249,6 +256,8 @@ export function openApiDocument() {
                       ? {$ref: "#/components/schemas/BuilderSourceValidateInput"}
                     : route.implementation === "builder-compile"
                       ? {$ref: "#/components/schemas/BuilderCompileInput"}
+                    : route.implementation === "builder-draft-write"
+                      ? {$ref: "#/components/schemas/BuilderDraftPayload"}
                 : route.implementation === "wallet-payment-authorization"
                   ? {$ref: "#/components/schemas/PaymentAuthorizationInput"}
                 : route.implementation === "wallet-hedera-create" ||
@@ -339,6 +348,8 @@ export function openApiDocument() {
         BuilderSourceValidation: z.toJSONSchema(builderSourceValidationSchema),
         BuilderCompileInput: z.toJSONSchema(builderCompileInputSchema),
         BuilderCompilation: z.toJSONSchema(builderCompilationSchema),
+        BuilderDraftPayload: z.toJSONSchema(builderDraftPayloadSchema),
+        BuilderDraftResource: z.toJSONSchema(builderDraftResourceSchema),
         DemoEnvelope: {
           type: "object",
           description: "A server-generated evaluator demo projection or action result.",

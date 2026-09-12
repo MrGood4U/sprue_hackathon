@@ -62,7 +62,7 @@ test("all migrations initialize empty isolated PostgreSQL, repeat safely and mat
     await migrate(client, migrations);
     assert.equal((await migrate(client, migrations)).pending.length, 0);
     const checked = await checkSchema(client);
-    assert.equal(checked.tables, 54);
+    assert.equal(checked.tables, 55);
     console.log(`Verified ${checked.tables} tables and ${checked.columns} columns on ${(await db.query<{version:string}>("SELECT version() AS version")).rows[0]?.version}`);
     await seedReferenceData(client);
     await seedReferenceData(client);

@@ -49,7 +49,7 @@ import {
   submitAgentMessage,
 } from "./agent/agent.controller.js";
 import {searchBuilderSources, validateBuilderSource} from "./graph/builder-source.controller.js";
-import {compileBuilderDag} from "./control/builder-compile.controller.js";
+import {compileBuilderDag, readBuilderDraft, saveBuilderDraft} from "./control/builder-compile.controller.js";
 import {deployProduct, executeDataProduct, executeX402Product, exportPrivateDeployment, publishX402, retireX402, suspendDeployment} from "./control/deployment.controller.js";
 export interface RouteDependencies {
   config: AppConfig;
@@ -180,6 +180,10 @@ export function registerRoutes(app: Express, deps: RouteDependencies) {
                                                         ? validateBuilderSource(deps.builderSources)
                                                         : route.implementation === "builder-compile"
                                                           ? compileBuilderDag(deps.products, deps.deployments)
+                                                        : route.implementation === "builder-draft-read"
+                                                          ? readBuilderDraft(deps.products)
+                                                        : route.implementation === "builder-draft-write"
+                                                          ? saveBuilderDraft(deps.products)
                                                         : route.implementation === "deployments-create"
                                                           ? deployProduct(deps.deployments)
                                                         : route.implementation === "deployment-suspend"

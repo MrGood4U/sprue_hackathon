@@ -83,6 +83,11 @@ const definitions = {
     "The request does not match the transport contract.",
     "none",
   ],
+  VALIDATION_FAILED: [
+    422,
+    "The structured data product definition did not pass validation.",
+    "none",
+  ],
   PRECONDITION_REQUIRED: [
     428,
     "The current resource ETag is required.",

@@ -134,6 +134,33 @@ export interface ProductDeletion {
   deletedAt: string;
 }
 
+export interface BuilderDraftPayload {
+  schemaVersion: 1;
+  originKey: string;
+  structuredDag: Record<string, unknown>;
+  layout: {
+    schemaVersion: 1;
+    nodes: Array<{id: string; x: number; y: number}>;
+  };
+}
+
+export interface BuilderDraftResource {
+  productId: string;
+  draft: BuilderDraftPayload | null;
+  contentHash: string | null;
+  updatedAt: string | null;
+  lockVersion: number;
+}
+
+export interface BuilderDraftWrite {
+  workspaceId: string;
+  productId: string;
+  actorUserId: string;
+  expectedLockVersion: number;
+  draft: BuilderDraftPayload;
+  contentHash: string;
+}
+
 export interface Money {
   networkId: string;
   network: string;
@@ -308,6 +335,11 @@ export interface ProductRepository {
   delete(input: ProductDeleteWrite): Promise<
     | {kind: "deleted" | "replayed"; deletion: ProductDeletion}
     | {kind: "not_found" | "precondition_failed" | "command_conflict"}
+  >;
+  readBuilderDraft(workspaceId: string, productId: string): Promise<BuilderDraftResource | null>;
+  saveBuilderDraft(input: BuilderDraftWrite): Promise<
+    | {kind: "saved" | "unchanged"; draft: BuilderDraftResource}
+    | {kind: "not_found" | "precondition_failed"}
   >;
   overview(workspaceId: string): Promise<WorkspaceOverview>;
   delivery(workspaceId: string, productId: string): Promise<ProductDeliveryView | null>;

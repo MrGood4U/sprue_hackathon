@@ -11,8 +11,10 @@ import {
   compileProductDag,
   createProduct,
   deleteProduct,
+  getBuilderDraft,
   getWorkspaceOverview,
   listProducts,
+  saveBuilderDraft,
   updateProduct,
 } from "../src/services/api/products.js";
 import {
@@ -318,6 +320,48 @@ test("Builder compilation client submits the structured DAG to the authenticated
   });
   assert.equal(result.status, "failed");
   assert.equal(result.issues[0].code, "DAG_NODE_COUNT_INVALID");
+});
+
+test("Builder draft client reads and durably replaces only the working-copy resource", async () => {
+  const empty = await getBuilderDraft(product.id, {
+    apiBaseUrl: "https://api.example.test",
+    ...creatorScope,
+    fetchImpl: async (url, options) => {
+      assert.equal(url, `https://api.example.test/api/v1/workspaces/${workspaceId}/products/${product.id}/builder-draft`);
+      assert.equal(options.method, "GET");
+      assert.equal(options.headers.Authorization, "Bearer creator-token");
+      return liveResponse({productId: product.id, draft: null, contentHash: null, updatedAt: null, lockVersion: 0});
+    },
+  });
+  assert.equal(empty.lockVersion, 0);
+
+  const draft = {
+    schemaVersion: 1,
+    originKey: "agent-result-1",
+    structuredDag: {schemaVersion: 1, sources: [], dag: {nodes: [], edges: []}, outputSchema: {fields: []}},
+    layout: {schemaVersion: 1, nodes: []},
+  };
+  const saved = await saveBuilderDraft(product.id, draft, {
+    apiBaseUrl: "https://api.example.test",
+    lockVersion: 0,
+    ...creatorScope,
+    fetchImpl: async (url, options) => {
+      assert.equal(url, `https://api.example.test/api/v1/workspaces/${workspaceId}/products/${product.id}/builder-draft`);
+      assert.equal(options.method, "PUT");
+      assert.equal(options.headers.Authorization, "Bearer creator-token");
+      assert.equal(options.headers["If-Match"], '"0"');
+      assert.equal(options.headers["Idempotency-Key"], undefined);
+      assert.deepEqual(JSON.parse(options.body), draft);
+      return liveResponse({
+        productId: product.id,
+        draft,
+        contentHash: "a".repeat(64),
+        updatedAt: "2026-09-12T00:00:00.000Z",
+        lockVersion: 1,
+      });
+    },
+  });
+  assert.equal(saved.lockVersion, 1);
 });
 
 test("Builder source client performs authenticated live Graph search and schema verification", async () => {

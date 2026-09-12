@@ -385,6 +385,98 @@ export function cacheBuilderDraft(storage, workspaceId, productId, draft) {
   }
 }
 
+export function clearCachedBuilderDraft(storage, workspaceId, productId) {
+  if (!storage) return;
+  try {
+    storage.removeItem(builderDraftCacheKey(workspaceId, productId));
+  } catch {
+    // Storage availability must not block an explicit navigation decision.
+  }
+}
+
+export function builderDraftLayout(nodes) {
+  return {
+    schemaVersion: 1,
+    nodes: (nodes ?? []).map((node) => ({
+      id: node.id,
+      x: Number(node.position?.x ?? 0),
+      y: Number(node.position?.y ?? 0),
+    })),
+  };
+}
+
+export function applyBuilderDraftLayout(draft, layout) {
+  const positions = new Map((layout?.nodes ?? []).map((node) => [node.id, node]));
+  return {
+    ...draft,
+    specification: {
+      ...draft.specification,
+      dag: {
+        ...draft.specification.dag,
+        nodes: draft.specification.dag.nodes.map((node) => {
+          const position = positions.get(node.id);
+          return position ? {...node, x: position.x, y: position.y} : node;
+        }),
+      },
+    },
+  };
+}
+
+export function draftWithBuilderLayout(draft, nodes) {
+  return applyBuilderDraftLayout(draft, builderDraftLayout(nodes));
+}
+
+export function restoreDurableBuilderDraft(projectedDraft, savedPayload) {
+  if (
+    savedPayload?.schemaVersion !== 1 ||
+    savedPayload.originKey !== projectedDraft?.origin?.originKey ||
+    savedPayload?.structuredDag?.schemaVersion !== 1
+  ) return null;
+  const saved = savedPayload.structuredDag;
+  const projectedSources = new Map((projectedDraft.specification.sources ?? []).map((source) => [source.id, source]));
+  const sourceNodes = new Map((saved.dag?.nodes ?? [])
+    .filter((node) => node.type === "source")
+    .map((node) => [node.config?.sourceId ?? node.config?.sourceKey, node]));
+  const sources = (saved.sources ?? []).map((source) => {
+    const projected = projectedSources.get(source.id);
+    const sourceNode = sourceNodes.get(source.id);
+    return {
+      ...(projected ?? {}),
+      id: source.id,
+      provider: "the_graph",
+      kind: "subgraph",
+      adapterVersion: projected?.adapterVersion ?? "planning",
+      displayName: source.displayName,
+      logicalSubgraphId: source.logicalSubgraphId,
+      manifestIpfsCid: source.manifestIpfsCid,
+      dataNetwork: source.dataNetwork,
+      queryEntity: source.queryEntity,
+      queryPlan: structuredClone(source.queryPlan ?? null),
+      fieldBindings: structuredClone(source.fieldBindings ?? []),
+      auxiliaryFieldBindings: structuredClone(source.auxiliaryFieldBindings ?? []),
+      outputSchema: structuredClone(sourceNode?.outputSchema ?? projected?.outputSchema ?? emptyOutputSchema()),
+      target: {
+        type: "manifest_ipfs_cid",
+        id: source.manifestIpfsCid,
+        logicalSubgraphId: source.logicalSubgraphId,
+        manifestIpfsCid: source.manifestIpfsCid,
+      },
+    };
+  });
+  return applyBuilderDraftLayout({
+    ...projectedDraft,
+    specification: {
+      ...projectedDraft.specification,
+      sources,
+      dag: structuredClone(saved.dag),
+      outputSchema: {
+        ...projectedDraft.specification.outputSchema,
+        fields: structuredClone(saved.outputSchema.fields),
+      },
+    },
+  }, savedPayload.layout);
+}
+
 function isEditorDraft(value) {
   return typeof value?.origin?.originKey === "string"
     && Array.isArray(value?.specification?.sources)

@@ -106,6 +106,19 @@ export const data_products = pgTable("data_products", {
   lock_version: integer("lock_version").notNull().default(0),
 });
 
+export const product_builder_drafts = pgTable("product_builder_drafts", {
+  data_product_id: uuid("data_product_id").notNull().primaryKey(),
+  draft_schema_version: integer("draft_schema_version").notNull(),
+  origin_key: text("origin_key").notNull(),
+  structured_dag_json: jsonb("structured_dag_json").notNull(),
+  layout_json: jsonb("layout_json").notNull(),
+  content_hash: text("content_hash").notNull(),
+  updated_by_user_id: uuid("updated_by_user_id").notNull(),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  lock_version: integer("lock_version").notNull().default(1),
+});
+
 export const data_product_versions = pgTable("data_product_versions", {
   id: uuid("id").notNull().primaryKey().defaultRandom(),
   data_product_id: uuid("data_product_id").notNull(),

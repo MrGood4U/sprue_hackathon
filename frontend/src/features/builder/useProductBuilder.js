@@ -3,9 +3,9 @@ import {useAuth} from "../auth/AuthProvider.jsx";
 import {loadAgentMessages, resolveProduct} from "../agent/agentData.js";
 import {latestRunMessages} from "../agent/latestRunMessages.js";
 import {listAgentSessions} from "../../services/api/agent.js";
-import {compileProductDag, updateProduct} from "../../services/api/products.js";
+import {compileProductDag, getBuilderDraft, saveBuilderDraft, updateProduct} from "../../services/api/products.js";
 import {searchGraphSources, validateGraphSource} from "../../services/api/graph-sources.js";
-import {browserSessionStorage, projectAgentBuilderDraft, readCachedBuilderDraft} from "./liveBuilderProjection.js";
+import {builderDraftLayout, browserSessionStorage, projectAgentBuilderDraft, readCachedBuilderDraft, restoreDurableBuilderDraft} from "./liveBuilderProjection.js";
 import {createBuilderCompilationInput} from "./builderCompilation.js";
 import {useProductCache} from "../products/ProductCacheProvider.jsx";
 
@@ -13,7 +13,7 @@ export function useProductBuilder(productRef) {
   const {identity, getAccessToken} = useAuth();
   const workspaceId = identity?.defaultWorkspaceId;
   const {readProduct, rememberProduct} = useProductCache();
-  const [state, setState] = useState(() => ({status: "loading", product: readProduct(productRef), draft: null, error: null}));
+  const [state, setState] = useState(() => ({status: "loading", product: readProduct(productRef), draft: null, draftLockVersion: 0, error: null}));
 
   const scope = useCallback(async () => {
     const accessToken = await getAccessToken();
@@ -30,9 +30,11 @@ export function useProductBuilder(productRef) {
       const session = sessions.find((item) => item.status === "active") ?? sessions[0] ?? null;
       const messages = latestRunMessages(session ? await loadAgentMessages(session.id, options) : []);
       const projected = projectAgentBuilderDraft(product, messages);
+      const durable = await getBuilderDraft(product.id, options);
       const cached = readCachedBuilderDraft(browserSessionStorage(), workspaceId, product.id, projected.origin.originKey);
+      const restored = restoreDurableBuilderDraft(projected, durable.draft);
       rememberProduct(product);
-      setState({status: "ready", product, draft: cached ?? projected, error: null});
+      setState({status: "ready", product, draft: cached ?? restored ?? projected, draftLockVersion: durable.lockVersion, error: null});
     } catch (error) {
       if (error?.name === "AbortError") return;
       setState((current) => ({...current, status: "error", error}));
@@ -79,5 +81,21 @@ export function useProductBuilder(productRef) {
     );
   }, [scope, state.product]);
 
-  return {...state, workspaceId, refresh, rename, searchSources, validateSource, compileDraft};
+  const persistDraft = useCallback(async (draft, nodes, signal) => {
+    if (!state.product) throw new Error("PRODUCT_NOT_LOADED");
+    const saved = await saveBuilderDraft(state.product.id, {
+      schemaVersion: 1,
+      originKey: draft.origin.originKey,
+      structuredDag: createBuilderCompilationInput(draft),
+      layout: builderDraftLayout(nodes),
+    }, {
+      ...await scope(),
+      lockVersion: state.draftLockVersion,
+      signal,
+    });
+    setState((current) => ({...current, draftLockVersion: saved.lockVersion}));
+    return saved;
+  }, [scope, state.draftLockVersion, state.product]);
+
+  return {...state, workspaceId, refresh, rename, searchSources, validateSource, compileDraft, persistDraft};
 }

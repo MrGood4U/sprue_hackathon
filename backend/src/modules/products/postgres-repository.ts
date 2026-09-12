@@ -173,6 +173,25 @@ function detail(row: Record<string, unknown>): ProductDetail {
   };
 }
 
+function builderDraft(row: Record<string, unknown>): import("./contracts.js").BuilderDraftResource {
+  const productId = String(row.data_product_id ?? row.id);
+  if (!row.draft_schema_version) {
+    return {productId, draft: null, contentHash: null, updatedAt: null, lockVersion: 0};
+  }
+  return {
+    productId,
+    draft: {
+      schemaVersion: 1,
+      originKey: String(row.origin_key),
+      structuredDag: record(row.structured_dag_json),
+      layout: row.layout_json as import("./contracts.js").BuilderDraftPayload["layout"],
+    },
+    contentHash: String(row.content_hash),
+    updatedAt: timestamp(row.updated_at),
+    lockVersion: Number(row.lock_version),
+  };
+}
+
 function money(value: unknown): Money[] {
   return Array.isArray(value)
     ? value.map((item) => {
@@ -443,6 +462,71 @@ export function postgresProductRepository(
     },
 
     find: (workspaceId, productId) => findProduct(client, workspaceId, productId),
+
+    async readBuilderDraft(workspaceId, productId) {
+      const result = await client.query(
+        `SELECT p.id,d.draft_schema_version,d.origin_key,d.structured_dag_json,d.layout_json,
+          d.content_hash,d.updated_at,d.lock_version
+         FROM data_products p
+         LEFT JOIN product_builder_drafts d ON d.data_product_id=p.id
+         WHERE p.workspace_id=$1 AND p.id=$2 AND p.deleted_at IS NULL`,
+        [workspaceId, productId],
+      );
+      return result.rows[0] ? builderDraft(result.rows[0]) : null;
+    },
+
+    async saveBuilderDraft(input) {
+      const result = await client.query(
+        `WITH target AS MATERIALIZED (
+          SELECT id FROM data_products
+          WHERE workspace_id=$1 AND id=$2 AND deleted_at IS NULL
+        ), updated AS (
+          UPDATE product_builder_drafts d SET
+            draft_schema_version=1,origin_key=$4,structured_dag_json=$5::jsonb,
+            layout_json=$6::jsonb,content_hash=$7,updated_by_user_id=$3,updated_at=now(),
+            lock_version=d.lock_version+1
+          FROM target
+          WHERE d.data_product_id=target.id AND d.lock_version=$8
+            AND d.content_hash<>$7
+          RETURNING d.*
+        ), inserted AS (
+          INSERT INTO product_builder_drafts (
+            data_product_id,draft_schema_version,origin_key,structured_dag_json,layout_json,
+            content_hash,updated_by_user_id,lock_version
+          )
+          SELECT target.id,1,$4,$5::jsonb,$6::jsonb,$7,$3,1
+          FROM target
+          WHERE $8=0 AND NOT EXISTS (
+            SELECT 1 FROM product_builder_drafts current WHERE current.data_product_id=target.id
+          )
+          ON CONFLICT (data_product_id) DO NOTHING
+          RETURNING *
+        ), unchanged AS (
+          SELECT d.* FROM product_builder_drafts d JOIN target ON target.id=d.data_product_id
+          WHERE d.lock_version=$8 AND d.content_hash=$7
+        )
+        SELECT 'saved' AS write_kind,* FROM updated
+        UNION ALL SELECT 'saved' AS write_kind,* FROM inserted
+        UNION ALL SELECT 'unchanged' AS write_kind,* FROM unchanged
+        LIMIT 1`,
+        [input.workspaceId, input.productId, input.actorUserId, input.draft.originKey,
+          input.draft.structuredDag, input.draft.layout, input.contentHash, input.expectedLockVersion],
+      );
+      if (result.rows[0]) {
+        return {
+          kind: String(result.rows[0].write_kind) as "saved" | "unchanged",
+          draft: builderDraft(result.rows[0]),
+        };
+      }
+      const current = await client.query(
+        `SELECT p.id,d.lock_version
+         FROM data_products p
+         LEFT JOIN product_builder_drafts d ON d.data_product_id=p.id
+         WHERE p.workspace_id=$1 AND p.id=$2 AND p.deleted_at IS NULL`,
+        [input.workspaceId, input.productId],
+      );
+      return current.rows[0] ? {kind: "precondition_failed"} : {kind: "not_found"};
+    },
 
     async create(input) {
       const result = await client.query(

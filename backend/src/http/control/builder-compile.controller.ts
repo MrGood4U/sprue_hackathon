@@ -3,6 +3,7 @@ import {z} from "zod";
 import {compileStructuredDag} from "../../modules/dag/compiler.js";
 import {
   ProductNotFoundError,
+  ProductPreconditionError,
   ProductStorageError,
 } from "../../modules/products/contracts.js";
 import type {ProductService} from "../../modules/products/service.js";
@@ -179,8 +180,82 @@ function requireService(service?: ProductService): ProductService {
 function mapProductReadError(error: unknown): never {
   if (error instanceof AppError) throw error;
   if (error instanceof ProductNotFoundError) throw new AppError("RESOURCE_NOT_FOUND");
+  if (error instanceof ProductPreconditionError) throw new AppError("PRECONDITION_FAILED");
   if (error instanceof ProductStorageError) throw new AppError("DEPENDENCY_UNAVAILABLE");
   throw new AppError("INTERNAL_ERROR");
+}
+
+function actorUserId(res: Parameters<RequestHandler>[1]): string {
+  const value = res.locals.workspaceAuthorization?.userId;
+  if (typeof value !== "string") throw new AppError("AUTH_REQUIRED");
+  return value;
+}
+
+function expectedLockVersion(value: string | undefined): number {
+  const match = /^"([0-9]+)"$/.exec(value ?? "");
+  const version = match ? Number(match[1]) : Number.NaN;
+  if (!Number.isSafeInteger(version) || version < 0) throw new AppError("INVALID_REQUEST");
+  return version;
+}
+
+export const builderDraftPayloadSchema = z.strictObject({
+  schemaVersion: z.literal(1),
+  originKey: z.string().trim().min(1).max(512),
+  structuredDag: builderCompileInputSchema,
+  layout: z.strictObject({
+    schemaVersion: z.literal(1),
+    nodes: z.array(z.strictObject({
+      id: z.string().min(1).max(256),
+      x: z.number().finite(),
+      y: z.number().finite(),
+    })).max(64),
+  }),
+});
+
+export const builderDraftResourceSchema = z.strictObject({
+  productId: z.uuid(),
+  draft: builderDraftPayloadSchema.nullable(),
+  contentHash: z.string().regex(/^[0-9a-f]{64}$/).nullable(),
+  updatedAt: z.iso.datetime().nullable(),
+  lockVersion: z.number().int().nonnegative(),
+});
+
+export function readBuilderDraft(service?: ProductService): RequestHandler {
+  return async (req, res) => {
+    if (Object.keys(req.query).length > 0) throw new AppError("INVALID_REQUEST");
+    try {
+      const data = builderDraftResourceSchema.parse(await requireService(service).readBuilderDraft(
+        workspaceId(req),
+        String(req.params.productId),
+      ));
+      res.setHeader("ETag", `"${data.lockVersion}"`);
+      res.json({data, meta: meta(res.locals.requestId)});
+    } catch (error) {
+      mapProductReadError(error);
+    }
+  };
+}
+
+export function saveBuilderDraft(service?: ProductService): RequestHandler {
+  return async (req, res) => {
+    const parsed = builderDraftPayloadSchema.safeParse(req.body);
+    if (!parsed.success) throw new AppError("INVALID_REQUEST");
+    const compilation = compileStructuredDag(parsed.data.structuredDag);
+    if (compilation.status !== "passed") throw new AppError("VALIDATION_FAILED");
+    try {
+      const data = builderDraftResourceSchema.parse(await requireService(service).saveBuilderDraft({
+        workspaceId: workspaceId(req),
+        productId: String(req.params.productId),
+        actorUserId: actorUserId(res),
+        expectedLockVersion: expectedLockVersion(req.get("If-Match")),
+        draft: parsed.data,
+      }));
+      res.setHeader("ETag", `"${data.lockVersion}"`);
+      res.json({data, meta: meta(res.locals.requestId)});
+    } catch (error) {
+      mapProductReadError(error);
+    }
+  };
 }
 
 function workspaceId(req: Request): string {

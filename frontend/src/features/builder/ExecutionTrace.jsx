@@ -1,4 +1,4 @@
-import { ArrowRight, ArrowsClockwise, FloppyDisk, Graph } from "@phosphor-icons/react";
+import { ArrowRight, ArrowsClockwise, Check, FloppyDisk, Graph, WarningCircle } from "@phosphor-icons/react";
 import { Button } from "../../components/ui/Button.jsx";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
 
@@ -13,7 +13,7 @@ export function ExecutionTrace({ buildState, onBuild, onOpenDag, onSaveDraft, ca
   return (
     <div className="execution-panel">
       <div className="trace-actions">
-        <Button icon={FloppyDisk} disabled={!canSaveDraft} onClick={onSaveDraft}>{t("trace.saveDraft")}</Button>
+        <Button icon={saveState === "saving" ? ArrowsClockwise : FloppyDisk} className={saveState === "saving" ? "is-loading" : ""} aria-busy={saveState === "saving"} disabled={!canSaveDraft} onClick={onSaveDraft}>{t(saveState === "saving" ? "trace.savingDraft" : "trace.saveDraft")}</Button>
         <Button icon={Graph} onClick={onOpenDag}>{t("builder.structuredDag")}</Button>
         <Button
           variant="primary"
@@ -25,7 +25,8 @@ export function ExecutionTrace({ buildState, onBuild, onOpenDag, onSaveDraft, ca
         >
           {buildLabel}
         </Button>
-        {saveState === "session" && <span className="draft-save-feedback" role="status">{t("trace.saveDraftSession")}</span>}
+        {saveState === "saved" && <span className="draft-save-feedback is-success" role="status"><Check size={16} aria-hidden="true" />{t("trace.saveDraftDurable")}</span>}
+        {saveState === "error" && <span className="draft-save-feedback is-error" role="alert"><WarningCircle size={16} aria-hidden="true" />{t("trace.saveDraftFailed")}</span>}
         {buildDisabledReason && <span className="draft-save-feedback" role="status">{buildDisabledReason}</span>}
       </div>
     </div>

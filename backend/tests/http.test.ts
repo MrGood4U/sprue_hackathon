@@ -97,6 +97,7 @@ test("HTTP framework boundaries through real local sockets", async (t) => {
   let hederaActivationInput: unknown;
   let productCreateInput: unknown;
   let productDeleteInput: unknown;
+  let builderDraftInput: unknown;
   const product = {
     id: "10000000-0000-4000-8000-000000000007",
     workspaceId: workspace,
@@ -279,6 +280,19 @@ test("HTTP framework boundaries through real local sockets", async (t) => {
       async delete(input: unknown) {
         productDeleteInput = input;
         return {productId: product.id, deletedAt: "2026-09-08T00:05:00.000Z"};
+      },
+      async readBuilderDraft() {
+        return {productId: product.id, draft: null, contentHash: null, updatedAt: null, lockVersion: 0};
+      },
+      async saveBuilderDraft(input: {draft: unknown}) {
+        builderDraftInput = input;
+        return {
+          productId: product.id,
+          draft: input.draft,
+          contentHash: "a".repeat(64),
+          updatedAt: "2026-09-12T00:00:00.000Z",
+          lockVersion: 1,
+        };
       },
     } as never,
     deployments: {
@@ -603,6 +617,56 @@ test("HTTP framework boundaries through real local sockets", async (t) => {
         assert.equal(compiledBody.meta.dataSource, "live");
         assert.equal(compiledBody.data.status, "passed");
         assert.match(compiledBody.data.compilationHash, /^[0-9a-f]{64}$/);
+
+        const draftRead = await call(
+          `/api/v1/workspaces/${workspace}/products/${product.id}/builder-draft`,
+          {headers: auth},
+        );
+        assert.equal(draftRead.status, 200);
+        assert.equal(draftRead.headers.get("etag"), '"0"');
+        const structuredDag = {
+          schemaVersion: 1,
+          dag: {
+            nodes: [
+              {id: "source_rows", type: "source", operatorVersion: "1", config: {sourceId: "graph:source"}, outputSchema: {fields: [
+                {name: "amount_usd", type: "decimal", nullable: false, unit: "USD"},
+              ]}},
+              {id: "normalize_rows", type: "map", operatorVersion: "2", config: {mode: "project", fields: [
+                {name: "amount_usd", expression: {op: "field", field: "amount_usd"}},
+              ]}},
+              {id: "final_output", type: "output", operatorVersion: "3", config: {fields: ["amount_usd"]}},
+            ],
+            edges: [
+              {fromNode: "source_rows", fromPort: "rows", toNode: "normalize_rows", toPort: "rows"},
+              {fromNode: "normalize_rows", fromPort: "rows", toNode: "final_output", toPort: "rows"},
+            ],
+          },
+          outputSchema: {fields: [{name: "amount_usd", type: "decimal", nullable: false, unit: "USD"}]},
+        };
+        const draftPayload = {
+          schemaVersion: 1,
+          originKey: "agent-result-1",
+          structuredDag,
+          layout: {schemaVersion: 1, nodes: [{id: "source_rows", x: 120, y: 80}]},
+        };
+        const draftWrite = await call(
+          `/api/v1/workspaces/${workspace}/products/${product.id}/builder-draft`,
+          {
+            method: "PUT",
+            headers: {...jsonHeaders, "If-Match": '"0"'},
+            body: JSON.stringify(draftPayload),
+          },
+        );
+        assert.equal(draftWrite.status, 200);
+        assert.equal(draftWrite.headers.get("etag"), '"1"');
+        assert.deepEqual((await draftWrite.json()).data.draft, draftPayload);
+        assert.deepEqual(builderDraftInput, {
+          workspaceId: workspace,
+          productId: product.id,
+          actorUserId: user,
+          expectedLockVersion: 0,
+          draft: draftPayload,
+        });
       },
     );
     await t.test("Builder Graph source lookup is authenticated and workspace scoped", async () => {

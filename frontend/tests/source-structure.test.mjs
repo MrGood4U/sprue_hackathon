@@ -42,6 +42,21 @@ test("keeps page implementations out of application composition", async () => {
   await assert.rejects(access(new URL("App.jsx", sourceRoot)));
 });
 
+test("guards every shared navigation path while the Builder has unsaved changes", async () => {
+  const shell = await readFile(new URL("app/AppShell.jsx", sourceRoot), "utf8");
+  const guard = await readFile(new URL("app/NavigationGuardProvider.jsx", sourceRoot), "utf8");
+  const builder = await readFile(new URL("pages/ProductBuilderPage.jsx", sourceRoot), "utf8");
+
+  assert.match(shell, /<NavigationGuardProvider currentPath=\{path\} navigate=\{navigate\}>/);
+  assert.match(shell, /<Sidebar path=\{path\} navigate=\{guardedNavigate\}/);
+  assert.match(shell, /resolveCreatorPage\(path, guardedNavigate\)/);
+  assert.match(builder, /useUnsavedNavigationGuard\(editor\.dirty,/);
+  assert.match(builder, /clearCachedBuilderDraft/);
+  assert.match(guard, /window\.addEventListener\("beforeunload", warn\)/);
+  assert.match(guard, /builder\.leaveWithoutSaving/);
+  assert.match(guard, /<Button autoFocus/);
+});
+
 test("keeps the Dashboard focused on metrics and the product list", async () => {
   const source = await readFile(new URL("pages/DashboardPage.jsx", sourceRoot), "utf8");
   const sidebar = await readFile(new URL("components/navigation/Sidebar.jsx", sourceRoot), "utf8");

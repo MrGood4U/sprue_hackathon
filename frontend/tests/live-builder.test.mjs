@@ -2,9 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   builderDraftCacheKey,
+  builderDraftLayout,
   cacheBuilderDraft,
+  clearCachedBuilderDraft,
+  draftWithBuilderLayout,
   projectAgentBuilderDraft,
   readCachedBuilderDraft,
+  restoreDurableBuilderDraft,
 } from "../src/features/builder/liveBuilderProjection.js";
 import {createEditorState} from "../src/features/workflow-editor/editorReducer.js";
 import {deriveFilterInputFields} from "../src/features/workflow-editor/filterModel.js";
@@ -356,6 +360,36 @@ test("keeps browser-session edits only for the same Agent result", () => {
   assert.equal(records.has(builderDraftCacheKey("workspace-1", product.id)), true);
   assert.deepEqual(readCachedBuilderDraft(storage, "workspace-1", product.id, draft.origin.originKey), draft);
   assert.equal(readCachedBuilderDraft(storage, "workspace-1", product.id, "new-agent-result"), null);
+});
+
+test("discards the browser-session working copy after confirmed navigation", () => {
+  const records = new Map();
+  const storage = {
+    getItem: (key) => records.get(key) ?? null,
+    setItem: (key, value) => records.set(key, value),
+    removeItem: (key) => records.delete(key),
+  };
+  const draft = projectAgentBuilderDraft(product, []);
+  cacheBuilderDraft(storage, "workspace-1", product.id, draft);
+  clearCachedBuilderDraft(storage, "workspace-1", product.id);
+  assert.equal(readCachedBuilderDraft(storage, "workspace-1", product.id, draft.origin.originKey), null);
+});
+
+test("restores the durable structured DAG and its separately stored canvas positions", () => {
+  const projected = projectAgentBuilderDraft(product, []);
+  const savedDag = createBuilderCompilationInput(projected);
+  const layout = builderDraftLayout([{id: "node-a", position: {x: 320, y: 180}}]);
+  savedDag.dag.nodes = [{id: "node-a", type: "output", operatorVersion: "3", config: {format: "json"}, outputSchema: {fields: []}}];
+  const restored = restoreDurableBuilderDraft(projected, {
+    schemaVersion: 1,
+    originKey: projected.origin.originKey,
+    structuredDag: savedDag,
+    layout,
+  });
+  assert.equal(restored.specification.dag.nodes[0].x, 320);
+  assert.equal(restored.specification.dag.nodes[0].y, 180);
+  assert.deepEqual(createBuilderCompilationInput(restored).dag.nodes[0], savedDag.dag.nodes[0]);
+  assert.equal(draftWithBuilderLayout(restored, [{id: "node-a", position: {x: 440, y: 250}}]).specification.dag.nodes[0].x, 440);
 });
 
 test("adds the default Source limit when loading a legacy browser-session draft", () => {

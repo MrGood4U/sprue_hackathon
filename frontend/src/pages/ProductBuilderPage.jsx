@@ -5,12 +5,13 @@ import { BuildReadiness } from "../features/builder/BuildReadiness.jsx";
 import { BuildFailureDialog } from "../features/builder/BuildFailureDialog.jsx";
 import { ExecutionTrace } from "../features/builder/ExecutionTrace.jsx";
 import { BuilderInspector } from "../features/builder/BuilderInspector.jsx";
-import { browserSessionStorage, cacheBuilderDraft } from "../features/builder/liveBuilderProjection.js";
+import { browserSessionStorage, cacheBuilderDraft, clearCachedBuilderDraft, draftWithBuilderLayout } from "../features/builder/liveBuilderProjection.js";
 import { useProductBuilder } from "../features/builder/useProductBuilder.js";
 import { productRefFromPath } from "../features/products/productRoute.js";
 import { WorkflowEditor } from "../features/workflow-editor/WorkflowEditor.jsx";
 import { useWorkflowEditor } from "../features/workflow-editor/useWorkflowEditor.js";
 import { useI18n } from "../i18n/I18nProvider.jsx";
+import {useUnsavedNavigationGuard} from "../app/NavigationGuardProvider.jsx";
 
 function LoadedBuilder({ builder, navigate, productRef }) {
   const { t } = useI18n();
@@ -23,18 +24,32 @@ function LoadedBuilder({ builder, navigate, productRef }) {
   const editor = useWorkflowEditor(builder.draft);
   const workingDraft = editor.draft;
   const canSaveDraft = editor.dirty && editor.validation.length === 0;
+  useUnsavedNavigationGuard(editor.dirty, () => {
+    clearCachedBuilderDraft(browserSessionStorage(), builder.workspaceId, builder.product.id);
+  });
 
   useEffect(() => {
     if (!editor.dirty) return;
-    cacheBuilderDraft(browserSessionStorage(), builder.workspaceId, builder.product.id, workingDraft);
-  }, [builder.product.id, builder.workspaceId, editor.dirty, workingDraft]);
+    cacheBuilderDraft(browserSessionStorage(), builder.workspaceId, builder.product.id, draftWithBuilderLayout(workingDraft, editor.nodes));
+  }, [builder.product.id, builder.workspaceId, editor.dirty, editor.nodes, workingDraft]);
+
+  useEffect(() => {
+    if (editor.dirty && draftSaveState === "saved") setDraftSaveState("idle");
+  }, [draftSaveState, editor.dirty]);
 
   useEffect(() => () => activeCompilation.current?.abort(), []);
 
-  const saveDraft = () => {
-    cacheBuilderDraft(browserSessionStorage(), builder.workspaceId, builder.product.id, workingDraft);
-    editor.markClean();
-    setDraftSaveState("session");
+  const saveDraft = async () => {
+    if (!canSaveDraft || draftSaveState === "saving") return;
+    setDraftSaveState("saving");
+    try {
+      await builder.persistDraft(workingDraft, editor.nodes);
+      cacheBuilderDraft(browserSessionStorage(), builder.workspaceId, builder.product.id, draftWithBuilderLayout(workingDraft, editor.nodes));
+      editor.markClean();
+      setDraftSaveState("saved");
+    } catch {
+      setDraftSaveState("error");
+    }
   };
 
   const runBuild = async () => {
@@ -45,6 +60,11 @@ function LoadedBuilder({ builder, navigate, productRef }) {
     setBuildFailure(null);
     setBuildState("building");
     try {
+      await builder.persistDraft(workingDraft, editor.nodes, controller.signal);
+      if (controller.signal.aborted) return;
+      cacheBuilderDraft(browserSessionStorage(), builder.workspaceId, builder.product.id, draftWithBuilderLayout(workingDraft, editor.nodes));
+      editor.markClean();
+      setDraftSaveState("saved");
       const compilation = await builder.compileDraft(workingDraft, controller.signal);
       if (controller.signal.aborted) return;
       if (compilation.status === "failed") {
@@ -52,8 +72,6 @@ function LoadedBuilder({ builder, navigate, productRef }) {
         setBuildState("failed");
         return;
       }
-      cacheBuilderDraft(browserSessionStorage(), builder.workspaceId, builder.product.id, workingDraft);
-      editor.markClean();
       setBuildState("complete");
       navigate(`/app/products/${encodeURIComponent(productRef)}/api`);
     } catch (error) {
@@ -84,8 +102,9 @@ function LoadedBuilder({ builder, navigate, productRef }) {
         onBuild={runBuild}
         onOpenDag={() => setModal("dag")}
         onSaveDraft={saveDraft}
-        canSaveDraft={canSaveDraft}
+        canSaveDraft={canSaveDraft && draftSaveState !== "saving" && buildState !== "building"}
         saveState={draftSaveState}
+        buildDisabled={draftSaveState === "saving"}
       />
       {modal && <BuilderInspector selection={modal} draft={workingDraft} onClose={() => setModal(null)} />}
       {buildFailure && <BuildFailureDialog issues={buildFailure} onClose={() => setBuildFailure(null)} />}
