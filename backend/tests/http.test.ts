@@ -626,6 +626,25 @@ test("HTTP framework boundaries through real local sockets", async (t) => {
         assert.equal(draftRead.headers.get("etag"), '"0"');
         const structuredDag = {
           schemaVersion: 1,
+          sources: [{
+            id: "graph:source",
+            displayName: "Graph source",
+            logicalSubgraphId: null,
+            manifestIpfsCid: "QmSource",
+            dataNetwork: "ethereum",
+            queryEntity: "swaps",
+            queryPlan: {
+              schemaVersion: 1,
+              operationName: "SprueLiveSource",
+              document: "query SprueLiveSource($first:Int!,$cursor:ID!){swaps(first:$first,orderBy:id,orderDirection:asc,where:{id_gt:$cursor}){id amountUSD}}",
+              pagination: {kind: "id_cursor", cursorField: "id", pageSize: 1_000, maxRequests: 10, maxRows: 10_000},
+              runtimeWindow: null,
+              aggregation: null,
+              pushedOperations: [],
+            },
+            fieldBindings: [],
+            auxiliaryFieldBindings: [],
+          }],
           dag: {
             nodes: [
               {id: "source_rows", type: "source", operatorVersion: "1", config: {sourceId: "graph:source"}, outputSchema: {fields: [

@@ -4,8 +4,25 @@ import test from "node:test";
 import { createDemoDraft, activityFixture, outputSchema } from "../src/services/demo/fixtures/builder.js";
 import { apiResponse, consumerResponse } from "../src/services/demo/fixtures/responses.js";
 import { projectGraph } from "../src/features/builder/graphView.js";
+import {buildRequestIssue} from "../src/features/builder/buildRequestIssue.js";
 
 const edge = (fromNode, toNode) => ({ fromNode, fromPort: "rows", toNode, toPort: "rows" });
+
+test("Builder reports whether a run failed while saving or compiling", () => {
+  const t = (key) => key;
+  assert.deepEqual(buildRequestIssue(new Error("INVALID_REQUEST"), "save", t), {
+    code: "INVALID_REQUEST",
+    message: "builder.draftSaveRequestFailed",
+    nodeId: null,
+    path: null,
+  });
+  assert.deepEqual(buildRequestIssue(new Error("DEPENDENCY_UNAVAILABLE"), "compile", t), {
+    code: "DEPENDENCY_UNAVAILABLE",
+    message: "builder.compilationRequestFailed",
+    nodeId: null,
+    path: null,
+  });
+});
 
 // Test-only evaluator for this finite fixture, independent of its expected-output oracle.
 // This is not a production registry, generic interpreter or evidence of backend execution.

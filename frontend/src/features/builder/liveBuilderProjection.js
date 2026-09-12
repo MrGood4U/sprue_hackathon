@@ -17,6 +17,19 @@ function normalizeLegacyQueryPlan(queryPlan) {
   return normalized;
 }
 
+function normalizeSourceNodeConfig(config, fallbackQueryPlan = null) {
+  const normalized = structuredClone(config ?? {});
+  const queryPlan = normalizeLegacyQueryPlan(normalized.queryPlan ?? fallbackQueryPlan);
+  const pagination = queryPlan?.pagination;
+  if (
+    normalized.limit === 1_000
+    && pagination?.pageSize === 1_000
+    && pagination?.maxRows === 10_000
+  ) delete normalized.limit;
+  if (normalized.queryPlan) normalized.queryPlan = queryPlan;
+  return normalized;
+}
+
 function normalizeScalarType(value) {
   if (value === "count") return "integer";
   return scalarTypes.has(value) ? value : null;
@@ -270,13 +283,12 @@ export function projectAgentBuilderDraft(product, messages) {
     const source = sourceById.get(sourceId);
     return structuredClone(sourceFields ? {
       ...node,
-      config: {
+      config: normalizeSourceNodeConfig({
         ...node.config,
-        limit: node.config?.limit ?? 1_000,
         ...(node.config?.queryPlan ? {queryPlan: normalizeLegacyQueryPlan(node.config.queryPlan)} : {}),
         fieldBindings: source?.fieldBindings ?? node.config?.fieldBindings ?? [],
         auxiliaryFieldBindings: source?.auxiliaryFieldBindings ?? node.config?.auxiliaryFieldBindings ?? [],
-      },
+      }, source?.queryPlan),
       outputSchema: {fields: sourceFields},
     } : node);
   });
@@ -344,6 +356,7 @@ export function readCachedBuilderDraft(storage, workspaceId, productId, originKe
   try {
     const value = JSON.parse(storage.getItem(builderDraftCacheKey(workspaceId, productId)) ?? "null");
     if (value?.schemaVersion !== 1 || value.originKey !== originKey || !isEditorDraft(value.draft)) return null;
+    const sourcePlans = new Map(value.draft.specification.sources.map((source) => [source.id, source.queryPlan]));
     return {
       ...value.draft,
       specification: {
@@ -357,11 +370,10 @@ export function readCachedBuilderDraft(storage, workspaceId, productId, originKe
           nodes: value.draft.specification.dag.nodes.map((node) => node.type === "source"
             ? {
               ...node,
-              config: {
-                ...(node.config ?? {}),
-                limit: node.config?.limit ?? 1_000,
-                ...(node.config?.queryPlan ? {queryPlan: normalizeLegacyQueryPlan(node.config.queryPlan)} : {}),
-              },
+              config: normalizeSourceNodeConfig(
+                node.config,
+                sourcePlans.get(node.config?.sourceId ?? node.config?.sourceKey),
+              ),
             }
             : node),
         },
@@ -434,6 +446,7 @@ export function restoreDurableBuilderDraft(projectedDraft, savedPayload) {
   ) return null;
   const saved = savedPayload.structuredDag;
   const projectedSources = new Map((projectedDraft.specification.sources ?? []).map((source) => [source.id, source]));
+  const savedSourcePlans = new Map((saved.sources ?? []).map((source) => [source.id, source.queryPlan]));
   const sourceNodes = new Map((saved.dag?.nodes ?? [])
     .filter((node) => node.type === "source")
     .map((node) => [node.config?.sourceId ?? node.config?.sourceKey, node]));
@@ -468,7 +481,18 @@ export function restoreDurableBuilderDraft(projectedDraft, savedPayload) {
     specification: {
       ...projectedDraft.specification,
       sources,
-      dag: structuredClone(saved.dag),
+      dag: {
+        ...structuredClone(saved.dag),
+        nodes: (saved.dag?.nodes ?? []).map((node) => node.type === "source"
+          ? {
+            ...structuredClone(node),
+            config: normalizeSourceNodeConfig(
+              node.config,
+              savedSourcePlans.get(node.config?.sourceId ?? node.config?.sourceKey),
+            ),
+          }
+          : structuredClone(node)),
+      },
       outputSchema: {
         ...projectedDraft.specification.outputSchema,
         fields: structuredClone(saved.outputSchema.fields),

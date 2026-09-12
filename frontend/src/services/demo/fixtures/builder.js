@@ -69,7 +69,7 @@ export function createDemoDraft(parameters = defaultParameters) {
         access: { mode: "x402", gatewayEnvironment: "mainnet", providerCredentialId: null, spendingPolicyId: "00000000-0000-0000-0000-000000000000" }, consistency: { mode: "pinned_block", indexingErrorPolicy: "deny" } }],
       dag: { nodes, edges }, outputSchema: structuredClone(outputSchema),
       refreshPolicy: { mode: "scheduled", cronExpression: "0 0 * * *", timezone: "UTC" },
-      resourcePolicy: { maxNodes: 12, maxSourceRows: 50000, maxSourceRequests: 100, maxOutputRows: 5000, maxOutputBytes: 5242880, maxStoredBytes: 20971520, maxRuntimeMs: 120000 },
+      resourcePolicy: { maxNodes: 32, maxSourceRows: 50000, maxSourceRequests: 100, maxOutputRows: 5000, maxOutputBytes: 5242880, maxStoredBytes: 20971520, maxRuntimeMs: 120000 },
     },
     // Display metadata is outside the canonical spec; no durable provenance/hash claim.
     groups: [

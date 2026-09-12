@@ -13,6 +13,7 @@ import {
   graphNetworksRegistryVersion,
   graphSubgraphNetworkCatalog,
   inspectGraphSchema,
+  normalizeGraphSourceQueryDocument,
   validateGraphSourceQueryPlan,
 } from "../src/modules/graph/index.js";
 import type {
@@ -74,6 +75,56 @@ const swapNeedContract = {
   ],
   constraints: [],
 } as const;
+
+test("Graph query normalization distributes cursor and window predicates into every OR branch", () => {
+  const document = "query SprueLiveSource($first: Int!, $cursor: ID!, $windowStart: BigInt!, $windowEnd: BigInt!) { swaps(first: $first, orderBy: id, orderDirection: asc, where: { id_gt: $cursor, timestamp_gte: $windowStart, timestamp_lt: $windowEnd, or: [{ kind: swap }, { kind: mint }] }) { id timestamp amountUSD } }";
+  const normalized = normalizeGraphSourceQueryDocument(document);
+  assert.doesNotMatch(normalized, /where:\s*\{\s*id_gt:/);
+  assert.equal((normalized.match(/id_gt: \$cursor/g) ?? []).length, 2);
+  assert.equal((normalized.match(/timestamp_gte: \$windowStart/g) ?? []).length, 2);
+  assert.equal((normalized.match(/timestamp_lt: \$windowEnd/g) ?? []).length, 2);
+
+  const validated = validateGraphSourceQueryPlan({
+    schemaVersion: 1,
+    operationName: "SprueLiveSource",
+    document,
+    pagination: {kind: "id_cursor", cursorField: "id", pageSize: 1_000, maxRequests: 20, maxRows: 10_000},
+    runtimeWindow: {
+      kind: "complete_utc_days",
+      days: 7,
+      timezone: "UTC",
+      field: "timestamp",
+      startVariable: "windowStart",
+      endVariable: "windowEnd",
+      valueEncoding: "unix_seconds",
+    },
+    pushedOperations: [{nodeRole: "pair_filter", operator: "filter", description: "Filter the requested pair."}],
+  }, {queryEntity: "swaps", selectedPaths: ["timestamp", "amountUSD"]});
+  assert.equal(validated.normalizedDocument, normalized);
+});
+
+test("Graph query validation rejects child filters nested through two relationships", () => {
+  const plan = {
+    schemaVersion: 1 as const,
+    operationName: "SprueLiveSource" as const,
+    document: "query SprueLiveSource($first: Int!, $cursor: ID!) { swaps(first: $first, orderBy: id, orderDirection: asc, where: { id_gt: $cursor, pair_: { token0_: { symbol: \"WETH\" } } }) { id pair { token0 { symbol } } } }",
+    pagination: {kind: "id_cursor" as const, cursorField: "id" as const, pageSize: 1_000, maxRequests: 20, maxRows: 10_000},
+    runtimeWindow: null,
+    pushedOperations: [],
+  };
+  assert.throws(() => validateGraphSourceQueryPlan(plan, {
+    queryEntity: "swaps",
+    selectedPaths: ["pair.token0.symbol"],
+  }), /one-level child-filter nesting/);
+
+  assert.doesNotThrow(() => validateGraphSourceQueryPlan({
+    ...plan,
+    document: "query SprueLiveSource($first: Int!, $cursor: ID!) { swaps(first: $first, orderBy: id, orderDirection: asc, where: { id_gt: $cursor, token0_: { symbol: \"WETH\" } }) { id token0 { symbol } } }",
+  }, {
+    queryEntity: "swaps",
+    selectedPaths: ["token0.symbol"],
+  }));
+});
 
 test("Graph schema inspection exposes only formal provider-authored aggregations", () => {
   const inspection = inspectGraphSchema(`
@@ -1246,6 +1297,112 @@ test("Agent derives search keywords before Graph MCP discovery and assesses comp
   const discoveryDebug = debugEvents.find((event) => event.stage === "graph_source_discovery" && "candidateCount" in event);
   assert.ok(discoveryDebug && "candidateCount" in discoveryDebug);
   assert.equal(discoveryDebug.candidateCount, 4);
+});
+
+test("Agent normalizes a numeric protocol version for bounded Graph metadata search", async () => {
+  const searches: string[] = [];
+  const graph: GraphPlanningMcpPort = {
+    async searchSubgraphsByKeyword(value) {
+      searches.push(value);
+      return {subgraphs: [], total: 0, returned: 0};
+    },
+    async getDeploymentActivity() { return []; },
+    async getSchema() { throw new Error("not expected"); },
+    async getTopDeploymentsForContract() { throw new Error("not expected"); },
+    async close() {},
+  };
+  const harness = new AgentHarness({
+    async complete(request: AgentModelRequest) {
+      const output = structuredClone(createMockStageOutput(request));
+      if (request.stage === "source_discovery_planning" && output.kind === "source_discovery_plan") {
+        output.semanticPlan.sourceRequirements = output.semanticPlan.sourceRequirements.map((need) => ({
+          ...need,
+          protocol: {name: "uniswap", version: "3"},
+        }));
+        output.searches = output.searches.map((search) => ({
+          ...search,
+          keywords: ["uniswap", "v3", "dex"],
+        }));
+      }
+      return {provider: "mock" as const, model: "numeric-version-search-test", output};
+    },
+  }, undefined, new GraphSourceDiscoveryService(graph));
+
+  await harness.explore({
+    intent: "Compare Uniswap V3 on Ethereum and Arbitrum.",
+    availableNetworks: [
+      {dataNetwork: "eip155:1", label: "Ethereum"},
+      {dataNetwork: "eip155:42161", label: "Arbitrum"},
+    ],
+  });
+
+  assert.deepEqual(searches, [
+    "uniswap v3",
+    "uniswap v3 Ethereum",
+    "uniswap v3 eth",
+    "uniswap v3 Arbitrum",
+    "uniswap v3 arbitrum one",
+  ]);
+});
+
+test("Agent performs one bounded semantic repair for a nullable Graph cursor", async () => {
+  const requests: AgentModelRequest[] = [];
+  const debugEvents: AgentDebugEvent[] = [];
+  const graph: GraphPlanningMcpPort = {
+    async searchSubgraphsByKeyword() {
+      return {
+        subgraphs: [
+          {subgraphId: "sg-eth", displayName: "Uniswap Ethereum", manifestIpfsCid: "QmEth"},
+          {subgraphId: "sg-arb", displayName: "Uniswap Arbitrum", manifestIpfsCid: "QmArb"},
+        ],
+        total: 2,
+        returned: 2,
+      };
+    },
+    async getDeploymentActivity(values) {
+      return values.map((manifestIpfsCid) => ({manifestIpfsCid, totalQueryCount30d: 100, dataPointsCount: 30}));
+    },
+    async getSchema() { return schema; },
+    async getTopDeploymentsForContract() { throw new Error("not expected"); },
+    async close() {},
+  };
+  const harness = new AgentHarness({
+    async complete(request: AgentModelRequest) {
+      requests.push(request);
+      const output = structuredClone(createMockStageOutput(request));
+      if (request.stage === "source_feasibility" && !request.repair) {
+        const proposal = output as {selections: Array<{queryPlan: {document: string}}>};
+        for (const selection of proposal.selections) {
+          selection.queryPlan.document = selection.queryPlan.document.replace("$cursor: ID!", "$cursor: ID");
+        }
+      }
+      return {provider: "mock" as const, model: "semantic-repair-test", output};
+    },
+  }, undefined, new GraphSourceDiscoveryService(graph), (event) => debugEvents.push(event));
+
+  const result = await harness.explore({
+    intent: "Find wallets trading through Uniswap on Ethereum and Arbitrum.",
+    availableNetworks: [
+      {dataNetwork: "eip155:1", label: "Ethereum"},
+      {dataNetwork: "eip155:42161", label: "Arbitrum"},
+    ],
+  });
+
+  assert.equal(result.kind, "feasibility");
+  assert.equal(result.model.calls, 4);
+  const repairRequest = requests.find((request) => request.stage === "source_feasibility" && request.repair);
+  assert.ok(repairRequest?.stage === "source_feasibility");
+  assert.equal(repairRequest.repair?.reason, "semantic_validation_failed");
+  assert.equal(repairRequest.repair?.issueCode, "FEASIBILITY_SOURCE_QUERY_INVALID");
+  assert.match(repairRequest.repair?.issueMessage ?? "", /cursor must have a supported non-null scalar type/);
+  const failure = debugEvents.find((event) => "phase" in event
+    && event.phase === "semantic_validation_failed"
+    && "willRepair" in event
+    && event.willRepair === true);
+  assert.ok(failure);
+  if (result.kind === "feasibility") {
+    assert.ok(result.feasibility.selections.every((selection) => /\$cursor: ID!/.test(selection.queryPlan.document)));
+  }
 });
 
 test("Agent uses broad protocol recall plus catalog network aliases without asset-pair overconstraint", async () => {

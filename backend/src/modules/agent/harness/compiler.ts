@@ -4,6 +4,7 @@ import {
   type CanonicalSwapField,
   type SourceInput,
 } from "../../dag/runtime.js";
+import {maximumDagEdges, maximumDagNodes} from "../../dag/limits.js";
 import {operatorRegistry, registryEntry, validateCompositionNode} from "./registry.js";
 import type {
   BuilderProjection,
@@ -375,7 +376,7 @@ export function validateCompositionForSourceNeeds(
   plan: SemanticPlan,
   composition: CompositionIntent,
   sourceNeeds: readonly SourceNeed[],
-  limits: {maxNodes: number; maxEdges: number} = {maxNodes: 12, maxEdges: 24},
+  limits: {maxNodes: number; maxEdges: number} = {maxNodes: maximumDagNodes, maxEdges: maximumDagEdges},
 ): void {
   const sourceRoleToNeed = new Map(sourceNeeds.map((need) => [sourceRole(need.id), need.id]));
   validateCompositionShape(plan, composition, sourceRoleToNeed);
@@ -384,7 +385,7 @@ export function validateCompositionForSourceNeeds(
     id: sourceRole(need.id),
     type: "source",
     operatorVersion: "1",
-    config: {sourceNeedId: need.id, limit: 1_000},
+    config: {sourceNeedId: need.id},
   }));
   const roleToId = new Map<string, string>(sourceNodes.map((node) => [node.id, node.id]));
   const compiledNodes = composition.nodes.map((node) => {
@@ -460,7 +461,7 @@ export function assembleSpecification(
       id: sourceRole(binding.need.id),
       type: "source",
       operatorVersion: "1",
-      config: {sourceId: canonicalSourceId(binding), queryPlan, limit: 1_000},
+      config: {sourceId: canonicalSourceId(binding), queryPlan},
     };
   });
   const roleToId = new Map<string, string>(sourceNodes.map((node) => [node.id, node.id]));
@@ -486,7 +487,7 @@ export function assembleSpecification(
     toPort: connection.inputRole,
   }));
   const nodes = [...sourceNodes, ...compiledNodes];
-  if (nodes.length > 12 || edges.length > 24) fail("DAG_LIMIT_EXCEEDED", "DAG exceeds the first-runtime node or edge limit");
+  if (nodes.length > maximumDagNodes || edges.length > maximumDagEdges) fail("DAG_LIMIT_EXCEEDED", "DAG exceeds the first-runtime node or edge limit");
   validateDag(nodes, edges);
 
   const specification: CanonicalDataProductSpec = {
@@ -525,7 +526,7 @@ export function assembleSpecification(
       timezone: "UTC",
     },
     resourcePolicy: {
-      maxNodes: 12,
+      maxNodes: maximumDagNodes,
       maxSourceRows: 50_000,
       maxSourceRequests: 100,
       maxOutputRows: 5_000,

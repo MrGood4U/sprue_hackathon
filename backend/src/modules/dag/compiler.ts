@@ -1,6 +1,7 @@
 import {createHash} from "node:crypto";
 import type {GraphSemanticValueType} from "../graph/types.js";
 import {validateFilterPredicate} from "./filter.js";
+import {maximumDagEdges, maximumDagNodes} from "./limits.js";
 import {applyMapUnitAnnotation, inferMapExpressionField, validateMapConfig} from "./map.js";
 import {validateSortConfig} from "./sort.js";
 
@@ -65,8 +66,6 @@ export type StructuredDagCompilation = {
 const identifierPattern = /^[a-z][a-z0-9_]{0,99}$/;
 const nodeIdentifierPattern = /^[a-z][a-z0-9_-]{0,99}$/;
 const providerFieldPattern = /^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$/;
-const maximumNodes = 64;
-const maximumEdges = 128;
 const maximumIssues = 32;
 const versions: Readonly<Record<StructuredDagNodeType, string>> = {
   source: "1",
@@ -341,8 +340,8 @@ export function compileStructuredDag(input: StructuredDagCompileInput, now = new
     if (issues.length < maximumIssues) issues.push({code, message, nodeId, path});
   };
   const {nodes, edges} = input.dag;
-  if (nodes.length < 1 || nodes.length > maximumNodes) add("DAG_NODE_COUNT_INVALID", `DAG must contain between 1 and ${maximumNodes} nodes.`);
-  if (edges.length > maximumEdges) add("DAG_EDGE_COUNT_INVALID", `DAG supports at most ${maximumEdges} edges.`);
+  if (nodes.length < 1 || nodes.length > maximumDagNodes) add("DAG_NODE_COUNT_INVALID", `DAG must contain between 1 and ${maximumDagNodes} nodes.`);
+  if (edges.length > maximumDagEdges) add("DAG_EDGE_COUNT_INVALID", `DAG supports at most ${maximumDagEdges} edges.`);
   const nodeById = new Map<string, StructuredDagNode>();
   for (const [index, node] of nodes.entries()) {
     if (!nodeIdentifierPattern.test(node.id)) add("NODE_ID_INVALID", `Node ${node.id} does not use a valid lowercase identifier.`, node.id, `dag.nodes.${index}.id`);

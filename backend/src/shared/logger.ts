@@ -75,7 +75,7 @@ export type LogEvent =
       callNumber?: number;
       durationMs?: number;
       repairAttempt?: number;
-      repairReason?: "schema_validation_failed" | "unsupported_evidence_conflict" | null;
+      repairReason?: "schema_validation_failed" | "semantic_validation_failed" | "unsupported_evidence_conflict" | null;
       provider?: "mock" | "remote";
       model?: string;
       outputBytes?: number;

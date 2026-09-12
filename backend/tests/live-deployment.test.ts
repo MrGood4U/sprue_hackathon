@@ -353,7 +353,7 @@ test("live source admission preserves safe Graph and persistence failure codes",
       credentials as never,
       () => ({
         async getSchema() {
-          return `${schemaDocument}\ntype Unsupported @providerOnly { id: ID! }`;
+          return `${schemaDocument}\ntype Unsupported { missing: MissingProviderType! }`;
         },
         async close() {},
       }) as never,
@@ -363,12 +363,58 @@ test("live source admission preserves safe Graph and persistence failure codes",
     );
     await assert.rejects(
       service.buildVersion({workspaceId: "workspace", productId: "product", actorUserId: "user", compilation, dag: input.dag, sources: [source]}),
-      (error: unknown) => error instanceof LiveDeploymentError && error.code === "LIVE_SOURCE_SCHEMA_INVALID",
+      (error: unknown) => error instanceof LiveDeploymentError
+        && error.code === "LIVE_SOURCE_SCHEMA_INVALID"
+        && error.detail?.startsWith("graph-items:") === true,
     );
+  });
+
+  await t.test("undeclared provider object annotations are ignored only in the validation copy", async () => {
+    const providerSchema = `${schemaDocument}\ntype Snapshot @dailySnapshot @regularPolling { id: ID! }`;
+    let persistedSchema: string | null = null;
+    const repository = {
+      async persistVersion(request: Parameters<LiveDeploymentRepository["persistVersion"]>[0]) {
+        persistedSchema = request.sources[0]?.schemaDocument ?? null;
+        const plan = request.createPlan(new Map([["graph-items", "snapshot-id"]]));
+        return {id: "version-id", versionNo: 1, specHash: contentHash(plan)};
+      },
+    } as Pick<LiveDeploymentRepository, "persistVersion"> as LiveDeploymentRepository;
+    const service = new LiveDeploymentService(
+      repository,
+      credentials as never,
+      () => ({
+        async getSchema() { return providerSchema; },
+        async close() {},
+      }) as never,
+      Buffer.alloc(32, 7),
+      "https://data.example/data/v1",
+      "https://data.example/x402/v1",
+    );
+
+    await service.buildVersion({
+      workspaceId: "workspace",
+      productId: "product",
+      actorUserId: "user",
+      compilation,
+      dag: input.dag,
+      sources: [source],
+    });
+
+    assert.equal(persistedSchema, providerSchema);
   });
 
   await t.test("runtime introspection pins the exact entity type when provider SDL omits Query", async () => {
     const persistedPlans: ReturnType<typeof createImmutableLivePlan>[] = [];
+    const authoredSource = {
+      ...source,
+      queryPlan: {
+        schemaVersion: 1 as const,
+        operationName: "SprueLiveSource" as const,
+        document: "query SprueLiveSource($first: Int!, $cursor: Bytes!) { items(first: $first, orderBy: id, orderDirection: asc, where: { id_gt: $cursor }) { id rawAmount } }",
+        pagination: {kind: "id_cursor" as const, cursorField: "id" as const, pageSize: 1_000, maxRequests: 20, maxRows: 10_000},
+        pushedOperations: [],
+      },
+    };
     const repository = {
       async persistVersion(request: Parameters<LiveDeploymentRepository["persistVersion"]>[0]) {
         const plan = request.createPlan(new Map([["graph-items", "snapshot-id"]]));
@@ -386,6 +432,11 @@ test("live source admission preserves safe Graph and persistence failure codes",
         async getRuntimeQueryFields() {
           return [{name: "items", entityType: "Item", list: true}];
         },
+        async executeStaticQuery(_manifest: string, document: string, variables: Readonly<Record<string, unknown>>) {
+          assert.match(document, /items\(first: \$first/);
+          assert.deepEqual(variables, {first: 1, cursor: "0x"});
+          return {data: {items: []}, errors: []};
+        },
         async close() {},
       }) as never,
       Buffer.alloc(32, 7),
@@ -399,12 +450,99 @@ test("live source admission preserves safe Graph and persistence failure codes",
       actorUserId: "user",
       compilation,
       dag: input.dag,
-      sources: [source],
+      sources: [authoredSource],
     });
     assert.equal(persistedPlans.length, 1);
     const persistedPlan = persistedPlans[0]!;
     assert.equal(persistedPlan.sources[0]!.queryEntityType, "Item");
     assert.match(persistedPlan.sources[0]!.queryDocument, /\$cursor: Bytes!/);
+  });
+
+  await t.test("an Agent-authored query must pass a one-row live preflight before persistence", async () => {
+    let persisted = false;
+    const repository = {
+      async persistVersion(request: Parameters<LiveDeploymentRepository["persistVersion"]>[0]) {
+        persisted = true;
+        const plan = request.createPlan(new Map([["graph-items", "snapshot-id"]]));
+        return {id: "version-id", versionNo: 1, specHash: contentHash(plan)};
+      },
+    } as Pick<LiveDeploymentRepository, "persistVersion"> as LiveDeploymentRepository;
+    const authoredSource = {
+      ...source,
+      queryPlan: {
+        schemaVersion: 1 as const,
+        operationName: "SprueLiveSource" as const,
+        document: "query SprueLiveSource($first: Int!, $cursor: ID!) { items(first: $first, orderBy: id, orderDirection: asc, where: { id_gt: $cursor }) { id rawAmount } }",
+        pagination: {kind: "id_cursor" as const, cursorField: "id" as const, pageSize: 1_000, maxRequests: 20, maxRows: 10_000},
+        pushedOperations: [],
+      },
+    };
+    const service = new LiveDeploymentService(
+      repository,
+      credentials as never,
+      () => ({
+        async getSchema() { return schemaDocument; },
+        async executeStaticQuery(_manifest: string, _document: string, variables: Readonly<Record<string, unknown>>) {
+          assert.deepEqual(variables, {first: 1, cursor: ""});
+          return {data: {items: []}, errors: []};
+        },
+        async close() {},
+      }) as never,
+      Buffer.alloc(32, 7),
+      "https://data.example/data/v1",
+      "https://data.example/x402/v1",
+    );
+    await service.buildVersion({
+      workspaceId: "workspace",
+      productId: "product",
+      actorUserId: "user",
+      compilation,
+      dag: input.dag,
+      sources: [authoredSource],
+    });
+    assert.equal(persisted, true);
+  });
+
+  await t.test("a rejected live preflight cannot create an immutable version", async () => {
+    let persisted = false;
+    const repository = {
+      async persistVersion() { persisted = true; throw new Error("must not persist"); },
+    } as Pick<LiveDeploymentRepository, "persistVersion"> as LiveDeploymentRepository;
+    const authoredSource = {
+      ...source,
+      queryPlan: {
+        schemaVersion: 1 as const,
+        operationName: "SprueLiveSource" as const,
+        document: "query SprueLiveSource($first: Int!, $cursor: ID!) { items(first: $first, orderBy: id, orderDirection: asc, where: { id_gt: $cursor }) { id rawAmount } }",
+        pagination: {kind: "id_cursor" as const, cursorField: "id" as const, pageSize: 1_000, maxRequests: 20, maxRows: 10_000},
+        pushedOperations: [],
+      },
+    };
+    const service = new LiveDeploymentService(
+      repository,
+      credentials as never,
+      () => ({
+        async getSchema() { return schemaDocument; },
+        async executeStaticQuery() {
+          return {data: {items: []}, errors: [{message: "Cannot mix column filters with the OR operator"}]};
+        },
+        async close() {},
+      }) as never,
+      Buffer.alloc(32, 7),
+      "https://data.example/data/v1",
+      "https://data.example/x402/v1",
+    );
+    await assert.rejects(service.buildVersion({
+      workspaceId: "workspace",
+      productId: "product",
+      actorUserId: "user",
+      compilation,
+      dag: input.dag,
+      sources: [authoredSource],
+    }), (error: unknown) => error instanceof LiveDeploymentError
+      && error.code === "LIVE_SOURCE_QUERY_PROBE_FAILED"
+      && error.detail?.includes("Cannot mix column filters") === true);
+    assert.equal(persisted, false);
   });
 });
 
@@ -599,6 +737,92 @@ test("a Source node limit bounds live reads without treating the bound as an exe
   assert.deepEqual(result.rows, [{amount: "1"}, {amount: "2"}]);
 });
 
+test("live reads page to the compiled row ceiling and probe once to prove exact completeness", async () => {
+  const input = compilationInput();
+  const compilation = compileStructuredDag(input);
+  assert.equal(compilation.status, "passed");
+  if (compilation.status !== "passed") return;
+  const plan = createImmutableLivePlan({
+    compilation,
+    dag: input.dag,
+    sources: [{
+      id: "graph-items",
+      displayName: "Items",
+      logicalSubgraphId: "items",
+      manifestIpfsCid: "QmExample",
+      dataNetwork: "ethereum-mainnet",
+      queryEntity: "items",
+      queryPlan: {
+        schemaVersion: 1,
+        operationName: "SprueLiveSource",
+        document: "query SprueLiveSource($first: Int!, $cursor: ID!) { items(first: $first, orderBy: id, orderDirection: asc, where: { id_gt: $cursor }) { id rawAmount } }",
+        pagination: {kind: "id_cursor", cursorField: "id", pageSize: 2, maxRequests: 3, maxRows: 4},
+        pushedOperations: [],
+      },
+      fieldBindings: [{fieldPath: "rawAmount", requirementId: "amount"}],
+      auxiliaryFieldBindings: [],
+      providerCredentialId: "credential-id",
+      sourceSnapshotId: "snapshot-id",
+      schemaDocument,
+    }],
+  });
+  assert.equal(plan.sources[0]!.rowLimit, null);
+  const requestSizes: unknown[] = [];
+  const result = await executeLivePlan(plan, async () => ({
+    async executeStaticQuery(_manifest, _document, variables) {
+      requestSizes.push(variables.first);
+      const cursor = String(variables.cursor);
+      if (cursor === "") return {data: {items: [{id: "1", rawAmount: "1"}, {id: "2", rawAmount: "2"}]}, errors: []};
+      if (cursor === "2") return {data: {items: [{id: "3", rawAmount: "3"}, {id: "4", rawAmount: "4"}]}, errors: []};
+      return {data: {items: []}, errors: []};
+    },
+    async close() {},
+  }));
+  assert.deepEqual(requestSizes, [2, 2, 1]);
+  assert.equal(result.sourceRequests, 3);
+  assert.deepEqual(result.rows, [{amount: "1"}, {amount: "2"}, {amount: "3"}, {amount: "4"}]);
+});
+
+test("live reads reject a source that contains rows beyond the compiled row ceiling", async () => {
+  const input = compilationInput();
+  const compilation = compileStructuredDag(input);
+  assert.equal(compilation.status, "passed");
+  if (compilation.status !== "passed") return;
+  const plan = createImmutableLivePlan({
+    compilation,
+    dag: input.dag,
+    sources: [{
+      id: "graph-items",
+      displayName: "Items",
+      logicalSubgraphId: "items",
+      manifestIpfsCid: "QmExample",
+      dataNetwork: "ethereum-mainnet",
+      queryEntity: "items",
+      queryPlan: {
+        schemaVersion: 1,
+        operationName: "SprueLiveSource",
+        document: "query SprueLiveSource($first: Int!, $cursor: ID!) { items(first: $first, orderBy: id, orderDirection: asc, where: { id_gt: $cursor }) { id rawAmount } }",
+        pagination: {kind: "id_cursor", cursorField: "id", pageSize: 2, maxRequests: 3, maxRows: 4},
+        pushedOperations: [],
+      },
+      fieldBindings: [{fieldPath: "rawAmount", requirementId: "amount"}],
+      auxiliaryFieldBindings: [],
+      providerCredentialId: "credential-id",
+      sourceSnapshotId: "snapshot-id",
+      schemaDocument,
+    }],
+  });
+  await assert.rejects(executeLivePlan(plan, async () => ({
+    async executeStaticQuery(_manifest, _document, variables) {
+      const cursor = String(variables.cursor);
+      if (cursor === "") return {data: {items: [{id: "1", rawAmount: "1"}, {id: "2", rawAmount: "2"}]}, errors: []};
+      if (cursor === "2") return {data: {items: [{id: "3", rawAmount: "3"}, {id: "4", rawAmount: "4"}]}, errors: []};
+      return {data: {items: [{id: "5", rawAmount: "5"}]}, errors: []};
+    },
+    async close() {},
+  })), /exceeded the compiled row limit/);
+});
+
 test("live plans preserve provider paths until the explicit Map executes", async () => {
   const input: StructuredDagCompileInput = {
     schemaVersion: 1,
@@ -681,7 +905,7 @@ test("immutable live plans reject Agent-authored GraphQL outside selected provid
   }), (error: unknown) => error instanceof LivePlanCompilationError);
 });
 
-test("immutable live plans accept The Graph schema built-ins without weakening SDL validation", () => {
+test("immutable live plans accept Graph built-ins and passive provider object annotations without weakening validation", () => {
   const input = compilationInput();
   const compilation = compileStructuredDag(input);
   assert.equal(compilation.status, "passed");
@@ -702,7 +926,11 @@ test("immutable live plans accept The Graph schema built-ins without weakening S
   const plan = createImmutableLivePlan({
     compilation,
     dag: input.dag,
-    sources: [{...source, queryEntityType: "Item", schemaDocument: graphDialectSchemaDocument}],
+    sources: [{
+      ...source,
+      queryEntityType: "Item",
+      schemaDocument: `${graphDialectSchemaDocument}\ntype Snapshot @dailySnapshot @hourlySnapshot @regularPolling @transaction { id: ID! }`,
+    }],
   });
   assert.match(plan.sources[0]!.queryDocument, /\$cursor: Bytes!/);
   assert.equal(plan.sources[0]!.initialCursor, "0x");
@@ -711,7 +939,7 @@ test("immutable live plans accept The Graph schema built-ins without weakening S
     () => createImmutableLivePlan({
       compilation,
       dag: input.dag,
-      sources: [{...source, schemaDocument: `${schemaDocument}\ntype Unsupported @providerOnly { id: ID! }`}],
+      sources: [{...source, schemaDocument: `${schemaDocument}\ntype Unsupported { id: ID! @providerOnly }`}],
     }),
     (error: unknown) => error instanceof LivePlanCompilationError,
   );

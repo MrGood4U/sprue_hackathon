@@ -1,4 +1,5 @@
 import {z} from "zod";
+import {maximumDagEdges, maximumDagNodes} from "../../dag/limits.js";
 import type {
   CompositionIntent,
   PlannerStage,
@@ -103,12 +104,12 @@ const compositionIntentSchema = z.object({
     operator: z.enum(["filter", "map", "aggregate", "sort", "union", "join", "output"]),
     operatorVersion: z.literal("1"),
     config: z.record(z.string(), z.unknown()),
-  }).strict()).min(1).max(12),
+  }).strict()).min(1).max(maximumDagNodes),
   connections: z.array(z.object({
     fromRole: z.string().regex(/^(?:source__)?[a-z][a-z0-9_]{0,99}$/),
     toRole: role,
     inputRole: z.enum(["rows", "left", "right"]),
-  }).strict()).max(24),
+  }).strict()).max(maximumDagEdges),
   templateInstances: z.tuple([]),
 }).strict();
 
@@ -123,7 +124,22 @@ const discoveryFieldRequirementSchema = z.object({
 }).strict();
 const preAggregatedFieldRequirementSchema = discoveryFieldRequirementSchema.extend({
   acceptedFunctions: z.array(z.enum(["dimension", "sum", "count", "min", "max", "first", "last"])).min(1).max(7),
-}).strict();
+}).strict().superRefine((field, context) => {
+  const semanticTokens = [field.id, field.unit ?? "", ...field.hints]
+    .flatMap((value) => value
+      .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter(Boolean));
+  const isDirectCountMeasure = field.expectedType === "integer" && semanticTokens.includes("count");
+  if (isDirectCountMeasure && (field.acceptedFunctions.length !== 1 || field.acceptedFunctions[0] !== "count")) {
+    context.addIssue({
+      code: "custom",
+      path: ["acceptedFunctions"],
+      message: "A count-valued pre-aggregated measure must use exactly the provider count function; downstream sums across buckets do not make the provider function sum",
+    });
+  }
+});
 
 const discoverySemanticPlanSchema = z.object({
   schemaVersion: z.literal(3),
@@ -329,12 +345,12 @@ const flexibleNodeSchema = z.discriminatedUnion("operator", [
 const flexibleCompositionIntentSchema = z.object({
   schemaVersion: z.literal(2),
   kind: z.literal("composition_intent"),
-  nodes: z.array(flexibleNodeSchema).min(1).max(12),
+  nodes: z.array(flexibleNodeSchema).min(1).max(maximumDagNodes),
   connections: z.array(z.object({
     fromRole: z.string().regex(/^(?:source__)?[a-z][a-z0-9_]{0,99}$/),
     toRole: role,
     inputRole: z.enum(["rows", "left", "right"]),
-  }).strict()).max(24),
+  }).strict()).max(maximumDagEdges),
   templateInstances: z.tuple([]),
 }).strict();
 
@@ -378,7 +394,7 @@ const graphQueryPlanSchema = z.object({
     nodeRole: role,
     operator: z.enum(["filter", "sort"]),
     description: boundedText(500),
-  }).strict()).max(12),
+  }).strict()).max(maximumDagNodes),
 }).strict();
 const sourceEntitySelectionSchema = z.object({
   schemaVersion: z.literal(1),

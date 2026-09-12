@@ -49,7 +49,7 @@ test("projects the latest durable Agent proposal into an editable non-executable
           evidenceStatus: "suitable",
         }],
         nodes: [
-          {id: "source__need_eth", type: "source", operatorVersion: "1", config: {sourceId: "candidate-eth"}},
+          {id: "source__need_eth", type: "source", operatorVersion: "1", config: {sourceId: "candidate-eth", limit: 1_000}},
           {id: "result", type: "output", operatorVersion: "3", config: {fields: ["amount"]}},
         ],
         edges: [{fromNode: "source__need_eth", fromPort: "rows", toNode: "result", toPort: "rows"}],
@@ -65,6 +65,7 @@ test("projects the latest durable Agent proposal into an editable non-executable
   assert.equal(draft.specification.sources[0].queryEntity, "swaps");
   assert.match(draft.specification.sources[0].queryPlan.document, /query SprueLiveSource/);
   assert.equal(draft.specification.sources[0].queryPlan.pagination.pageSize, 1_000);
+  assert.equal(draft.specification.dag.nodes.find((node) => node.type === "source").config.limit, undefined);
   assert.deepEqual(draft.specification.sources[0].fieldBindings, [{requirementId: "amount", fieldPath: "amountUSD"}]);
   assert.deepEqual(draft.specification.sources[0].outputSchema.fields.map(({name}) => name), ["amountUSD", "data_network"]);
   const boundaryMap = draft.specification.dag.nodes.find((node) => node.type === "map");
@@ -392,7 +393,7 @@ test("restores the durable structured DAG and its separately stored canvas posit
   assert.equal(draftWithBuilderLayout(restored, [{id: "node-a", position: {x: 440, y: 250}}]).specification.dag.nodes[0].x, 440);
 });
 
-test("adds the default Source limit when loading a legacy browser-session draft", () => {
+test("removes the generated legacy Source limit without changing a custom browser-session limit", () => {
   const records = new Map();
   const storage = {getItem: (key) => records.get(key) ?? null, setItem: (key, value) => records.set(key, value)};
   const draft = {
@@ -405,7 +406,7 @@ test("adds the default Source limit when loading a legacy browser-session draft"
         },
       }],
       dag: {nodes: [
-        {id: "defaulted", type: "source", operatorVersion: "1", config: {sourceId: "graph-defaulted"}},
+        {id: "defaulted", type: "source", operatorVersion: "1", config: {sourceId: "graph-defaulted", limit: 1_000}},
         {id: "custom", type: "source", operatorVersion: "1", config: {sourceId: "graph-custom", limit: 250}},
       ], edges: []},
       outputSchema: {fields: []},
@@ -414,7 +415,7 @@ test("adds the default Source limit when loading a legacy browser-session draft"
   cacheBuilderDraft(storage, "workspace-1", product.id, draft);
 
   const restored = readCachedBuilderDraft(storage, "workspace-1", product.id, draft.origin.originKey);
-  assert.equal(restored.specification.dag.nodes[0].config.limit, 1_000);
+  assert.equal(restored.specification.dag.nodes[0].config.limit, undefined);
   assert.equal(restored.specification.dag.nodes[1].config.limit, 250);
   assert.equal(restored.specification.sources[0].queryPlan.pagination.pageSize, 1_000);
 });

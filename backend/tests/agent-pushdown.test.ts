@@ -160,3 +160,127 @@ test("Filter pushdown combines stable predicates with a runtime UTC-day window",
   assert.equal(matchesCompleteFilterPushdown(plan, filters, map), true);
   assert.equal(matchesCompleteFilterPushdown({...plan, runtimeWindow: {...plan.runtimeWindow, days: 6}}, filters, map), false);
 });
+
+test("Filter pushdown proves a runtime UTC-day window through an epoch-seconds Map conversion", () => {
+  const map = {mode: "project", fields: [
+    {
+      name: "block_timestamp",
+      expression: {op: "epoch_seconds_to_timestamp", inputs: [{op: "field", field: "timestamp"}]},
+      unit: null,
+    },
+  ]};
+  const plan = {
+    schemaVersion: 1 as const,
+    operationName: "SprueLiveSource" as const,
+    document: "query SprueLiveSource($first: Int!, $cursor: ID!, $windowStart: BigInt!, $windowEnd: BigInt!) { swaps(first: $first, orderBy: id, orderDirection: asc, where: { id_gt: $cursor, timestamp_gte: $windowStart, timestamp_lt: $windowEnd }) { id timestamp } }",
+    pagination: {kind: "id_cursor" as const, cursorField: "id" as const, pageSize: 1_000, maxRequests: 20, maxRows: 10_000},
+    runtimeWindow: {
+      kind: "complete_utc_days" as const,
+      days: 7,
+      timezone: "UTC" as const,
+      field: "timestamp",
+      startVariable: "windowStart" as const,
+      endVariable: "windowEnd" as const,
+      valueEncoding: "unix_seconds" as const,
+    },
+    pushedOperations: [],
+  };
+  const filter = {
+    relativeWindow: {field: "block_timestamp", kind: "complete_utc_days", days: 7, timezone: "UTC"},
+  };
+
+  assert.equal(matchesCompleteFilterPushdown(plan, filter, map), true);
+  assert.equal(matchesCompleteFilterPushdown(plan, filter, {
+    ...map,
+    fields: [{
+      ...map.fields[0],
+      expression: {op: "epoch_milliseconds_to_timestamp", inputs: [{op: "field", field: "timestamp"}]},
+    }],
+  }), false);
+});
+
+test("Filter pushdown proves a complete one-hop relationship pair predicate", () => {
+  const map = {mode: "project", fields: [
+    {
+      name: "block_timestamp",
+      expression: {op: "epoch_seconds_to_timestamp", inputs: [{op: "field", field: "timestamp"}]},
+      unit: null,
+    },
+    {name: "token0_symbol", expression: {op: "field", field: "token0.symbol"}, unit: null},
+    {name: "token1_symbol", expression: {op: "field", field: "token1.symbol"}, unit: null},
+  ]};
+  const pairFilter = {expression: {op: "or", inputs: [
+    {op: "and", inputs: [
+      {op: "eq", inputs: [{op: "field", field: "token0_symbol"}, {op: "literal", valueType: "string", value: "WETH"}]},
+      {op: "eq", inputs: [{op: "field", field: "token1_symbol"}, {op: "literal", valueType: "string", value: "USDC"}]},
+    ]},
+    {op: "and", inputs: [
+      {op: "eq", inputs: [{op: "field", field: "token0_symbol"}, {op: "literal", valueType: "string", value: "USDC"}]},
+      {op: "eq", inputs: [{op: "field", field: "token1_symbol"}, {op: "literal", valueType: "string", value: "WETH"}]},
+    ]},
+  ]}};
+  const windowFilter = {
+    relativeWindow: {field: "block_timestamp", kind: "complete_utc_days", days: 7, timezone: "UTC"},
+  };
+  const document = "query SprueLiveSource($first: Int!, $cursor: ID!, $windowStart: BigInt!, $windowEnd: BigInt!) { swaps(first: $first, orderBy: id, orderDirection: asc, where: { id_gt: $cursor, timestamp_gte: $windowStart, timestamp_lt: $windowEnd, or: [{ token0_: { symbol: \"WETH\" }, token1_: { symbol: \"USDC\" } }, { token0_: { symbol: \"USDC\" }, token1_: { symbol: \"WETH\" } }] }) { id timestamp token0 { symbol } token1 { symbol } } }";
+  const plan = {
+    schemaVersion: 1 as const,
+    operationName: "SprueLiveSource" as const,
+    document,
+    pagination: {kind: "id_cursor" as const, cursorField: "id" as const, pageSize: 1_000, maxRequests: 20, maxRows: 10_000},
+    runtimeWindow: {
+      kind: "complete_utc_days" as const,
+      days: 7,
+      timezone: "UTC" as const,
+      field: "timestamp",
+      startVariable: "windowStart" as const,
+      endVariable: "windowEnd" as const,
+      valueEncoding: "unix_seconds" as const,
+    },
+    pushedOperations: [],
+  };
+  const providerFields = [
+    {path: "token0.symbol", list: false, nullable: false},
+    {path: "token1.symbol", list: false, nullable: false},
+  ];
+
+  assert.equal(matchesCompleteFilterPushdown(plan, [windowFilter, pairFilter], map, providerFields), true);
+  assert.equal(matchesCompleteFilterPushdown(plan, [windowFilter, pairFilter], map), false);
+  assert.equal(matchesCompleteFilterPushdown(plan, [windowFilter, pairFilter], map, [
+    {...providerFields[0]!, list: true},
+    providerFields[1]!,
+  ]), false);
+  assert.equal(matchesCompleteFilterPushdown(plan, [windowFilter, pairFilter], map, [
+    {...providerFields[0]!, nullable: true},
+    providerFields[1]!,
+  ]), false);
+  assert.equal(matchesCompleteFilterPushdown({
+    ...plan,
+    document: document.replace(", { token0_: { symbol: \"USDC\" }, token1_: { symbol: \"WETH\" } }", ""),
+  }, [windowFilter, pairFilter], map, providerFields), false);
+});
+
+test("Filter pushdown rejects a relationship filter nested through another relationship", () => {
+  const plan = {
+    schemaVersion: 1 as const,
+    operationName: "SprueLiveSource" as const,
+    document: "query SprueLiveSource($first: Int!, $cursor: ID!) { swaps(first: $first, orderBy: id, orderDirection: asc, where: { id_gt: $cursor, pair_: { token0_: { symbol: \"WETH\" } } }) { id pair { token0 { symbol } } } }",
+    pagination: {kind: "id_cursor" as const, cursorField: "id" as const, pageSize: 1_000, maxRequests: 20, maxRows: 10_000},
+    runtimeWindow: null,
+    pushedOperations: [],
+  };
+  const map = {mode: "project", fields: [
+    {name: "token0_symbol", expression: {op: "field", field: "pair.token0.symbol"}, unit: null},
+  ]};
+  const filter = {expression: {
+    op: "eq",
+    inputs: [
+      {op: "field", field: "token0_symbol"},
+      {op: "literal", valueType: "string", value: "WETH"},
+    ],
+  }};
+
+  assert.equal(matchesCompleteFilterPushdown(plan, filter, map, [
+    {path: "pair.token0.symbol", list: false, nullable: false},
+  ]), false);
+});

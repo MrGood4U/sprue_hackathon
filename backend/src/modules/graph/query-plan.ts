@@ -1,7 +1,9 @@
-import {Kind, parse} from "graphql";
+import {Kind, parse, print} from "graphql";
 import type {
   ArgumentNode,
   FieldNode,
+  ObjectFieldNode,
+  ObjectValueNode,
   OperationDefinitionNode,
   SelectionSetNode,
   ValueNode,
@@ -18,6 +20,7 @@ export interface GraphQueryPlanValidationInput {
 
 export interface ValidatedGraphQueryPlan {
   operation: OperationDefinitionNode;
+  normalizedDocument: string;
   cursorType: "ID" | "String" | "Bytes" | "Int8" | "BigInt" | "Int";
   runtimeWindowVariableType: "BigInt" | "Int" | "Int8" | "String" | "Timestamp" | null;
   hasAdditionalPredicates: boolean;
@@ -48,6 +51,112 @@ function objectField(value: ValueNode | undefined, name: string): ValueNode | un
   return value.fields.find((field) => field.name.value === name)?.value;
 }
 
+function mergePredicateFields(
+  common: readonly ObjectFieldNode[],
+  branch: readonly ObjectFieldNode[],
+): readonly ObjectFieldNode[] {
+  const merged = new Map<string, ObjectFieldNode>();
+  for (const field of [...common, ...branch]) {
+    const existing = merged.get(field.name.value);
+    if (existing && print(existing.value) !== print(field.value)) {
+      fail(`Graph Source query OR branch conflicts on predicate ${field.name.value}`);
+    }
+    merged.set(field.name.value, field);
+  }
+  return [...merged.values()];
+}
+
+/**
+ * The Graph rejects column predicates beside a root `or` even though the
+ * object is valid GraphQL syntax. Distribute those common predicates into
+ * every branch so pagination and runtime-window semantics remain identical.
+ */
+export function normalizeGraphSourceQueryDocument(source: string): string {
+  const document = parse(source, {maxTokens: 5_000});
+  const operation = document.definitions.length === 1
+    && document.definitions[0]?.kind === Kind.OPERATION_DEFINITION
+    ? document.definitions[0]
+    : null;
+  const root = operation?.selectionSet.selections.length === 1
+    && operation.selectionSet.selections[0]?.kind === Kind.FIELD
+    ? operation.selectionSet.selections[0]
+    : null;
+  const whereIndex = root?.arguments?.findIndex((item) => item.name.value === "where") ?? -1;
+  const where = whereIndex >= 0 ? root?.arguments?.[whereIndex]?.value : undefined;
+  if (!operation || !root || where?.kind !== Kind.OBJECT) return source;
+  const disjunctions = where.fields.filter((field) => field.name.value === "or");
+  const common = where.fields.filter((field) => field.name.value !== "or");
+  if (disjunctions.length !== 1 || common.length === 0) return source;
+  if (common.some((field) => field.name.value === "and")) {
+    fail("Graph Source query cannot mix root AND and OR predicates");
+  }
+  const values = disjunctions[0]!.value;
+  if (values.kind !== Kind.LIST || values.values.length === 0 || values.values.length > 64) {
+    fail("Graph Source query OR predicate must contain one to 64 object branches");
+  }
+  const branches = values.values.map((value) => {
+    if (value.kind !== Kind.OBJECT) fail("Graph Source query OR branches must be objects");
+    return {...value, fields: mergePredicateFields(common, value.fields)} as ObjectValueNode;
+  });
+  const normalizedWhere: ObjectValueNode = {
+    ...where,
+    fields: [{
+      ...disjunctions[0]!,
+      value: {...values, values: branches},
+    }],
+  };
+  const args = [...(root.arguments ?? [])];
+  args[whereIndex] = {...args[whereIndex]!, value: normalizedWhere};
+  const normalizedRoot = {...root, arguments: args};
+  const normalizedOperation = {
+    ...operation,
+    selectionSet: {...operation.selectionSet, selections: [normalizedRoot]},
+  };
+  return print({...document, definitions: [normalizedOperation]});
+}
+
+function predicateBranches(where: ObjectValueNode): readonly ObjectValueNode[] {
+  const disjunctions = where.fields.filter((field) => field.name.value === "or");
+  if (disjunctions.length === 0) {
+    if (where.fields.some((field) => field.name.value === "and")) {
+      fail("Graph Source query AND predicates are outside the bounded filter subset");
+    }
+    return [where];
+  }
+  if (disjunctions.length !== 1 || where.fields.length !== 1) {
+    fail("Graph Source query must not mix column predicates with a root OR operator");
+  }
+  const values = disjunctions[0]!.value;
+  if (values.kind !== Kind.LIST || values.values.length === 0 || values.values.length > 64) {
+    fail("Graph Source query OR predicate must contain one to 64 object branches");
+  }
+  return values.values.map((value) => {
+    if (value.kind !== Kind.OBJECT) fail("Graph Source query OR branches must be objects");
+    if (value.fields.some((field) => field.name.value === "and" || field.name.value === "or")) {
+      fail("Nested Graph Source boolean predicates are outside the bounded filter subset");
+    }
+    if (new Set(value.fields.map((field) => field.name.value)).size !== value.fields.length) {
+      fail("Graph Source query contains duplicate predicates in an OR branch");
+    }
+    return value;
+  });
+}
+
+function validatePredicateRelationshipDepth(value: ObjectValueNode, relationshipDepth = 0): void {
+  for (const field of value.fields) {
+    if (field.value.kind !== Kind.OBJECT) continue;
+    if (!field.name.value.endsWith("_")) {
+      fail(`Graph Source query predicate ${field.name.value} uses an unsupported object filter`);
+    }
+    if (relationshipDepth >= 1) {
+      fail(
+        `Graph Source query predicate ${field.name.value} exceeds The Graph's supported one-level child-filter nesting`,
+      );
+    }
+    validatePredicateRelationshipDepth(field.value, relationshipDepth + 1);
+  }
+}
+
 function collectLeafPaths(selection: SelectionSetNode, prefix = ""): string[] {
   const paths: string[] = [];
   for (const item of selection.selections) {
@@ -72,7 +181,9 @@ export function validateGraphSourceQueryPlan(
 ): ValidatedGraphQueryPlan {
   if (!graphName.test(input.queryEntity)) fail("Graph query entity is invalid");
   if (plan.document.length > 20_000) fail("Graph query document exceeds the bounded size limit");
-  const document = parse(plan.document, {maxTokens: 5_000});
+  const normalizedDocument = normalizeGraphSourceQueryDocument(plan.document);
+  if (normalizedDocument.length > 20_000) fail("Normalized Graph query document exceeds the bounded size limit");
+  const document = parse(normalizedDocument, {maxTokens: 5_000});
   if (document.definitions.length !== 1 || document.definitions[0]?.kind !== Kind.OPERATION_DEFINITION) {
     fail("Graph Source query must contain exactly one operation and no fragments");
   }
@@ -149,10 +260,12 @@ export function validateGraphSourceQueryPlan(
     fail("Graph Source query must use ascending cursor ordering");
   }
   const where = argument(root, "where")?.value;
-  if (variableName(objectField(where, "id_gt")) !== "cursor") {
-    fail("Graph Source query must advance the id_gt cursor with $cursor");
-  }
   if (where?.kind !== Kind.OBJECT) fail("Graph Source query where argument must be an object");
+  const branches = predicateBranches(where);
+  for (const branch of branches) validatePredicateRelationshipDepth(branch);
+  if (branches.some((branch) => variableName(objectField(branch, "id_gt")) !== "cursor")) {
+    fail("Every Graph Source query predicate branch must advance the id_gt cursor with $cursor");
+  }
   const aggregation = plan.aggregation ?? null;
   const interval = argument(root, "interval")?.value;
   if (aggregation) {
@@ -164,14 +277,15 @@ export function validateGraphSourceQueryPlan(
     fail("Graph Source raw entity query cannot declare an aggregate interval");
   }
   if (runtimeWindow) {
-    if (
-      variableName(objectField(where, `${runtimeWindow.field}_gte`)) !== runtimeWindow.startVariable
-      || variableName(objectField(where, `${runtimeWindow.field}_lt`)) !== runtimeWindow.endVariable
-    ) {
-      fail("Graph Source query must bind its complete UTC-day window to the declared runtime variables");
+    if (branches.some((branch) => (
+      variableName(objectField(branch, `${runtimeWindow.field}_gte`)) !== runtimeWindow.startVariable
+      || variableName(objectField(branch, `${runtimeWindow.field}_lt`)) !== runtimeWindow.endVariable
+    ))) {
+      fail("Every Graph Source query predicate branch must bind its complete UTC-day window to the declared runtime variables");
     }
   }
-  const hasAdditionalPredicates = where.fields.some((field) => field.name.value !== "id_gt");
+  const hasAdditionalPredicates = branches.some((branch) =>
+    branch.fields.some((field) => field.name.value !== "id_gt"));
 
   const selected = [...new Set(input.selectedPaths)];
   const permitted = new Set(["id", ...selected]);
@@ -189,6 +303,7 @@ export function validateGraphSourceQueryPlan(
   }
   return {
     operation,
+    normalizedDocument,
     cursorType: cursorType.name as ValidatedGraphQueryPlan["cursorType"],
     runtimeWindowVariableType,
     hasAdditionalPredicates,

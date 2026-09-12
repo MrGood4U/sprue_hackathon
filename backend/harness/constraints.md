@@ -56,7 +56,7 @@ Model-provider fees use a separate platform cost allowance configured for the ch
 | Graph schema | 5 MiB stored maximum from data-model 1.5; smaller slices for the model |
 | Query | 16 KiB document, depth 6, 64 expanded selected fields, one business root collection plus allowed provenance |
 | Source pagination | Default 500, maximum 1,000 rows/page; cursor strategy must be supported by inspected schema |
-| Graph | Count expanded primitive nodes and edges, not semantic cards: 12 nodes, 24 edges; exactly one output; proposed maximum 4 source nodes per run, with Union/Join only through explicit typed edges |
+| Graph | Count the complete expanded DAG, including Source nodes: 32 nodes, 64 edges; exactly one output; proposed maximum 4 source nodes per Agent run, with Union/Join only through explicit typed edges |
 | Expression AST | Depth 8, 128 nodes per expression, 32 output fields per map, 1,024-character scalar literal |
 | Runtime source requests | 100 logical requests per run, including metered probes and completion checks; paid retry is an HTTP attempt of the same request |
 | Physical source HTTP attempts | At most 3 per logical request and 300 per run; payment safety can prohibit retry before this cap |

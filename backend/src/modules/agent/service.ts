@@ -243,7 +243,6 @@ function proposalContent(
           fieldBindings: source.fieldBindings,
           auxiliaryFieldBindings: source.auxiliaryFieldBindings,
           queryPlan: source.queryPlan,
-          limit: 1_000,
         },
         outputSchema: source.outputSchema,
       })),

@@ -172,7 +172,7 @@ export interface LiveDeploymentRepository {
 }
 
 export class LiveDeploymentError extends Error {
-  constructor(readonly code: string) {
+  constructor(readonly code: string, readonly detail?: string) {
     super(code);
     this.name = "LiveDeploymentError";
   }

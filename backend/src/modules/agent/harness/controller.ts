@@ -1,4 +1,5 @@
 import {executeCrossChainTraderFootprint} from "../../dag/runtime.js";
+import {maximumDagEdges, maximumDagNodes} from "../../dag/limits.js";
 import {
   graphNetworkAliases,
   type GraphFieldRequirement,
@@ -321,6 +322,15 @@ function networkSearchAliases(networkLabel: string, dataNetwork: string): readon
   return [...unique.values()];
 }
 
+function protocolSearchKeyword(need: DiscoverySourceNeed): string {
+  if (!need.protocol) return "";
+  const version = need.protocol.version?.trim() ?? "";
+  const searchableVersion = /^\d+(?:\.\d+)*$/.test(version)
+    ? `v${version}`
+    : version;
+  return [need.protocol.name, searchableVersion].filter(Boolean).join(" ");
+}
+
 /**
  * Build a broad-recall search ladder for one network-scoped requirement.
  * The provider keyword search indexes Subgraph metadata, where protocol-wide
@@ -334,9 +344,12 @@ function deriveNetworkScopedSearchKeywords(
   modelKeywords: readonly string[],
   limit = 3,
 ): readonly string[] {
-  const protocol = need.protocol
-    ? [need.protocol.name, need.protocol.version ?? ""].filter(Boolean).join(" ")
-    : "";
+  // Provider metadata normally spells numeric protocol releases as `v3`,
+  // while planning models may legitimately return the structured version as
+  // `3`. Keep the semantic version structured, but use the provider-facing
+  // spelling for discovery so the broad protocol seed is not a guaranteed
+  // zero-result query that consumes the bounded search ladder.
+  const protocol = protocolSearchKeyword(need);
   const semanticSeeds = [protocol, ...modelKeywords]
     .map((value) => boundedSearchKeyword([value]))
     .filter((value): value is string => value !== null);
@@ -1149,6 +1162,7 @@ function validateSourceFeasibility(
   const discoveredCandidates = new Map(discovery.candidates.map((candidate) => [candidate.candidateRef, candidate]));
   const seenNeeds = new Set<string>();
   const sourceFieldsByNeed = new Map<string, readonly SourceRoleFieldShape[]>();
+  const providerFieldsByNeed = new Map<string, readonly GraphInspectedField[]>();
   const queryPredicatesByNeed = new Map<string, boolean>();
   const selected = output.selections.map((selection) => {
     const need = needs.find((candidate) => candidate.id === selection.sourceNeedId);
@@ -1274,13 +1288,14 @@ function validateSourceFeasibility(
         );
       }
       queryPredicatesByNeed.set(need.id, validatedQuery.hasAdditionalPredicates);
-    } catch {
+    } catch (error) {
       fail(
-        "Feasibility Source query is not a bounded query over the selected inspected fields",
+        `Feasibility Source query is not a bounded query over the selected inspected fields: ${diagnosticErrorMessage(error)}`,
         "FEASIBILITY_SOURCE_QUERY_INVALID",
       );
     }
     sourceFieldsByNeed.set(need.id, [...sourceFields.values()]);
+    providerFieldsByNeed.set(need.id, [...boundPaths, ...auxiliaryPaths].map((path) => fields.get(path)!));
     seenNeeds.add(need.id);
     return discoveredCandidate;
   });
@@ -1361,7 +1376,12 @@ function validateSourceFeasibility(
     if (
       pushedFilters.length > 0
       && (filterConfigs.some((config) => config === undefined)
-        || !matchesCompleteFilterPushdown(selection.queryPlan, filterConfigs, boundaryMap.config))
+        || !matchesCompleteFilterPushdown(
+          selection.queryPlan,
+          filterConfigs,
+          boundaryMap.config,
+          providerFieldsByNeed.get(selection.sourceNeedId),
+        ))
     ) {
       fail(
         "Feasibility Source query predicates are not exactly equivalent to its declared Filters",
@@ -1411,8 +1431,8 @@ export class AgentHarness {
       maxModelCalls: 5,
       maxIntentLength: 8000,
       maxProposalBytes: 1_048_576,
-      maxNodes: 12,
-      maxEdges: 24,
+      maxNodes: maximumDagNodes,
+      maxEdges: maximumDagEdges,
     },
     private readonly sourceDiscovery?: GraphSourceDiscoveryPort,
     private readonly debugSink?: AgentDebugSink,
@@ -1586,7 +1606,7 @@ export class AgentHarness {
     emitTrace("source_discovery_planning", "started", "Model is deriving bounded semantic requirements and Subgraph search keywords");
     const discoveryPlanningRequest: SourceDiscoveryPlanningModelRequest = {
       stage: "source_discovery_planning",
-      promptVersion: "7",
+      promptVersion: "8",
       planningAnchorAt,
       intent,
       availableNetworks: request.availableNetworks,
@@ -1744,7 +1764,7 @@ export class AgentHarness {
       "passed",
       aggregateNeeds.length === 0
         ? "The intent has no semantics-preserving pre-aggregated alternative"
-        : `Retained ${aggregateEntityCount} formal aggregation candidates for ${aggregateNeeds.length} source needs`,
+        : `Found ${aggregateEntityCount} schema-declared aggregation candidates across ${aggregateNeeds.length} source needs`,
       {
         kind: "aggregate_candidates",
         sourceNeedCount: aggregateNeeds.length,
@@ -1807,7 +1827,7 @@ export class AgentHarness {
       throw error;
     }
     const discoveryByRef = new Map(discovery.candidates.map((candidate) => [candidate.candidateRef, candidate]));
-    emitTrace("aggregate_selection", "passed", `Accepted ${acceptedAggregates.length} provider aggregation selections; remaining source needs will use raw fallback`, {
+    emitTrace("aggregate_selection", "passed", `Assessed ${aggregateNeeds.length} source needs: accepted ${acceptedAggregates.length} schema-declared aggregations and routed ${sourceNeeds.length - acceptedAggregates.length} to raw entities`, {
       kind: "aggregate_decisions",
       consideredCount: aggregateNeeds.length,
       acceptedCount: acceptedAggregates.length,
@@ -1968,8 +1988,8 @@ export class AgentHarness {
       "semantic_field_retrieval",
       "passed",
       fieldRetrieval.rankingEvidence === "embedding"
-        ? `Embedded all ${fieldRetrieval.embeddedFieldCount} selected-entity fields in ${fieldRetrieval.embeddingBatchCount} ${fieldRetrieval.embeddingBatchCount === 1 ? "batch" : "batches"} and retained ${presentedFieldCount} requirement-ranked alternatives`
-        : `Ranked selected-entity fields deterministically and retained ${presentedFieldCount} alternatives`,
+        ? `Embedded all ${fieldRetrieval.embeddedFieldCount} selected-entity fields in ${fieldRetrieval.embeddingBatchCount} ${fieldRetrieval.embeddingBatchCount === 1 ? "batch" : "batches"} and supplied ${presentedFieldCount} fields to the feasibility model`
+        : `Ranked selected-entity fields deterministically and supplied ${presentedFieldCount} fields to the feasibility model`,
       {
         kind: "field_candidates",
         inspectedFieldCount,
@@ -1983,7 +2003,7 @@ export class AgentHarness {
     emitTrace("source_feasibility", "started", "Model is binding retrieved fields and composing registered operators");
     const feasibilityRequest: SourceFeasibilityModelRequest = {
       stage: "source_feasibility",
-      promptVersion: "14",
+      promptVersion: "19",
       planningAnchorAt,
       semanticPlan: discoveryPlanningOutput.semanticPlan,
       sourceNeeds: effectiveSourceNeeds,
@@ -2032,24 +2052,23 @@ export class AgentHarness {
       return {kind: "unsupported", unsupported: feasibilityOutput, discovery, trace, model: modelResult()};
     }
     this.emitDebug({stage: "source_feasibility", outcome: "feasibility", selectionCount: feasibilityOutput.selections.length});
-    emitTrace("source_feasibility", "passed", "Model proposed discovered source choices and a registered operator composition");
+    emitTrace("source_feasibility", "passed", "Model proposed final field bindings and a registered operator composition");
 
-    for (const accepted of acceptedAggregates) {
-      const selected = feasibilityOutput.selections.find((selection) => selection.sourceNeedId === accepted.sourceNeedId);
-      const expected = accepted.fieldBindings.map((binding) => `${binding.requirementId}\u0000${binding.fieldPath}`).sort();
-      const actual = selected?.fieldBindings.map((binding) => `${binding.requirementId}\u0000${binding.fieldPath}`).sort() ?? [];
-      if (selected?.candidateRef !== accepted.candidateRef
-        || selected.queryEntity !== accepted.queryEntity
-        || expected.length !== actual.length
-        || expected.some((binding, index) => binding !== actual[index])) {
-        fail("Feasibility changed a deterministically admitted aggregate selection", "FEASIBILITY_AGGREGATE_SELECTION_CHANGED");
+    let feasibilityPlan: SourceFeasibilityPlan = feasibilityOutput;
+    const validateFeasibilityPlan = (proposal: SourceFeasibilityPlan): readonly string[] => {
+      for (const accepted of acceptedAggregates) {
+        const selected = proposal.selections.find((selection) => selection.sourceNeedId === accepted.sourceNeedId);
+        const expected = accepted.fieldBindings.map((binding) => `${binding.requirementId}\u0000${binding.fieldPath}`).sort();
+        const actual = selected?.fieldBindings.map((binding) => `${binding.requirementId}\u0000${binding.fieldPath}`).sort() ?? [];
+        if (selected?.candidateRef !== accepted.candidateRef
+          || selected.queryEntity !== accepted.queryEntity
+          || expected.length !== actual.length
+          || expected.some((binding, index) => binding !== actual[index])) {
+          fail("Feasibility changed a deterministically admitted aggregate selection", "FEASIBILITY_AGGREGATE_SELECTION_CHANGED");
+        }
       }
-    }
-
-    let blockers: readonly string[];
-    try {
-      blockers = validateSourceFeasibility(
-        feasibilityOutput,
+      return validateSourceFeasibility(
+        proposal,
         discoveryPlanningOutput.semanticPlan,
         effectiveSourceNeeds,
         discovery,
@@ -2057,19 +2076,72 @@ export class AgentHarness {
         presentedCandidateEvidence,
         {maxNodes: this.limits.maxNodes, maxEdges: this.limits.maxEdges},
       );
-    } catch (error) {
+    };
+    const throwFeasibilityValidationError = (error: unknown): never => {
+      if (error instanceof HarnessCompileError) throw new HarnessValidationError(error.message, error.code);
+      throw error;
+    };
+    const emitFeasibilityValidationFailure = (error: unknown, willRepair: boolean) => {
       this.emitDebug({
         stage: "source_feasibility",
         phase: "semantic_validation_failed",
         callNumber: modelCalls,
+        repairAttempt: feasibilityRequest.repair?.attempt ?? 0,
+        repairReason: feasibilityRequest.repair?.reason ?? null,
         validationCode: diagnosticErrorCode(error),
         validationMessage: diagnosticErrorMessage(error),
-        ...modelOutputShape(feasibilityOutput),
+        willRepair,
+        ...modelOutputShape(feasibilityPlan),
       });
-      if (error instanceof HarnessCompileError) throw new HarnessValidationError(error.message, error.code);
-      throw error;
+    };
+
+    let blockers: readonly string[] = [];
+    try {
+      blockers = validateFeasibilityPlan(feasibilityPlan);
+    } catch (error) {
+      const willRepair = repairCalls === 0 && modelCalls < this.limits.maxModelCalls;
+      emitFeasibilityValidationFailure(error, willRepair);
+      if (!willRepair) throwFeasibilityValidationError(error);
+
+      repairCalls += 1;
+      emitTrace("source_feasibility", "failed", "Model proposal failed deterministic feasibility validation");
+      emitTrace("source_feasibility", "started", "Requesting one bounded semantic repair from the configured model");
+      this.emitDebug({stage: "source_feasibility", outcome: "repair"});
+      const semanticRepairRequest: SourceFeasibilityModelRequest = {
+        ...feasibilityRequest,
+        repair: {
+          attempt: 1,
+          reason: "semantic_validation_failed",
+          path: "result",
+          issueCode: diagnosticErrorCode(error),
+          issueMessage: diagnosticErrorMessage(error),
+        },
+      };
+      const repaired = await invoke(semanticRepairRequest);
+      const repairedOutput = await parseWithRepair(semanticRepairRequest, repaired, parseSourceFeasibility, 0);
+      if (repairedOutput.kind !== "source_feasibility") {
+        fail("Semantic feasibility repair did not return a feasibility proposal", "FEASIBILITY_REPAIR_RESULT_INVALID");
+      }
+      feasibilityPlan = repairedOutput;
+      try {
+        blockers = validateFeasibilityPlan(feasibilityPlan);
+      } catch (repairError) {
+        this.emitDebug({
+          stage: "source_feasibility",
+          phase: "semantic_validation_failed",
+          callNumber: modelCalls,
+          repairAttempt: 1,
+          repairReason: "semantic_validation_failed",
+          validationCode: diagnosticErrorCode(repairError),
+          validationMessage: diagnosticErrorMessage(repairError),
+          willRepair: false,
+          ...modelOutputShape(feasibilityPlan),
+        });
+        throwFeasibilityValidationError(repairError);
+      }
+      emitTrace("source_feasibility", "passed", "Repaired proposal passed deterministic feasibility validation");
     }
-    emitTrace("feasibility_validation", "passed", "Source references, schema evidence, operator configs, ports, connectivity, acyclicity, and limits passed deterministic checks");
+    emitTrace("feasibility_validation", "passed", "Planning structure passed deterministic checks; source admission and live execution validation remain separate");
     return {
       kind: "feasibility",
       readyForCompilation: false,
@@ -2077,7 +2149,7 @@ export class AgentHarness {
       sourceNeeds: effectiveSourceNeeds,
       discovery,
       entitySelection: entitySelectionOutput,
-      feasibility: feasibilityOutput,
+      feasibility: feasibilityPlan,
       blockers,
       trace,
       model: modelResult(),

@@ -1,5 +1,5 @@
 import {createHash} from "node:crypto";
-import {buildASTSchema, getNamedType, isInputObjectType, isObjectType, Kind, parse, validate} from "graphql";
+import {buildASTSchema, getNamedType, isInputObjectType, isObjectType, Kind, parse, specifiedDirectives, validate} from "graphql";
 import type {GraphQLField, GraphQLNamedType, GraphQLObjectType, GraphQLSchema} from "graphql";
 import type {
   StructuredDagCompileInput,
@@ -122,6 +122,29 @@ function buildGraphSchema(schemaDocument: string): GraphQLSchema {
   const providerDirectives = new Set(providerDocument.definitions
     .filter((definition) => definition.kind === Kind.DIRECTIVE_DEFINITION)
     .map((definition) => definition.name.value));
+  const validationDirectives = new Set([
+    ...specifiedDirectives.map((directive) => directive.name),
+    ...graphSchemaPrelude.definitions
+      .filter((definition) => definition.kind === Kind.DIRECTIVE_DEFINITION)
+      .map((definition) => definition.name.value),
+    ...providerDirectives,
+  ]);
+  // Some deployed provider schemas retain passive object annotations from
+  // their schema-generation toolchain without returning matching directive
+  // definitions (for example Messari's @dailySnapshot). These annotations do
+  // not change the object/field shape used to validate a read query. Remove
+  // only undeclared annotations from object definitions in the in-memory
+  // validation document; keep the original provider SDL for hashing and
+  // persistence, and never rewrite directives in an executable query.
+  const validationDefinitions = providerDocument.definitions.map((definition) => {
+    if (definition.kind !== Kind.OBJECT_TYPE_DEFINITION && definition.kind !== Kind.OBJECT_TYPE_EXTENSION) {
+      return definition;
+    }
+    const directives = definition.directives?.filter((directive) => validationDirectives.has(directive.name.value));
+    return directives?.length === definition.directives?.length
+      ? definition
+      : {...definition, directives};
+  });
   const missingGraphDefinitions = graphSchemaPrelude.definitions.filter((definition) => {
     if (definition.kind === Kind.SCALAR_TYPE_DEFINITION) return !providerScalars.has(definition.name.value);
     if (definition.kind === Kind.DIRECTIVE_DEFINITION) return !providerDirectives.has(definition.name.value);
@@ -129,7 +152,7 @@ function buildGraphSchema(schemaDocument: string): GraphQLSchema {
   });
   return buildASTSchema({
     kind: Kind.DOCUMENT,
-    definitions: [...missingGraphDefinitions, ...providerDocument.definitions],
+    definitions: [...missingGraphDefinitions, ...validationDefinitions],
   });
 }
 
@@ -254,7 +277,7 @@ export function compileAuthoredLiveQuery(
     if (issues.length > 0) throw new Error(`Agent-authored Graph query is incompatible with the inspected schema: ${issues[0]!.message}`);
   }
   return {
-    document: plan.document,
+    document: authored.normalizedDocument,
     initialCursor: cursor.initial,
     runtimeWindowVariableType: authored.runtimeWindowVariableType,
   };

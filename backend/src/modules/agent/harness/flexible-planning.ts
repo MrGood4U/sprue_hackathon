@@ -71,7 +71,7 @@ export const flexibleOperatorRegistry: readonly OperatorSignature[] = [
     operatorVersion: "2",
     inputPorts: ["rows"],
     outputPorts: ["rows"],
-    configContract: "{mode:'extend'|'project',fields:[{name,expression:Expression,unit:string|null}]}; unit is semantic metadata, not a numeric conversion. Use null to inherit the expression unit.",
+    configContract: "{mode:'extend'|'project',fields:[{name,expression:Expression,unit:string|null}]}; unit is semantic metadata, not a numeric conversion. Use null to inherit the expression unit. A cardinality may use only the exact nominal unit promised for the same result field.",
   },
   {
     type: "aggregate",
@@ -177,6 +177,8 @@ function mapUnit(
   value: unknown,
   inferred: FieldShape,
   expectedUnitsByOrigin: ReadonlyMap<string, string | null>,
+  promisedUnit: string | null,
+  measurementUnits: ReadonlySet<string>,
 ): FieldShape {
   if (value === null) return inferred;
   if (typeof value !== "string") fail("MAP_UNIT_INVALID", "Map output unit must be a string or null");
@@ -189,7 +191,11 @@ function mapUnit(
   }
   if (inferred.unit === null) {
     const originUnits = [...inferred.origins].map((origin) => expectedUnitsByOrigin.get(origin));
-    if (originUnits.length === 0 || originUnits.some((originUnit) => originUnit !== unit)) {
+    const exactNominalCardinalityUnit = inferred.cardinality
+      && promisedUnit === unit
+      && !measurementUnits.has(unit);
+    if (!exactNominalCardinalityUnit
+      && (originUnits.length === 0 || originUnits.some((originUnit) => originUnit !== unit))) {
       fail("MAP_UNIT_UNSUPPORTED", `Map output unit ${unit} is not supported by the mapped source requirements`);
     }
   }
@@ -494,6 +500,8 @@ function outputShape(
   inputs: ReadonlyMap<string, RowShape>,
   usage: FieldUsage,
   expectedUnitsByOrigin: ReadonlyMap<string, string | null>,
+  promisedUnitsByField: ReadonlyMap<string, string | null>,
+  measurementUnits: ReadonlySet<string>,
 ): RowShape {
   const config = record(configValue, `${operator} config`);
   if (operator === "filter") {
@@ -549,7 +557,13 @@ function outputShape(
       if (seen.has(name)) fail("OPERATOR_CONFIG_INVALID", `Map field ${name} is duplicated`);
       seen.add(name);
       const inferred = expressionType(definition.expression, source, {nodes: 0}, {fields: usage, purpose: "derive"});
-      output.set(name, mapUnit(definition.unit, inferred, expectedUnitsByOrigin));
+      output.set(name, mapUnit(
+        definition.unit,
+        inferred,
+        expectedUnitsByOrigin,
+        promisedUnitsByField.get(name) ?? null,
+        measurementUnits,
+      ));
     }
     return output;
   }
@@ -769,6 +783,10 @@ export function validateFlexibleComposition(
   const shapes = new Map<string, RowShape>();
   const fieldUsage: FieldUsage = new Map();
   const expectedUnitsByOrigin = new Map<string, string | null>();
+  const promisedUnitsByField = new Map(plan.result.fields.map((field) => [field.name, field.unit]));
+  const declaredMeasurementUnits = new Set(plan.sourceRequirements
+    .flatMap((requirement) => requirement.fields.map((field) => field.unit))
+    .filter((unit): unit is string => unit !== null));
   for (const need of needs) {
     for (const requirement of need.fields) {
       expectedUnitsByOrigin.set(sourceRequirementOrigin(need.id, requirement.id), requirement.unit);
@@ -816,7 +834,15 @@ export function validateFlexibleComposition(
         const node = nodes.get(next)!;
         const inputs = new Map<string, RowShape>();
         for (const [port, previous] of incoming.get(next)!) inputs.set(port, shapes.get(previous)!);
-        shapes.set(next, outputShape(node.operator, node.config, inputs, fieldUsage, expectedUnitsByOrigin));
+        shapes.set(next, outputShape(
+          node.operator,
+          node.config,
+          inputs,
+          fieldUsage,
+          expectedUnitsByOrigin,
+          promisedUnitsByField,
+          declaredMeasurementUnits,
+        ));
         queue.push(next);
       }
     }

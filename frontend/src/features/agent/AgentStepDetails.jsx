@@ -44,6 +44,13 @@ function EvidenceLabel({kind}) {
   );
 }
 
+function candidateNetwork(candidate, t) {
+  if (candidate.reportedNetwork) return candidate.reportedNetwork;
+  if (candidate.networkEvidence === "display_name") return t("agent.details.networkFromName");
+  if (candidate.networkEvidence === "conflict") return t("agent.details.networkConflict");
+  return t("agent.details.networkUnverified");
+}
+
 function DiscoveryPlanDetails({details}) {
   const {t} = useI18n();
   const windowLabel = details.window
@@ -95,7 +102,7 @@ function SourceNeedsDetails({details}) {
             <Metric label={t("agent.details.grain")} value={need.grain} />
             <Metric label={t("agent.details.protocol")} value={need.protocol?.name} />
             <Metric label={t("agent.details.fields")} value={need.fields?.length ?? 0} />
-            <Metric label={t("agent.details.aggregateAlternative")} value={need.preAggregated ? t("agent.details.available") : t("agent.details.notRequired")} />
+            <Metric label={t("agent.details.aggregateAlternative")} value={need.preAggregated ? t("agent.details.requested") : t("agent.details.notRequired")} />
           </Metrics>
           <p>{need.description}</p>
           <Chips items={(need.assets ?? []).map((asset) => asset.networkAssetId ? `${asset.symbol} · ${asset.networkAssetId}` : asset.symbol)} />
@@ -139,7 +146,7 @@ function GraphDiscoveryDetails({details}) {
               <span>{t("agent.details.discoveryScore")}: <strong>{candidate.score.toFixed(2)}</strong></span>
               <span>{t("agent.details.entities")}: <strong>{candidate.entityCount}</strong></span>
               <span>{t("agent.details.queries30d")}: <strong>{valueOrDash(candidate.totalQueryCount30d)}</strong></span>
-              <span>{t("agent.details.network")}: <strong>{valueOrDash(candidate.reportedNetwork)}</strong></span>
+              <span>{t("agent.details.network")}: <strong>{candidateNetwork(candidate, t)}</strong></span>
             </div>
             <code>{candidate.manifestIpfsCid}</code>
             {(candidate.limitations?.length ?? 0) > 0 && <Chips items={candidate.limitations} />}
@@ -159,8 +166,8 @@ function RankedEntityDetails({details, aggregate = false}) {
       <Metrics>
         <Metric label={t("agent.details.sourceNeeds")} value={needCount} />
         <Metric label={t("agent.details.rankedCandidates")} value={candidateCount} />
-        <Metric label={t("agent.details.embeddedEntities")} value={details.embeddedEntityCount} />
-        <Metric label={t("agent.details.embeddingBatches")} value={details.embeddingBatchCount} />
+        {!aggregate && <Metric label={t("agent.details.embeddedEntities")} value={details.embeddedEntityCount} />}
+        {!aggregate && <Metric label={t("agent.details.embeddingBatches")} value={details.embeddingBatchCount} />}
       </Metrics>
       {(details.groups ?? []).length === 0 || candidateCount === 0 ? (
         <p className="agent-step-empty">{t(aggregate ? "agent.details.noAggregateCandidates" : "agent.details.noFallbackCandidates")}</p>
@@ -211,7 +218,7 @@ function AggregateDecisionDetails({details}) {
   return (
     <>
       <Metrics>
-        <Metric label={t("agent.details.aggregatesConsidered")} value={details.consideredCount} />
+        <Metric label={t("agent.details.sourceNeedsAssessed")} value={details.consideredCount} />
         <Metric label={t("agent.details.acceptedAggregates")} value={details.acceptedCount} />
         <Metric label={t("agent.details.rawFallbacks")} value={details.rawFallbackCount} />
       </Metrics>
@@ -262,14 +269,22 @@ function EntitySelectionDetails({details}) {
 
 function FieldCandidateDetails({details}) {
   const {t} = useI18n();
+  const shownAlternativeCount = (details.groups ?? []).reduce(
+    (count, group) => count + (group.requirements ?? []).reduce(
+      (requirementCount, requirement) => requirementCount + (requirement.alternatives?.length ?? 0),
+      0,
+    ),
+    0,
+  );
   return (
     <>
       <Metrics>
         <Metric label={t("agent.details.fieldsInspected")} value={details.inspectedFieldCount} />
-        <Metric label={t("agent.details.alternativesRetained")} value={details.presentedFieldCount} />
-        <Metric label={t("agent.details.fieldsOmitted")} value={details.omittedFieldCount} />
+        <Metric label={t("agent.details.fieldsSupplied")} value={details.presentedFieldCount} />
+        <Metric label={t("agent.details.semanticCandidatesShown")} value={shownAlternativeCount} />
         <Metric label={t("agent.details.embeddingBatches")} value={details.embeddingBatchCount} />
       </Metrics>
+      <p className="agent-step-secondary">{t("agent.details.semanticCandidateNotice")}</p>
       <div className="agent-step-groups">
         {(details.groups ?? []).map((group) => (
           <section className="agent-step-group" key={`${group.sourceNeedId}:${group.candidateRef}:${group.queryEntity}`}>

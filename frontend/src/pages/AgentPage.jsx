@@ -289,6 +289,7 @@ export function AgentPage({path, navigate}) {
         <AgentProgress
           trace={isPlanning ? agent.liveTrace : agent.trace}
           planState={isPlanning ? "planning" : agent.planState}
+          result={isPlanning ? null : latestResult}
         />
       </main>
       {confirmation === "regenerate" && (

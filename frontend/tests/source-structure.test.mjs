@@ -173,6 +173,7 @@ test("keeps Agent Planner on live durable services without a demo fallback", asy
   const progress = await readFile(new URL("features/agent/AgentProgress.jsx", sourceRoot), "utf8");
   const stepCards = await readFile(new URL("features/agent/AgentStepCards.jsx", sourceRoot), "utf8");
   const stepDetails = await readFile(new URL("features/agent/AgentStepDetails.jsx", sourceRoot), "utf8");
+  const tracePresentation = await readFile(new URL("features/agent/tracePresentation.js", sourceRoot), "utf8");
   const agentApi = await readFile(new URL("services/api/agent.js", sourceRoot), "utf8");
   const styles = await readFile(new URL("features/agent/agent.css", sourceRoot), "utf8");
   const app = await readFile(new URL("app/App.jsx", sourceRoot), "utf8");
@@ -254,11 +255,11 @@ test("keeps Agent Planner on live durable services without a demo fallback", asy
   assert.match(progress, /aggregate_selection/);
   assert.match(progress, /semantic_entity_retrieval/);
   assert.match(progress, /semantic_field_retrieval/);
-  assert.match(stepCards, /event\.summary/);
-  assert.match(stepCards, /aggregate_schema_retrieval/);
-  assert.match(stepCards, /aggregate_selection/);
-  assert.match(stepCards, /semantic_entity_retrieval/);
-  assert.match(stepCards, /semantic_field_retrieval/);
+  assert.match(stepCards, /traceSummary\(event, t\)/);
+  assert.match(tracePresentation, /aggregate_schema_retrieval/);
+  assert.match(tracePresentation, /aggregate_selection/);
+  assert.match(tracePresentation, /semantic_entity_retrieval/);
+  assert.match(tracePresentation, /semantic_field_retrieval/);
   assert.match(stepCards, /agent\.status\.\$\{state\}/);
   assert.match(stepCards, /agent-step-card-spinner/);
   assert.match(stepCards, /aria-expanded=\{expanded\}/);

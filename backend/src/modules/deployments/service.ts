@@ -5,13 +5,37 @@ import type {GraphCredentialService} from "../graph-credential/service.js";
 import {GraphMcpError} from "../graph/mcp-client.js";
 import type {GraphPlanningMcpPort, GraphRuntimeQueryPort, GraphRuntimeSchemaPort} from "../graph/types.js";
 import type {LiveSourceInput} from "./live-plan.js";
-import {contentHash, createImmutableLivePlan, declaredLiveQueryEntityType, LivePlanCompilationError} from "./live-plan.js";
-import {executeLivePlan} from "./runtime.js";
+import {compileAuthoredLiveQuery, contentHash, createImmutableLivePlan, declaredLiveQueryEntityType, LivePlanCompilationError} from "./live-plan.js";
+import {executeLivePlan, resolveCompleteUtcWindow} from "./runtime.js";
 import {LiveDeploymentError, type AdmittedLiveSource, type LiveDeploymentRepository} from "./contracts.js";
 import type {LoadedX402Gate, X402PaymentRequirements} from "./contracts.js";
 import {Blocky402Error, type X402Facilitator, type X402PaymentPayload} from "../payments/blocky402-client.js";
 
 export type GraphLiveClient = GraphPlanningMcpPort & GraphRuntimeQueryPort & GraphRuntimeSchemaPort;
+
+function boundedSourceDetail(sourceId: string, message: string): string {
+  const clean = message.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 500);
+  return `${sourceId}: ${clean || "The Graph rejected the bounded source query."}`;
+}
+
+function compilationFailure(sourceId: string, error: unknown): LiveDeploymentError {
+  const message = error instanceof Error ? error.message : "The compiled source query is incompatible with the live schema.";
+  return new LiveDeploymentError("LIVE_SOURCE_SCHEMA_INVALID", boundedSourceDetail(sourceId, message));
+}
+
+function authoredQueryVariables(
+  source: LiveSourceInput,
+  compiled: ReturnType<typeof compileAuthoredLiveQuery>,
+): Record<string, unknown> {
+  const variables: Record<string, unknown> = {first: 1, cursor: compiled.initialCursor};
+  const window = source.queryPlan?.runtimeWindow ?? null;
+  if (!window) return variables;
+  const resolved = resolveCompleteUtcWindow(window.days, new Date());
+  const encode = (value: string) => compiled.runtimeWindowVariableType === "Int" ? Number(value) : value;
+  variables[window.startVariable] = encode(resolved.start);
+  variables[window.endVariable] = encode(resolved.end);
+  return variables;
+}
 
 export class LiveDeploymentService {
   constructor(
@@ -76,7 +100,7 @@ export class LiveDeploymentService {
         try {
           queryEntityType = declaredLiveQueryEntityType(source, schemaDocument);
         } catch (error) {
-          throw new LivePlanCompilationError(error);
+          throw compilationFailure(source.id, error);
         }
         if (!queryEntityType) {
           const queryFields = await graph.getRuntimeQueryFields(source.manifestIpfsCid, input.signal);
@@ -84,6 +108,53 @@ export class LiveDeploymentService {
             field.name === source.queryEntity && field.list)?.entityType ?? null;
         }
         if (!queryEntityType) throw new LiveDeploymentError("LIVE_SOURCE_QUERY_ENTITY_INVALID");
+        if (source.queryPlan) {
+          const sourceNode = input.dag.nodes.find((node) => node.type === "source"
+            && String(node.config.sourceId ?? node.config.sourceKey ?? "") === source.id);
+          const selectedPaths = sourceNode?.outputSchema?.fields
+            .map((field) => field.name)
+            .filter((field) => field !== "data_network") ?? [];
+          let compiledQuery: ReturnType<typeof compileAuthoredLiveQuery>;
+          try {
+            compiledQuery = compileAuthoredLiveQuery(
+              {...source, queryEntityType},
+              schemaDocument,
+              selectedPaths,
+              source.queryPlan,
+            );
+          } catch (error) {
+            throw compilationFailure(source.id, error);
+          }
+          try {
+            const probe = await graph.executeStaticQuery(
+              source.manifestIpfsCid,
+              compiledQuery.document,
+              authoredQueryVariables(source, compiledQuery),
+              input.signal,
+            );
+            if (probe.errors.length > 0) {
+              throw new LiveDeploymentError(
+                "LIVE_SOURCE_QUERY_PROBE_FAILED",
+                boundedSourceDetail(source.id, probe.errors[0]!.message),
+              );
+            }
+            if (!Array.isArray(probe.data[source.queryEntity])) {
+              throw new LiveDeploymentError(
+                "LIVE_SOURCE_QUERY_PROBE_FAILED",
+                boundedSourceDetail(source.id, `The Graph response did not contain ${source.queryEntity} rows.`),
+              );
+            }
+          } catch (error) {
+            if (error instanceof LiveDeploymentError) throw error;
+            if (error instanceof GraphMcpError) {
+              throw new LiveDeploymentError(
+                "LIVE_SOURCE_QUERY_PROBE_FAILED",
+                boundedSourceDetail(source.id, error.message),
+              );
+            }
+            throw error;
+          }
+        }
         admitted.push({
           ...source,
           queryEntityType,
@@ -110,7 +181,7 @@ export class LiveDeploymentService {
         throw new LiveDeploymentError("LIVE_VERSION_PERSIST_FAILED");
       }
     } catch (error) {
-      if (error instanceof GraphMcpError) throw new LiveDeploymentError(error.code);
+      if (error instanceof GraphMcpError) throw new LiveDeploymentError(error.code, error.message);
       if (error instanceof LivePlanCompilationError) throw new LiveDeploymentError("LIVE_SOURCE_SCHEMA_INVALID");
       throw error;
     } finally {

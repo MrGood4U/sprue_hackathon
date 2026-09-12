@@ -3,28 +3,7 @@ import {CaretDown, CheckCircle, CircleNotch, WarningCircle} from "@phosphor-icon
 import {Status} from "../../components/ui/Status.jsx";
 import {useI18n} from "../../i18n/I18nProvider.jsx";
 import {AgentStepDetails} from "./AgentStepDetails.jsx";
-
-const stageTitleKeys = {
-  admit: "agent.stage.admit",
-  source_discovery_planning: "agent.stage.discoveryPlan",
-  source_needs: "agent.stage.sourceNeeds",
-  graph_source_discovery: "agent.stage.graphDiscovery",
-  aggregate_schema_retrieval: "agent.stage.aggregateRetrieval",
-  aggregate_selection: "agent.stage.aggregateSelection",
-  semantic_entity_retrieval: "agent.stage.semanticRetrieval",
-  source_entity_selection: "agent.stage.entitySelection",
-  semantic_field_retrieval: "agent.stage.semanticFieldRetrieval",
-  source_feasibility: "agent.stage.feasibility",
-  feasibility_validation: "agent.stage.validation",
-  semantic_interpretation: "agent.stage.model",
-  source_selection: "agent.stage.sources",
-  query_compilation: "agent.stage.sources",
-  dag_composition: "agent.stage.dag",
-  spec_assembly: "agent.stage.dag",
-  spec_validation: "agent.stage.validation",
-  dag_execution: "agent.stage.dag",
-  output: "agent.stage.output",
-};
+import {stageTitle, traceSummary} from "./tracePresentation.js";
 
 function elapsedLabel(elapsedSeconds, t) {
   if (elapsedSeconds < 60) return t("agent.elapsed.seconds", {seconds: elapsedSeconds});
@@ -49,11 +28,6 @@ function eventState(status) {
   if (status === "passed") return "complete";
   if (status === "failed") return "failed";
   return "active";
-}
-
-function stageTitle(stage, t) {
-  const key = stageTitleKeys[stage];
-  return key ? t(key) : stage.replaceAll("_", " ");
 }
 
 export function AgentStepCards({trace = [], running = false, elapsedSeconds = 0}) {
@@ -119,7 +93,7 @@ export function AgentStepCards({trace = [], running = false, elapsedSeconds = 0}
                 )}
               </div>
             )}
-            <p>{event.summary}</p>
+            <p>{traceSummary(event, t)}</p>
             {expanded && <div className="agent-step-details"><AgentStepDetails details={event.details} /></div>}
           </article>
         );

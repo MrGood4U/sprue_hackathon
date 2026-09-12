@@ -9,6 +9,7 @@ import {
   entityEmbeddingLimits,
   deriveDiscoverySourceNeeds,
   HarnessCompileError,
+  promptForStage,
   RemoteEntityEmbeddingRanker,
   RemoteAgentModel,
   sourceRequirementOrigin,
@@ -24,7 +25,8 @@ import type {
   SourceFeasibilitySelection,
 } from "../src/modules/agent/harness/index.js";
 import type {SourceInput} from "../src/modules/dag/runtime.js";
-import {jsonSchemaForStage} from "../src/modules/agent/harness/schemas.js";
+import {maximumDagEdges, maximumDagNodes} from "../src/modules/dag/limits.js";
+import {jsonSchemaForStage, parseSourceDiscoveryPlanning} from "../src/modules/agent/harness/schemas.js";
 
 const baseEnvironment = {
   NODE_ENV: "test",
@@ -35,6 +37,18 @@ const baseEnvironment = {
   DATA_PUBLIC_BASE_URL: "http://127.0.0.1:3001/data/v1",
   CORS_ALLOWED_ORIGINS: "http://127.0.0.1:4173",
 } as const;
+
+test("source feasibility prompt requires a non-null Graph cursor variable", () => {
+  const prompt = promptForStage("source_feasibility");
+  assert.match(prompt, /\$cursor: ID!/);
+  assert.match(prompt, /nullable declaration such as \$cursor: ID is invalid/);
+  assert.match(prompt, /Filter\.relativeWindow\.field is the boundary Map output and must already have type timestamp or date/);
+  assert.match(prompt, /count_rows or count_distinct cardinality may use the exact nominal unit promised/);
+  assert.match(prompt, /root where object must contain only or/);
+  assert.match(prompt, /every branch must repeat id_gt:\$cursor/);
+  assert.match(prompt, /supports at most one relationship hop/);
+  assert.match(prompt, /never infer a token or pair identity from a symbol/);
+});
 
 const mapping = {
   wallet: "account.id",
@@ -494,7 +508,7 @@ test("flexible validation preserves nominal count units and numerator units for 
           mode: "project",
           fields: [
             {name: "day", expression: {op: "field", field: "day"}, unit: null},
-            {name: "trade_count", expression: {op: "field", field: "trade_count"}, unit: null},
+            {name: "trade_count", expression: {op: "field", field: "trade_count"}, unit: "trades"},
             {name: "volume_usd", expression: {op: "field", field: "volume_usd"}, unit: null},
             {
               name: "average_trade_size_usd",
@@ -543,9 +557,35 @@ test("flexible validation preserves nominal count units and numerator units for 
     composition,
     deriveDiscoverySourceNeeds(plan),
     [selection],
-    {maxNodes: 12, maxEdges: 24},
+    {maxNodes: maximumDagNodes, maxEdges: maximumDagEdges},
     sourceFieldsByNeed,
   ));
+
+  const mismatchedCountUnit: FlexibleCompositionIntent = {
+    ...composition,
+    nodes: composition.nodes.map((node) => node.role === "daily_average" && node.operator === "map"
+      ? {
+          ...node,
+          config: {
+            ...node.config,
+            fields: (node.config.fields as readonly {name: string; expression: unknown; unit: string | null}[]).map((definition) => definition.name === "trade_count"
+              ? {...definition, unit: "wallets"}
+              : definition),
+          },
+        }
+      : node),
+  };
+  assert.throws(
+    () => validateFlexibleComposition(
+      plan,
+      mismatchedCountUnit,
+      deriveDiscoverySourceNeeds(plan),
+      [selection],
+      {maxNodes: maximumDagNodes, maxEdges: maximumDagEdges},
+      sourceFieldsByNeed,
+    ),
+    (error: unknown) => error instanceof HarnessCompileError && error.code === "MAP_UNIT_UNSUPPORTED",
+  );
 
   const unsupportedUnit: FlexibleCompositionIntent = {
     ...composition,
@@ -567,7 +607,7 @@ test("flexible validation preserves nominal count units and numerator units for 
       unsupportedUnit,
       deriveDiscoverySourceNeeds(plan),
       [selection],
-      {maxNodes: 12, maxEdges: 24},
+      {maxNodes: maximumDagNodes, maxEdges: maximumDagEdges},
       sourceFieldsByNeed,
     ),
     (error: unknown) => error instanceof HarnessCompileError && error.code === "MAP_UNIT_UNSUPPORTED",
@@ -585,7 +625,7 @@ test("flexible validation preserves nominal count units and numerator units for 
       nonProjectBoundary,
       deriveDiscoverySourceNeeds(plan),
       [selection],
-      {maxNodes: 12, maxEdges: 24},
+      {maxNodes: maximumDagNodes, maxEdges: maximumDagEdges},
       sourceFieldsByNeed,
     ),
     (error: unknown) => error instanceof HarnessCompileError
@@ -610,7 +650,7 @@ test("flexible validation preserves nominal count units and numerator units for 
       inventedSourceAlias,
       deriveDiscoverySourceNeeds(plan),
       [selection],
-      {maxNodes: 12, maxEdges: 24},
+      {maxNodes: maximumDagNodes, maxEdges: maximumDagEdges},
       sourceFieldsByNeed,
     ),
     (error: unknown) => error instanceof HarnessCompileError
@@ -631,7 +671,7 @@ test("flexible validation preserves nominal count units and numerator units for 
       missingSortComposition,
       deriveDiscoverySourceNeeds(plan),
       [selection],
-      {maxNodes: 12, maxEdges: 24},
+      {maxNodes: maximumDagNodes, maxEdges: maximumDagEdges},
       sourceFieldsByNeed,
     ),
     (error: unknown) => error instanceof HarnessCompileError && error.code === "OUTPUT_ORDER_INVALID",
@@ -652,7 +692,7 @@ test("flexible validation preserves nominal count units and numerator units for 
     sortedComposition,
     deriveDiscoverySourceNeeds(descendingPlan),
     [selection],
-    {maxNodes: 12, maxEdges: 24},
+    {maxNodes: maximumDagNodes, maxEdges: maximumDagEdges},
     sourceFieldsByNeed,
   ));
 
@@ -671,13 +711,99 @@ test("flexible validation preserves nominal count units and numerator units for 
       composition,
       deriveDiscoverySourceNeeds(invalidCountUnitPlan),
       [selection],
-      {maxNodes: 12, maxEdges: 24},
+      {maxNodes: maximumDagNodes, maxEdges: maximumDagEdges},
       sourceFieldsByNeed,
     ),
     (error: unknown) => error instanceof HarnessCompileError
-      && error.code === "OUTPUT_SCHEMA_INVALID"
-      && error.message.includes("trade_count"),
+      && error.code === "MAP_UNIT_UNSUPPORTED"
+      && error.message.includes("trades"),
   );
+});
+
+test("source discovery planning requires provider count for count-valued pre-aggregated measures", () => {
+  const output = {
+    schemaVersion: 3,
+    kind: "source_discovery_plan",
+    semanticPlan: {
+      schemaVersion: 3,
+      kind: "semantic_plan",
+      summary: "Daily trade count and volume.",
+      sourceRequirements: [{
+        id: "daily_swaps",
+        dataNetwork: "eip155:1",
+        protocol: {name: "Uniswap", version: null},
+        assets: [],
+        description: "Raw swap events.",
+        grain: "one row per swap event",
+        fields: [{
+          id: "swap_id",
+          description: "Stable swap identifier.",
+          expectedType: "id",
+          unit: null,
+          required: true,
+          allowNullable: false,
+          hints: ["id"],
+        }],
+        preAggregated: {
+          grain: "one pool per UTC day",
+          fields: [
+            {
+              id: "day_start_timestamp",
+              description: "UTC day bucket.",
+              expectedType: "timestamp",
+              unit: null,
+              required: true,
+              allowNullable: false,
+              hints: ["timestamp"],
+              acceptedFunctions: ["dimension"],
+            },
+            {
+              id: "trade_count",
+              description: "Number of trades in the bucket.",
+              expectedType: "integer",
+              unit: "count",
+              required: true,
+              allowNullable: false,
+              hints: ["tradeCount"],
+              acceptedFunctions: ["sum"],
+            },
+            {
+              id: "volume_usd",
+              description: "USD volume in the bucket.",
+              expectedType: "decimal",
+              unit: "USD",
+              required: true,
+              allowNullable: false,
+              hints: ["volumeUSD"],
+              acceptedFunctions: ["sum"],
+            },
+          ],
+        },
+        constraints: [],
+      }],
+      result: {
+        description: "Daily totals.",
+        grain: "one row per UTC day",
+        fields: [{name: "trade_count", description: "Trade count.", type: "integer", unit: "count", nullable: false}],
+        orderBy: [],
+      },
+      window: null,
+      refresh: {mode: "manual", timezone: "UTC"},
+      assumptions: [],
+      unresolved: [],
+    },
+    searches: [{sourceNeedId: "daily_swaps", keywords: ["Uniswap"]}],
+  };
+
+  assert.throws(
+    () => parseSourceDiscoveryPlanning(output),
+    (error: unknown) => error instanceof Error
+      && error.message.includes("acceptedFunctions")
+      && error.message.includes("provider count function"),
+  );
+
+  output.semanticPlan.sourceRequirements[0]!.preAggregated.fields[1]!.acceptedFunctions = ["count"];
+  assert.equal(parseSourceDiscoveryPlanning(output).kind, "source_discovery_plan");
 });
 
 test("mock Agent harness executes the non-model cross-chain flow", async () => {

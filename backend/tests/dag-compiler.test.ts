@@ -23,6 +23,34 @@ function validDag(): StructuredDagCompileInput {
   };
 }
 
+function chainedDag(nodeCount: number): StructuredDagCompileInput {
+  const amount = {name: "amount_usd", type: "decimal" as const, nullable: false, unit: "USD"};
+  const mapIds = Array.from({length: nodeCount - 2}, (_, index) => `map_${index + 1}`);
+  const path = ["source_rows", ...mapIds, "final_output"];
+  return {
+    schemaVersion: 1,
+    dag: {
+      nodes: [
+        {id: "source_rows", type: "source", operatorVersion: "1", config: {sourceId: "graph:source"}, outputSchema: {fields: [amount]}},
+        ...mapIds.map((id) => ({
+          id,
+          type: "map" as const,
+          operatorVersion: "2" as const,
+          config: {mode: "project", fields: [{name: "amount_usd", expression: {op: "field", field: "amount_usd"}}]},
+        })),
+        {id: "final_output", type: "output", operatorVersion: "3", config: {fields: ["amount_usd"]}},
+      ],
+      edges: path.slice(0, -1).map((fromNode, index) => ({
+        fromNode,
+        fromPort: "rows" as const,
+        toNode: path[index + 1]!,
+        toPort: "rows" as const,
+      })),
+    },
+    outputSchema: {fields: [amount]},
+  };
+}
+
 test("structured DAG compiler accepts a normalized acyclic graph and produces a stable hash", () => {
   const now = new Date("2026-09-11T00:00:00.000Z");
   const first = compileStructuredDag(validDag(), now);
@@ -32,6 +60,16 @@ test("structured DAG compiler accepts a normalized acyclic graph and produces a 
   if (first.status !== "passed" || second.status !== "passed") return;
   assert.equal(first.compilationHash, second.compilationHash);
   assert.deepEqual(first.outputSchema.fields, [{name: "amount_usd", type: "decimal", nullable: false, unit: "USD"}]);
+});
+
+test("structured DAG compiler enforces the 32-node overall ceiling", () => {
+  assert.equal(compileStructuredDag(chainedDag(32)).status, "passed");
+
+  const oversized = compileStructuredDag(chainedDag(33));
+  assert.equal(oversized.status, "failed");
+  if (oversized.status === "failed") {
+    assert.equal(oversized.issues.some((issue) => issue.code === "DAG_NODE_COUNT_INVALID"), true);
+  }
 });
 
 test("structured DAG compiler validates an optional Source row limit", () => {

@@ -1,6 +1,7 @@
 import type {Request, RequestHandler} from "express";
 import {z} from "zod";
 import {compileStructuredDag} from "../../modules/dag/compiler.js";
+import {maximumDagEdges, maximumDagNodes} from "../../modules/dag/limits.js";
 import {
   ProductNotFoundError,
   ProductPreconditionError,
@@ -84,11 +85,15 @@ const sourceQueryPlanSchema = z.strictObject({
     endVariable: z.literal("windowEnd"),
     valueEncoding: z.literal("unix_seconds"),
   }).nullable().optional(),
+  aggregation: z.strictObject({
+    sourceEntity: z.string().regex(/^[_A-Za-z][_0-9A-Za-z]*$/),
+    interval: z.enum(["hour", "day"]),
+  }).nullable().optional(),
   pushedOperations: z.array(z.strictObject({
     nodeRole: z.string().regex(/^[a-z][a-z0-9_]{0,99}$/),
     operator: z.enum(["map", "filter", "sort"]),
     description: z.string().trim().min(1).max(500),
-  })).max(12),
+  })).max(maximumDagNodes),
 });
 
 const liveSourceSchema = z.strictObject({
@@ -107,8 +112,8 @@ export const builderCompileInputSchema = z.strictObject({
   schemaVersion: z.literal(1),
   sources: z.array(liveSourceSchema).min(1).max(8).optional(),
   dag: z.strictObject({
-    nodes: z.array(nodeSchema).max(128),
-    edges: z.array(edgeSchema).max(256),
+    nodes: z.array(nodeSchema).max(maximumDagNodes),
+    edges: z.array(edgeSchema).max(maximumDagEdges),
   }),
   outputSchema: requestRowSchema,
 });
@@ -127,7 +132,7 @@ const compilationBase = {
   edgeCount: z.number().int().nonnegative(),
 };
 
-function sourceAdmissionMessage(code: string): string {
+function sourceAdmissionMessage(code: string, detail?: string): string {
   if (code === "GRAPH_CREDENTIAL_NOT_SELECTED") {
     return "Select and validate a The Graph API key before building this live product.";
   }
@@ -138,10 +143,17 @@ function sourceAdmissionMessage(code: string): string {
     return "The compiled source nodes do not match the admitted live source definitions.";
   }
   if (code === "LIVE_SOURCE_SCHEMA_INVALID") {
-    return "A live The Graph schema is incompatible with the compiled source query or selected provider fields.";
+    return detail
+      ? `The live The Graph source is incompatible with the compiled query: ${detail}`
+      : "A live The Graph schema is incompatible with the compiled source query or selected provider fields.";
   }
   if (code === "LIVE_SOURCE_QUERY_ENTITY_INVALID") {
     return "The selected The Graph collection no longer resolves to one exact live entity type.";
+  }
+  if (code === "LIVE_SOURCE_QUERY_PROBE_FAILED") {
+    return detail
+      ? `The Graph rejected the bounded source preflight query: ${detail}`
+      : "The Graph rejected a bounded source preflight query. Review the Source query and try again.";
   }
   if (code === "LIVE_VERSION_PERSIST_FAILED") {
     return "The live sources passed validation, but Sprue could not persist the immutable product version.";
@@ -290,7 +302,12 @@ export function compileBuilderDag(service?: ProductService, deployments?: LiveDe
             compiledAt: new Date().toISOString(),
             nodeCount: parsed.data.dag.nodes.length,
             edgeCount: parsed.data.dag.edges.length,
-            issues: [{code, message: sourceAdmissionMessage(code), nodeId: null, path: "sources"}],
+            issues: [{
+              code,
+              message: sourceAdmissionMessage(code, error instanceof LiveDeploymentError ? error.detail : undefined),
+              nodeId: null,
+              path: "sources",
+            }],
           };
         }
       }

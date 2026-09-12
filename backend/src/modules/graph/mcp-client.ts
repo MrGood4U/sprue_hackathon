@@ -107,6 +107,21 @@ function fail(code: string, message: string): never {
   throw new GraphMcpError(code, message);
 }
 
+function boundedToolFailureDetail(error: unknown): string | null {
+  if (typeof error !== "object" || error === null) return null;
+  const data = (error as {data?: unknown}).data;
+  const details = typeof data === "object" && data !== null
+    ? (data as {details?: unknown}).details
+    : null;
+  const raw = typeof details === "string"
+    ? details
+    : typeof (error as {message?: unknown}).message === "string"
+      ? String((error as {message: string}).message)
+      : null;
+  if (!raw) return null;
+  return raw.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 500) || null;
+}
+
 function combineSignals(left: AbortSignal | undefined, right: AbortSignal): AbortSignal {
   if (!left) return right;
   return AbortSignal.any([left, right]);
@@ -167,8 +182,11 @@ export class SdkGraphMcpPlanningWire implements GraphMcpPlanningWire {
     await this.connect(signal);
     try {
       return await this.client.callTool({name: tool, arguments: {...args}}, this.timeout(signal));
-    } catch {
-      fail("GRAPH_MCP_TOOL_CALL_FAILED", `Graph MCP planning tool ${tool} failed`);
+    } catch (error) {
+      const detail = boundedToolFailureDetail(error);
+      fail("GRAPH_MCP_TOOL_CALL_FAILED", detail
+        ? `Graph MCP planning tool ${tool} failed: ${detail}`
+        : `Graph MCP planning tool ${tool} failed`);
     }
   }
 

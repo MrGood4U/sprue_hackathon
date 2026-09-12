@@ -1,6 +1,7 @@
 import { CheckCircle, CircleNotch, Sparkle } from "@phosphor-icons/react";
 import { Status } from "../../components/ui/Status.jsx";
 import { useI18n } from "../../i18n/I18nProvider.jsx";
+import {traceSummary} from "./tracePresentation.js";
 
 const stageDefinitions = [
   ["admit", "agent.stage.admit", "agent.stage.admitDetail"],
@@ -27,11 +28,20 @@ function itemState(event, planState, index) {
   return planState === "planning" && index === 0 ? "active" : "pending";
 }
 
-export function AgentProgress({ trace = [], planState }) {
+export function AgentProgress({ trace = [], planState, result = null }) {
   const { t } = useI18n();
   const events = latestByStage(trace);
   const completed = stageDefinitions.filter(([stage], index) => itemState(events.get(stage), planState, index) === "complete").length;
   const progress = Math.round((completed / stageDefinitions.length) * 100);
+  const progressKey = planState === "planning"
+    ? "agent.progressRunning"
+    : progress < 100
+      ? "agent.progressRecorded"
+      : result?.kind === "proposal" && result.readyForCompilation
+        ? "agent.progressReady"
+        : result?.kind === "proposal"
+          ? "agent.progressNeedsInput"
+          : "agent.progressRecorded";
 
   return (
     <aside className="agent-progress-panel" aria-label={t("agent.progressTitle")}>
@@ -44,7 +54,7 @@ export function AgentProgress({ trace = [], planState }) {
       </div>
       <div className="agent-progress-summary">
         <div className="agent-progress-track"><span style={{ width: `${progress}%` }} /></div>
-        <span>{t(planState === "planning" ? "agent.progressRunning" : progress === 100 ? "agent.progressComplete" : "agent.progressWaiting", { completed, total: stageDefinitions.length })}</span>
+        <span role="status" aria-atomic="true">{t(progressKey, { completed, total: stageDefinitions.length })}</span>
       </div>
       <ol className="agent-trace-list">
         {stageDefinitions.map(([stage, titleKey, detailKey], index) => {
@@ -56,7 +66,7 @@ export function AgentProgress({ trace = [], planState }) {
               </span>
               <div>
                 <div className="agent-trace-title"><strong>{t(titleKey)}</strong><Status tone={state === "complete" ? "green" : state === "failed" ? "amber" : state === "active" ? "violet" : "neutral"}>{t(`agent.status.${state}`)}</Status></div>
-                <p>{events.get(stage)?.summary ?? t(detailKey)}</p>
+                <p>{events.has(stage) ? traceSummary(events.get(stage), t) : t(detailKey)}</p>
               </div>
             </li>
           );

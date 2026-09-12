@@ -443,7 +443,7 @@ export type SourceFeasibilityOutput = SourceFeasibilityPlan | PlannerClarificati
 
 export interface SourceDiscoveryPlanningModelRequest {
   stage: "source_discovery_planning";
-  promptVersion: "7";
+  promptVersion: "8";
   planningAnchorAt: string;
   intent: string;
   availableNetworks: readonly {dataNetwork: string; label: string}[];
@@ -453,7 +453,7 @@ export interface SourceDiscoveryPlanningModelRequest {
 
 export interface SourceFeasibilityModelRequest {
   stage: "source_feasibility";
-  promptVersion: "14";
+  promptVersion: "19";
   planningAnchorAt: string;
   semanticPlan: DiscoverySemanticPlan;
   sourceNeeds: readonly DiscoverySourceNeed[];
@@ -490,9 +490,10 @@ export interface AggregateSelectionModelRequest {
 
 export interface ModelRepairDirective {
   attempt: 1;
-  reason: "schema_validation_failed" | "unsupported_evidence_conflict";
+  reason: "schema_validation_failed" | "semantic_validation_failed" | "unsupported_evidence_conflict";
   path: string;
   issueCode: string;
+  issueMessage?: string;
   counterEvidence?: readonly {
     sourceNeedId: string;
     candidateRef: string;

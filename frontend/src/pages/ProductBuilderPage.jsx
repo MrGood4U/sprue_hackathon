@@ -12,6 +12,7 @@ import { WorkflowEditor } from "../features/workflow-editor/WorkflowEditor.jsx";
 import { useWorkflowEditor } from "../features/workflow-editor/useWorkflowEditor.js";
 import { useI18n } from "../i18n/I18nProvider.jsx";
 import {useUnsavedNavigationGuard} from "../app/NavigationGuardProvider.jsx";
+import {buildRequestIssue} from "../features/builder/buildRequestIssue.js";
 
 function LoadedBuilder({ builder, navigate, productRef }) {
   const { t } = useI18n();
@@ -59,12 +60,14 @@ function LoadedBuilder({ builder, navigate, productRef }) {
     activeCompilation.current = controller;
     setBuildFailure(null);
     setBuildState("building");
+    let requestPhase = "save";
     try {
       await builder.persistDraft(workingDraft, editor.nodes, controller.signal);
       if (controller.signal.aborted) return;
       cacheBuilderDraft(browserSessionStorage(), builder.workspaceId, builder.product.id, draftWithBuilderLayout(workingDraft, editor.nodes));
       editor.markClean();
       setDraftSaveState("saved");
+      requestPhase = "compile";
       const compilation = await builder.compileDraft(workingDraft, controller.signal);
       if (controller.signal.aborted) return;
       if (compilation.status === "failed") {
@@ -76,12 +79,7 @@ function LoadedBuilder({ builder, navigate, productRef }) {
       navigate(`/app/products/${encodeURIComponent(productRef)}/api`);
     } catch (error) {
       if (error?.name === "AbortError") return;
-      setBuildFailure([{
-        code: error?.message || "COMPILATION_REQUEST_FAILED",
-        message: t("builder.compilationRequestFailed"),
-        nodeId: null,
-        path: null,
-      }]);
+      setBuildFailure([buildRequestIssue(error, requestPhase, t)]);
       setBuildState("failed");
     } finally {
       if (activeCompilation.current === controller) activeCompilation.current = null;

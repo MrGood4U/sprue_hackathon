@@ -232,6 +232,9 @@ test("Agent sessions persist real planner input, evidence summary, trace, and re
       assert.equal(messages.items[1].contentJson.readyForCompilation, false);
       assert.equal(messages.items[1].contentJson.builderDraft?.status, "requires_source_admission");
       assert.equal(messages.items[1].contentJson.builderDraft?.nodes.length, 5);
+      assert.equal(messages.items[1].contentJson.builderDraft?.nodes
+        .filter((node) => node.type === "source")
+        .every((node) => node.config.limit === undefined), true);
       assert.deepEqual(messages.items[1].contentJson.builderDraft?.outputSchema.fields.map((field) => field.name), ["wallet", "trade_count"]);
       assert.equal(Number.isInteger(messages.items[1].contentJson.durationMs), true);
       assert.equal(messages.items[1].contentJson.durationMs >= 0, true);

@@ -118,7 +118,20 @@ async function fetchLiveSource(
     cursor = next;
   }
   if (source.rowLimit == null && rows.length >= source.maxRows && finalBatchWasFull) {
-    throw new Error(`Graph source ${source.id} exceeded the compiled row limit`);
+    if (requests >= source.maxRequests) {
+      throw new Error(`Graph source ${source.id} reached the compiled request limit before row-limit completeness could be verified`);
+    }
+    const response = await graph.executeStaticQuery(
+      source.manifestIpfsCid,
+      source.queryDocument,
+      sourceVariables(source, 1, cursor, executionAnchor),
+      signal,
+    );
+    requests += 1;
+    if (response.errors.length > 0) throw new Error(response.errors[0]!.message);
+    const batch = response.data[source.queryEntity];
+    if (!Array.isArray(batch)) throw new Error(`Graph response does not contain ${source.queryEntity} rows`);
+    if (batch.length > 0) throw new Error(`Graph source ${source.id} exceeded the compiled row limit`);
   }
   if (requests >= source.maxRequests && rows.length < rowCeiling && finalBatchWasFull) {
     throw new Error(`Graph source ${source.id} exceeded the compiled request limit`);

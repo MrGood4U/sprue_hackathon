@@ -2,11 +2,11 @@
 
 ## Status
 
-Version: 1.18
+Version: 1.19
 
-Date: 2026-09-11
+Date: 2026-09-12
 
-Stage: Approved MVP design baseline. Version 1.18 adds one mutable, owner-scoped Builder working draft per product. The draft stores the validated layout-free structured DAG separately from immutable executable versions and deployment pointers; saving it cannot activate, replace, suspend, or otherwise mutate a running API or x402 publication. Version 1.17 requires each admitted live Graph source to pin the exact runtime-introspected collection-to-entity-type binding used to compile its immutable query, including when the provider SDL omits the Query root. Version 1.16 permits an admitted live Graph source to pin the exact manifest IPFS CID used by the restricted Graph MCP runtime. Version 1.15 activated the live hosted-runtime profile: a successful Builder compilation persists one immutable, hash-bound executable product version, and every accepted data API request executes that fixed plan against fresh The Graph responses. Compiled plans and provider metadata may be cached; source result rows and final response rows are not reused between requests. Version 1.14 added recoverable product tombstones. Earlier version history remains recorded below. Delegated spending, x402 settlement, and mainnet capability remain unverified.
+Stage: Approved MVP design baseline. Version 1.19 raises the complete expanded DAG ceiling to 32 nodes, including Source nodes, with at most 64 edges. Version 1.18 adds one mutable, owner-scoped Builder working draft per product. The draft stores the validated layout-free structured DAG separately from immutable executable versions and deployment pointers; saving it cannot activate, replace, suspend, or otherwise mutate a running API or x402 publication. Version 1.17 requires each admitted live Graph source to pin the exact runtime-introspected collection-to-entity-type binding used to compile its immutable query, including when the provider SDL omits the Query root. Version 1.16 permits an admitted live Graph source to pin the exact manifest IPFS CID used by the restricted Graph MCP runtime. Version 1.15 activated the live hosted-runtime profile: a successful Builder compilation persists one immutable, hash-bound executable product version, and every accepted data API request executes that fixed plan against fresh The Graph responses. Compiled plans and provider metadata may be cached; source result rows and final response rows are not reused between requests. Version 1.14 added recoverable product tombstones. Earlier version history remains recorded below. Delegated spending, x402 settlement, and mainnet capability remain unverified.
 
 This document is the source of truth for Sprue's MVP domain model, PostgreSQL persistence model, lifecycle rules, financial separation, and runtime records. It translates the product and architecture decisions in [agents.md](agents.md), [plan.md](plan.md), and [project-structure.md](project-structure.md) into an implementation-ready model.
 
@@ -571,7 +571,7 @@ This illustration was corrected on 2026-09-05 to retain all active wallets in th
     "timezone": "UTC"
   },
   "resourcePolicy": {
-    "maxNodes": 12,
+    "maxNodes": 32,
     "maxSourceRows": 50000,
     "maxSourceRequests": 100,
     "maxOutputRows": 5000,
