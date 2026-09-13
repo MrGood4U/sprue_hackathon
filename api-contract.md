@@ -50,7 +50,7 @@ Creator URLs use product UUIDs: `/app/products/{productId}/build`, `/api`, and `
 
 ## 2. Data Conventions
 
-HTTP DTO fields use `camelCase`; persistence remains `snake_case`. Canonical specifications retain the data model's existing camelCase schema. Enums remain stable machine values and are never translated. User-authored text is Unicode; repository documentation stays English. The frontend localizes known codes, labels, and timestamps through its catalogs. `message` is a sanitized English fallback, not a key to branch on. Optional `responseLocale: en | zh-CN` on an Agent message guides user-visible generated replies, not API field names.
+HTTP DTO fields use `camelCase`; persistence remains `snake_case`. Canonical specifications retain the data model's existing camelCase schema. Enums remain stable machine values and are never translated. User-authored text is Unicode; repository documentation stays English. The frontend localizes known codes, labels, and timestamps through its catalogs. `message` is a sanitized English fallback, not a key to branch on. Optional `responseLocale: en | zh-CN | es | fr | de | ko | ja` on an Agent message guides user-visible generated replies, not API field names.
 
 | Type | Wire representation |
 |---|---|

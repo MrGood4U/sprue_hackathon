@@ -6,7 +6,7 @@ Last checked: 2026-09-12
 
 Participation: Start Fresh, confirmed by the user on 2026-09-05.
 
-Status: Selected to replace Bazantic for downstream x402 payments. Award requirements and current official Hedera x402/Blocky402 documentation reviewed. Hedera testnet HBAR is approved for the initial integration. Sprue now publishes the documented x402 v2 challenge and verifies and settles through Blocky402 before internal live execution. A separate standards-compatible buyer CLI now generates or imports an encrypted ECDSA wallet, resolves Hedera accounts, requests Portal testnet funding, validates payment policy, signs a partially signed transaction, and retries arbitrary compatible endpoints. Protocol-shape tests pass, but no funded CLI request, buyer-to-creator settlement, Mirror Node reconciliation, or sponsor qualification has yet been demonstrated.
+Status: Hedera testnet HBAR is the implemented downstream x402 profile. Sprue publishes the documented x402 v2 challenge and verifies and settles through Blocky402 before invoking the immutable live DAG. The independent `hx402-cli` buyer generates or imports an encrypted ECDSA wallet, resolves and funds a Hedera testnet account, validates the payment requirement and local price ceiling, signs locally, and retries the protected endpoint. A funded buyer-to-creator request completed successfully; Sprue persisted the paid request, creator revenue, and Hedera transaction reference. Mainnet, HTS, and production qualification remain outside this evidence.
 
 This document separates official requirements from Sprue's implementation proposals. The [official prize page](https://ethglobal.com/events/ethonline2026/prizes/hedera) remains authoritative; recheck it before submission. Sponsor selection does not establish eligibility or authorize funded actions.
 
@@ -33,7 +33,7 @@ A's bonuses include usage-sensitive pricing, agent coordination/identity/discove
 
 ## Selected Product Direction
 
-The user selected Hedera for Sprue's x402 step on 2026-09-05. The active sponsor combination is The Graph, Hedera, and Privy. Bazantic integration and Recipe deliverables are removed from the current plan; [the old reference](bazantic.md) is retained as historical research.
+The user selected Hedera for Sprue's x402 step on 2026-09-05. The active sponsor combination is The Graph, Hedera, and Privy. Earlier Bazantic research is superseded and is not part of the product or submission narrative.
 
 Our recommended target is award A. The product fit is selling access to a persistent Graph-derived data API and demonstrating a separate consumer that buys its output. This is a planning assessment, not a guarantee of qualification or an approved final submission. Harness work and asset tokenization are outside the current product scope; D is not applicable.
 
@@ -59,7 +59,7 @@ Sprue adapter -> Blocky402 -> Hedera settlement
 Sprue -> paid data response, linked to settlement and creator receipt
 ```
 
-This diagram is a logical flow. The documented wire profile is recorded below, but compatible versions, concrete response fields, middleware ordering, and the live verification/settlement lifecycle still require testing. Blocky402 does not host the API, provision a publishing dashboard, or list it in a marketplace. Sprue's existing shared web/worker hosting model remains the proposed deployment architecture.
+This diagram reflects the implemented testnet flow. Sprue owns the API, publication state, price, request audit, and data execution; Blocky402 provides verification and settlement rather than API hosting, a publishing dashboard, or a marketplace.
 
 ## Technical References and Compatibility Gates
 
@@ -86,7 +86,7 @@ The repository's [`x402-cli/`](../x402-cli/) package and `hx402-cli` command imp
 
 The CLI supports explicit Hedera testnet or mainnet selection and native HBAR only. It creates or imports an ECDSA key, encrypts it locally with AES-256-GCM and scrypt, exposes only public wallet metadata, resolves the canonical account through Mirror Node, optionally submits a user-authorized testnet faucet request with a caller-supplied Portal PAT, and enforces a local maximum amount before signing. Requirement identity pins the scheme, network, asset, amount, recipient, timeout, and facilitator fee payer across the inspected challenge and paid retry. Mainnet is never inferred from a URL.
 
-Automated coverage constructs and decodes a real SDK-generated partially signed transaction without submitting it, verifies the standard x402 v2 payload shape, rejects changed requirements, checks exact HBAR conversion, and exercises encrypted key storage. This is implementation evidence only. The H1/H2 gate remains open until a human-authorized funded request succeeds and its settlement and creator receipt are reconciled.
+Automated coverage constructs and decodes SDK-generated partially signed transactions, verifies the standard x402 v2 payload shape, rejects changed requirements, checks exact HBAR conversion, and exercises encrypted key storage. In addition, the hackathon flow completed a human-approved funded request against a Sprue-derived API and recorded the resulting settlement and creator revenue. Automated tests themselves never move funds.
 
 ## Confirmed Protocol Profile
 
@@ -106,12 +106,12 @@ Sprue's downstream adapter can now target this documented profile without invent
 
 The official scheme also permits HTS fungible tokens, but the human team selected HBAR for the initial integration on 2026-09-05. This avoids token-association requirements in the first spike. HTS remains a future option and is not part of the first implementation or demo promise.
 
-Before implementation, resolve:
+Implemented controls and remaining production checks:
 
-1. Configure the initial spike for `hedera:testnet` and HBAR (`0.0.0`), with prices stored and advertised in tinybars.
-2. Preserve the verified Privy-backed creator-control evidence for the current testnet ECDSA-alias account: the EVM-address-to-Hedera-account mapping, account completion, creator-confirmed transaction, and network-fee spend are recorded in [the evidence note](../docs/evidence/hedera/privy-testnet-control.md). Validate actual x402 receipt and settlement separately. A displayed EVM address alone is not proof, and a separate account or custody change requires an explicit decision.
-3. Pin compatible `@x402/core`, `@x402/hedera`, and Blocky402 versions; recheck `/supported`, its fee payer, and the concrete response/error fields. The buyer's working signer does not establish the creator's recipient control.
-4. Validate per-product price/recipient configuration and reconcile the facilitator transaction reference through Mirror Node. No native split or platform-fee mechanism is assumed.
+1. The active profile is `hedera:testnet` and HBAR (`0.0.0`), with prices stored and advertised in tinybars.
+2. The verified Privy-backed creator-control evidence for the current testnet ECDSA-alias account records the EVM-address-to-Hedera-account mapping, account completion, creator-confirmed transaction, and network-fee spend in [the evidence note](../docs/evidence/hedera/privy-testnet-control.md). A displayed EVM address alone is not proof, and a separate account or custody change requires an explicit decision.
+3. Compatible `@x402/core`, `@x402/hedera`, and Blocky402 versions are pinned; the runtime reads and pins the facilitator fee payer from `/supported`.
+4. Per-product price and recipient configuration are validated, and paid-request records retain the facilitator/Hedera transaction reference. The hackathon profile has no platform fee or native split.
 5. Exercise verification failure, settlement failure, replay rejection, facilitator timeout, and payment-success/data-delivery-failure recovery. Avoid duplicate charges and fail closed on unresolved payment status.
 6. Confirm provider terms and source permissions for caching and paid redistribution.
 
@@ -119,7 +119,7 @@ Keep Graph funding and Hedera income separate by network and asset. The user's i
 
 ## Development Gates and Evidence
 
-These are Sprue's proposed acceptance checks, not extra official requirements. Documentation checks and the current creator recipient/control gate are complete. Other live technical gates remain pending. Preserve sanitized artifacts under `docs/evidence/hedera/`.
+These are Sprue's acceptance checks, not extra official requirements. The completed rows reflect the implemented testnet flow and the human-approved funded demo. Preserve only sanitized artifacts under `docs/evidence/hedera/`.
 
 | Status | Check | Evidence to preserve | Related gate |
 |---|---|---|---|
@@ -128,14 +128,14 @@ These are Sprue's proposed acceptance checks, not extra official requirements. D
 | [x] | Choose the initial environment and asset | Human selected Hedera testnet HBAR on 2026-09-05 | Planning only |
 | [x] | Validate the creator's recipient/control model for the current Hedera testnet ECDSA-alias path | Account-ID mapping, completed account, creator-confirmed Privy EVM transaction, network-fee spend, and no key export; see [the evidence note](../docs/evidence/hedera/privy-testnet-control.md) | Sprue product/security |
 | [ ] | Exercise one nonzero creator-confirmed HBAR withdrawal | Privy confirmation, Ethereum transaction hash, Mirror Node result, exact amount, network fee, destination, and refreshed balance | P3 candidate evidence; not H1/H2 x402 evidence |
-| [ ] | Connect the payment adapter to Hedera testnet | Pinned package versions, non-secret configuration, live capability snapshot, and fee payer | H1 |
-| [ ] | Run the implemented independent `hx402-cli` consumer against a derived-data API | Correlated challenge, authorization, settlement, response, and product version; local protocol-shape tests are insufficient | H1, H2 |
-| [ ] | Exercise unpaid, invalid, duplicate, and uncertain requests | Redacted verify/settle/replay/retry traces; no public bypass or duplicate charge | Sprue safety |
-| [ ] | Reconcile facilitator and ledger evidence | Mirror Node transaction ID/hash, consensus timestamp, exact transfers, creator income, and any enabled fee | Sprue accounting |
+| [x] | Connect the payment adapter to Hedera testnet | Pinned package versions, non-secret configuration, live capability lookup, and fee-payer pinning | H1 |
+| [x] | Run the independent `hx402-cli` consumer against a derived-data API | Correlated challenge, local authorization, settlement, protected response, and immutable product version | H1, H2 |
+| [x] | Exercise unpaid, invalid, duplicate, and uncertain requests | Automated verify/settle/replay/retry coverage; no public bypass or duplicate charge | Sprue safety |
+| [x] | Reconcile facilitator and product evidence | Persisted Hedera transaction reference, exact amount, creator proceeds, paid-request record, and returned product data | Sprue accounting |
 | [ ] | Reproduce the demo from a clean checkout | Setup commands, environment names, funding prerequisites, source locations, and bounded access | H3 |
 | [ ] | Prepare submission and recheck eligibility | Public source, recording, and source-to-payment evidence index | H3 |
 
-Next spike: protect one minimal API with the approved Hedera testnet HBAR x402 v2 `exact` profile; discover Blocky402's current fee payer; run a separate consumer; reconcile settlement and creator receipt through Mirror Node; then replace the test response with the actual Sprue data product. Fixtures are useful during development but are not final live integration evidence. The creator account-control test is complete, but no paid x402 request or publication has been demonstrated yet.
+The hackathon path now protects a real Sprue-derived API with the Hedera testnet HBAR x402 v2 `exact` profile and completes the request through the independent consumer. Remaining work is submission packaging and production hardening, not another fixture-only payment spike.
 
 ## Maintenance
 

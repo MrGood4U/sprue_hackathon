@@ -15,6 +15,11 @@ export function LanguageSwitcher() {
       >
         <option value="en">{t("language.en")}</option>
         <option value="zh-CN">{t("language.zh-CN")}</option>
+        <option value="es">{t("language.es")}</option>
+        <option value="fr">{t("language.fr")}</option>
+        <option value="de">{t("language.de")}</option>
+        <option value="ko">{t("language.ko")}</option>
+        <option value="ja">{t("language.ja")}</option>
       </select>
     </label>
   );

@@ -1,340 +1,131 @@
 # Sprue MVP End-to-End Flow
 
-Status: implementation alignment document, updated 2026-09-07.
+Status: implemented hackathon flow, updated 2026-09-13.
 
-This document describes the intended journey from a browser visit to a complete Sprue MVP demonstration, then distinguishes the behavior that already exists in the repository from the behavior that still requires implementation. It is a target flow, not evidence that every documented provider or business capability is live.
+Sprue turns a natural-language onchain data requirement into a reusable live API and can optionally sell each call through Hedera x402. It discovers and queries existing The Graph Subgraphs; it never creates or deploys a new Subgraph or Subgraph Composition.
 
-The primary demo product is the Cross-chain DEX Trader Footprint API:
+The demonstrated multi-source product compares the seven-day Uniswap V3 trading volume on Ethereum and Arbitrum and aggregates each network into one result row. The date interval is resolved from the last seven complete UTC days at execution time rather than being fixed in the generated API.
 
-> Find wallets that traded on both Ethereum and Arbitrum during the last 30 complete UTC days. Return per-chain trade count and USD volume, combined totals, and first/last seen timestamps.
-
-The product uses two existing Graph Subgraphs. Sprue does not create a new Subgraph or Subgraph Composition. The Agent selects sources, obtains their schemas, creates provider-specific field mappings, and compiles the request into a bounded DAG.
-
-## 1. End-to-End Product Sequence
+## 1. Demonstrated Sequence
 
 ```text
-Browser entry
-  -> Privy identity and workspace bootstrap
-  -> wallet and Graph access readiness
-  -> product and Agent session
-  -> natural-language intent
-  -> source discovery and schema inspection
-  -> GraphQL plans and canonical source mappings
-  -> Union/Join DAG proposal
-  -> human acceptance of an immutable product version
-  -> validation and explicit Build command
-  -> private worker executes Graph sources and DAG
-  -> ready materialization
-  -> shared hosted private API
-  -> optional Hedera x402 publication
-  -> external consumer 402/payment/settlement/200 flow
-  -> creator receipts and financial evidence
+Privy creator login
+  -> workspace and creator wallet bootstrap
+  -> Graph credential and model configuration
+  -> natural-language product intent
+  -> bounded Subgraph discovery and schema inspection
+  -> semantic ranking and structured DAG proposal
+  -> creator reviews or edits the Builder canvas
+  -> durable draft save
+  -> backend compilation into an immutable version
+  -> explicit private API deployment
+  -> live multi-Subgraph execution
+  -> optional Hedera testnet HBAR price and x402 publication
+  -> independent hx402-cli payment and protected response
+  -> persisted transaction and creator-revenue evidence
 ```
 
-The browser owns presentation state. The backend owns identity, authorization, durable product state, provider calls, execution, payment state, and financial evidence. The browser never calls PostgreSQL, the Graph payment adapter, a private Privy signer, or Blocky402 settlement directly.
+The browser owns presentation state. The backend owns identity, authorization, durable product definitions, provider calls, deployments, payment state, and financial evidence. The browser never receives PostgreSQL credentials, model or Graph API keys, a creator wallet private key, or the internal API credential used after a paid request settles.
 
-## 2. Entry, Identity, and Workspace
+## 2. Identity, Wallet, and Access
 
-### Browser behavior
+Google and GitHub login use one Privy application. The backend verifies the Privy access token, resolves the provider identity to a stable Sprue user, and idempotently creates or reuses the default owner workspace. It also ensures one user-owned Privy EVM wallet and reconciles its fixed testnet profiles:
 
-1. Load the public console configuration.
-2. Start or restore the Privy session through Google, GitHub, or MetaMask.
-3. Send the Privy access token as a bearer token on creator requests.
-4. Submit the idempotent bootstrap command and open the returned default owner workspace.
+- Base Sepolia USDC for Graph access funds;
+- Hedera testnet HBAR for API-sale receipts.
 
-### Backend behavior
+These balances are separate and are never presented as interchangeable. The creator can use an encrypted Graph API credential or select the bounded wallet-funded x402 access mode. The demonstrated live Graph path uses the creator-supplied credential. The wallet page also persists a daily Graph-spending ceiling, while production additional-signer binding and provider-policy enforcement remain separate from the completed downstream payment flow.
 
-1. Serve public configuration with only public URLs, the optional Privy app ID, and server-controlled feature flags.
-2. Verify the provider-signed Privy access token and application/user claims on creator requests.
-3. Reuse or create `users`, `workspaces`, and owner membership transactionally during bootstrap.
-4. Never create a wallet, run a Graph query, or move funds as a side effect of login.
+## 3. Agent Planning
 
-### Intended contracts
+The Agent Harness uses the creator's saved OpenAI-compatible model profile and a restricted Graph adapter. It performs three bounded stages:
 
-```text
-GET  /api/v1/app-config
-GET  /api/v1/me
-POST /api/v1/bootstrap
-GET  /api/v1/workspaces/{workspaceId}/overview
-```
+1. Interpret the requested semantics, networks, period, grouping, and output fields.
+2. Search existing Subgraphs, inspect immutable schemas in bounded chunks, and rank actual aggregation/entity/field candidates. Optional embeddings add advisory cosine-similarity scores; they never select a source by themselves.
+3. Bind verified fields and compose only registered Sprue operators into a structured proposal.
 
-Bootstrap is idempotent. A browser refresh must restore the same user and workspace rather than create another workspace.
+The planning cards expose real source candidates, schema counts, similarity scores, reasons, selected entities and fields, operator counts, and deterministic validation results. They do not expose hidden chain-of-thought or invented evidence.
 
-## 3. Wallet and Graph Access Readiness
+## 4. Builder Draft and Compilation
 
-The user chooses access per Graph source. The choice is part of the product version and never changes automatically.
+The Builder supports Source, Filter, Map, Aggregate, Union, Join, Sort/Top K, and Output. Aggregate measures remain structured as `{name, op, field}`. The compiler validates:
 
-### Customer Graph API-key path
+- the operator and version allowlist;
+- node and edge limits, references, ports, and input cardinality;
+- acyclicity and reachability to exactly one Output;
+- predecessor-derived schemas and type-compatible configuration;
+- the mandatory Source-to-Map normalization boundary;
+- the declared final output contract and runtime resource bounds.
 
-The user submits an existing Graph API key in Wallet & Access. The backend writes the secret only to server-side secret storage and persists a reference, fingerprint, and version. A validation operation may confirm credential usability, but it must not silently perform a metered query. During later execution, the backend resolves the secret, sends the bounded request, and records provider usage without creating a wallet expense.
+`Save draft` persists the current layout-free DAG to PostgreSQL. It does not build, deploy, redeploy, or modify a currently serving API or x402 publication. Unsaved navigation prompts are suppressed after a successful save or backend build.
 
-```text
-POST /api/v1/workspaces/{workspaceId}/graph-credentials
-POST /api/v1/workspaces/{workspaceId}/graph-credentials/{credentialId}/validate
-```
+`Run backend build` first saves the exact current draft, then compiles it into a new immutable version or reuses an identical version. A successful build opens the API page. An already active API continues serving its pinned version until the creator explicitly deploys or redeploys from the API page.
 
-### Creator-wallet Graph x402 path
+## 5. Live Graph Execution
 
-The user creates or connects a user-owned Privy wallet, authorizes the reviewed additional signer, and activates a bounded Graph spending policy. The policy contains the permitted network, asset, destination allowlist, per-request cap, and period cap. Sprue may use its own server-side signer authorization material, but never the creator's wallet private key.
+Each Source contains a statically validated GraphQL document derived from its inspected schema. At request time Sprue resolves dynamic date variables, invokes the approved existing Subgraph, normalizes provider fields through the explicit Map boundary, and executes the immutable DAG.
 
-The backend synchronizes wallet ownership, signer grant, provider policy, balances, and spending availability. Funding instructions tell the user where to fund the wallet; a browser-submitted amount is not a top-up proof.
+Graph retrieval is bounded at two levels:
 
-```text
-POST /api/v1/workspaces/{workspaceId}/wallets/synchronize
-POST /api/v1/workspaces/{workspaceId}/wallets/{walletId}/synchronize-grants
-POST /api/v1/workspaces/{workspaceId}/spending-policies
-POST /api/v1/workspaces/{workspaceId}/spending-policies/{policyId}/activate
-```
+- each provider page requests at most 1,000 rows;
+- a Source collects at most 10,000 rows for one API execution.
 
-No Graph x402 payment occurs during ordinary page loading. Payment begins only after a build or refresh receives and validates an actual Graph requirement.
+When the product bound is reached, Sprue stops requesting further pages and executes the DAG with the rows already collected. Reaching the bound does not turn an otherwise valid API call into `LIVE_EXECUTION_FAILED`.
 
-## 4. Product Creation and Agent Planning
+Multi-source results are combined only through explicit Union or Join nodes. Exact decimal operations avoid binary floating-point arithmetic, and the runtime preserves source lineage and request metadata.
 
-### Browser behavior
+## 6. Private API Lifecycle
 
-1. Create or open a product in Dashboard.
-2. Open the Builder page and create an Agent session.
-3. Submit the natural-language request.
-4. Poll the command and trace, or reconnect from the last trace sequence.
-5. Inspect the proposal, source selections, schema evidence, field mappings, DAG, output schema, assumptions, and blockers.
+A compiled version is not automatically public. The creator explicitly deploys it from the API page and receives the API credential once. The managed endpoint executes the pinned immutable DAG against current Graph data, applies the contract's bounded `limit`, and returns JSON data plus request/version/source metadata.
 
-### Backend behavior
+Saving or compiling a later draft does not change the active deployment. Only an explicit deploy or redeploy moves the serving pointer. Stopping a deployment revokes its active credential and also retires the related paid gate.
 
-1. Create a `data_products` row with the original intent and account-wallet reference.
-2. Persist the user message, planning command, and trace stream before dispatching work.
-3. Let the Agent use bounded, provider-neutral tools:
-   - search existing Subgraphs;
-   - retrieve source schema;
-   - generate and validate a static GraphQL document;
-   - inspect bounded sample results and `_meta` provenance;
-   - produce a source mapping and structured Data Product Spec.
-4. Keep Graph MCP as discovery/schema/execution infrastructure. Sprue owns GraphQL generation, query validation, source semantics, and DAG planning.
-5. Return a structured proposal, not arbitrary JavaScript or Python.
+## 7. Hedera x402 Publication
 
-### Target proposal for the primary demo
+The creator selects a per-call HBAR price on the X402 page. Sprue validates the mapped Hedera testnet recipient and Blocky402 capability before publishing a separate paid endpoint. The hackathon profile sends the entire buyer price to the creator and charges no Sprue service fee.
 
-```text
-Ethereum Subgraph -> Source mapping -> Filter last 30 complete UTC days -> Aggregate by wallet
-                                                                                  \
-                                                                                   Join -> Map -> Output
-                                                                                  /
-Arbitrum Subgraph -> Source mapping -> Filter last 30 complete UTC days -> Aggregate by wallet
+For a paid request:
 
-Ethereum rows + Arbitrum rows -> Union -> All-activity companion view
-```
-
-The exact provider fields come from the validated source schema. For the currently inspected Uniswap V3-shaped sources, the mapping includes `account.id`, `pool.id`, `timestamp`, `amountInUSD`, and `amountOutUSD`, but the runtime does not hardcode those names.
-
-### Intended contracts
-
-```text
-POST /api/v1/workspaces/{workspaceId}/products
-POST /api/v1/workspaces/{workspaceId}/agent-sessions
-POST /api/v1/workspaces/{workspaceId}/agent-sessions/{sessionId}/messages
-GET  /api/v1/commands/{commandId}
-GET  /api/v1/trace-streams/{streamId}/events
-GET  /api/v1/workspaces/{workspaceId}/agent-sessions/{sessionId}/proposals/{messageId}
-```
-
-## 5. Proposal Acceptance and Immutable Versioning
-
-The user must explicitly accept a proposal. Local canvas changes are not sufficient to create a version.
-
-The backend then:
-
-1. Verifies the proposal hash and ownership.
-2. Validates source access selections against the workspace.
-3. Validates the operator allowlist, typed ports, node configuration, graph acyclicity, and resource policy.
-4. Pins each logical Subgraph to its validated source snapshot, deployment, schema hash, field mapping, and access mode.
-5. Creates an immutable `data_product_versions` row and its source projections in one transaction.
-
-```text
-POST /api/v1/workspaces/{workspaceId}/products/{productId}/versions
-```
-
-The accepted version begins in `proposed` state. Changing the intent, sources, mapping, operators, access mode, or refresh semantics creates a new version. Layout coordinates do not change the execution hash.
-
-## 6. Validation and Build
-
-### Browser behavior
-
-1. Request a read-only build preflight.
-2. Display blockers, access mode, spending bounds, and source readiness.
-3. Ask the user to acknowledge spending bounds when any source uses x402.
-4. Submit Build once and receive a durable command/run identity.
-5. Poll the run, node states, source requests, trace, and output.
-
-### Backend behavior
-
-Build preflight performs no payment and no durable execution. It checks the current version, source access, policy availability, operator registry, and resource limits.
-
-The Build command creates an `execution_run`, `run_attempt`, node-run records, and a transactional queue dispatch. The worker reloads trusted state by ID; it does not execute a browser-provided queue payload or code fragment.
-
-```text
-POST /api/v1/workspaces/{workspaceId}/products/{productId}/build-preflight
-POST /api/v1/workspaces/{workspaceId}/products/{productId}/runs
-GET  /api/v1/workspaces/{workspaceId}/runs/{runId}
-GET  /api/v1/workspaces/{workspaceId}/runs/{runId}/nodes
-GET  /api/v1/workspaces/{workspaceId}/runs/{runId}/source-requests
-GET  /api/v1/workspaces/{workspaceId}/runs/{runId}/output
-```
-
-## 7. Worker Source Execution and DAG Runtime
-
-At run start, the worker freezes the requested UTC interval and source execution context. For the primary demo this is the last 30 complete UTC days. Each source uses a bounded static GraphQL document, cursor pagination, a stable ordering, and recorded `_meta` block provenance.
-
-### API-key source request
-
-```text
-load secret reference
-  -> send bounded GraphQL request
-  -> record HTTP attempt, response artifact, _meta, GraphQL errors, and usage
-```
-
-No wallet payment or Graph expense ledger entry is created for a customer subscription request.
-
-### Graph x402 source request
-
-```text
-initial Graph request
-  -> 402 challenge
-  -> validate requirement and exact price/network/asset/destination
-  -> reserve budget in a serialized transaction
-  -> request bounded Privy authorization
-  -> submit payment-bearing retry
-  -> reconcile provider result
-  -> consume reservation after confirmed settlement
-  -> retain data-delivery failure as a separate recovery state
-```
-
-Each paginated page is tracked as a logical source request. An initial 402 and its paid retry are separate physical HTTP attempts of that request. An uncertain payment blocks a new retry until reconciliation proves the safe next action.
-
-### Pure DAG execution
-
-The runtime executes the following bounded path:
-
-```text
-provider row
-  -> schema-provided field mapping
-  -> canonical Swap row
-  -> timestamp filter
-  -> per-wallet/per-chain Aggregate
-  -> Union of source lineage
-  -> inner Join on normalized wallet
-  -> final Map/Output projection
-```
-
-The current [DAG runtime](backend/src/modules/dag/runtime.ts) implements this pure transformation for fixture-backed inputs. It validates mappings, normalizes addresses and timestamps, performs exact decimal arithmetic, preserves source lineage, rejects duplicate Join keys, and never evaluates generated code.
-
-## 8. Materialization and Private API
-
-After successful execution, the worker stores an output artifact and ready materialization with its version, source freshness, schema, content hash, and provenance. A successful Build makes the version ready; it does not automatically change a deployment pointer.
-
-The creator then creates a shared hosted deployment and explicitly activates the ready version/materialization. The first publication is private. Creator preview reads the materialized result and does not trigger a public sale or a new Graph query.
-
-```text
-POST /api/v1/workspaces/{workspaceId}/products/{productId}/deployments
-POST /api/v1/workspaces/{workspaceId}/deployments/{deploymentId}/activation-preflight
-POST /api/v1/workspaces/{workspaceId}/deployments/{deploymentId}/activate
-POST /api/v1/workspaces/{workspaceId}/deployments/{deploymentId}/private-requests
-GET  /api/v1/workspaces/{workspaceId}/deployments/{deploymentId}/contract
-```
-
-The hosted data endpoint reads the latest successful materialization pinned for the logical request. It does not execute a fresh Graph query or DAG on every request.
-
-## 9. Optional Hedera x402 Publication
-
-Publication is an access configuration on Sprue's hosted API, not a marketplace listing.
-
-The creator:
-
-1. Opens Monetization and Revenue.
-2. Runs publication preflight.
-3. Confirms a Hedera testnet HBAR profile, resolved Hedera account-ID recipient, and current Blocky402 capability.
-4. Creates and activates an immutable publication revision.
-
-The backend checks deployment health, materialization readiness, recipient capability, HBAR receive/spend evidence, and facilitator capability before switching the active publication pointer. Service fees remain disabled until fee terms and settlement behavior are explicitly approved and implemented.
-
-```text
-POST /api/v1/workspaces/{workspaceId}/deployments/{deploymentId}/publication-preflight
-POST /api/v1/workspaces/{workspaceId}/deployments/{deploymentId}/publications
-POST /api/v1/workspaces/{workspaceId}/deployments/{deploymentId}/publications/{publicationId}/activate
-```
-
-## 10. External Consumer Payment Flow
-
-The public product page reads safe metadata. It does not expose creator credentials, spending policies, internal traces, or private wallet information.
-
-```text
-GET /api/v1/public/products/{endpointSlug}
-GET /data/v1/{endpointSlug}
-```
-
-For an active x402 publication:
-
-1. The consumer sends a request with a logical idempotency key and recovery capability.
-2. Sprue validates the endpoint, parameters, active materialization, and publication, then returns one pinned `402 Payment Required` requirement.
-3. The consumer wallet signs the Hedera HBAR payment and retries the same logical request with `PAYMENT-SIGNATURE`.
+1. An unauthenticated request receives HTTP 402 and a pinned x402 v2 `exact` HBAR requirement.
+2. The buyer validates the network, asset, recipient, price, fee payer, and local maximum.
+3. The buyer signs locally and retries with `PAYMENT-SIGNATURE`.
 4. Sprue verifies and settles through Blocky402.
-5. Sprue reconciles facilitator evidence with Hedera Mirror Node evidence.
-6. After exact settlement confirmation, Sprue returns the materialized DataResponse and `PAYMENT-RESPONSE`.
-7. Sprue records the request, attempts, receipt, response hash, sale, creator proceeds, and any separately approved fee allocation.
+5. After settlement, Sprue invokes the same immutable live DAG with a server-derived internal credential.
+6. The protected response includes payment response evidence; Sprue persists the paid request, creator proceeds, and Hedera transaction reference.
 
-If payment status is uncertain, the response is a reconciliation state, not a second payment prompt. If payment is confirmed but delivery fails, the consumer retries delivery against the same request and capability; it never settles again.
+Payment proofs are replay-protected. A paid delivery failure remains auditable and does not authorize a duplicate settlement.
 
-## 11. State Ownership
+## 8. Independent Buyer
 
-| State | Owner | Examples |
+[`x402-cli/`](x402-cli/) is intentionally independent of Sprue application modules. `hx402-cli` supports native HBAR with explicit Hedera testnet or mainnet selection, encrypted local ECDSA key storage, Mirror Node account resolution, caller-authorized testnet faucet funding, and an exact per-request ceiling. It never accepts a private key as a command argument or exports decrypted key material.
+
+The hackathon demo used a funded Hedera testnet buyer to call a Sprue x402 endpoint and receive the protected multi-Subgraph result after settlement.
+
+## 9. Current Support Matrix
+
+| Capability | Status | Current boundary |
 |---|---|---|
-| Presentation state | Browser | Locale, selected node, unsent text, tab, viewport, polling cursor |
-| Durable product state | PostgreSQL/backend | Workspace, product, version, source projection, deployment, publication |
-| Durable execution state | PostgreSQL/worker | Command, run, node run, source request, artifact, materialization, trace |
-| Upstream provider state | The Graph/Privy | Subgraph schema, API subscription, wallet ownership, provider policy, x402 requirement |
-| Downstream settlement state | Blocky402/Hedera | Verification, facilitator reference, transaction evidence, creator receipt |
-| Derived UI read models | Backend | Overview, readiness, output preview, financial summary |
+| Creator Console and seven locales | Implemented | English fallback; Simplified Chinese, Spanish, French, German, Korean, and Japanese are explicitly selectable |
+| Privy creator authentication and workspace bootstrap | Implemented | Google/GitHub through Privy; missing or partial server configuration fails closed |
+| Creator wallet and testnet balances | Implemented | User-owned Privy EVM wallet, Base Sepolia USDC, mapped Hedera testnet HBAR |
+| Encrypted model and Graph credentials | Implemented | Server-side AES-256-GCM keyring, redacted reads, explicit validation and revocation |
+| Agent planning and existing-Subgraph discovery | Implemented | Restricted Graph adapter, bounded schema inspection, optional embedding rank, durable trace cards |
+| Durable Builder drafts and immutable compilation | Implemented | Draft save has no deployment side effects; exact structured DAG is validated by the backend |
+| Live multi-Subgraph DAG execution | Implemented | Fresh bounded Graph requests, explicit normalization, Union/Join, aggregation, sorting, and output |
+| Private API deploy/redeploy/stop | Implemented | One-time credential issuance; active version changes only through explicit deployment commands |
+| Hedera testnet x402 publication | Implemented | Creator-selected HBAR price, Blocky402 verification/settlement, replay protection |
+| Independent funded buyer request | Implemented and demonstrated | `hx402-cli` paid a Sprue endpoint and received its protected live result |
+| Revenue and transaction evidence | Implemented | Creator proceeds, paid requests, pagination, and HashScan links from durable records |
+| Scheduled materialization queue | Not part of the demonstrated slice | API delivery executes the immutable DAG against fresh sources |
+| Privy-delegated Graph x402 purchasing | Partially implemented | Wallet and daily budget exist; production signer/policy enforcement remains open |
+| Docker local profile | Implemented and verified | Frontend, API, worker, PostgreSQL, Redis, migrations, seeds, readiness, and CORS |
+| Vercel/Railway profile | Configuration provided | Local verification does not claim a currently deployed public cloud environment |
 
-The frontend may optimistically disable a duplicate button, but the backend remains authoritative for idempotency, ownership, concurrency, payment, and lifecycle state.
+## 10. Security and Product Boundaries
 
-## 12. Current Repository Support Matrix
-
-This matrix is based on the current source tree and test/build evidence, not on the existence of a route description.
-
-| Capability | Current support | Evidence or limitation |
-|---|---|---|
-| Browser application, ten page families, routing, English/Chinese localization | Implemented | Maintained frontend under `frontend/`; Entry and Creator Login are separate, and route-level product data comes from the backend demo runtime |
-| Session-scoped Agent model configuration | Implemented for evaluator demo | OpenAI-compatible URL/key/model are retained in bounded API-process memory; no durable identity, secret manager, rotation, metering, or production profile exists |
-| Builder DAG display, keyboard inspection, local sample edits | Implemented as demo behavior | Does not call the backend or create a product version |
-| Public app configuration transport | Implemented | Read-only server configuration route; feature flags remain false |
-| Health and readiness probes | Implemented | Process and database/migration readiness only |
-| Privy creator authentication | Implemented, live evidence pending | Google/GitHub/MetaMask frontend paths and server SDK verification exist; missing configuration fails closed, but no real Privy credentials are configured on the development host |
-| Workspace bootstrap | Implemented | Verified provider identity resolves to or transactionally creates a stable Sprue user UUID, default owner workspace, and membership; isolated SQL tests cover idempotency and multiple bindings to one user |
-| Product CRUD handlers | Not implemented | Routes are registered reservations and return `503 CAPABILITY_NOT_IMPLEMENTED` |
-| Graph API-key persistence and validation | Not implemented | Data model and route catalog exist; secret storage/provider adapter is absent |
-| Privy wallet synchronization and spending policy | Not implemented | Persistence and contracts exist; live provider control is gated by E1 |
-| Graph MCP discovery/schema/query adapter | Not implemented | Harness and provider-neutral ports are documented; candidate live sources were manually queried, but no application adapter exists |
-| Schema-driven canonical Swap mapping | Implemented offline | Pure runtime validates declared schema mappings; no automatic schema inference from arbitrary response data |
-| Multi-source Union and cross-chain Join | Implemented offline | Runtime tests cover two sources, exact aggregation, windowing, lineage, and one-to-one wallet Join |
-| Durable Agent planning and structured proposals | Not implemented | Agent modules and contracts are design boundaries only |
-| Durable command dispatch and worker execution | Not implemented | API/worker processes run; worker is standby and consumes no queue jobs |
-| Graph source execution with cursor/block provenance | Not implemented in app | Live samples demonstrate response shape only; adapter, persistence, and paid request path are absent |
-| Product versions, run records, artifacts, materializations through handlers | Not implemented | PostgreSQL schema/migrations exist; domain services and handlers are absent |
-| Private hosted API and endpoint contract | Not implemented | Deployment/data routes are reservations; no materialization-serving handler exists |
-| Scheduled refresh | Not implemented | Schedule schema and contracts exist; no scheduler/queue consumer exists |
-| Hedera recipient validation and publication | Not implemented | Hedera profile and acceptance gates are documented; no live account or facilitator integration exists |
-| Downstream x402 consumer request | Not implemented | Frontend shows a cancelable simulated flow; no real buyer authority or settlement exists |
-| Revenue and platform-fee accounting | Not implemented | Ledger model exists; fee terms are disabled and no settlement records are produced |
-| Docker Compose local packaging | Implemented and verified | Frontend/API/worker/PostgreSQL roles and migrations are packaged; business features are not enabled |
-| Vercel/Railway deployment manifests | Prepared, not deployed | Provider manifests and configuration exist; cloud deployment and external connectivity remain unverified |
-
-## 13. Implementation Order From the Current State
-
-The next vertical slice should make the frontend and backend meet at the smallest useful boundary:
-
-1. Implement the Graph adapter ports for schema retrieval, static query validation, cursor pagination, and response provenance. Keep provider field names in source mappings, not in runtime logic.
-2. Implement product, Agent session, message, proposal, and version services against the existing migrations.
-3. Implement the durable command service and worker queue handoff, then connect the current pure DAG runtime to fixture-backed and later live source inputs.
-4. Replace Builder demo services with authenticated API clients and server-backed polling/trace state.
-5. Implement deployment, materialization, and private API serving before enabling any public payment path.
-6. Validate Privy Graph spending, then separately validate Hedera recipient control, Blocky402 settlement, the capped consumer boundary, and financial reconciliation.
-
-Every step must preserve the existing source-only boundary, explicit user confirmation before spending, immutable versioning, no arbitrary code execution, server-side secrets, and the English-only repository record rule.
+- Existing Subgraphs only; no upstream Subgraph creation or deployment.
+- Structured allowlisted operators only; no arbitrary model-generated code execution.
+- Testnet funds and explicit user approval for the demonstrated payment path.
+- Server-side secrets, workspace authorization, immutable versions, bounded provider access, and idempotent side effects.
+- No automatic bridge or conversion between Graph access funds and Hedera revenue.
+- Public pages omit creator credentials, private traces, wallet authorization material, and internal deployment credentials.

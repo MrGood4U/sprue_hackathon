@@ -69,7 +69,7 @@ export const messageInputSchema = z.strictObject({
   contentText: z.string().trim().min(1).max(8000),
   parentVersionId: z.uuid().optional(),
   accessSelections: z.array(sourceAccessSelectionSchema).max(4).optional(),
-  responseLocale: z.enum(["en", "zh-CN"]).optional(),
+  responseLocale: z.enum(["en", "zh-CN", "es", "fr", "de", "ko", "ja"]).optional(),
 });
 
 function requireService(service?: AgentService): AgentService {

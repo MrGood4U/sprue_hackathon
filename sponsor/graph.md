@@ -4,7 +4,7 @@ Event: ETHOnline 2026
 
 Last checked: 2026-09-07
 
-Status: Official prize, source-identity, MCP, GraphQL, gateway, API-key, and x402 documentation reviewed. A generic live runtime is implemented locally, but successful hosted source execution and prize eligibility remain unverified until recorded end-to-end evidence exists.
+Status: Official prize, source-identity, MCP, GraphQL, gateway, API-key, and x402 documentation reviewed. Sprue now uses the restricted Graph adapter to discover existing Subgraphs, inspect immutable schemas, rank real entities and fields, compile bounded GraphQL, paginate live requests, and execute multi-source DAGs behind managed APIs. The demonstrated source-access path uses a creator-supplied Graph credential; Privy-delegated Graph x402 purchasing and final prize eligibility remain separate evidence gates.
 
 Participation: Start Fresh, confirmed by the user on 2026-09-05. The AI Continuity award is not applicable to the current plan.
 
@@ -88,24 +88,24 @@ The downstream monetization plan now uses [Hedera and Blocky402](Hedera.md). Tha
 
 ## Development Gates and Evidence
 
-These are Sprue's proposed acceptance checks. Only the user's participation confirmation is complete; technical and provenance checks remain pending. Store sanitized artifacts under a future `docs/evidence/graph/` directory; never include credentials.
+These are Sprue's acceptance checks. Completed rows reflect the current live planner/runtime and the hackathon demo; they do not claim completion of the separate wallet-funded Graph x402 path. Store only sanitized artifacts under `docs/evidence/graph/`; never include credentials.
 
 | Status | Check | Evidence to preserve | Related gate |
 |---|---|---|---|
 | [x] | Record the team's participation category | User confirmed Start Fresh on 2026-09-05; recorded in `plan.md` | G5, category only |
 | [ ] | Audit development provenance for the selected pool | Development timeline, starter sources, and baseline/history evidence | G5 |
-| [ ] | Prove the chosen source supports the intended metric | Logical Subgraph ID, pinned Deployment ID, manifest/schema hash, network, static query, variables, pagination, retrieval time, `_meta` block/error facts, and coverage assessment | G2, G3 |
-| [ ] | Validate customer-API-key mode | Server-side secret reference, successful bounded query, credential version/fingerprint, usage event, rotation/revocation failure, and proof that no key or bearer header was persisted | Sprue product requirement |
+| [x] | Prove the chosen sources support the demonstrated metric | Existing Subgraph identity, immutable schema evidence, exact selected entities/fields, bounded GraphQL, network-specific rows, and multi-source output | G2, G3 |
+| [x] | Validate customer-API-key mode | Encrypted server-side credential, explicit validation/selection, successful bounded live queries, redacted reads, and revocation behavior | Sprue product requirement |
 | [ ] | Pay for the selected Graph query from the creator account wallet | Funding record, constrained authorization, payment outcome, query response, and linked expense | Sprue product requirement |
-| [ ] | Trace a creator request through the planner and runtime | Prompt, specification version, validated DAG, execution trace, and independently checked output | G3 |
+| [x] | Trace a creator request through the planner and runtime | Natural-language intent, ranked source/schema evidence, immutable specification, validated DAG, live execution metadata, and checked output | G3 |
 | [ ] | Exercise a second request or conversational revision | Changed semantics, resulting specification diff, and changed output | G3 |
 | [ ] | Reproduce setup from a clean checkout | Exact commands, environment-variable names, dependency versions, and successful run notes | G4 |
 | [ ] | Prepare a judge-accessible submission bundle | Repository link, recording, evidence index, hosted endpoint, and bounded demo access instructions | G1 |
 | [ ] | If pursuing the stretch target, document adapter reuse | Compatibility matrix, reused template, and explicit protocol-specific exceptions | G6 |
 
-### First Source-Validation Spike
+### Source-Validation Method
 
-Before committing to the proposed DEX stickiness example:
+For each demonstrated data product:
 
 1. Identify candidate deployments and inspect their actual schema and indexing coverage.
 2. Check whether wallet identifiers and timestamped activity are available for the requested period. Aggregate daily user counts alone cannot reconstruct distinct active days per wallet.
@@ -124,11 +124,11 @@ These are engineering choices for Sprue, not extra prize conditions:
 - Keep source discovery separate from approved runtime execution. Do not allow generated queries to silently change a published product's meaning.
 - Preserve the Graph-derived lineage through the hosted API and payment flow; monetization must not obscure where the data came from.
 
-## Pending Decisions
+## Remaining Decisions
 
 - Final award selection, development-provenance audit, and event-wide eligibility review; Start Fresh is confirmed.
-- Concrete network, protocol, deployment IDs, schema versions, and data coverage.
-- MCP versus direct GraphQL responsibilities, customer credential validation, provider-side key restrictions/quotas, and refresh budget. The model supports both without treating discovery or customer-subscription access as wallet-payment evidence.
+- Additional source/network coverage beyond the demonstrated Subgraphs and immutable schemas.
+- Provider-side key restrictions/quotas and production refresh budgets. Customer-subscription access must not be presented as wallet-payment evidence.
 - Concrete paid deployment endpoint, Graph x402 protocol/client version, payment requirement shape, Privy signer compatibility, discovery billing, and live cost reconciliation. API-key access alone does not demonstrate the confirmed wallet-funded product flow.
 - Whether the stretch target is affordable within the existing MVP scope.
 - Provider terms and permissions relevant to caching, transformation, and paid redistribution.

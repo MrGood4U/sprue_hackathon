@@ -96,7 +96,7 @@ Do not create frontend adapters for Graph payments, private wallet signing mater
 - `services/index.js` retains the public evaluator's demo client. Authenticated creator features import their reviewed owner-authorized API clients directly; neither boundary authorizes browser-side payment or signing logic.
 - Cancel view-owned work on unmount and prevent repeated submission while a task is active.
 - User-facing copy belongs in `i18n/messages/`; components reference stable message keys through `useI18n()`.
-- English is the fallback locale and Simplified Chinese is available as `zh-CN`. Locale selection is browser-detected, user-overridable, and persisted locally.
+- English is the fallback locale. Simplified Chinese (`zh-CN`), Spanish (`es`), French (`fr`), German (`de`), Korean (`ko`), and Japanese (`ja`) are available after explicit selection, and the preference is persisted locally without browser-locale detection.
 - Keep locale catalogs structurally aligned and run `npm run test:i18n` after changing copy or translation keys.
 - Keep server state separate from temporary presentation state. Durable build, deployment, and payment status must come from the backend after integration.
 - Prefer focused files over multi-page modules. A route file should normally remain below roughly 200 lines; extract named feature components when its main workflow becomes difficult to scan.

@@ -53,7 +53,7 @@ The implemented `proposal` projection contains the model-produced intent summary
 
 `ActivePlanningTrace = {commandId: Id | null, traceStreamId: Id | null, streamStatus: open | null, items: TraceEvent[], nextAfterSequence: Count, hasMore: boolean}`. When no planning stream is open, both IDs are null and the route returns an empty page rather than replaying a prior completed run. Terminal conversations retain their full trace on the assistant message.
 
-`MessageInput = {contentText, parentVersionId?: Id, accessSelections?: SourceAccessSelection[], responseLocale?: en | zh-CN}`. Text is 1-8000 characters. parentVersionId is required for a conversational edit and pins the intended parent; it must belong to the session's product. Selections are planning preferences only until a version is accepted. An unbound planning session may omit them and return a clarification.
+`MessageInput = {contentText, parentVersionId?: Id, accessSelections?: SourceAccessSelection[], responseLocale?: en | zh-CN | es | fr | de | ko | ja}`. Text is 1-8000 characters. parentVersionId is required for a conversational edit and pins the intended parent; it must belong to the session's product. Selections are planning preferences only until a version is accepted. An unbound planning session may omit them and return a clarification.
 
 `SourceAccessSelection = {sourceKey, mode, providerCredentialId: Id | null, spendingPolicyId: Id | null}` uses exactly one reference: customer_api_key -> providerCredentialId; x402 -> spendingPolicyId. Do not use the current Wallet page's local `api` string as a persisted API enum. There is no mutable workspace-global Graph access mode.
 

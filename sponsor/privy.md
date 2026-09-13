@@ -2,11 +2,11 @@
 
 Event: ETHOnline 2026
 
-Last checked: 2026-09-08
+Last checked: 2026-09-13
 
 Participation: Start Fresh, confirmed by the user on 2026-09-05.
 
-Status: Official prize, authentication, wallet-control, policy, idempotency, transaction, chain-support, Node SDK, and representative agent-wallet documentation reviewed. Google/GitHub creator authentication and backend access-token verification are implemented. The current creator's Privy EVM wallet has also demonstrated interactive signing and fee spend from its mapped Hedera testnet account. Fixed-profile direct Base Sepolia USDC and Hedera testnet HBAR withdrawal interfaces now use Privy's visible confirmation UI, but no live nonzero withdrawal has been submitted as implementation evidence. Delegated Graph spending, provider-policy enforcement, native Hedera x402 settlement, award selection, and final qualification remain pending.
+Status: Official prize, authentication, wallet-control, policy, idempotency, transaction, chain-support, Node SDK, and representative agent-wallet documentation reviewed. Google/GitHub creator authentication, backend access-token verification, user-owned wallet provisioning, live Base Sepolia balance reads, Hedera testnet account reconciliation, interactive creator signing, fixed-profile withdrawal flows, and a durable daily Graph-spending limit are implemented. A successful downstream Hedera x402 sale settled to the creator's mapped account through the separate buyer/Blocky402 flow. Production additional-signer binding and provider-policy enforcement for autonomous upstream Graph purchases remain pending and are not implied by the downstream receipt.
 
 This reference separates official conditions from proposed Sprue implementation checks. The [official prize page](https://ethglobal.com/events/ethonline2026/prizes/privy) remains authoritative; recheck it before submission.
 
@@ -34,9 +34,9 @@ Neither award is labeled Continuity-only on this page. Event-wide rules still ap
 
 The user confirmed the creator-account wallet model on 2026-09-05. The product role below supersedes the earlier buyer-first proposal; award selection and provider interoperability remain unverified.
 
-The human team approved the concrete Sprue control model on 2026-09-05: a user-owned wallet, a policy-bound Sprue additional signer, immutable local snapshots of the accepted provider policy, and strict Sprue database budget reservations. Provider-specific configuration and live enforcement remain validation gates.
+The selected control model is a user-owned wallet, a policy-bound Sprue additional signer, immutable local snapshots of the accepted provider policy, and strict Sprue database budget reservations. The wallet and database spending limit are implemented; production additional-signer secret binding and provider-policy verification remain validation gates.
 
-The creator has a Privy-backed account wallet, tops it up, and grants Sprue limited authority to pay Graph data costs when the creator selects Graph x402. The product also supports a customer-supplied Graph API key/existing subscription; that path does not use Privy and cannot substitute for the wallet-funded flow in Privy prize evidence. In x402 mode, Sprue handles purchases during builds and refreshes without the creator manually paying each query. Following the user's Hedera selection, the creator account remains the intended ownership identity for optional API-sale receipts. Interactive creator control of the current complete mapped Hedera testnet account is now demonstrated, but native x402 receipt/settlement and delegated signing remain separate gates. Shared ownership does not establish shared network balances. External API buyers are not required to use Privy.
+The creator has a Privy-backed account wallet and can configure a daily Graph-spending ceiling. The product also supports a customer-supplied Graph API key/existing subscription; that path does not use Privy and cannot substitute for the wallet-funded flow in Privy prize evidence. Following the Hedera selection, the same creator identity owns the mapped testnet recipient used for optional API-sale receipts. Interactive creator control and a downstream x402 receipt are demonstrated, while autonomous upstream Graph purchasing still requires the reviewed additional-signer and provider-policy enforcement. Shared ownership does not make Base and Hedera balances interchangeable. External API buyers are not required to use Privy.
 
 Do not treat login, wallet creation, a displayed balance, or passive receipt of revenue alone as our completed integration evidence. Show the wallet action and its outcome as part of the user's task.
 
@@ -141,16 +141,16 @@ The creator is a buyer of upstream Graph data and a potential seller of downstre
 
 ## Development Gates and Evidence
 
-These are our proposed acceptance checks, not additional sponsor rules. All technical gates remain unchecked. Store sanitized artifacts under a future `docs/evidence/privy/` directory.
+These are Sprue's acceptance checks, not additional sponsor rules. Completed rows reflect the current creator-wallet and downstream-receipt evidence; the separate delegated Graph-purchase requirement remains open. Store only sanitized artifacts under `docs/evidence/privy/`.
 
 | Status | Check | Evidence to preserve | Related gate |
 |---|---|---|---|
 | [ ] | Select the award and define its user task | Human decision and a short explanation of why Privy is necessary | P1-P3 |
-| [ ] | Establish and fund the creator account wallet | Redacted creation/use record, public address, deposit, and authorization model | P1 |
+| [x] | Establish and fund the creator account wallet | Bound Privy wallet, live testnet balances, mapped Hedera account, and creator-control evidence without key export | P1 |
 | [ ] | Complete Sprue-managed Graph purchasing | Upstream request, wallet authorization, payment outcome, returned facts, and expense linkage | P2 or P3 |
 | [x] | Validate intended creator control of the current Hedera testnet recipient | Account/address mapping, completed account, creator-confirmed Privy EVM transaction, fee spend, and no key export; see [the control evidence](../docs/evidence/hedera/privy-testnet-control.md). Actual x402 receipt remains a separate Hedera integration gate | Sprue product/security |
 | [ ] | Exercise one nonzero direct testnet withdrawal | Visible Privy confirmation, submitted transaction hash, confirmed or reverted network result, destination, amount, and refreshed balance | P3 candidate evidence |
-| [ ] | Reconcile optional API revenue and any enabled service fee | Downstream payment, accepted fee terms, creator proceeds, platform allocation, and settlement references | Sprue product requirement |
+| [x] | Reconcile optional API revenue | Downstream payment, zero-fee hackathon terms, creator proceeds, paid-request record, and Hedera settlement reference | Sprue product requirement |
 | [ ] | If pursuing A, test the enforced restriction | Policy/signer configuration, one permitted action, and one rejected request | P2 |
 | [ ] | Verify availability and dependencies of the chosen feature | Documentation, account prerequisites, and any sponsor clarification | P3, P4 |
 | [ ] | Reproduce the judge flow from documented setup | Environment-variable names, tested versions, funding instructions, and bounded access | P1 |
@@ -162,8 +162,7 @@ A signed authorization alone is not our proof of a completed paid data request. 
 
 - Can the provider policy be owned or jointly controlled so that Sprue cannot unilaterally weaken the user's approved signer scope?
 - Which exact networks, assets, x402 versions, and signing methods work for the upstream Graph endpoint? The initial downstream protocol profile is Hedera testnet HBAR with x402 v2 `exact`; pinned package versions and Privy interoperability still need validation.
-- Does the demonstrated Privy EVM path remain compatible with Hedera's native x402 authorization and Blocky402 settlement semantics? Creator control of the current complete testnet account is evidenced; do not equate it with an external buyer's ability to sign or settle a payment.
-- Do Blocky402's pinned live response fields reconcile cleanly through Hedera Mirror Node to the configured recipient, exact payment, and Sprue API delivery under failure and replay conditions?
+- What additional production reconciliation and abuse controls are required beyond the demonstrated Hedera testnet x402 receipt and replay-protected Sprue delivery flow?
 - Does the chosen settlement path support an authorized platform fee? Its rate, basis, rounding, recipient, payout timing, and refunds must be decided before charging.
 - Which exact Graph x402 wallet method and EIP-712 shape must the Privy policy cover, and can retries or alternate signing paths bypass it?
 - Can a Graph payment be recovered reliably by Privy transaction ID, developer `reference_id`, network hash, and explicit API polling without production webhooks?

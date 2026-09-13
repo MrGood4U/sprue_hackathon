@@ -1,11 +1,16 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { de } from "./messages/de.js";
 import { en } from "./messages/en.js";
+import { es } from "./messages/es.js";
+import { fr } from "./messages/fr.js";
+import { ja } from "./messages/ja.js";
+import { ko } from "./messages/ko.js";
 import { zhCN } from "./messages/zh-CN.js";
 
 const I18nContext = createContext(null);
 const defaultLocale = "en";
 const storageKey = "sprue.locale";
-const messages = { en, "zh-CN": zhCN };
+const messages = { en, "zh-CN": zhCN, es, fr, de, ko, ja };
 
 function getInitialLocale() {
   try {

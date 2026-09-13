@@ -2,7 +2,9 @@
 
 Describe it. Shape it. Sell it.
 
-Sprue is a hosted web product that turns natural-language onchain data logic into persistent, reusable, and optionally monetizable APIs. It is a browser application, not a Windows or macOS native client. Product structure, technical selection, and data-model version 1.13 are approved. MVP implementation now includes the maintained frontend, backend database foundation, API/standby-worker framework, Privy creator authentication with provider-independent Sprue user IDs, workspace-isolated creator state, durable encrypted Model Service profiles, a schema-driven DAG compiler and live runtime, and hosted private and paid API lifecycles. The ten-page application in `frontend/` is the maintained product frontend, using the selected Evidence-First Console design and English/Simplified Chinese localization. The initial downstream payment profile is Hedera testnet native HBAR through Blocky402. Sprue can publish and enforce this profile, and the independent consumer CLI can construct a standards-shaped signed payment; a complete funded buyer-to-creator settlement and ledger reconciliation is still an explicit evidence gate. See [mvp-flow.md](mvp-flow.md) for the end-to-end flow and support matrix.
+Sprue turns natural-language onchain data requirements into persistent, reusable, and optionally monetizable APIs. A creator can discover existing The Graph Subgraphs, inspect the Agent's ranked source evidence, review or edit a structured transformation DAG, deploy a live API, and sell access through Hedera x402. The browser console and backend use authenticated, workspace-isolated state; model and Graph credentials are encrypted server-side.
+
+The hackathon MVP is implemented end to end for the selected local/testnet profile: Google or GitHub creator authentication through Privy, live multi-Subgraph planning and execution, durable Builder drafts and immutable compiled versions, private API deployment, Hedera testnet HBAR pricing and publication through Blocky402, persisted revenue/transaction evidence, and a funded request from the independent `hx402-cli` buyer. The Creator Console supports English, Simplified Chinese, Spanish, French, German, Korean, and Japanese. See [mvp-flow.md](mvp-flow.md) for the workflow and current support matrix.
 
 ## Product Boundary
 
@@ -16,7 +18,7 @@ Sprue does not create, deploy, or maintain new Subgraphs or Subgraph Composition
 - [Privy](sponsor/privy.md): Creator account wallet and bounded Graph-spending authorization.
 - [Hedera](sponsor/Hedera.md): Downstream x402 v2 `exact` settlement through Blocky402; Sprue hosts the API and implements its payment gate.
 
-Official documentation establishes the Hedera x402 wire profile and Blocky402's hosted testnet/mainnet capability. The team selected testnet HBAR for the first integration; creator-controlled Hedera testnet account resolution and HBAR access are evidenced for the current complete Privy EVM path, and the independent buyer can construct the standard signed payload locally. A funded settlement, creator receipt, ledger reconciliation, delegated controls, and mainnet evidence remain validation gates. Graph-spending funds and API-sale proceeds must be tracked separately by network and asset. Bazantic was replaced on 2026-09-05; [its reference](sponsor/bazantic.md) remains historical only.
+The demonstrated payment profile is Hedera testnet native HBAR. Sprue publishes an x402 v2 `exact` challenge, Blocky402 verifies and settles the payment, and `hx402-cli` signs locally before retrying the protected API. The successful paid request is recorded against the product and reconciled to its Hedera transaction reference. Mainnet operation, production abuse controls, and Privy-delegated upstream Graph x402 spending remain outside the demonstrated profile. Graph-spending funds and API-sale proceeds stay separated by network and asset.
 
 ## Independent Hedera x402 Consumer
 
@@ -33,11 +35,11 @@ hx402-cli wallet create --network testnet --max-hbar 1
 hx402-cli request "https://example.test/x402/v1/owner/product" --dry-run --max-hbar 0.25
 ```
 
-See the [CLI setup and safety guide](x402-cli/README.md). A real request requires a funded buyer account and explicit payment approval; automated tests never move funds.
+See the [CLI setup and safety guide](x402-cli/README.md). A real request requires a funded buyer account and explicit payment approval; automated tests never move funds. The hackathon demo used a separately funded Hedera testnet buyer and a creator-owned Sprue endpoint.
 
 ## Deployment Profiles
 
-See [deployment.md](deployment.md) for Windows local setup, native Node development, complete Docker packaging, and Vercel/Railway configuration. From PowerShell at the repository root, run `./scripts/local.ps1 init`, then `./scripts/local.ps1 up`; the default browser address is `http://127.0.0.1:4173`. Stop with `./scripts/local.ps1 stop` to preserve database data. These commands start the current frontend and backend framework, not the unfinished live business integrations.
+See [deployment.md](deployment.md) for Windows local setup, native Node development, Docker packaging, and Vercel/Railway configuration. From PowerShell at the repository root, run `./scripts/local.ps1 init`, then `./scripts/local.ps1 up`; the default browser address is `http://127.0.0.1:4173`. Stop with `./scripts/local.ps1 stop` to preserve database data. The Compose profile builds the frontend and backend, starts PostgreSQL and Redis, applies migrations and reference seeds, and verifies the frontend, API, worker, and cache health checks.
 
 - Evaluator demo: Creator Console on Vercel; public API, private worker, PostgreSQL, and Redis on Railway, using platform-provided domains.
 - Self-hosted: equivalent frontend, API, worker, PostgreSQL, and Redis roles through Docker Compose from the same source and configuration contract.
@@ -46,7 +48,7 @@ Vercel and Railway are temporary delivery targets, not application dependencies.
 
 ## Product Frontend
 
-The React application under [`frontend/`](frontend/) covers Entry, Creator Login, Dashboard, Wallet and Access, Model Service, Agent Planner, Product Builder, API and Deployment, Monetization and Revenue, and the Public Consumer Demo. It supports English and Simplified Chinese UI copy, persists the user's locale choice in the browser, and uses the backend demo client for the current evaluator workflow. The Entry page routes signed-out creators to `/login`, where Google and GitHub login are unified through Privy; creator routes bootstrap a backend-verified local account/workspace, while the public consumer route remains open. Model Service configures a durable workspace OpenAI-compatible Agent planner and explicitly tests current form values without saving them; its API key is concealed by default, encrypted before PostgreSQL storage, never stored in the browser, and never returned by the backend. Each route-level page lives in its own file, with shared UI, navigation, feature hooks, services, and locale catalogs separated by responsibility. Continue implementing this frontend directly; remaining integration and interaction work is tracked in [`frontend/implementation-status.md`](frontend/implementation-status.md).
+The React application under [`frontend/`](frontend/) covers Entry, Creator Login, Dashboard, Wallet and Access, Model Service, Agent Planner, Product Builder, API and Deployment, Monetization and Revenue, and the Public Consumer view. Authenticated product pages read live workspace APIs; only the explicitly labeled public evaluator projection retains demo data. English is the first-visit fallback, and creators can explicitly select Simplified Chinese, Spanish, French, German, Korean, or Japanese. The locale preference is stored locally. Model and Graph API keys are write-only in the browser, encrypted before PostgreSQL storage, and never returned by the backend.
 
 ```bash
 cd frontend
@@ -58,22 +60,19 @@ Open `http://127.0.0.1:4173`. Use a browser window at least 1024 CSS pixels wide
 
 ## Database Foundation
 
-The backend now has 53 domain tables, 18 ordered SQL migrations, typed Drizzle query mappings, explicit reference seeds and isolated tests. Read [backend/database.md](backend/database.md) for local PostgreSQL setup, commands, schema authority and remaining verification. Database structure, workspace actor isolation, the API/standby-worker framework, Privy access-token verification, provider-identity resolution, transactional account/workspace bootstrap, and encrypted Model Service persistence are implemented; account linking, other durable business handlers, and live integrations are not. See [backend/framework.md](backend/framework.md) for startup commands, security boundaries, generated OpenAPI and reserved routes. Native PostgreSQL 17 verification for migration 0018 and Railway deployment remain pending.
+The backend currently applies 25 ordered SQL migrations and uses typed Drizzle mappings, explicit reference seeds, and isolated tests. It implements workspace authorization, Privy identity bootstrap, encrypted model/Graph credentials, Agent sessions and trace evidence, durable Builder drafts, compiled product versions, live Graph execution, managed API deployment, Hedera x402 publication, paid-delivery audit records, and revenue projections. Read [backend/database.md](backend/database.md) and [backend/framework.md](backend/framework.md) for schema authority, startup commands, security boundaries, and generated OpenAPI. The local PostgreSQL 17/Redis Compose profile is verified; evaluator cloud deployment is configured separately and is not implied by local health checks.
 
 ## Project Records
 
 - [Product intent and repository rules](agents.md)
-- [Plan, decisions, and AI contribution log](plan.md)
 - [Proposed project structure and financial model](project-structure.md)
-- [Approved MVP data model version 1.8 and validation gates](data-model.md)
-- [Proposed frontend/backend API contract and review gates](api-contract.md)
-- [Proposed Agent harness workflow, tools, operators, and constraints](backend/harness/README.md)
+- [Approved MVP data model version 1.13 and validation gates](data-model.md)
+- [Frontend/backend API contract](api-contract.md)
+- [Agent harness workflow, tools, operators, and constraints](backend/harness/README.md)
 - [Approved page architecture and interaction design](product-design.md)
 - [Proposed Evidence-First Console design tokens](design-tokens.md)
 - [Historical design QA and visual evidence](design-qa.md)
 - [Frontend structure and file-ownership plan](frontend/README.md)
 - [Backend boundary and source-layout plan](backend/README.md)
 
-Product-design Draft 1.41 records the maintained frontend, ten page families, route ownership, interactions, accessibility, and screen-to-data contracts, including Graph credential validation, selection, and deletion. Token review remains follow-up work; explicit model-profile revocation/audit binding, the capped consumer's funding boundary, and real source-specific provider compatibility remain integration gates.
-
-Participation: Start Fresh. All repository text is written in English; team communication may use Chinese. Preserve meaningful Git history and update the AI contribution record as work progresses. Runnable setup and verified demo evidence will be added with implementation.
+Engineering history and superseded design research remain available in the repository for provenance, but the documents above and [mvp-flow.md](mvp-flow.md) describe the current product. Known limitations are kept explicit: existing Subgraphs only, Hedera testnet for downstream payments, bounded live query execution, no automatic asset bridging, and no claim that a local Compose check proves a public cloud deployment.

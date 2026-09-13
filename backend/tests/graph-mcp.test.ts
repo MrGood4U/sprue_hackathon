@@ -1313,13 +1313,14 @@ test("Agent normalizes a numeric protocol version for bounded Graph metadata sea
   };
   const harness = new AgentHarness({
     async complete(request: AgentModelRequest) {
-      const output = structuredClone(createMockStageOutput(request));
+      const output = structuredClone(createMockStageOutput(request)) as SourceDiscoveryPlan;
       if (request.stage === "source_discovery_planning" && output.kind === "source_discovery_plan") {
-        output.semanticPlan.sourceRequirements = output.semanticPlan.sourceRequirements.map((need) => ({
+        const plan = output as SourceDiscoveryPlan;
+        plan.semanticPlan.sourceRequirements = plan.semanticPlan.sourceRequirements.map((need) => ({
           ...need,
           protocol: {name: "uniswap", version: "3"},
         }));
-        output.searches = output.searches.map((search) => ({
+        plan.searches = plan.searches.map((search) => ({
           ...search,
           keywords: ["uniswap", "v3", "dex"],
         }));

@@ -4,6 +4,11 @@ export const en = {
   "language.label": "Language",
   "language.en": "English",
   "language.zh-CN": "\u4e2d\u6587",
+  "language.es": "Espa\u00f1ol",
+  "language.fr": "Fran\u00e7ais",
+  "language.de": "Deutsch",
+  "language.ko": "\ud55c\uad6d\uc5b4",
+  "language.ja": "\u65e5\u672c\u8a9e",
 
   "common.operationFailed": "The operation failed. Please try again.",
   "common.retry": "Retry",
